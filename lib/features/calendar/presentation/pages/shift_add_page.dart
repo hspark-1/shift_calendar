@@ -263,13 +263,14 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
 
   /// 년/월 헤더 위젯
   Widget _buildMonthHeader() {
-    final year_month = DateFormat('yyyy.M', 'ko_KR').format(_focused_day);
+    final year_month = DateFormat('yyyy.MM', 'ko_KR').format(_focused_day);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // 이전 달 버튼
           CupertinoButton(
             padding: EdgeInsets.zero,
             onPressed: _goToPreviousMonth,
@@ -279,31 +280,38 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
               color: CupertinoColors.label,
             ),
           ),
+          // 년/월 표시 및 선택 버튼
           GestureDetector(
             onTap: _showYearMonthPicker,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey6,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    year_month,
-                    style: AppTheme.heading_medium,
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    CupertinoIcons.chevron_down,
-                    size: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  year_month,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
                     color: CupertinoColors.label,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey5,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.chevron_down,
+                    size: 12,
+                    color: CupertinoColors.secondaryLabel,
+                  ),
+                ),
+              ],
             ),
           ),
+          // 다음 달 버튼
           CupertinoButton(
             padding: EdgeInsets.zero,
             onPressed: _goToNextMonth,
@@ -353,7 +361,10 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
         ),
       ),
       calendarStyle: CalendarStyle(
-        outsideDaysVisible: false,
+        outsideDaysVisible: true,
+        outsideTextStyle: TextStyle(
+          color: CupertinoColors.label.withValues(alpha: 0.25),
+        ),
         todayDecoration: BoxDecoration(
           color: AppTheme.primary_color.withValues(alpha: 0.25),
           shape: BoxShape.circle,
