@@ -1,0 +1,117 @@
+<mxfile host="app.diagrams.net" modified="2025-12-31T00:00:00.000Z" agent="GPT" version="20.8.16">
+  <diagram id="visibility_flow" name="Visibility Flow (friend_level >= visibility_level)">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ===== Flow Nodes ===== -->
+        <mxCell id="start" value="START&#10;Viewer requests schedule" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="input" value="INPUT&#10;viewer_user_id&#10;calendar_id&#10;time range/date range" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="160" width="240" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="access_cte" value="ACCESS CTE (concept)&#10;Goal: compute friend_level and validate access&#10;&#10;Join/Check:&#10;1) calendars (owner_user_id)&#10;2) calendar_shares (can_view=true, revoked_at IS NULL)&#10;3) friendships exists (LEAST/GREATEST)&#10;4) friend_level_settings (owner->viewer) => friend_level" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="340" y="60" width="450" height="210" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gate_share" value="Gate A&#10;calendar_shares valid?&#10;(can_view=true AND revoked_at IS NULL)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="830" y="60" width="320" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gate_friendship" value="Gate B&#10;friendships exists?&#10;(LEAST(owner,viewer), GREATEST(owner,viewer))" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="830" y="200" width="320" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="deny" value="DENY&#10;return empty / 403" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="120" width="300" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="friend_level" value="Compute friend_level&#10;friend_level_settings.owner_user_id = calendar.owner&#10;friend_level_settings.friend_user_id = viewer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="340" y="310" width="450" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gate_level" value="Gate C&#10;friend_level >= visibility_level ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="830" y="330" width="320" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="views" value="VIEWS&#10;v_visible_events_for_friend&#10;v_visible_work_shifts_for_friend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="340" y="460" width="450" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="visible_events" value="Visible Events&#10;Filter:&#10;- e.deleted_at IS NULL&#10;- overlap(time range)&#10;- friend_level >= e.visibility_level" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="600" width="360" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="visible_shifts" value="Visible Work Shifts&#10;Filter:&#10;- ws.deleted_at IS NULL&#10;- date range&#10;- ws.visibility_level = 0 (CHECK)&#10;=> 공유+친구이면 노출" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="440" y="600" width="360" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="result" value="RESULT&#10;Return merged calendar feed&#10;(events + work_shifts)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="840" y="620" width="320" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== Edges ===== -->
+        <mxCell id="e1" style="endArrow=block;html=1;strokeColor=#666666;" edge="1" parent="1" source="start" target="input">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e2" style="endArrow=block;html=1;strokeColor=#666666;" edge="1" parent="1" source="input" target="access_cte">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e3" style="endArrow=block;html=1;strokeColor=#666666;" edge="1" parent="1" source="access_cte" target="gate_share">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e4_yes" value="YES" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="gate_share" target="gate_friendship">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e4_no" value="NO" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="gate_share" target="deny">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e5_yes" value="YES" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="gate_friendship" target="friend_level">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e5_no" value="NO" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="gate_friendship" target="deny">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e6" style="endArrow=block;html=1;strokeColor=#666666;" edge="1" parent="1" source="friend_level" target="gate_level">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e7_yes" value="YES (for events)" style="endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="gate_level" target="views">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e7_no" value="NO (hide this row)" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="gate_level" target="views">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e8" style="endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="views" target="visible_events">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e9" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="views" target="visible_shifts">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e10" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="visible_events" target="result">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e11" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="visible_shifts" target="result">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

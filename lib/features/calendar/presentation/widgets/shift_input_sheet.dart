@@ -1,12 +1,13 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/constants/app_constants.dart';
+import '../providers/shift_types_provider.dart';
 import 'shift_badge.dart';
 import 'shift_type_button.dart';
 
 /// 근무 입력 바텀시트 (연속 입력 지원)
-class ShiftInputSheet extends StatefulWidget {
+class ShiftInputSheet extends ConsumerStatefulWidget {
   const ShiftInputSheet({
     super.key,
     required this.initial_date,
@@ -21,10 +22,10 @@ class ShiftInputSheet extends StatefulWidget {
   final Function(DateTime) onSelectedDateChanged;
 
   @override
-  State<ShiftInputSheet> createState() => _ShiftInputSheetState();
+  ConsumerState<ShiftInputSheet> createState() => _ShiftInputSheetState();
 }
 
-class _ShiftInputSheetState extends State<ShiftInputSheet> {
+class _ShiftInputSheetState extends ConsumerState<ShiftInputSheet> {
   late DateTime _current_date;
   late Map<DateTime, String> _local_schedules;
 
@@ -46,9 +47,9 @@ class _ShiftInputSheetState extends State<ShiftInputSheet> {
   }
 
   /// 근무 유형 선택 처리
-  void _onShiftSelected(String shift_code) {
+  void _onShiftSelected(String shiftCode) {
     setState(() {
-      _local_schedules[_normalizeDate(_current_date)] = shift_code;
+      _local_schedules[_normalizeDate(_current_date)] = shiftCode;
     });
 
     // 부모 위젯에 업데이트 알림
@@ -60,20 +61,19 @@ class _ShiftInputSheetState extends State<ShiftInputSheet> {
 
   /// 다음 날로 이동
   void _moveToNextDay() {
-    final next_day = _current_date.add(const Duration(days: 1));
+    final nextDay = _current_date.add(const Duration(days: 1));
     setState(() {
-      _current_date = next_day;
+      _current_date = nextDay;
     });
-    widget.onSelectedDateChanged(next_day);
+    widget.onSelectedDateChanged(nextDay);
   }
 
   @override
   Widget build(BuildContext context) {
-    final date_format = DateFormat('yyyy.MM.dd', 'ko_KR');
-    final current_shift = _getCurrentShift();
-    final shift_info = current_shift != null
-        ? AppConstants.shift_types[current_shift]
-        : null;
+    final dateFormat = DateFormat('yyyy.MM.dd', 'ko_KR');
+    final currentShift = _getCurrentShift();
+    final shiftTypesMap = ref.watch(shiftTypesMapProvider);
+    final shiftInfo = currentShift != null ? shiftTypesMap[currentShift] : null;
 
     return Container(
       height: 320,
@@ -99,10 +99,7 @@ class _ShiftInputSheetState extends State<ShiftInputSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '근무 추가',
-                    style: AppTheme.heading_small,
-                  ),
+                  const Text('근무 추가', style: AppTheme.heading_small),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () => Navigator.pop(context),
@@ -132,16 +129,19 @@ class _ShiftInputSheetState extends State<ShiftInputSheet> {
               child: Row(
                 children: [
                   Text(
-                    date_format.format(_current_date),
+                    dateFormat.format(_current_date),
                     style: AppTheme.heading_small,
                   ),
                   const SizedBox(width: 12),
-                  if (current_shift != null && shift_info != null) ...[
+                  if (currentShift != null && shiftInfo != null) ...[
                     ShiftBadge(
-                        shift_type: current_shift, size: 20, show_label: true),
+                      shift_type: currentShift,
+                      size: 20,
+                      show_label: true,
+                    ),
                     const Spacer(),
                     Text(
-                      shift_info.timeDisplay,
+                      shiftInfo.timeDisplay,
                       style: AppTheme.body_small.copyWith(
                         color: CupertinoColors.systemGrey,
                       ),
@@ -165,7 +165,7 @@ class _ShiftInputSheetState extends State<ShiftInputSheet> {
                 child: Column(
                   children: [
                     ShiftTypeButtonGroup(
-                      selected_shift: current_shift,
+                      selected_shift: currentShift,
                       onShiftSelected: _onShiftSelected,
                     ),
                     const Spacer(),

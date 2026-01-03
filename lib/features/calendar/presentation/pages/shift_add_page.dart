@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/constants/app_constants.dart';
+import '../providers/shift_types_provider.dart';
 import '../widgets/shift_badge.dart';
 import '../widgets/bottom_action_bar.dart';
 import '../widgets/shift_type_button.dart';
@@ -62,8 +62,8 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
 
   /// 연/월 선택 피커 표시
   void _showYearMonthPicker() {
-    int selected_year = _focused_day.year;
-    int selected_month = _focused_day.month;
+    int selectedYear = _focused_day.year;
+    int selectedMonth = _focused_day.month;
 
     showCupertinoModalPopup(
       context: context,
@@ -94,15 +94,12 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
                     onPressed: () => Navigator.pop(context),
                     child: const Text('취소'),
                   ),
-                  const Text(
-                    '연도/월 선택',
-                    style: AppTheme.heading_small,
-                  ),
+                  const Text('연도/월 선택', style: AppTheme.heading_small),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () {
                       setState(() {
-                        _focused_day = DateTime(selected_year, selected_month, 1);
+                        _focused_day = DateTime(selectedYear, selectedMonth, 1);
                       });
                       Navigator.pop(context);
                     },
@@ -122,11 +119,11 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
                   Expanded(
                     child: CupertinoPicker(
                       scrollController: FixedExtentScrollController(
-                        initialItem: selected_year - 2020,
+                        initialItem: selectedYear - 2020,
                       ),
                       itemExtent: 40,
                       onSelectedItemChanged: (index) {
-                        selected_year = 2020 + index;
+                        selectedYear = 2020 + index;
                       },
                       children: List.generate(
                         21, // 2020 ~ 2040
@@ -143,11 +140,11 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
                   Expanded(
                     child: CupertinoPicker(
                       scrollController: FixedExtentScrollController(
-                        initialItem: selected_month - 1,
+                        initialItem: selectedMonth - 1,
                       ),
                       itemExtent: 40,
                       onSelectedItemChanged: (index) {
-                        selected_month = index + 1;
+                        selectedMonth = index + 1;
                       },
                       children: List.generate(
                         12,
@@ -171,20 +168,20 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
 
   /// 다음 날로 이동
   void _moveToNextDay() {
-    final next_day = _selected_day.add(const Duration(days: 1));
+    final nextDay = _selected_day.add(const Duration(days: 1));
     setState(() {
-      _selected_day = next_day;
+      _selected_day = nextDay;
       // 다음 달로 넘어가면 포커스도 변경
-      if (next_day.month != _focused_day.month) {
-        _focused_day = next_day;
+      if (nextDay.month != _focused_day.month) {
+        _focused_day = nextDay;
       }
     });
   }
 
   /// 근무 유형 선택 처리
-  void _onShiftSelected(String shift_code) {
+  void _onShiftSelected(String shiftCode) {
     setState(() {
-      _schedules[_normalizeDate(_selected_day)] = shift_code;
+      _schedules[_normalizeDate(_selected_day)] = shiftCode;
     });
     // 선택 후 자동으로 다음 날로 이동
     _moveToNextDay();
@@ -197,7 +194,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
 
   @override
   Widget build(BuildContext context) {
-    final current_shift = _getScheduleForDay(_selected_day);
+    final currentShift = _getScheduleForDay(_selected_day);
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -232,7 +229,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
                   _buildSelectedDateInfo(),
                   const SizedBox(height: 12),
                   // 근무 유형 선택 버튼
-                  _buildShiftTypeSelector(current_shift),
+                  _buildShiftTypeSelector(currentShift),
                 ],
               ),
             ),
@@ -263,7 +260,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
 
   /// 년/월 헤더 위젯
   Widget _buildMonthHeader() {
-    final year_month = DateFormat('yyyy.MM', 'ko_KR').format(_focused_day);
+    final yearMonth = DateFormat('yyyy.MM', 'ko_KR').format(_focused_day);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -287,7 +284,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  year_month,
+                  yearMonth,
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -381,34 +378,30 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
           color: CupertinoColors.white,
           fontWeight: FontWeight.bold,
         ),
-        weekendTextStyle: const TextStyle(
-          color: CupertinoColors.systemRed,
-        ),
-        defaultTextStyle: const TextStyle(
-          color: CupertinoColors.label,
-        ),
+        weekendTextStyle: const TextStyle(color: CupertinoColors.systemRed),
+        defaultTextStyle: const TextStyle(color: CupertinoColors.label),
       ),
       selectedDayPredicate: (day) {
         return isSameDay(_selected_day, day);
       },
-      onDaySelected: (selected_day, focused_day) {
+      onDaySelected: (selectedDay, focusedDay) {
         setState(() {
-          _selected_day = selected_day;
-          _focused_day = focused_day;
+          _selected_day = selectedDay;
+          _focused_day = focusedDay;
         });
       },
-      onPageChanged: (focused_day) {
+      onPageChanged: (focusedDay) {
         setState(() {
-          _focused_day = focused_day;
+          _focused_day = focusedDay;
         });
       },
       calendarBuilders: CalendarBuilders(
         markerBuilder: (context, date, events) {
-          final shift_type = _getScheduleForDay(date);
-          if (shift_type != null) {
+          final shiftType = _getScheduleForDay(date);
+          if (shiftType != null) {
             return Positioned(
               bottom: 2,
-              child: ShiftBadge(shift_type: shift_type, size: 8),
+              child: ShiftBadge(shift_type: shiftType, size: 8),
             );
           }
           return null;
@@ -419,11 +412,10 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
 
   /// 선택된 날짜 정보 위젯
   Widget _buildSelectedDateInfo() {
-    final date_format = DateFormat('M월 d일 (E)', 'ko_KR');
-    final current_shift = _getScheduleForDay(_selected_day);
-    final shift_info = current_shift != null
-        ? AppConstants.shift_types[current_shift]
-        : null;
+    final dateFormat = DateFormat('M월 d일 (E)', 'ko_KR');
+    final currentShift = _getScheduleForDay(_selected_day);
+    final shiftTypesMap = ref.watch(shiftTypesMapProvider);
+    final shiftInfo = currentShift != null ? shiftTypesMap[currentShift] : null;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -441,16 +433,13 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
       ),
       child: Row(
         children: [
-          Text(
-            date_format.format(_selected_day),
-            style: AppTheme.heading_small,
-          ),
+          Text(dateFormat.format(_selected_day), style: AppTheme.heading_small),
           const SizedBox(width: 12),
-          if (current_shift != null && shift_info != null) ...[
-            ShiftBadge(shift_type: current_shift, size: 20, show_label: true),
+          if (currentShift != null && shiftInfo != null) ...[
+            ShiftBadge(shift_type: currentShift, size: 20, show_label: true),
             const Spacer(),
             Text(
-              shift_info.timeDisplay,
+              shiftInfo.timeDisplay,
               style: AppTheme.body_small.copyWith(
                 color: CupertinoColors.systemGrey,
               ),
@@ -470,7 +459,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
   }
 
   /// 근무 유형 선택 버튼 영역
-  Widget _buildShiftTypeSelector(String? current_shift) {
+  Widget _buildShiftTypeSelector(String? currentShift) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -495,7 +484,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
           ),
           const SizedBox(height: 16),
           ShiftTypeButtonGroup(
-            selected_shift: current_shift,
+            selected_shift: currentShift,
             onShiftSelected: _onShiftSelected,
           ),
           const SizedBox(height: 12),

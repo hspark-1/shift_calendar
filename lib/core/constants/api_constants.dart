@@ -3,7 +3,8 @@ class ApiConstants {
   ApiConstants._();
 
   /// 기본 API URL (개발 환경)
-  static const String base_url_dev = 'http://localhost:3000/api';
+  // static const String base_url_dev = 'http://localhost:3000/api';
+  static const String base_url_dev = 'http://172.30.1.26:3000/api/v1';
 
   /// 기본 API URL (운영 환경)
   static const String base_url_prod = 'https://api.shiftcalendar.com/api';
@@ -19,6 +20,10 @@ class ApiConstants {
   static const String auth_login = '/auth/login';
   static const String auth_register = '/auth/register';
   static const String auth_refresh = '/auth/refresh';
+  static const String auth_kakao_token = '/auth/kakao/token';
+  static const String auth_profile = '/auth/profile';
+  static const String auth_logout = '/auth/logout';
+  static const String auth_logout_all = '/auth/logout-all';
 
   static const String schedules = '/schedules';
   static const String schedules_shared = '/schedules/shared';
@@ -26,4 +31,3 @@ class ApiConstants {
   static const String users = '/users';
   static const String users_profile = '/users/profile';
 }
-

@@ -1,8 +1,9 @@
 import 'package:flutter/cupertino.dart';
-import '../../../../core/constants/app_constants.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/shift_types_provider.dart';
 
 /// 근무 유형 선택 버튼 위젯
-class ShiftTypeButton extends StatelessWidget {
+class ShiftTypeButton extends ConsumerWidget {
   const ShiftTypeButton({
     super.key,
     required this.shift_code,
@@ -15,11 +16,12 @@ class ShiftTypeButton extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final shift_info = AppConstants.shift_types[shift_code];
-    if (shift_info == null) return const SizedBox.shrink();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shiftTypesMap = ref.watch(shiftTypesMapProvider);
+    final shiftInfo = shiftTypesMap[shift_code];
+    if (shiftInfo == null) return const SizedBox.shrink();
 
-    final color = shift_info.color;
+    final color = shiftInfo.color;
 
     return GestureDetector(
       onTap: onTap,
@@ -27,7 +29,9 @@ class ShiftTypeButton extends StatelessWidget {
         width: 64,
         height: 64,
         decoration: BoxDecoration(
-          color: is_selected ? color.withValues(alpha: 0.2) : CupertinoColors.white,
+          color: is_selected
+              ? color.withValues(alpha: 0.2)
+              : CupertinoColors.white,
           shape: BoxShape.circle,
           border: Border.all(
             color: is_selected ? color : CupertinoColors.systemGrey4,
@@ -47,7 +51,7 @@ class ShiftTypeButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              shift_info.name,
+              shiftInfo.name,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: is_selected ? FontWeight.bold : FontWeight.w500,
@@ -62,7 +66,7 @@ class ShiftTypeButton extends StatelessWidget {
 }
 
 /// 근무 유형 버튼 그룹 위젯
-class ShiftTypeButtonGroup extends StatelessWidget {
+class ShiftTypeButtonGroup extends ConsumerWidget {
   const ShiftTypeButtonGroup({
     super.key,
     this.selected_shift,
@@ -73,12 +77,14 @@ class ShiftTypeButtonGroup extends StatelessWidget {
   final Function(String) onShiftSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shiftTypeOrder = ref.watch(shiftTypeOrderProvider);
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: AppConstants.shift_type_order.map((code) {
+        children: shiftTypeOrder.map((code) {
           return ShiftTypeButton(
             shift_code: code,
             is_selected: selected_shift == code,

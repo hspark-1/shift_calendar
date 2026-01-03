@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import '../constants/app_constants.dart';
 
 /// Apple 스타일 테마 설정
 class AppTheme {
@@ -17,6 +16,7 @@ class AppTheme {
     fontWeight: FontWeight.bold,
     letterSpacing: -0.5,
     color: CupertinoColors.label,
+    inherit: false,
   );
 
   static const TextStyle heading_medium = TextStyle(
@@ -24,30 +24,35 @@ class AppTheme {
     fontWeight: FontWeight.bold,
     letterSpacing: -0.3,
     color: CupertinoColors.label,
+    inherit: false,
   );
 
   static const TextStyle heading_small = TextStyle(
     fontSize: 17,
     fontWeight: FontWeight.w600,
     color: CupertinoColors.label,
+    inherit: false,
   );
 
   static const TextStyle body_large = TextStyle(
     fontSize: 17,
     fontWeight: FontWeight.normal,
     color: CupertinoColors.label,
+    inherit: false,
   );
 
   static const TextStyle body_medium = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.normal,
     color: CupertinoColors.label,
+    inherit: false,
   );
 
   static const TextStyle body_small = TextStyle(
     fontSize: 13,
     fontWeight: FontWeight.normal,
     color: CupertinoColors.label,
+    inherit: false,
   );
 
   /// Cupertino 테마 데이터
@@ -79,10 +84,5 @@ class AppTheme {
         navLargeTitleTextStyle: heading_large,
       ),
     );
-  }
-
-  /// 근무 타입에 따른 색상 반환 (동적으로 AppConstants에서 가져옴)
-  static Color getShiftColor(String shift_type) {
-    return AppConstants.getShiftColor(shift_type);
   }
 }

@@ -1,0 +1,145 @@
+<mxfile host="app.diagrams.net" modified="2025-12-31T00:00:00.000Z" agent="GPT" version="20.8.16">
+  <diagram id="schema" name="Schema">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ===== Tables (as simple boxes) ===== -->
+        <mxCell id="users" value="users&#10;PK user_id (uuid)&#10;email (unique)&#10;created_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="260" height="120" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="calendars" value="calendars&#10;PK calendar_id (uuid)&#10;FK owner_user_id -> users&#10;timezone&#10;deleted_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="360" y="40" width="300" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="friend_requests" value="friend_requests&#10;PK request_id (uuid)&#10;FK requester_user_id -> users&#10;FK addressee_user_id -> users&#10;status&#10;responded_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="300" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="friendships" value="friendships&#10;PK (user_id_a, user_id_b)&#10;FK user_id_a -> users&#10;FK user_id_b -> users&#10;constraint: user_id_a &lt; user_id_b" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="380" y="240" width="320" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="friend_level_settings" value="friend_level_settings&#10;PK (owner_user_id, friend_user_id)&#10;FK owner_user_id -> users&#10;FK friend_user_id -> users&#10;friend_level (>=0)&#10;created_at/updated_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="740" y="240" width="360" height="160" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="calendar_shares" value="calendar_shares&#10;PK (calendar_id, friend_user_id)&#10;FK calendar_id -> calendars&#10;FK friend_user_id -> users&#10;can_view, revoked_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="740" y="40" width="360" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="events" value="events&#10;PK event_id (uuid)&#10;FK calendar_id -> calendars&#10;FK created_by_user_id -> users&#10;start_at/end_at (timestamptz)&#10;visibility_level&#10;deleted_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="440" width="320" height="170" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="shift_templates" value="shift_templates&#10;PK template_id (uuid)&#10;FK calendar_id -> calendars&#10;FK created_by_user_id -> users&#10;deleted_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="420" y="440" width="320" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="shift_template_versions" value="shift_template_versions&#10;PK template_version_id (uuid)&#10;FK template_id -> shift_templates&#10;effective_from (date)&#10;created_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="780" y="440" width="360" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="shift_types" value="shift_types&#10;PK shift_type_id (uuid)&#10;FK template_id -> shift_templates&#10;code (DAY/EVENING/NIGHT/OFF)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="420" y="620" width="320" height="120" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="shift_type_schedules" value="shift_type_schedules&#10;PK schedule_id (uuid)&#10;FK shift_type_id -> shift_types&#10;FK template_version_id -> shift_template_versions&#10;start_time/end_time (time)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="780" y="620" width="360" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="work_shifts" value="work_shifts&#10;PK work_shift_id (uuid)&#10;FK calendar_id -> calendars&#10;FK user_id -> users&#10;FK schedule_id -> shift_type_schedules&#10;work_date (date)&#10;visibility_level=0, deleted_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="40" y="650" width="340" height="180" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="work_shift_audits" value="work_shift_audits&#10;PK audit_id (uuid)&#10;FK work_shift_id -> work_shifts&#10;FK calendar_id -> calendars&#10;FK actor_user_id -> users&#10;created_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="420" y="780" width="360" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== Edges (FK relationships) ===== -->
+        <mxCell id="e_cal_owner" style="endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="calendars" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_share_cal" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="calendar_shares" target="calendars">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_share_user" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="calendar_shares" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_fr_req" style="endArrow=block;html=1;strokeColor=#d6b656;" edge="1" parent="1" source="friend_requests" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_friendships_a" style="endArrow=block;html=1;strokeColor=#d6b656;" edge="1" parent="1" source="friendships" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_fls_owner" style="endArrow=block;html=1;strokeColor=#d6b656;" edge="1" parent="1" source="friend_level_settings" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_events_cal" style="endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="events" target="calendars">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_events_user" style="endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="events" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_st_cal" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="shift_templates" target="calendars">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_st_user" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="shift_templates" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_stv_st" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="shift_template_versions" target="shift_templates">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_types_st" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="shift_types" target="shift_templates">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_sched_types" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="shift_type_schedules" target="shift_types">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_sched_ver" style="endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="shift_type_schedules" target="shift_template_versions">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_ws_cal" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="work_shifts" target="calendars">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_ws_user" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="work_shifts" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_ws_sched" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="work_shifts" target="shift_type_schedules">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_audit_ws" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="work_shift_audits" target="work_shifts">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_audit_cal" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="work_shift_audits" target="calendars">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_audit_user" style="endArrow=block;html=1;strokeColor=#b85450;" edge="1" parent="1" source="work_shift_audits" target="users">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

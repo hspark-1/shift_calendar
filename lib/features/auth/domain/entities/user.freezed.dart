@@ -21,11 +21,18 @@ User _$UserFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$User {
+  // ignore: invalid_annotation_target
+  @JsonKey(name: 'user_id')
+  @RequiredStringOrIntConverter()
   String get id => throw _privateConstructorUsedError;
   String get email => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
   String? get profile_image_url => throw _privateConstructorUsedError;
-  String? get department => throw _privateConstructorUsedError;
+  String? get timezone => throw _privateConstructorUsedError;
+  @StringOrIntConverter()
+  String? get kakao_id => throw _privateConstructorUsedError;
+  String? get apple_id => throw _privateConstructorUsedError;
+  @FlexibleDateTimeConverter()
   DateTime? get created_at => throw _privateConstructorUsedError;
 
   /// Serializes this User to a JSON map.
@@ -43,12 +50,14 @@ abstract class $UserCopyWith<$Res> {
       _$UserCopyWithImpl<$Res, User>;
   @useResult
   $Res call({
-    String id,
+    @JsonKey(name: 'user_id') @RequiredStringOrIntConverter() String id,
     String email,
     String name,
     String? profile_image_url,
-    String? department,
-    DateTime? created_at,
+    String? timezone,
+    @StringOrIntConverter() String? kakao_id,
+    String? apple_id,
+    @FlexibleDateTimeConverter() DateTime? created_at,
   });
 }
 
@@ -71,7 +80,9 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? email = null,
     Object? name = null,
     Object? profile_image_url = freezed,
-    Object? department = freezed,
+    Object? timezone = freezed,
+    Object? kakao_id = freezed,
+    Object? apple_id = freezed,
     Object? created_at = freezed,
   }) {
     return _then(
@@ -92,9 +103,17 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
                 ? _value.profile_image_url
                 : profile_image_url // ignore: cast_nullable_to_non_nullable
                       as String?,
-            department: freezed == department
-                ? _value.department
-                : department // ignore: cast_nullable_to_non_nullable
+            timezone: freezed == timezone
+                ? _value.timezone
+                : timezone // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            kakao_id: freezed == kakao_id
+                ? _value.kakao_id
+                : kakao_id // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            apple_id: freezed == apple_id
+                ? _value.apple_id
+                : apple_id // ignore: cast_nullable_to_non_nullable
                       as String?,
             created_at: freezed == created_at
                 ? _value.created_at
@@ -115,12 +134,14 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
   @override
   @useResult
   $Res call({
-    String id,
+    @JsonKey(name: 'user_id') @RequiredStringOrIntConverter() String id,
     String email,
     String name,
     String? profile_image_url,
-    String? department,
-    DateTime? created_at,
+    String? timezone,
+    @StringOrIntConverter() String? kakao_id,
+    String? apple_id,
+    @FlexibleDateTimeConverter() DateTime? created_at,
   });
 }
 
@@ -140,7 +161,9 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? email = null,
     Object? name = null,
     Object? profile_image_url = freezed,
-    Object? department = freezed,
+    Object? timezone = freezed,
+    Object? kakao_id = freezed,
+    Object? apple_id = freezed,
     Object? created_at = freezed,
   }) {
     return _then(
@@ -161,9 +184,17 @@ class __$$UserImplCopyWithImpl<$Res>
             ? _value.profile_image_url
             : profile_image_url // ignore: cast_nullable_to_non_nullable
                   as String?,
-        department: freezed == department
-            ? _value.department
-            : department // ignore: cast_nullable_to_non_nullable
+        timezone: freezed == timezone
+            ? _value.timezone
+            : timezone // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        kakao_id: freezed == kakao_id
+            ? _value.kakao_id
+            : kakao_id // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        apple_id: freezed == apple_id
+            ? _value.apple_id
+            : apple_id // ignore: cast_nullable_to_non_nullable
                   as String?,
         created_at: freezed == created_at
             ? _value.created_at
@@ -178,18 +209,23 @@ class __$$UserImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$UserImpl implements _User {
   const _$UserImpl({
-    required this.id,
+    @JsonKey(name: 'user_id') @RequiredStringOrIntConverter() required this.id,
     required this.email,
     required this.name,
     this.profile_image_url,
-    this.department,
-    this.created_at,
+    this.timezone,
+    @StringOrIntConverter() this.kakao_id,
+    this.apple_id,
+    @FlexibleDateTimeConverter() this.created_at,
   });
 
   factory _$UserImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserImplFromJson(json);
 
+  // ignore: invalid_annotation_target
   @override
+  @JsonKey(name: 'user_id')
+  @RequiredStringOrIntConverter()
   final String id;
   @override
   final String email;
@@ -198,13 +234,19 @@ class _$UserImpl implements _User {
   @override
   final String? profile_image_url;
   @override
-  final String? department;
+  final String? timezone;
   @override
+  @StringOrIntConverter()
+  final String? kakao_id;
+  @override
+  final String? apple_id;
+  @override
+  @FlexibleDateTimeConverter()
   final DateTime? created_at;
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, department: $department, created_at: $created_at)';
+    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, timezone: $timezone, kakao_id: $kakao_id, apple_id: $apple_id, created_at: $created_at)';
   }
 
   @override
@@ -217,8 +259,12 @@ class _$UserImpl implements _User {
             (identical(other.name, name) || other.name == name) &&
             (identical(other.profile_image_url, profile_image_url) ||
                 other.profile_image_url == profile_image_url) &&
-            (identical(other.department, department) ||
-                other.department == department) &&
+            (identical(other.timezone, timezone) ||
+                other.timezone == timezone) &&
+            (identical(other.kakao_id, kakao_id) ||
+                other.kakao_id == kakao_id) &&
+            (identical(other.apple_id, apple_id) ||
+                other.apple_id == apple_id) &&
             (identical(other.created_at, created_at) ||
                 other.created_at == created_at));
   }
@@ -231,7 +277,9 @@ class _$UserImpl implements _User {
     email,
     name,
     profile_image_url,
-    department,
+    timezone,
+    kakao_id,
+    apple_id,
     created_at,
   );
 
@@ -251,17 +299,24 @@ class _$UserImpl implements _User {
 
 abstract class _User implements User {
   const factory _User({
+    @JsonKey(name: 'user_id')
+    @RequiredStringOrIntConverter()
     required final String id,
     required final String email,
     required final String name,
     final String? profile_image_url,
-    final String? department,
-    final DateTime? created_at,
+    final String? timezone,
+    @StringOrIntConverter() final String? kakao_id,
+    final String? apple_id,
+    @FlexibleDateTimeConverter() final DateTime? created_at,
   }) = _$UserImpl;
 
   factory _User.fromJson(Map<String, dynamic> json) = _$UserImpl.fromJson;
 
+  // ignore: invalid_annotation_target
   @override
+  @JsonKey(name: 'user_id')
+  @RequiredStringOrIntConverter()
   String get id;
   @override
   String get email;
@@ -270,8 +325,14 @@ abstract class _User implements User {
   @override
   String? get profile_image_url;
   @override
-  String? get department;
+  String? get timezone;
   @override
+  @StringOrIntConverter()
+  String? get kakao_id;
+  @override
+  String? get apple_id;
+  @override
+  @FlexibleDateTimeConverter()
   DateTime? get created_at;
 
   /// Create a copy of User
@@ -290,6 +351,7 @@ AuthToken _$AuthTokenFromJson(Map<String, dynamic> json) {
 mixin _$AuthToken {
   String get access_token => throw _privateConstructorUsedError;
   String get refresh_token => throw _privateConstructorUsedError;
+  @RequiredFlexibleDateTimeConverter()
   DateTime get expires_at => throw _privateConstructorUsedError;
 
   /// Serializes this AuthToken to a JSON map.
@@ -307,7 +369,11 @@ abstract class $AuthTokenCopyWith<$Res> {
   factory $AuthTokenCopyWith(AuthToken value, $Res Function(AuthToken) then) =
       _$AuthTokenCopyWithImpl<$Res, AuthToken>;
   @useResult
-  $Res call({String access_token, String refresh_token, DateTime expires_at});
+  $Res call({
+    String access_token,
+    String refresh_token,
+    @RequiredFlexibleDateTimeConverter() DateTime expires_at,
+  });
 }
 
 /// @nodoc
@@ -358,7 +424,11 @@ abstract class _$$AuthTokenImplCopyWith<$Res>
   ) = __$$AuthTokenImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String access_token, String refresh_token, DateTime expires_at});
+  $Res call({
+    String access_token,
+    String refresh_token,
+    @RequiredFlexibleDateTimeConverter() DateTime expires_at,
+  });
 }
 
 /// @nodoc
@@ -404,7 +474,7 @@ class _$AuthTokenImpl implements _AuthToken {
   const _$AuthTokenImpl({
     required this.access_token,
     required this.refresh_token,
-    required this.expires_at,
+    @RequiredFlexibleDateTimeConverter() required this.expires_at,
   });
 
   factory _$AuthTokenImpl.fromJson(Map<String, dynamic> json) =>
@@ -415,6 +485,7 @@ class _$AuthTokenImpl implements _AuthToken {
   @override
   final String refresh_token;
   @override
+  @RequiredFlexibleDateTimeConverter()
   final DateTime expires_at;
 
   @override
@@ -458,7 +529,7 @@ abstract class _AuthToken implements AuthToken {
   const factory _AuthToken({
     required final String access_token,
     required final String refresh_token,
-    required final DateTime expires_at,
+    @RequiredFlexibleDateTimeConverter() required final DateTime expires_at,
   }) = _$AuthTokenImpl;
 
   factory _AuthToken.fromJson(Map<String, dynamic> json) =
@@ -469,6 +540,7 @@ abstract class _AuthToken implements AuthToken {
   @override
   String get refresh_token;
   @override
+  @RequiredFlexibleDateTimeConverter()
   DateTime get expires_at;
 
   /// Create a copy of AuthToken
@@ -476,5 +548,255 @@ abstract class _AuthToken implements AuthToken {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$AuthTokenImplCopyWith<_$AuthTokenImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+mixin _$AuthResponse {
+  User get user => throw _privateConstructorUsedError;
+  String get access_token => throw _privateConstructorUsedError;
+  String get refresh_token => throw _privateConstructorUsedError;
+  DateTime get expires_at => throw _privateConstructorUsedError;
+  bool get is_new_user => throw _privateConstructorUsedError;
+
+  /// Create a copy of AuthResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $AuthResponseCopyWith<AuthResponse> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $AuthResponseCopyWith<$Res> {
+  factory $AuthResponseCopyWith(
+    AuthResponse value,
+    $Res Function(AuthResponse) then,
+  ) = _$AuthResponseCopyWithImpl<$Res, AuthResponse>;
+  @useResult
+  $Res call({
+    User user,
+    String access_token,
+    String refresh_token,
+    DateTime expires_at,
+    bool is_new_user,
+  });
+
+  $UserCopyWith<$Res> get user;
+}
+
+/// @nodoc
+class _$AuthResponseCopyWithImpl<$Res, $Val extends AuthResponse>
+    implements $AuthResponseCopyWith<$Res> {
+  _$AuthResponseCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of AuthResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? user = null,
+    Object? access_token = null,
+    Object? refresh_token = null,
+    Object? expires_at = null,
+    Object? is_new_user = null,
+  }) {
+    return _then(
+      _value.copyWith(
+            user: null == user
+                ? _value.user
+                : user // ignore: cast_nullable_to_non_nullable
+                      as User,
+            access_token: null == access_token
+                ? _value.access_token
+                : access_token // ignore: cast_nullable_to_non_nullable
+                      as String,
+            refresh_token: null == refresh_token
+                ? _value.refresh_token
+                : refresh_token // ignore: cast_nullable_to_non_nullable
+                      as String,
+            expires_at: null == expires_at
+                ? _value.expires_at
+                : expires_at // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            is_new_user: null == is_new_user
+                ? _value.is_new_user
+                : is_new_user // ignore: cast_nullable_to_non_nullable
+                      as bool,
+          )
+          as $Val,
+    );
+  }
+
+  /// Create a copy of AuthResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $UserCopyWith<$Res> get user {
+    return $UserCopyWith<$Res>(_value.user, (value) {
+      return _then(_value.copyWith(user: value) as $Val);
+    });
+  }
+}
+
+/// @nodoc
+abstract class _$$AuthResponseImplCopyWith<$Res>
+    implements $AuthResponseCopyWith<$Res> {
+  factory _$$AuthResponseImplCopyWith(
+    _$AuthResponseImpl value,
+    $Res Function(_$AuthResponseImpl) then,
+  ) = __$$AuthResponseImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({
+    User user,
+    String access_token,
+    String refresh_token,
+    DateTime expires_at,
+    bool is_new_user,
+  });
+
+  @override
+  $UserCopyWith<$Res> get user;
+}
+
+/// @nodoc
+class __$$AuthResponseImplCopyWithImpl<$Res>
+    extends _$AuthResponseCopyWithImpl<$Res, _$AuthResponseImpl>
+    implements _$$AuthResponseImplCopyWith<$Res> {
+  __$$AuthResponseImplCopyWithImpl(
+    _$AuthResponseImpl _value,
+    $Res Function(_$AuthResponseImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of AuthResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? user = null,
+    Object? access_token = null,
+    Object? refresh_token = null,
+    Object? expires_at = null,
+    Object? is_new_user = null,
+  }) {
+    return _then(
+      _$AuthResponseImpl(
+        user: null == user
+            ? _value.user
+            : user // ignore: cast_nullable_to_non_nullable
+                  as User,
+        access_token: null == access_token
+            ? _value.access_token
+            : access_token // ignore: cast_nullable_to_non_nullable
+                  as String,
+        refresh_token: null == refresh_token
+            ? _value.refresh_token
+            : refresh_token // ignore: cast_nullable_to_non_nullable
+                  as String,
+        expires_at: null == expires_at
+            ? _value.expires_at
+            : expires_at // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        is_new_user: null == is_new_user
+            ? _value.is_new_user
+            : is_new_user // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$AuthResponseImpl implements _AuthResponse {
+  const _$AuthResponseImpl({
+    required this.user,
+    required this.access_token,
+    required this.refresh_token,
+    required this.expires_at,
+    required this.is_new_user,
+  });
+
+  @override
+  final User user;
+  @override
+  final String access_token;
+  @override
+  final String refresh_token;
+  @override
+  final DateTime expires_at;
+  @override
+  final bool is_new_user;
+
+  @override
+  String toString() {
+    return 'AuthResponse(user: $user, access_token: $access_token, refresh_token: $refresh_token, expires_at: $expires_at, is_new_user: $is_new_user)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$AuthResponseImpl &&
+            (identical(other.user, user) || other.user == user) &&
+            (identical(other.access_token, access_token) ||
+                other.access_token == access_token) &&
+            (identical(other.refresh_token, refresh_token) ||
+                other.refresh_token == refresh_token) &&
+            (identical(other.expires_at, expires_at) ||
+                other.expires_at == expires_at) &&
+            (identical(other.is_new_user, is_new_user) ||
+                other.is_new_user == is_new_user));
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    user,
+    access_token,
+    refresh_token,
+    expires_at,
+    is_new_user,
+  );
+
+  /// Create a copy of AuthResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$AuthResponseImplCopyWith<_$AuthResponseImpl> get copyWith =>
+      __$$AuthResponseImplCopyWithImpl<_$AuthResponseImpl>(this, _$identity);
+}
+
+abstract class _AuthResponse implements AuthResponse {
+  const factory _AuthResponse({
+    required final User user,
+    required final String access_token,
+    required final String refresh_token,
+    required final DateTime expires_at,
+    required final bool is_new_user,
+  }) = _$AuthResponseImpl;
+
+  @override
+  User get user;
+  @override
+  String get access_token;
+  @override
+  String get refresh_token;
+  @override
+  DateTime get expires_at;
+  @override
+  bool get is_new_user;
+
+  /// Create a copy of AuthResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$AuthResponseImplCopyWith<_$AuthResponseImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

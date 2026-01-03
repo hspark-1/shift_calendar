@@ -1,2 +1,7 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+#include? "Secrets.xcconfig"
+
+// 카카오 Native App Key
+// Secrets.xcconfig 파일에 KAKAO_NATIVE_APP_KEY 설정 필요
+KAKAO_NATIVE_APP_KEY=$(KAKAO_NATIVE_APP_KEY)
