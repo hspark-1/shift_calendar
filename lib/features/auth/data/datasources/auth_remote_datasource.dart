@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' hide User;
 
@@ -61,6 +62,28 @@ class AuthRemoteDataSource {
       throw Exception(response.data['message'] ?? '로그인에 실패했습니다.');
     } on DioException catch (e) {
       throw Exception(_extractErrorMessage(e, '로그인에 실패했습니다.'));
+    }
+  }
+
+  /// 네이버 access_token으로 서버 로그인
+  Future<AuthResponse> loginWithNaverToken(String naverAccessToken) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.auth_naver_token,
+        data: {'access_token': naverAccessToken},
+      );
+
+      if (response.data['success'] == true) {
+        return AuthResponse.fromJson(response.data);
+      }
+
+      final errorMessage = response.data['message'] ?? '로그인에 실패했습니다.';
+      throw Exception(errorMessage);
+    } on DioException catch (e) {
+      final errorMessage = _extractErrorMessage(e, '로그인에 실패했습니다.');
+      throw Exception(errorMessage);
+    } catch (e) {
+      rethrow;
     }
   }
 

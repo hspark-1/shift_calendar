@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/token_service.dart';
 import '../../domain/entities/user.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../services/naver_login_service.dart';
 
 /// Auth Repository Provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -15,6 +17,9 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 abstract class AuthRepository {
   /// 카카오 로그인 (SDK + 서버 인증)
   Future<AuthResponse> loginWithKakao();
+
+  /// 네이버 로그인 (웹뷰 + 서버 인증)
+  Future<AuthResponse> loginWithNaver(BuildContext context);
 
   /// 토큰 갱신
   Future<AuthToken> refreshToken();
@@ -43,8 +48,10 @@ abstract class AuthRepository {
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remote_datasource;
   final TokenService _token_service;
+  final NaverLoginService _naver_login_service;
 
-  AuthRepositoryImpl(this._remote_datasource, this._token_service);
+  AuthRepositoryImpl(this._remote_datasource, this._token_service)
+    : _naver_login_service = NaverLoginService();
 
   @override
   Future<AuthResponse> loginWithKakao() async {
@@ -54,6 +61,26 @@ class AuthRepositoryImpl implements AuthRepository {
     // 2. 서버 인증
     final authResponse = await _remote_datasource.loginWithKakaoToken(
       kakaoToken.accessToken,
+    );
+
+    // 3. 토큰 저장
+    await _token_service.saveTokens(
+      access_token: authResponse.access_token,
+      refresh_token: authResponse.refresh_token,
+      expires_at: authResponse.expires_at,
+    );
+
+    return authResponse;
+  }
+
+  @override
+  Future<AuthResponse> loginWithNaver(BuildContext context) async {
+    // 1. 네이버 웹뷰 로그인
+    final naverAccessToken = await _naver_login_service.loginWithNaver(context);
+
+    // 2. 서버 인증
+    final authResponse = await _remote_datasource.loginWithNaverToken(
+      naverAccessToken,
     );
 
     // 3. 토큰 저장

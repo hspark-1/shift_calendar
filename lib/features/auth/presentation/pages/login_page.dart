@@ -57,6 +57,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  Future<void> _handleNaverLogin() async {
+    if (_is_loading) return;
+
+    setState(() {
+      _is_loading = true;
+    });
+
+    final success = await ref
+        .read(authProvider.notifier)
+        .loginWithNaver(context);
+
+    if (!mounted) return;
+
+    setState(() {
+      _is_loading = false;
+    });
+
+    if (success) {
+      final authState = ref.read(authProvider);
+
+      if (authState.is_new_user) {
+        // 신규 가입: 추가 정보 입력 페이지로
+        Navigator.of(context).pushReplacement(
+          CupertinoPageRoute(
+            builder: (context) => ProfileSetupPage(user: authState.user!),
+          ),
+        );
+      } else {
+        // 기존 회원: 메인 페이지로
+        Navigator.of(context).pushReplacement(
+          CupertinoPageRoute(builder: (context) => const CalendarPage()),
+        );
+      }
+    } else {
+      // 에러 표시
+      final error = ref.read(authProvider).error;
+      if (error != null) {
+        _showErrorDialog(error);
+      }
+    }
+  }
+
   void _showErrorDialog(String message) {
     showCupertinoDialog(
       context: context,
@@ -88,6 +130,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const Spacer(flex: 2),
               // 카카오 로그인 버튼
               _buildKakaoLoginButton(),
+              const SizedBox(height: 12),
+              // 네이버 로그인 버튼
+              _buildNaverLoginButton(),
               const SizedBox(height: 16),
               // 이용약관 안내
               _buildTermsText(),
@@ -200,6 +245,64 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     '카카오 로그인',
                     style: TextStyle(
                       color: Color(0xFF191919),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildNaverLoginButton() {
+    return GestureDetector(
+      onTap: _is_loading ? null : _handleNaverLogin,
+      child: Container(
+        width: double.infinity,
+        height: 54,
+        decoration: BoxDecoration(
+          color: const Color(0xFF03C75A),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF03C75A).withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: _is_loading
+            ? const Center(
+                child: CupertinoActivityIndicator(color: CupertinoColors.white),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 네이버 아이콘 (N)
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: const BoxDecoration(
+                      color: CupertinoColors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'N',
+                        style: TextStyle(
+                          color: Color(0xFF03C75A),
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    '네이버 로그인',
+                    style: TextStyle(
+                      color: CupertinoColors.white,
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                     ),

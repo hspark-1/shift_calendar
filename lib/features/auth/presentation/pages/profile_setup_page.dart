@@ -257,7 +257,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '카카오 프로필',
+            '프로필 사진',
             style: TextStyle(
               fontSize: 13,
               color: CupertinoColors.systemGrey.resolveFrom(context),
@@ -302,7 +302,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           title: const Text('타임존'),
           additionalInfo: Text(_getTimezoneDisplayName(_selected_timezone)),
           trailing: const CupertinoListTileChevron(),
-          onTap: _showTimezonePicker,
+          // onTap: _showTimezonePicker,
         ),
       ],
     );

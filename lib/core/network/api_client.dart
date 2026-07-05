@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/api_constants.dart';
@@ -171,6 +172,7 @@ class ApiClient {
   static bool _isPublicEndpoint(String path) {
     const publicEndpoints = [
       ApiConstants.auth_kakao_token,
+      ApiConstants.auth_naver_token,
       ApiConstants.auth_login,
       ApiConstants.auth_register,
       ApiConstants.auth_refresh,

@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/user.dart';
 
@@ -97,10 +99,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       return true;
     } catch (e) {
-      state = state.copyWith(
-        is_loading: false,
-        error: e.toString().replaceAll('Exception: ', ''),
+      final errorMessage = e is ApiException
+          ? e.message
+          : e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(is_loading: false, error: errorMessage);
+      return false;
+    }
+  }
+
+  /// 네이버 로그인
+  Future<bool> loginWithNaver(BuildContext context) async {
+    state = state.copyWith(is_loading: true, error: null);
+
+    try {
+      final authResponse = await _repository.loginWithNaver(context);
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: authResponse.user,
+        is_new_user: authResponse.is_new_user,
       );
+
+      return true;
+    } catch (e) {
+      final errorMessage = e is ApiException
+          ? e.message
+          : e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(is_loading: false, error: errorMessage);
       return false;
     }
   }
@@ -128,10 +153,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       return true;
     } catch (e) {
-      state = state.copyWith(
-        is_loading: false,
-        error: e.toString().replaceAll('Exception: ', ''),
-      );
+      final errorMessage = e is ApiException
+          ? e.message
+          : e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(is_loading: false, error: errorMessage);
       return false;
     }
   }
