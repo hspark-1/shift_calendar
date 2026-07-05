@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/user.dart';
+import '../../../calendar/presentation/pages/shift_template_settings_page.dart';
 import '../providers/auth_provider.dart';
 import 'login_page.dart';
 
@@ -134,6 +135,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return CupertinoListSection.insetGrouped(
       header: const Text('계정'),
       children: [
+        CupertinoListTile(
+          leading: const Icon(
+            CupertinoIcons.calendar,
+            color: CupertinoColors.systemBlue,
+          ),
+          title: const Text('근무 설정'),
+          trailing: const CupertinoListTileChevron(),
+          onTap: () {
+            Navigator.of(context).push(
+              CupertinoPageRoute(
+                builder: (context) => const ShiftTemplateSettingsPage(),
+              ),
+            );
+          },
+        ),
         CupertinoListTile(
           leading: const Icon(
             CupertinoIcons.arrow_right_square,
