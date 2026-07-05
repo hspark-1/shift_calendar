@@ -54,4 +54,9 @@ ios/Flutter/Secrets.xcconfig
 android/secrets.properties
 .env
 .env.*
+.env.example
 AGENTS.md
+
+# Local debugging notes
+NAVER_LOGIN_CHECKLIST.md
+NAVER_OAUTH_URL_EXPLANATION.md
