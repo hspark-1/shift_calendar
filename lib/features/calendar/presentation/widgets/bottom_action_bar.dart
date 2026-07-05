@@ -3,7 +3,7 @@ import '../../../../core/theme/app_theme.dart';
 
 /// 하단 액션 바 모드
 enum BottomActionBarMode {
-  main, // 메인 페이지: 전자, 31, 알림
+  main, // 메인 페이지: 친구, 31, 알림
   add, // 추가 페이지: 시간, 31, 알림
 }
 
@@ -12,15 +12,17 @@ class BottomActionBar extends StatelessWidget {
   const BottomActionBar({
     super.key,
     this.mode = BottomActionBarMode.main,
-    this.onMemoTap,
+    this.onFriendTap,
     this.onCalendarTap,
     this.onNotificationTap,
+    this.unreadNotificationCount = 0,
   });
 
   final BottomActionBarMode mode;
-  final VoidCallback? onMemoTap;
+  final VoidCallback? onFriendTap;
   final VoidCallback? onCalendarTap;
   final VoidCallback? onNotificationTap;
+  final int unreadNotificationCount;
 
   @override
   Widget build(BuildContext context) {
@@ -42,10 +44,10 @@ class BottomActionBar extends StatelessWidget {
           children: [
             _buildActionButton(
               icon: mode == BottomActionBarMode.main
-                  ? CupertinoIcons.doc_text
+                  ? CupertinoIcons.person_2
                   : CupertinoIcons.clock,
-              label: mode == BottomActionBarMode.main ? '메모' : '시간',
-              onTap: onMemoTap,
+              label: mode == BottomActionBarMode.main ? '친구' : '시간',
+              onTap: onFriendTap,
             ),
             _buildCalendarButton(
               onTap: onCalendarTap,
@@ -54,6 +56,7 @@ class BottomActionBar extends StatelessWidget {
               icon: CupertinoIcons.bell,
               label: '알림',
               onTap: onNotificationTap,
+              badgeCount: unreadNotificationCount,
             ),
           ],
         ),
@@ -65,33 +68,66 @@ class BottomActionBar extends StatelessWidget {
     required IconData icon,
     required String label,
     VoidCallback? onTap,
+    int badgeCount = 0,
   }) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: CupertinoColors.systemGrey4),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: CupertinoColors.label,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: CupertinoColors.systemGrey4),
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTheme.body_small.copyWith(
-                color: CupertinoColors.label,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: CupertinoColors.label,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: AppTheme.body_small.copyWith(
+                    color: CupertinoColors.label,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 알림 배지
+          if (badgeCount > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: CupertinoColors.systemRed,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                child: Center(
+                  child: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    style: const TextStyle(
+                      color: CupertinoColors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

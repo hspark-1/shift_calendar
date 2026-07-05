@@ -1,0 +1,203 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/theme/app_theme.dart';
+import '../../data/models/notification_model.dart';
+import '../providers/notification_provider.dart';
+import '../providers/friend_provider.dart';
+import '../widgets/notification_item.dart';
+import 'friend_list_page.dart';
+
+/// 알림 페이지
+class NotificationPage extends ConsumerStatefulWidget {
+  const NotificationPage({super.key});
+
+  @override
+  ConsumerState<NotificationPage> createState() => _NotificationPageState();
+}
+
+class _NotificationPageState extends ConsumerState<NotificationPage> {
+  @override
+  void initState() {
+    super.initState();
+    // 페이지 진입 시 알림 목록 로드
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationProvider.notifier).loadNotifications();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(notificationProvider);
+
+    return CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.systemGroupedBackground,
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('알림'),
+      ),
+      child: SafeArea(
+        child: _buildContent(state),
+      ),
+    );
+  }
+
+  Widget _buildContent(NotificationState state) {
+    // 로딩 중
+    if (state.isLoading && state.notifications.isEmpty) {
+      return const Center(child: CupertinoActivityIndicator());
+    }
+
+    // 에러 발생
+    if (state.error != null && state.notifications.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              CupertinoIcons.exclamationmark_circle,
+              size: 48,
+              color: CupertinoColors.systemGrey,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              getNotificationErrorMessage(state.error),
+              style: AppTheme.body_medium.copyWith(
+                color: CupertinoColors.systemGrey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            CupertinoButton(
+              onPressed: () =>
+                  ref.read(notificationProvider.notifier).loadNotifications(),
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 알림 없음
+    if (state.notifications.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              CupertinoIcons.bell_slash,
+              size: 64,
+              color: CupertinoColors.systemGrey3,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '알림이 없습니다',
+              style: AppTheme.body_large.copyWith(
+                color: CupertinoColors.systemGrey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '새로운 알림이 오면 여기에 표시됩니다',
+              style: AppTheme.body_small.copyWith(
+                color: CupertinoColors.systemGrey2,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 알림 목록 표시
+    return CustomScrollView(
+      slivers: [
+        CupertinoSliverRefreshControl(
+          onRefresh: () =>
+              ref.read(notificationProvider.notifier).loadNotifications(),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final notification = state.notifications[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: NotificationItem(
+                    notification: notification,
+                    onActionTap: (action) =>
+                        _handleNotificationAction(notification, action),
+                  ),
+                );
+              },
+              childCount: state.notifications.length,
+            ),
+          ),
+        ),
+        // 더 불러오기 인디케이터
+        if (state.isLoading && state.notifications.isNotEmpty)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CupertinoActivityIndicator()),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _handleNotificationAction(
+    NotificationModel notification,
+    NotificationAction action,
+  ) async {
+    switch (action.type) {
+      case NotificationActionType.accept:
+      case NotificationActionType.reject:
+        final success = await ref
+            .read(notificationProvider.notifier)
+            .handleNotificationAction(
+              notification: notification,
+              action: action,
+            );
+        if (success) {
+          // 친구 목록 새로고침
+          ref.read(friendListProvider.notifier).loadFriends();
+        } else if (mounted) {
+          _showError('요청 처리에 실패했습니다.');
+        }
+        break;
+
+      case NotificationActionType.navigate:
+        if (action.route != null) {
+          // 라우트에 따라 네비게이션
+          if (action.route == '/friends') {
+            Navigator.of(context).push(
+              CupertinoPageRoute<void>(
+                builder: (context) => const FriendListPage(),
+              ),
+            );
+          }
+        }
+        break;
+
+      case NotificationActionType.dismiss:
+        // 닫기는 별도 처리 불필요
+        break;
+    }
+  }
+
+  void _showError(String message) {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('오류'),
+        content: Text(message),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+}
