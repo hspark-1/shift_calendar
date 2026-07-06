@@ -9,7 +9,6 @@ import '../../../auth/presentation/pages/settings_page.dart';
 import '../../../friend/presentation/pages/friend_list_page.dart';
 import '../../../friend/presentation/pages/notification_page.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
-import '../../domain/entities/shift_type_info.dart';
 import '../providers/shift_types_provider.dart';
 import '../widgets/shift_badge.dart';
 import '../widgets/bottom_action_bar.dart';
@@ -17,6 +16,7 @@ import '../widgets/shift_type_button.dart';
 import '../../data/services/work_shift_service.dart';
 import '../../data/services/calendar_service.dart';
 import '../../data/models/event_api_model.dart';
+import '../../data/models/work_shift_api_model.dart';
 import '../../../../core/network/api_exception.dart';
 
 /// 캘린더 메인 페이지
@@ -43,6 +43,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   // 임시 스케줄 데이터 (하루에 하나의 근무만 저장)
   final Map<DateTime, String?> _schedules = {};
+
+  // 서버가 반환한 근무표 표시 데이터: 날짜 -> 근무표 스냅샷
+  final Map<DateTime, WorkShiftApiModel> _workShifts = {};
 
   // 일정(Events) 데이터: Map<DateTime, List<EventApiModel>> (날짜 -> 일정 목록)
   final Map<DateTime, List<EventApiModel>> _events = {};
@@ -220,6 +223,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           // 근무표 데이터 병합
           for (final workShift in response.data.workShifts) {
             final normalizedDate = _normalizeDate(workShift.workDate);
+            _workShifts[normalizedDate] = workShift;
             _schedules[normalizedDate] = workShift.shiftTypeCode;
             _work_shift_ids[normalizedDate] = workShift.workShiftId;
           }
@@ -265,7 +269,33 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 선택된 날짜의 스케줄 반환 (하루에 하나의 근무만 반환)
   String? _getScheduleForDay(DateTime day) {
-    return _schedules[_normalizeDate(day)];
+    final normalizedDate = _normalizeDate(day);
+    return _schedules[normalizedDate] ??
+        _workShifts[normalizedDate]?.shiftTypeCode;
+  }
+
+  /// 선택된 날짜의 서버 근무표 반환
+  WorkShiftApiModel? _getWorkShiftForDay(DateTime day) {
+    return _workShifts[_normalizeDate(day)];
+  }
+
+  Color _getWorkShiftColor(WorkShiftApiModel workShift) {
+    return Color(workShift.shiftTypeColor ?? 0xFF8E8E93);
+  }
+
+  String _formatWorkShiftTime(WorkShiftApiModel workShift) {
+    if (workShift.startTime == null || workShift.endTime == null) {
+      return '근무없음';
+    }
+
+    return '${_formatApiTime(workShift.startTime!)} ~ ${_formatApiTime(workShift.endTime!)}';
+  }
+
+  String _formatApiTime(String time) {
+    if (time.length >= 5) {
+      return time.substring(0, 5);
+    }
+    return time;
   }
 
   /// 이전 달로 이동 가능한지 확인
@@ -804,7 +834,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     try {
       // 3. API 호출
       final workShiftService = ref.read(workShiftServiceProvider);
-      await workShiftService.batchUpsertWorkShifts(workShifts: workShifts);
+      final response = await workShiftService.batchUpsertWorkShifts(
+        workShifts: workShifts,
+      );
 
       // 4. 성공 처리
       if (mounted) {
@@ -813,7 +845,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         setState(() {
           _is_shift_add_mode = false;
           _initial_schedules = null;
-          // _schedules는 유지 (이미 올바른 상태)
+          for (final workShift in response.data.workShifts) {
+            final normalizedDate = _normalizeDate(workShift.workDate);
+            _workShifts[normalizedDate] = workShift;
+            _schedules[normalizedDate] = workShift.shiftTypeCode;
+            _work_shift_ids[normalizedDate] = workShift.workShiftId;
+          }
         });
 
         // 성공 메시지 (선택사항)
@@ -868,6 +905,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       // 로컬에서만 삭제
       setState(() {
         _schedules.remove(normalizedDate);
+        _workShifts.remove(normalizedDate);
       });
       return true;
     }
@@ -880,6 +918,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       // 성공 시 로컬 상태에서도 삭제
       setState(() {
         _schedules.remove(normalizedDate);
+        _workShifts.remove(normalizedDate);
         _work_shift_ids.remove(normalizedDate);
       });
 
@@ -994,9 +1033,21 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     bool isSelected = false,
     bool isOutside = false,
   }) {
+    final workShift = _getWorkShiftForDay(date);
     final shiftType = _getScheduleForDay(date);
-    final shiftTypesMap = ref.watch(shiftTypesMapProvider);
-    final shiftInfo = shiftType != null ? shiftTypesMap[shiftType] : null;
+    final shiftTypesMap = _is_shift_add_mode
+        ? ref.watch(shiftTypesMapProvider)
+        : null;
+    final editShiftInfo = _is_shift_add_mode && shiftType != null
+        ? shiftTypesMap == null
+              ? null
+              : shiftTypesMap[shiftType]
+        : null;
+    final badgeText = _is_shift_add_mode ? shiftType : workShift?.shiftTypeCode;
+    final badgeColor = _is_shift_add_mode
+        ? editShiftInfo?.color ??
+              (workShift == null ? null : _getWorkShiftColor(workShift))
+        : (workShift == null ? null : _getWorkShiftColor(workShift));
 
     // 외부 날짜(이전/다음 달)는 투명도 적용
     final outsideAlpha = isOutside ? 0.4 : 1.0;
@@ -1045,7 +1096,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           // 근무 코드 표시 (고정 높이 16)
           SizedBox(
             height: 16,
-            child: shiftInfo != null
+            child: badgeText != null && badgeColor != null
                 ? ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 44),
                     child: Container(
@@ -1054,13 +1105,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: shiftInfo.color.withValues(alpha: outsideAlpha),
+                        color: badgeColor.withValues(alpha: outsideAlpha),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          shiftType!,
+                          badgeText,
                           style: TextStyle(
                             color: CupertinoColors.white.withValues(
                               alpha: outsideAlpha,
@@ -1404,11 +1455,22 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   return null;
                 }
 
-                final shiftType = _getScheduleForDay(date);
-                if (shiftType != null && shiftType.isNotEmpty) {
+                if (_is_shift_add_mode) {
+                  final shiftType = _getScheduleForDay(date);
+                  if (shiftType != null && shiftType.isNotEmpty) {
+                    return Positioned(
+                      bottom: 2,
+                      child: ShiftBadge(shift_type: shiftType, size: 8),
+                    );
+                  }
+                  return null;
+                }
+
+                final workShift = _getWorkShiftForDay(date);
+                if (workShift != null) {
                   return Positioned(
                     bottom: 2,
-                    child: ShiftBadge(shift_type: shiftType, size: 8),
+                    child: _buildWorkShiftDot(workShift, size: 8),
                   );
                 }
                 return null;
@@ -1418,6 +1480,18 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         ), // AnimatedContainer
       ), // NotificationListener
     ); // Listener
+  }
+
+  /// 근무표 색상 점 위젯
+  Widget _buildWorkShiftDot(WorkShiftApiModel workShift, {double size = 16}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: _getWorkShiftColor(workShift),
+        shape: BoxShape.circle,
+      ),
+    );
   }
 
   /// 선택된 날짜 정보 위젯 (스케줄 화면 + 근무 설정 overlay)
@@ -1435,20 +1509,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final dateFormat = DateFormat('yyyy.MM.dd', 'ko_KR');
     final selectedDate = _selected_day ?? DateTime.now();
     final normalizedDate = _normalizeDate(selectedDate);
-    final shiftType = _getScheduleForDay(selectedDate);
-    final shiftTypesMap = ref.watch(shiftTypesMapProvider);
-
-    // 해당 날짜의 근무표 정보
-    ShiftTypeInfo? shiftInfo;
-    if (shiftType != null) {
-      shiftInfo = shiftTypesMap[shiftType];
-    }
+    final workShift = _getWorkShiftForDay(selectedDate);
 
     // 해당 날짜의 일정(Events) 목록
     final dayEvents = _events[normalizedDate] ?? [];
 
     // 총 일정 개수 (근무표 + Events)
-    final totalCount = (shiftInfo != null ? 1 : 0) + dayEvents.length;
+    final totalCount = (workShift != null ? 1 : 0) + dayEvents.length;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -1522,8 +1589,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // 근무표 표시
-                          if (shiftInfo != null)
-                            _buildScheduleItem(shiftType!, shiftInfo, 0),
+                          if (workShift != null)
+                            _buildWorkShiftItem(workShift, 0),
                           // Events 표시
                           ...dayEvents.asMap().entries.map((entry) {
                             return _buildEventItem(entry.value, entry.key);
@@ -1675,18 +1742,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     );
   }
 
-  /// 일정 아이템 위젯 (스택 형식)
-  Widget _buildScheduleItem(
-    String shiftType,
-    ShiftTypeInfo shiftInfo,
-    int index,
-  ) {
-    final color = shiftInfo.color;
+  /// 근무표 아이템 위젯
+  Widget _buildWorkShiftItem(WorkShiftApiModel workShift, int index) {
+    final color = _getWorkShiftColor(workShift);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Dismissible(
-        key: Key('${_selected_day}_${shiftType}_$index'),
+        key: Key('${workShift.workShiftId}_$index'),
         direction: DismissDirection.endToStart,
         background: Container(
           alignment: Alignment.centerRight,
@@ -1726,7 +1789,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      shiftInfo.name,
+                      workShift.shiftTypeName,
                       style: AppTheme.body_medium.copyWith(
                         fontWeight: FontWeight.w600,
                         color: CupertinoColors.label,
@@ -1734,7 +1797,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      shiftInfo.timeDisplay,
+                      _formatWorkShiftTime(workShift),
                       style: AppTheme.body_small.copyWith(
                         color: CupertinoColors.secondaryLabel,
                       ),

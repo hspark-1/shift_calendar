@@ -42,6 +42,24 @@ API Server
 DioException → handleApiError() → ApiException → UI (CupertinoAlertDialog)
 ```
 
+### 메인 캘린더 조회/표시 흐름
+
+```
+CalendarPage
+  → CalendarService.getCalendarRange()
+  → GET /api/v1/calendar/range
+  → CalendarRangeResponse(work_shifts, events)
+  → WorkShiftApiModel / EventApiModel 날짜별 맵
+  → TableCalendar + 선택 날짜 일정 카드
+```
+
+- 메인 캘린더의 저장된 근무표 표시는 서버가 반환한 `WorkShiftApiModel`을 기준으로 한다.
+- `work_shifts` 응답의 `shift_type_code`, `shift_type_name`, `shift_type_color`,
+  `start_time`, `end_time`은 저장된 근무표 표시용 스냅샷이다.
+- `shiftTypesProvider`는 현재 계정의 근무 타입 설정 조회 및 근무 입력 버튼 표시용으로만 사용한다.
+- 저장된 근무표를 화면에 그릴 때는 `shiftTypesProvider`의 코드별 캐시로 색상/이름/시간을 재해석하지 않는다.
+- 로그인/로그아웃으로 계정이 바뀌면 근무 타입, 근무 템플릿 설정, 친구, 알림 Provider 캐시를 무효화한다.
+
 ### 친구 캘린더 조회 흐름
 
 ```

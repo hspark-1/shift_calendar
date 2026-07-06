@@ -2,6 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../calendar/presentation/providers/shift_template_settings_provider.dart';
+import '../../../calendar/presentation/providers/shift_types_provider.dart';
+import '../../../friend/presentation/providers/friend_provider.dart';
+import '../../../friend/presentation/providers/notification_provider.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/user.dart';
 
@@ -53,14 +57,26 @@ class AuthState {
 /// 인증 상태 Provider
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return AuthNotifier(repository);
+  return AuthNotifier(repository, ref);
 });
 
 /// 인증 상태 Notifier
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
+  final Ref _ref;
 
-  AuthNotifier(this._repository) : super(const AuthState());
+  AuthNotifier(this._repository, this._ref) : super(const AuthState());
+
+  void _invalidateAccountScopedProviders() {
+    _ref.invalidate(shiftTypesProvider);
+    _ref.invalidate(shiftTypesMapProvider);
+    _ref.invalidate(shiftTypeOrderProvider);
+    _ref.invalidate(shiftTemplateSettingsProvider);
+    _ref.invalidate(friendListProvider);
+    _ref.invalidate(searchUserProvider);
+    _ref.invalidate(friendRequestsProvider);
+    _ref.invalidate(notificationProvider);
+  }
 
   /// 초기 인증 상태 확인
   Future<void> checkAuthStatus() async {
@@ -91,6 +107,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final authResponse = await _repository.loginWithKakao();
 
+      _invalidateAccountScopedProviders();
+
       state = AuthState(
         status: AuthStatus.authenticated,
         user: authResponse.user,
@@ -113,6 +131,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       final authResponse = await _repository.loginWithNaver(context);
+
+      _invalidateAccountScopedProviders();
 
       state = AuthState(
         status: AuthStatus.authenticated,
@@ -175,6 +195,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       // 로그아웃 실패해도 로컬 상태는 초기화
     }
+
+    _invalidateAccountScopedProviders();
 
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
