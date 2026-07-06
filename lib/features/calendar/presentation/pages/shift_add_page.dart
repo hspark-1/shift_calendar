@@ -239,7 +239,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
           // 하단 액션 바
           BottomActionBar(
             mode: BottomActionBarMode.add,
-            onMemoTap: () {
+            onFriendTap: () {
               // TODO: 시간 설정 기능
             },
             onCalendarTap: () {

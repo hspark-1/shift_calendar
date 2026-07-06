@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_error_handler.dart';
+import '../../../calendar/data/models/event_api_model.dart';
 import '../models/friend_model.dart';
 import '../models/friend_request_model.dart';
 
@@ -18,6 +19,11 @@ class FriendService {
   final Dio _dio;
 
   FriendService(this._dio);
+
+  /// 날짜 형식 변환 (YYYY-MM-DD)
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
 
   // =========================================================
   // 친구 관련 API
@@ -86,6 +92,34 @@ class FriendService {
   Future<void> deleteFriend(String friendUserId) async {
     try {
       await _dio.delete('${ApiConstants.friends}/$friendUserId');
+    } on DioException catch (e) {
+      throw handleApiError(e);
+    }
+  }
+
+  /// 친구 캘린더 기간 조회
+  ///
+  /// 엔드포인트: GET /api/v1/friends/:friend_user_id/calendar/range
+  /// 인증: 필요
+  ///
+  /// 서버는 friend_level_settings(owner_user_id=friend_user_id,
+  /// friend_user_id=viewer_user_id)의 can_view/friend_level 조건으로
+  /// 열람 가능한 근무표와 일정만 반환해야 한다.
+  Future<CalendarRangeResponse> getFriendCalendarRange({
+    required String friendUserId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final path = '${ApiConstants.friends}/$friendUserId/calendar/range';
+      final response = await _dio.get(
+        path,
+        queryParameters: {
+          'start_date': _formatDate(startDate),
+          'end_date': _formatDate(endDate),
+        },
+      );
+      return CalendarRangeResponse.fromJson(response.data);
     } on DioException catch (e) {
       throw handleApiError(e);
     }

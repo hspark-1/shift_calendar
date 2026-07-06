@@ -113,7 +113,115 @@ LIMIT :limit OFFSET :offset;
 
 ---
 
-### 2. 사용자 검색 (친구 추가용)
+### 2. 친구 캘린더 기간 조회
+
+친구 목록에서 친구를 선택했을 때 조회할 읽기 전용 캘린더 데이터를 반환합니다.
+서버는 친구가 현재 사용자에게 설정한 `can_view`와 `friend_level`을 기준으로
+근무표와 개인 일정을 필터링합니다.
+
+#### Request
+
+```
+GET /api/v1/friends/:friend_user_id/calendar/range
+```
+
+**Headers**
+
+```
+Authorization: Bearer {access_token}
+```
+
+**Path Parameters**
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `friend_user_id` | uuid | Y | 조회할 친구 사용자 ID |
+
+**Query Parameters**
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `start_date` | string | Y | 조회 시작일, `YYYY-MM-DD` |
+| `end_date` | string | Y | 조회 종료일, `YYYY-MM-DD` |
+
+#### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "work_shifts": [
+      {
+        "work_shift_id": "uuid",
+        "work_date": "2026-07-05",
+        "shift_type_code": "D",
+        "shift_type_name": "데이",
+        "shift_type_color": "#FF34C759",
+        "start_time": "07:00",
+        "end_time": "15:00",
+        "note": null,
+        "created_at": "2026-07-01T00:00:00Z",
+        "updated_at": "2026-07-01T00:00:00Z"
+      }
+    ],
+    "events": [
+      {
+        "event_id": "uuid",
+        "title": "약속",
+        "memo": null,
+        "place": "서울",
+        "all_day": false,
+        "start_at": "2026-07-05T10:00:00Z",
+        "end_at": "2026-07-05T11:00:00Z",
+        "visibility_level": 1
+      }
+    ]
+  }
+}
+```
+
+#### 공개 레벨 규칙
+
+- 조회자: 현재 인증 사용자(`viewer_user_id`)
+- 캘린더 소유자: `friend_user_id`
+- 접근 설정: `friend_level_settings.owner_user_id = :friend_user_id`
+  AND `friend_level_settings.friend_user_id = :viewer_user_id`
+- 근무표 노출: `can_view = true`인 친구 관계이면 조회 가능
+  (`work_shifts.visibility_level = 0`)
+- 개인 일정 노출: `can_view = true`
+  AND `friend_level_settings.friend_level >= events.visibility_level`
+- 응답에는 조건을 통과한 데이터만 포함하고, 프론트는 추가 필터링을 하지 않습니다.
+
+#### 구현 참고
+
+```sql
+-- 친구가 현재 사용자에게 공개한 개인 일정
+SELECT *
+FROM v_visible_events_for_friend
+WHERE owner_user_id = :friend_user_id
+  AND viewer_user_id = :viewer_user_id
+  AND start_at < (:end_date::date + interval '1 day')
+  AND end_at >= :start_date::date
+ORDER BY start_at ASC;
+
+-- 친구가 현재 사용자에게 공개한 근무표
+SELECT *
+FROM v_visible_work_shifts_for_friend
+WHERE owner_user_id = :friend_user_id
+  AND viewer_user_id = :viewer_user_id
+  AND work_date BETWEEN :start_date::date AND :end_date::date
+ORDER BY work_date ASC;
+```
+
+#### Error Codes
+
+| 코드 | 메시지 | 설명 |
+|------|--------|------|
+| `FRIEND_NOT_FOUND` | 친구 관계를 찾을 수 없습니다. | 친구가 아니거나 존재하지 않는 사용자 |
+| `CALENDAR_ACCESS_DENIED` | 친구 캘린더를 볼 수 없습니다. | 친구가 현재 사용자에게 `can_view=false`로 설정 |
+| `INVALID_DATE_RANGE` | 조회 기간이 올바르지 않습니다. | 날짜 형식 오류 또는 시작일이 종료일보다 늦음 |
+
+---
+
+### 3. 사용자 검색 (친구 추가용)
 
 이메일 또는 전화번호로 사용자를 검색합니다.
 이메일과 전화번호는 사용자 식별용 유니크 값이므로 성공 응답은 항상 `data.user`
@@ -178,7 +286,7 @@ Authorization: Bearer {access_token}
 
 ---
 
-### 3. 친구 요청 보내기
+### 4. 친구 요청 보내기
 
 새로운 친구 요청을 생성합니다.
 
@@ -243,7 +351,7 @@ Content-Type: application/json
 
 ---
 
-### 4. 받은 친구 요청 목록 조회
+### 5. 받은 친구 요청 목록 조회
 
 내가 받은 친구 요청 목록을 조회합니다.
 
@@ -299,7 +407,7 @@ Authorization: Bearer {access_token}
 
 ---
 
-### 5. 보낸 친구 요청 목록 조회
+### 6. 보낸 친구 요청 목록 조회
 
 내가 보낸 친구 요청 목록을 조회합니다.
 
@@ -355,7 +463,7 @@ Authorization: Bearer {access_token}
 
 ---
 
-### 6. 친구 요청 응답 (수락/거절)
+### 7. 친구 요청 응답 (수락/거절)
 
 받은 친구 요청에 대해 수락 또는 거절합니다.
 
@@ -439,7 +547,7 @@ Content-Type: application/json
 
 ---
 
-### 7. 친구 요청 취소
+### 8. 친구 요청 취소
 
 내가 보낸 친구 요청을 취소합니다.
 
@@ -484,7 +592,7 @@ Authorization: Bearer {access_token}
 
 ---
 
-### 8. 친구 레벨 설정 변경
+### 9. 친구 레벨 설정 변경
 
 특정 친구의 레벨 설정을 변경합니다.
 
@@ -540,7 +648,7 @@ Content-Type: application/json
 
 ---
 
-### 9. 친구 삭제
+### 10. 친구 삭제
 
 친구 관계를 삭제합니다.
 
@@ -614,6 +722,12 @@ router.use(authMiddleware);
 // 친구 목록
 router.get("/friends", friendController.getFriends);
 
+// 친구 캘린더 조회
+router.get(
+  "/friends/:friend_user_id/calendar/range",
+  friendController.getFriendCalendarRange
+);
+
 // 친구 설정 변경
 router.put(
   "/friends/:friend_user_id/settings",
@@ -644,18 +758,25 @@ export default router;
 
 ---
 
-## 프론트엔드 API Constants 추가
+## 프론트엔드 서비스 연결
 
 ```dart
-// api_constants.dart에 추가할 내용
-
-// 친구 관련 엔드포인트
-static const String friends = '/friends';
-static const String friend_settings = '/friends'; // PUT /:friend_user_id/settings
-static const String users_search = '/users/search';
-static const String friend_requests = '/friend-requests';
-static const String friend_requests_received = '/friend-requests/received';
-static const String friend_requests_sent = '/friend-requests/sent';
+// FriendService
+Future<CalendarRangeResponse> getFriendCalendarRange({
+  required String friendUserId,
+  required DateTime startDate,
+  required DateTime endDate,
+}) async {
+  final path = '${ApiConstants.friends}/$friendUserId/calendar/range';
+  final response = await _dio.get(
+    path,
+    queryParameters: {
+      'start_date': _formatDate(startDate),
+      'end_date': _formatDate(endDate),
+    },
+  );
+  return CalendarRangeResponse.fromJson(response.data);
+}
 ```
 
 ---
@@ -690,6 +811,14 @@ static const String friend_requests_sent = '/friend-requests/sent';
 - [ ] 둘 다 변경
 - [ ] 범위 벗어난 레벨 → `INVALID_LEVEL` 에러
 
+### 친구 캘린더 조회
+
+- [ ] 친구가 현재 사용자에게 `can_view=true` 설정 → 근무표 조회 가능
+- [ ] 친구가 현재 사용자에게 `can_view=false` 설정 → `CALENDAR_ACCESS_DENIED` 에러
+- [ ] `friend_level >= visibility_level`인 개인 일정만 응답
+- [ ] `work_shifts.visibility_level=0` 근무표는 `can_view=true`이면 응답
+- [ ] 친구가 아닌 사용자 조회 → `FRIEND_NOT_FOUND` 에러
+
 ### 친구 삭제
 
 - [ ] 정상 삭제 → friendships + friend_level_settings 모두 삭제
@@ -704,11 +833,13 @@ static const String friend_requests_sent = '/friend-requests/sent';
 - 모든 엔드포인트는 JWT 인증 필수
 - 친구 설정/삭제는 본인의 친구에 대해서만 가능
 - 요청 응답/취소는 해당 요청의 당사자만 가능
+- 친구 캘린더 조회는 DB의 visible view 또는 동일 조건 쿼리로 서버에서 필터링하고, 프론트에 비공개 일정을 내려보내지 않음
 
 ### 성능
 
 - 친구 목록 페이지네이션 적용
 - 인덱스 활용 (idx_friendships_user_a, idx_friendships_user_b, idx_fls_owner)
+- 친구 캘린더 조회는 월 이동 시 3개월 범위로 요청하므로 `owner_user_id + date/start_at` 인덱스를 사용
 
 ### 확장성
 

@@ -42,6 +42,26 @@ API Server
 DioException → handleApiError() → ApiException → UI (CupertinoAlertDialog)
 ```
 
+### 친구 캘린더 조회 흐름
+
+```
+FriendListPage
+  → FriendCalendarPage
+  → FriendService.getFriendCalendarRange()
+  → GET /api/v1/friends/:friend_user_id/calendar/range
+  → API Server
+  → v_visible_work_shifts_for_friend / v_visible_events_for_friend
+```
+
+- 친구 목록 항목 선택 시 기존 `FriendDetailPage`가 아니라 `FriendCalendarPage`로 진입한다.
+- `FriendCalendarPage` 오른쪽 설정 버튼은 기존 `FriendDetailPage`로 이동한다.
+- 친구 캘린더 응답은 기존 `CalendarRangeResponse` 형식(`work_shifts`, `events`)을 재사용한다.
+- 공개 판단은 서버 책임이다. 서버는 `friend_level_settings.owner_user_id = friend_user_id`,
+  `friend_level_settings.friend_user_id = viewer_user_id`, `can_view=true`,
+  `friend_level >= events.visibility_level` 조건을 적용한 결과만 반환한다.
+- 친구 근무표 색상/이름/시간은 현재 사용자 템플릿 Provider가 아니라
+  `WorkShiftApiModel` 응답 필드를 직접 사용한다.
+
 # 사용하는 DB Schema
 
 아래는 **PostgreSQL 기준으로 "바로 실행 가능한 DDL"**이야.

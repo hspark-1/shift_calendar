@@ -227,6 +227,40 @@ _buildActionButton(
 └──────────────────────────────────────────┘
 ```
 
+#### 3.2.5 친구 캘린더 조회 페이지 (`FriendCalendarPage`)
+
+```
+┌──────────────────────────────────────────┐
+│  ← 박현서                         [설정] │
+├──────────────────────────────────────────┤
+│  프로필  박현서                           │
+│        ssp8585@naver.com                 │
+│                                          │
+│          2026.07                         │
+│       <              >                   │
+│  일 월 화 수 목 금 토                     │
+│   1  2  3  4  5  6  7                    │
+│      D     N     OFF                     │
+│                                          │
+│  ┌────────────────────────────────────┐  │
+│  │ 2026.07.05                 2개의 일정 │
+│  ├────────────────────────────────────┤  │
+│  │ 데이       07:00 - 15:00             │
+│  │ 약속       10:00 - 11:00 서울         │
+│  └────────────────────────────────────┘  │
+└──────────────────────────────────────────┘
+```
+
+- 친구 목록 Row를 누르면 이 페이지로 이동한다.
+- 오른쪽 설정 버튼은 기존 `FriendDetailPage`로 이동한다.
+- 달력에는 친구의 `work_shifts`를 날짜별 근무 코드/색상으로 표시한다.
+- 날짜를 선택하면 하단에 해당 날짜의 근무표와 친구가 공개한 개인 일정을 표시한다.
+- 공개 판단은 서버가 `friend_level_settings.owner_user_id = 친구`,
+  `friend_level_settings.friend_user_id = 현재 사용자` 기준으로 수행한다.
+- 근무표는 `work_shifts.visibility_level=0`이므로 친구가 현재 사용자에게
+  `can_view=true`로 열람을 허용한 경우 표시한다.
+- 개인 일정은 `friend_level >= events.visibility_level` 조건을 통과한 결과만 표시한다.
+
 ---
 
 ## 4. 프론트엔드 구현 계획
@@ -245,6 +279,7 @@ lib/features/friend/
 ├── presentation/
 │   ├── pages/
 │   │   ├── friend_list_page.dart          # 친구 목록 페이지
+│   │   ├── friend_calendar_page.dart      # 친구 캘린더 조회 페이지
 │   │   ├── friend_detail_page.dart        # 친구 상세 페이지
 │   │   └── notification_page.dart         # 알림 페이지
 │   ├── widgets/
@@ -347,9 +382,10 @@ COMMENT ON COLUMN users.phone IS '전화번호 (친구 검색용, E.164 형식 �
 ### Phase 3: 고급 기능 (선택)
 
 1. 친구 검색 기능
-2. 친구 캘린더 열람 기능
-3. 전화번호 검색 기능 (DB 스키마 변경 필요)
-4. 푸시 알림 연동
+2. [FE] 친구 캘린더 열람 페이지
+3. [BE] 친구 캘린더 기간 조회 API
+4. 전화번호 검색 기능 (DB 스키마 변경 필요)
+5. 푸시 알림 연동
 
 ---
 
@@ -371,3 +407,11 @@ COMMENT ON COLUMN users.phone IS '전화번호 (친구 검색용, E.164 형식 �
 
 - `true`: 해당 친구가 내 캘린더를 볼 수 있음
 - `false`: 해당 친구가 내 캘린더를 볼 수 없음 (친구 관계는 유지)
+
+### 7.4 친구 캘린더 조회 규칙
+
+- 조회 대상 친구가 현재 사용자에게 설정한 `can_view`와 `friend_level`을 사용한다.
+- API는 `GET /api/v1/friends/:friend_user_id/calendar/range`를 사용한다.
+- 응답 형식은 기존 `CalendarRangeResponse`와 동일하게 `work_shifts`, `events`를 반환한다.
+- 프론트는 친구 근무 타입 목록을 별도 조회하지 않고 `work_shifts` 응답의
+  `shift_type_code`, `shift_type_name`, `shift_type_color`, `start_time`, `end_time`을 사용한다.
