@@ -61,6 +61,24 @@ class CalendarService {
     }
   }
 
+  /// 개인 일정 생성
+  ///
+  /// 엔드포인트: POST /api/v1/events
+  /// 인증: 필요
+  Future<EventApiModel> createEvent(CreateEventRequest request) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.events,
+        data: request.toJson(),
+      );
+      return EventApiModel.fromJson(
+        response.data['data'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw handleApiError(e);
+    }
+  }
+
   /// 통합 캘린더 데이터 조회 (근무표 + 일정)
   ///
   /// 엔드포인트: GET /api/v1/calendar/range?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD

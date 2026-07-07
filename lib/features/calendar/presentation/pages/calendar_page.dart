@@ -12,6 +12,7 @@ import '../../../friend/presentation/providers/notification_provider.dart';
 import '../providers/shift_types_provider.dart';
 import '../widgets/shift_badge.dart';
 import '../widgets/bottom_action_bar.dart';
+import '../widgets/personal_event_form_modal.dart';
 import '../widgets/shift_type_button.dart';
 import '../../data/services/work_shift_service.dart';
 import '../../data/services/calendar_service.dart';
@@ -230,20 +231,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
           // 일정 데이터 병합
           for (final event in response.data.events) {
-            // 일정이 여러 날에 걸칠 수 있으므로, 시작일부터 종료일까지 모든 날짜에 추가
-            final startDate = _normalizeDate(event.startAt);
-            final endDate = _normalizeDate(event.endAt);
-
-            var currentDate = startDate;
-            while (currentDate.isBefore(endDate) ||
-                currentDate.isAtSameMomentAs(endDate)) {
-              final eventList = _events.putIfAbsent(currentDate, () => []);
-              // 중복 체크: 같은 eventId가 이미 있으면 추가하지 않음
-              if (!eventList.any((e) => e.eventId == event.eventId)) {
-                eventList.add(event);
-              }
-              currentDate = currentDate.add(const Duration(days: 1));
-            }
+            _addEventToDateMap(event);
           }
 
           // 로드된 월 추가
@@ -264,6 +252,35 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         });
         _showErrorDialog(_getErrorMessage(e));
       }
+    }
+  }
+
+  /// 일정 기간을 날짜별 맵에 반영한다. end_at은 DB/API 계약상 exclusive로 해석한다.
+  void _addEventToDateMap(EventApiModel event) {
+    final startDate = _normalizeDate(event.startAt);
+    var endDate = _normalizeDate(event.endAt);
+    final endAtMidnight =
+        event.endAt.hour == 0 &&
+        event.endAt.minute == 0 &&
+        event.endAt.second == 0 &&
+        event.endAt.millisecond == 0 &&
+        event.endAt.microsecond == 0;
+
+    if (endAtMidnight) {
+      endDate = endDate.subtract(const Duration(days: 1));
+    }
+    if (endDate.isBefore(startDate)) {
+      endDate = startDate;
+    }
+
+    var currentDate = startDate;
+    while (currentDate.isBefore(endDate) ||
+        currentDate.isAtSameMomentAs(endDate)) {
+      final eventList = _events.putIfAbsent(currentDate, () => []);
+      eventList.removeWhere((e) => e.eventId == event.eventId);
+      eventList.add(event);
+      eventList.sort((a, b) => a.startAt.compareTo(b.startAt));
+      currentDate = currentDate.add(const Duration(days: 1));
     }
   }
 
@@ -484,45 +501,51 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     );
   }
 
-  /// 개인 일정 추가 placeholder 표시
-  void _showPersonalEventPlaceholder() {
-    showCupertinoDialog(
+  /// 개인 일정 추가 모달 표시
+  Future<void> _showPersonalEventModal() async {
+    final initialDate = _normalizeDate(_selected_day ?? DateTime.now());
+    final request = await showCupertinoModalPopup<CreateEventRequest>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('개인 일정 추가'),
-        content: const Text(
-          '개인 일정 추가 기능은 추후 업데이트 예정입니다.\n\n예: 친구 만남, 결혼식, 학원 등',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+      barrierDismissible: true,
+      builder: (context) => PersonalEventFormModal(initialDate: initialDate),
     );
-  }
 
-  /// 미구현 기능 placeholder 표시
-  void _showNotImplementedPlaceholder(String title, String description) {
-    showCupertinoDialog(
+    if (request == null || !mounted) return;
+
+    showCupertinoDialog<void>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(title),
-        content: Text('$description\n\n해당 기능은 추후 업데이트 예정입니다.'),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (context) =>
+          const CupertinoAlertDialog(content: CupertinoActivityIndicator()),
     );
+
+    try {
+      final calendarService = ref.read(calendarServiceProvider);
+      final event = await calendarService.createEvent(request);
+
+      if (mounted) {
+        Navigator.pop(context);
+        final eventDate = _normalizeDate(event.startAt);
+        setState(() {
+          _addEventToDateMap(event);
+          _selected_day = eventDate;
+          _focused_day = eventDate;
+        });
+        _loadCalendarData(eventDate);
+        _loadHolidays(eventDate.year, month: eventDate.month);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        _showErrorDialog(_getErrorMessage(e));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
+      resizeToAvoidBottomInset: false,
       navigationBar: CupertinoNavigationBar(
         middle: const Text('캘린더'),
         trailing: CupertinoButton(
@@ -1602,7 +1625,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             ),
             // 개인 일정 추가하기 버튼
             GestureDetector(
-              onTap: _showPersonalEventPlaceholder,
+              onTap: _showPersonalEventModal,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,

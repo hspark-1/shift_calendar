@@ -29,10 +29,43 @@ class EventApiModel {
       memo: json['memo'] as String?,
       place: json['place'] as String?,
       allDay: json['all_day'] as bool,
-      startAt: DateTime.parse(json['start_at'] as String),
-      endAt: DateTime.parse(json['end_at'] as String),
+      startAt: DateTime.parse(json['start_at'] as String).toLocal(),
+      endAt: DateTime.parse(json['end_at'] as String).toLocal(),
       visibilityLevel: json['visibility_level'] as int,
     );
+  }
+}
+
+/// 개인 일정 생성 요청
+class CreateEventRequest {
+  final String title;
+  final String? memo;
+  final String? place;
+  final bool allDay;
+  final DateTime startAt;
+  final DateTime endAt;
+  final int visibilityLevel;
+
+  CreateEventRequest({
+    required this.title,
+    this.memo,
+    this.place,
+    required this.allDay,
+    required this.startAt,
+    required this.endAt,
+    required this.visibilityLevel,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      if (memo != null && memo!.isNotEmpty) 'memo': memo,
+      if (place != null && place!.isNotEmpty) 'place': place,
+      'all_day': allDay,
+      'start_at': startAt.toUtc().toIso8601String(),
+      'end_at': endAt.toUtc().toIso8601String(),
+      'visibility_level': visibilityLevel,
+    };
   }
 }
 
@@ -66,10 +99,7 @@ class DayScheduleResponse {
   final bool success;
   final DayScheduleData data;
 
-  DayScheduleResponse({
-    required this.success,
-    required this.data,
-  });
+  DayScheduleResponse({required this.success, required this.data});
 
   factory DayScheduleResponse.fromJson(Map<String, dynamic> json) {
     return DayScheduleResponse(
@@ -82,9 +112,9 @@ class DayScheduleResponse {
 /// 기간별 일정 응답 데이터
 class EventsData {
   final List<EventApiModel> events;
-  
+
   EventsData({required this.events});
-  
+
   factory EventsData.fromJson(Map<String, dynamic> json) {
     return EventsData(
       events: (json['events'] as List)
@@ -98,12 +128,9 @@ class EventsData {
 class EventsResponse {
   final bool success;
   final EventsData data;
-  
-  EventsResponse({
-    required this.success,
-    required this.data,
-  });
-  
+
+  EventsResponse({required this.success, required this.data});
+
   factory EventsResponse.fromJson(Map<String, dynamic> json) {
     return EventsResponse(
       success: json['success'] as bool,
@@ -117,10 +144,7 @@ class CalendarRangeData {
   final List<WorkShiftApiModel> workShifts;
   final List<EventApiModel> events;
 
-  CalendarRangeData({
-    required this.workShifts,
-    required this.events,
-  });
+  CalendarRangeData({required this.workShifts, required this.events});
 
   factory CalendarRangeData.fromJson(Map<String, dynamic> json) {
     return CalendarRangeData(
@@ -139,10 +163,7 @@ class CalendarRangeResponse {
   final bool success;
   final CalendarRangeData data;
 
-  CalendarRangeResponse({
-    required this.success,
-    required this.data,
-  });
+  CalendarRangeResponse({required this.success, required this.data});
 
   factory CalendarRangeResponse.fromJson(Map<String, dynamic> json) {
     return CalendarRangeResponse(
@@ -151,4 +172,3 @@ class CalendarRangeResponse {
     );
   }
 }
-

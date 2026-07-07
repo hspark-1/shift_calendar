@@ -60,6 +60,37 @@ CalendarPage
 - 저장된 근무표를 화면에 그릴 때는 `shiftTypesProvider`의 코드별 캐시로 색상/이름/시간을 재해석하지 않는다.
 - 로그인/로그아웃으로 계정이 바뀌면 근무 타입, 근무 템플릿 설정, 친구, 알림 Provider 캐시를 무효화한다.
 
+### 개인 일정 생성/표시 흐름
+
+```
+CalendarPage
+  → PersonalEventFormModal
+  → CalendarService.createEvent()
+  → POST /api/v1/events
+  → EventApiModel
+  → 선택 날짜 일정 목록에 즉시 반영
+```
+
+- 메인 캘린더 선택일 카드의 `일정 추가하기...`는 개인 일정 추가 모달을 띄운다.
+- 입력 필수값은 `title`, `all_day`, `start_at`, `end_at`, `visibility_level`이다.
+- 선택값은 `place`, `memo`이며, 빈 문자열은 요청에서 제외한다.
+- `owner_user_id`, `created_by_user_id`는 서버가 인증 사용자 기준으로 채운다.
+- 프론트는 로컬 `DateTime`을 UTC ISO 문자열로 변환해 요청하고, 응답의 `start_at`/`end_at`은 로컬 시간으로 파싱해 표시한다.
+- 종일 일정은 `end_at`을 배타적 종료 시각으로 사용한다. 하루짜리 종일 일정은 선택일 00:00부터 다음 날 00:00까지로 저장한다.
+- 공개 판단은 서버 책임이다. 내 일정을 친구가 볼 때 서버는 `friend_level_settings.owner_user_id = 내 user_id`,
+  `friend_level_settings.friend_user_id = 조회자 user_id`, `can_view=true`,
+  `friend_level >= events.visibility_level` 조건을 적용한다.
+- API 서버 요청 문서는 `_docs/EVENT_API_GUIDE.md`에 둔다.
+- 파일 역할/의존성/사용 예:
+  - `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`:
+    개인 일정 입력 모달. `CalendarPage`에서 `showCupertinoModalPopup`으로 호출하고
+    저장 시 `CreateEventRequest`를 반환한다. 모달은 전체 화면 고정 높이로 표시하고,
+    키보드 표시 시 모달 자체를 리사이즈하지 않는다. 리스트가 맨 위에 있을 때 아래로
+    스와이프하면 닫힌다. 공개 레벨은 0~5 버튼 클릭이 아니라 좌우 드래그 트랙으로
+    선택한다.
+  - `_docs/EVENT_API_GUIDE.md`: 개인 일정 생성 API, 입력 필수/선택값,
+    공개 레벨 규칙, 서버 DDL 확인 요청을 정리한 서버 구현 문서다.
+
 ### 친구 캘린더 조회 흐름
 
 ```
