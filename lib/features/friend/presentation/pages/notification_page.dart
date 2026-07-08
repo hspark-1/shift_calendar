@@ -2,10 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../data/models/friend_model.dart';
 import '../../data/models/notification_model.dart';
 import '../providers/notification_provider.dart';
 import '../providers/friend_provider.dart';
 import '../widgets/notification_item.dart';
+import 'friend_calendar_page.dart';
 import 'friend_list_page.dart';
 
 /// 알림 페이지
@@ -32,12 +34,8 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
 
     return CupertinoPageScaffold(
       backgroundColor: CupertinoColors.systemGroupedBackground,
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('알림'),
-      ),
-      child: SafeArea(
-        child: _buildContent(state),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('알림')),
+      child: SafeArea(child: _buildContent(state)),
     );
   }
 
@@ -117,20 +115,17 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final notification = state.notifications[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: NotificationItem(
-                    notification: notification,
-                    onActionTap: (action) =>
-                        _handleNotificationAction(notification, action),
-                  ),
-                );
-              },
-              childCount: state.notifications.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final notification = state.notifications[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: NotificationItem(
+                  notification: notification,
+                  onActionTap: (action) =>
+                      _handleNotificationAction(notification, action),
+                ),
+              );
+            }, childCount: state.notifications.length),
           ),
         ),
         // 더 불러오기 인디케이터
@@ -159,8 +154,16 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
               action: action,
             );
         if (success) {
-          // 친구 목록 새로고침
-          ref.read(friendListProvider.notifier).loadFriends();
+          await ref
+              .read(friendListProvider.notifier)
+              .loadFriends(
+                limit: action.type == NotificationActionType.accept ? 100 : 20,
+              );
+          if (!mounted) return;
+
+          if (action.type == NotificationActionType.accept) {
+            _navigateToAcceptedFriendCalendar(notification);
+          }
         } else if (mounted) {
           _showError('요청 처리에 실패했습니다.');
         }
@@ -183,6 +186,31 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
         // 닫기는 별도 처리 불필요
         break;
     }
+  }
+
+  void _navigateToAcceptedFriendCalendar(NotificationModel notification) {
+    final friend = _findFriendById(notification.payload.relatedUserId);
+    if (friend == null) {
+      _showError('친구 정보를 불러오지 못했습니다.');
+      return;
+    }
+
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (context) => FriendCalendarPage(friend: friend),
+      ),
+    );
+  }
+
+  FriendModel? _findFriendById(String? friendUserId) {
+    if (friendUserId == null) return null;
+
+    for (final friend in ref.read(friendListProvider).friends) {
+      if (friend.userId == friendUserId) {
+        return friend;
+      }
+    }
+    return null;
   }
 
   void _showError(String message) {

@@ -489,9 +489,13 @@ Content-Type: application/json
 
 ```json
 {
-  "action": "accept" // "accept" 또는 "reject"
+  "action": "accept"
 }
 ```
+
+| 필드     | 타입   | 필수 | 설명                    |
+| -------- | ------ | ---- | ----------------------- |
+| `action` | string | Y    | `"accept"` 또는 `"reject"` |
 
 #### Response (수락 시)
 
@@ -501,11 +505,29 @@ Content-Type: application/json
   "data": {
     "request_id": "uuid",
     "status": "ACCEPTED",
-    "responded_at": "2026-01-04T12:30:00Z",
+    "responded_at": "2026-01-04T12:30:00.000Z",
     "friendship": {
       "user_id_a": "uuid",
       "user_id_b": "uuid",
-      "created_at": "2026-01-04T12:30:00Z"
+      "created_at": "2026-01-04T12:30:00.000Z"
+    },
+    "notification": {
+      "notification_id": "uuid",
+      "notification_type": "FRIEND_REQUEST_ACCEPTED",
+      "title": "친구 요청 수락",
+      "body": "박철수님의 친구 요청을 수락했습니다.",
+      "payload": {
+        "related_user_id": "uuid",
+        "request_id": "uuid",
+        "user_name": "박철수",
+        "profile_image_url": "https://...",
+        "request_status": "ACCEPTED",
+        "responded_at": "2026-01-04T12:30:00.000Z"
+      },
+      "actions": [],
+      "is_read": true,
+      "read_at": "2026-01-04T12:30:00.000Z",
+      "created_at": "2026-01-04T12:00:00.000Z"
     }
   },
   "message": "친구 요청을 수락했습니다."
@@ -520,11 +542,33 @@ Content-Type: application/json
   "data": {
     "request_id": "uuid",
     "status": "REJECTED",
-    "responded_at": "2026-01-04T12:30:00Z"
+    "responded_at": "2026-01-04T12:30:00.000Z",
+    "notification": {
+      "notification_id": "uuid",
+      "notification_type": "FRIEND_REQUEST_REJECTED",
+      "title": "친구 요청 거절",
+      "body": "박철수님의 친구 요청을 거절했습니다.",
+      "payload": {
+        "related_user_id": "uuid",
+        "request_id": "uuid",
+        "user_name": "박철수",
+        "profile_image_url": "https://...",
+        "request_status": "REJECTED",
+        "responded_at": "2026-01-04T12:30:00.000Z"
+      },
+      "actions": [],
+      "is_read": true,
+      "read_at": "2026-01-04T12:30:00.000Z",
+      "created_at": "2026-01-04T12:00:00.000Z"
+    }
   },
   "message": "친구 요청을 거절했습니다."
 }
 ```
+
+응답의 `data.notification`은 수신자 알림 목록에 있던 원본 `FRIEND_REQUEST` 알림을
+갱신한 결과다. 프론트엔드는 이 객체로 기존 알림 카드를 즉시 교체할 수 있고,
+알림 목록을 다시 조회해도 같은 처리 완료 상태가 반환되어야 한다.
 
 #### Error Codes
 

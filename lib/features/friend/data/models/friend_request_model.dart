@@ -1,4 +1,5 @@
 import 'friend_model.dart';
+import 'notification_model.dart';
 
 /// 친구 요청의 사용자 정보
 class FriendRequestUser {
@@ -70,8 +71,9 @@ class ReceivedFriendRequestModel {
   factory ReceivedFriendRequestModel.fromJson(Map<String, dynamic> json) {
     return ReceivedFriendRequestModel(
       requestId: json['request_id'] as String,
-      requester:
-          FriendRequestUser.fromJson(json['requester'] as Map<String, dynamic>),
+      requester: FriendRequestUser.fromJson(
+        json['requester'] as Map<String, dynamic>,
+      ),
       status: FriendRequestStatus.fromString(json['status'] as String),
       message: json['message'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -103,8 +105,9 @@ class SentFriendRequestModel {
   factory SentFriendRequestModel.fromJson(Map<String, dynamic> json) {
     return SentFriendRequestModel(
       requestId: json['request_id'] as String,
-      addressee:
-          FriendRequestUser.fromJson(json['addressee'] as Map<String, dynamic>),
+      addressee: FriendRequestUser.fromJson(
+        json['addressee'] as Map<String, dynamic>,
+      ),
       status: FriendRequestStatus.fromString(json['status'] as String),
       message: json['message'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -120,19 +123,19 @@ class ReceivedRequestsData {
   final List<ReceivedFriendRequestModel> requests;
   final PaginationInfo pagination;
 
-  ReceivedRequestsData({
-    required this.requests,
-    required this.pagination,
-  });
+  ReceivedRequestsData({required this.requests, required this.pagination});
 
   factory ReceivedRequestsData.fromJson(Map<String, dynamic> json) {
     return ReceivedRequestsData(
       requests: (json['requests'] as List)
-          .map((e) =>
-              ReceivedFriendRequestModel.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) =>
+                ReceivedFriendRequestModel.fromJson(e as Map<String, dynamic>),
+          )
           .toList(),
-      pagination:
-          PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>),
+      pagination: PaginationInfo.fromJson(
+        json['pagination'] as Map<String, dynamic>,
+      ),
     );
   }
 }
@@ -142,10 +145,7 @@ class ReceivedRequestsResponse {
   final bool success;
   final ReceivedRequestsData data;
 
-  ReceivedRequestsResponse({
-    required this.success,
-    required this.data,
-  });
+  ReceivedRequestsResponse({required this.success, required this.data});
 
   factory ReceivedRequestsResponse.fromJson(Map<String, dynamic> json) {
     return ReceivedRequestsResponse(
@@ -160,19 +160,18 @@ class SentRequestsData {
   final List<SentFriendRequestModel> requests;
   final PaginationInfo pagination;
 
-  SentRequestsData({
-    required this.requests,
-    required this.pagination,
-  });
+  SentRequestsData({required this.requests, required this.pagination});
 
   factory SentRequestsData.fromJson(Map<String, dynamic> json) {
     return SentRequestsData(
       requests: (json['requests'] as List)
-          .map((e) =>
-              SentFriendRequestModel.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) => SentFriendRequestModel.fromJson(e as Map<String, dynamic>),
+          )
           .toList(),
-      pagination:
-          PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>),
+      pagination: PaginationInfo.fromJson(
+        json['pagination'] as Map<String, dynamic>,
+      ),
     );
   }
 }
@@ -182,10 +181,7 @@ class SentRequestsResponse {
   final bool success;
   final SentRequestsData data;
 
-  SentRequestsResponse({
-    required this.success,
-    required this.data,
-  });
+  SentRequestsResponse({required this.success, required this.data});
 
   factory SentRequestsResponse.fromJson(Map<String, dynamic> json) {
     return SentRequestsResponse(
@@ -200,15 +196,10 @@ class SendFriendRequestRequest {
   final String addresseeUserId;
   final String? message;
 
-  SendFriendRequestRequest({
-    required this.addresseeUserId,
-    this.message,
-  });
+  SendFriendRequestRequest({required this.addresseeUserId, this.message});
 
   Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{
-      'addressee_user_id': addresseeUserId,
-    };
+    final map = <String, dynamic>{'addressee_user_id': addresseeUserId};
     if (message != null) map['message'] = message;
     return map;
   }
@@ -306,12 +297,14 @@ class RespondRequestData {
   final FriendRequestStatus status;
   final DateTime respondedAt;
   final FriendshipInfo? friendship; // 수락 시에만 포함
+  final NotificationModel? notification;
 
   RespondRequestData({
     required this.requestId,
     required this.status,
     required this.respondedAt,
     this.friendship,
+    this.notification,
   });
 
   factory RespondRequestData.fromJson(Map<String, dynamic> json) {
@@ -321,6 +314,11 @@ class RespondRequestData {
       respondedAt: DateTime.parse(json['responded_at'] as String),
       friendship: json['friendship'] != null
           ? FriendshipInfo.fromJson(json['friendship'] as Map<String, dynamic>)
+          : null,
+      notification: json['notification'] != null
+          ? NotificationModel.fromJson(
+              json['notification'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
@@ -388,4 +386,3 @@ class CancelFriendRequestResponse {
     );
   }
 }
-

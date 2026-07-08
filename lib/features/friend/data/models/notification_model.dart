@@ -13,8 +13,10 @@ enum NotificationType {
     switch (type.toUpperCase()) {
       case 'FRIEND_REQUEST':
         return NotificationType.friendRequest;
+      case 'FRIEND_REQUEST_ACCEPTED':
       case 'FRIEND_ACCEPTED':
         return NotificationType.friendAccepted;
+      case 'FRIEND_REQUEST_REJECTED':
       case 'FRIEND_REJECTED':
         return NotificationType.friendRejected;
       case 'SCHEDULE_SHARED':
@@ -32,9 +34,9 @@ enum NotificationType {
       case NotificationType.friendRequest:
         return 'FRIEND_REQUEST';
       case NotificationType.friendAccepted:
-        return 'FRIEND_ACCEPTED';
+        return 'FRIEND_REQUEST_ACCEPTED';
       case NotificationType.friendRejected:
-        return 'FRIEND_REJECTED';
+        return 'FRIEND_REQUEST_REJECTED';
       case NotificationType.scheduleShared:
         return 'SCHEDULE_SHARED';
       case NotificationType.system:
@@ -73,11 +75,7 @@ class NotificationAction {
   final String label;
   final String? route; // navigate 타입일 때 이동할 경로
 
-  NotificationAction({
-    required this.type,
-    required this.label,
-    this.route,
-  });
+  NotificationAction({required this.type, required this.label, this.route});
 
   factory NotificationAction.fromJson(Map<String, dynamic> json) {
     return NotificationAction(
@@ -88,10 +86,7 @@ class NotificationAction {
   }
 
   Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{
-      'type': type.name,
-      'label': label,
-    };
+    final map = <String, dynamic>{'type': type.name, 'label': label};
     if (route != null) map['route'] = route;
     return map;
   }
@@ -103,6 +98,8 @@ class NotificationPayload {
   final String? requestId;
   final String? userName;
   final String? profileImageUrl;
+  final String? requestStatus;
+  final DateTime? respondedAt;
   final Map<String, dynamic> rawData;
 
   NotificationPayload({
@@ -110,15 +107,23 @@ class NotificationPayload {
     this.requestId,
     this.userName,
     this.profileImageUrl,
+    this.requestStatus,
+    this.respondedAt,
     required this.rawData,
   });
 
   factory NotificationPayload.fromJson(Map<String, dynamic> json) {
+    final respondedAtValue = json['responded_at'];
+
     return NotificationPayload(
       relatedUserId: json['related_user_id'] as String?,
       requestId: json['request_id'] as String?,
       userName: json['user_name'] as String?,
       profileImageUrl: json['profile_image_url'] as String?,
+      requestStatus: json['request_status'] as String?,
+      respondedAt: respondedAtValue is String
+          ? DateTime.tryParse(respondedAtValue)
+          : null,
       rawData: json,
     );
   }
@@ -155,17 +160,46 @@ class NotificationModel {
     required this.createdAt,
   });
 
+  NotificationModel copyWith({
+    String? notificationId,
+    NotificationType? notificationType,
+    String? title,
+    String? body,
+    NotificationPayload? payload,
+    List<NotificationAction>? actions,
+    bool? isRead,
+    DateTime? readAt,
+    DateTime? createdAt,
+  }) {
+    return NotificationModel(
+      notificationId: notificationId ?? this.notificationId,
+      notificationType: notificationType ?? this.notificationType,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      payload: payload ?? this.payload,
+      actions: actions ?? this.actions,
+      isRead: isRead ?? this.isRead,
+      readAt: readAt ?? this.readAt,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       notificationId: json['notification_id'] as String,
-      notificationType:
-          NotificationType.fromString(json['notification_type'] as String),
+      notificationType: NotificationType.fromString(
+        json['notification_type'] as String,
+      ),
       title: json['title'] as String,
       body: json['body'] as String,
       payload: NotificationPayload.fromJson(
-          json['payload'] as Map<String, dynamic>? ?? {}),
-      actions: (json['actions'] as List?)
-              ?.map((e) => NotificationAction.fromJson(e as Map<String, dynamic>))
+        json['payload'] as Map<String, dynamic>? ?? {},
+      ),
+      actions:
+          (json['actions'] as List?)
+              ?.map(
+                (e) => NotificationAction.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       isRead: json['is_read'] as bool,
@@ -194,18 +228,16 @@ class NotificationsData {
   final List<NotificationModel> notifications;
   final PaginationInfo pagination;
 
-  NotificationsData({
-    required this.notifications,
-    required this.pagination,
-  });
+  NotificationsData({required this.notifications, required this.pagination});
 
   factory NotificationsData.fromJson(Map<String, dynamic> json) {
     return NotificationsData(
       notifications: (json['notifications'] as List)
           .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
           .toList(),
-      pagination:
-          PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>),
+      pagination: PaginationInfo.fromJson(
+        json['pagination'] as Map<String, dynamic>,
+      ),
     );
   }
 }
@@ -215,10 +247,7 @@ class NotificationsResponse {
   final bool success;
   final NotificationsData data;
 
-  NotificationsResponse({
-    required this.success,
-    required this.data,
-  });
+  NotificationsResponse({required this.success, required this.data});
 
   factory NotificationsResponse.fromJson(Map<String, dynamic> json) {
     return NotificationsResponse(
@@ -233,10 +262,7 @@ class UnreadCountResponse {
   final bool success;
   final int unreadCount;
 
-  UnreadCountResponse({
-    required this.success,
-    required this.unreadCount,
-  });
+  UnreadCountResponse({required this.success, required this.unreadCount});
 
   factory UnreadCountResponse.fromJson(Map<String, dynamic> json) {
     return UnreadCountResponse(
@@ -245,4 +271,3 @@ class UnreadCountResponse {
     );
   }
 }
-
