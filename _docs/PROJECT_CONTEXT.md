@@ -104,12 +104,44 @@ FriendListPage
 
 - 친구 목록 항목 선택 시 기존 `FriendDetailPage`가 아니라 `FriendCalendarPage`로 진입한다.
 - `FriendCalendarPage` 오른쪽 설정 버튼은 기존 `FriendDetailPage`로 이동한다.
+- `FriendDetailPage`에서 친구 삭제가 성공하면 `Navigator.pop(true)`로 삭제 결과를
+  `FriendCalendarPage`에 반환하고, `FriendCalendarPage`가 자기 자신을 닫아 친구 리스트로
+  복귀한다.
 - 친구 캘린더 응답은 기존 `CalendarRangeResponse` 형식(`work_shifts`, `events`)을 재사용한다.
 - 공개 판단은 서버 책임이다. 서버는 `friend_level_settings.owner_user_id = friend_user_id`,
   `friend_level_settings.friend_user_id = viewer_user_id`, `can_view=true`,
   `friend_level >= events.visibility_level` 조건을 적용한 결과만 반환한다.
 - 친구 근무표 색상/이름/시간은 현재 사용자 템플릿 Provider가 아니라
   `WorkShiftApiModel` 응답 필드를 직접 사용한다.
+
+### 친구 요청 알림 응답 흐름
+
+```
+NotificationPage
+  → NotificationNotifier.handleNotificationAction()
+  → 원본 FRIEND_REQUEST 알림을 처리 완료 알림으로 즉시 교체
+  → FriendService.respondToRequest()
+  → PUT /api/v1/friend-requests/:request_id/respond
+  → 응답 data.notification으로 알림 카드 최종 교체
+```
+
+- 친구 요청 알림의 수락/거절 버튼을 누르면 프론트는 서버 응답을 기다리기 전에
+  기존 알림 카드를 `FRIEND_REQUEST_ACCEPTED` 또는 `FRIEND_REQUEST_REJECTED`
+  상태로 낙관적 교체한다.
+- 낙관적 알림은 `actions=[]`, `is_read=true`, `read_at/responded_at=현재 시각`,
+  `payload.request_status=ACCEPTED|REJECTED`를 사용해 버튼이 즉시 사라지도록 한다.
+- 서버 성공 응답에 `data.notification`이 있으면 그 객체로 같은 알림 카드를 다시 교체한다.
+  서버가 이전 계약처럼 `notification`을 반환하지 않으면 `responded_at` 기준으로 만든
+  낙관적 완료 알림을 유지한다.
+- 수락 액션이 성공하면 `NotificationPage`는 친구 목록을 다시 조회한 뒤
+  `payload.related_user_id`와 일치하는 친구를 찾아 `FriendCalendarPage`로 이동한다.
+  거절 액션은 알림 상태만 갱신하고 화면 이동하지 않는다.
+- 응답 처리 중 또는 처리 직후 알림 목록 재조회가 실행되어 서버 목록에 완료 알림이 빠져 있어도,
+  프론트는 같은 `notification_id` 또는 `payload.request_id`의 로컬 처리 완료 알림을 병합해
+  현재 화면에서 카드가 사라지지 않게 한다.
+- 서버 실패 시에는 교체 전 원본 알림 목록으로 롤백하고 기존 에러 다이얼로그 흐름을 사용한다.
+- 알림 타입 파서는 서버 신규 타입 `FRIEND_REQUEST_ACCEPTED`/`FRIEND_REQUEST_REJECTED`와
+  기존 타입 `FRIEND_ACCEPTED`/`FRIEND_REJECTED`를 모두 수용한다.
 
 # 사용하는 DB Schema
 

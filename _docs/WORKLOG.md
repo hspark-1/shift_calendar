@@ -2,6 +2,51 @@
 
 ## 2026-07-08
 
+- [DONE] (FE) 친구 요청 수락 후 친구 캘린더 이동
+  - 목적: 알림에서 친구 요청을 수락하면 수락된 친구의 스케줄/캘린더 화면을 바로 보여준다.
+  - 변경: `NotificationPage`에서 친구 요청 수락 액션 성공 후 친구 목록을 다시 조회하고, 알림 `payload.related_user_id`와 일치하는 `FriendModel`을 찾아 `FriendCalendarPage`로 이동하도록 했다. 거절 액션은 기존처럼 목록 새로고침만 수행하고 화면 이동하지 않는다. 수락 후 친구 정보를 찾지 못하면 오류 다이얼로그를 표시한다.
+  - 영향범위: 알림 페이지 친구 요청 수락 후 화면 전환, 친구 목록 Provider 재조회, 친구 캘린더 진입 흐름
+  - 파일: `lib/features/friend/presentation/pages/notification_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/presentation/pages/notification_page.dart` 통과, `flutter analyze lib/features/friend/presentation/pages/notification_page.dart lib/features/friend/presentation/pages/friend_calendar_page.dart lib/features/friend/presentation/providers/friend_provider.dart` 통과, `git diff --check` 통과
+  - 롤백: `NotificationPage`의 `FriendCalendarPage`/`FriendModel` import, `_navigateToAcceptedFriendCalendar()`, `_findFriendById()`를 제거하고, 수락 성공 시 친구 목록만 다시 불러오도록 되돌린다. PROJECT_CONTEXT의 수락 후 친구 캘린더 이동 설명을 제거한다.
+  - 다음: 실제 기기에서 친구 요청 알림 수락 후 수락한 친구의 캘린더 화면으로 이동하고, 거절 시에는 이동하지 않는지 확인
+
+- [DONE] (FE) 친구 삭제 후 친구 리스트 복귀 보장
+  - 목적: 친구 리스트 > 친구 캘린더 > 설정 > 삭제 흐름에서 삭제 성공 후 친구 캘린더가 남지 않고 친구 리스트 화면으로 복귀하게 한다.
+  - 변경: `FriendDetailPage`가 삭제 성공 시 직접 두 번 pop하지 않고 `Navigator.of(context).pop(true)`로 삭제 결과를 반환하도록 변경했다. `FriendCalendarPage._navigateToSettings()`는 `FriendDetailPage` push 결과를 `await`하고, 결과가 `true`이면 자기 자신을 한 번 pop해 친구 리스트로 복귀한다. 연속 pop이 route 전환 중 두 번째 pop을 처리하지 못해 친구 캘린더가 남는 문제를 결과 전달 방식으로 제거했다.
+  - 영향범위: 친구 리스트 > 친구 캘린더 > 친구 정보 > 삭제 성공 후 화면 복귀 동작
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `lib/features/friend/presentation/pages/friend_detail_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/presentation/pages/friend_detail_page.dart lib/features/friend/presentation/pages/friend_calendar_page.dart` 통과, `flutter analyze lib/features/friend/presentation/pages/friend_detail_page.dart lib/features/friend/presentation/pages/friend_calendar_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `FriendCalendarPage._navigateToSettings()`를 단순 push로 되돌리고, `FriendDetailPage` 삭제 성공 시 기존 단일 pop 또는 이전 `_popAfterDeleteSuccess()` 방식으로 되돌린다. PROJECT_CONTEXT의 삭제 결과 반환 설명을 제거한다.
+  - 다음: 실제 기기에서 친구 리스트 > 친구 > 설정 > 삭제 확인 후 친구 리스트 화면이 남고 삭제된 친구 행이 사라지는지 확인
+
+- [DONE] (FE) 친구 삭제 성공 후 두 단계 뒤로가기 적용
+  - 목적: 친구 상세 화면에서 친구 삭제 확인 시 삭제 성공 후 뒤로가기를 두 번 실행해 이전 중간 화면까지 함께 닫는다.
+  - 변경: `FriendDetailPage._deleteFriend()`에서 삭제 API 성공 후 `_popAfterDeleteSuccess()`를 호출하도록 변경했다. `_popAfterDeleteSuccess()`는 현재 `Navigator`를 보관한 뒤 `canPop()`이 허용하는 범위에서 최대 두 번 `pop()`을 실행해 친구 상세 화면과 직전 친구 캘린더 화면을 함께 닫는다. 삭제 API 응답 대기 중 화면이 사라진 경우 `setState()`가 실행되지 않도록 `mounted` 확인을 추가했다.
+  - 영향범위: 친구 상세 화면의 친구 삭제 성공 후 화면 복귀 동작
+  - 파일: `lib/features/friend/presentation/pages/friend_detail_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/presentation/pages/friend_detail_page.dart` 통과, `flutter analyze lib/features/friend/presentation/pages/friend_detail_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `_popAfterDeleteSuccess()`를 제거하고 삭제 성공 시 기존처럼 `Navigator.of(context).pop()` 한 번만 호출하도록 되돌린다. PROJECT_CONTEXT의 친구 삭제 두 단계 뒤로가기 설명을 제거한다.
+  - 다음: 실제 기기에서 친구 캘린더 → 친구 정보 → 친구 삭제 확인 후 친구 목록 화면까지 돌아가는지 확인
+
+- [DONE] (FE) 친구 요청 수락 시 알림 카드 사라짐 원인 확인
+  - 목적: 친구 요청 수락 버튼을 누르면 처리 완료 카드로 교체되지 않고 알림이 화면에서 사라지는 문제를 확인한다.
+  - 변경: 알림 Provider에 로컬 처리 완료 알림 캐시를 추가했다. 수락/거절 버튼을 누르면 낙관적 완료 알림을 캐시에 저장하고, `loadNotifications()`/`loadMore()`가 서버 목록을 다시 가져올 때 같은 `notification_id` 또는 `payload.request_id` 기준으로 로컬 완료 알림을 병합한다. 서버 목록에 처리 완료 알림이 빠져 있거나 응답 처리 중 재조회가 끼어들어도 현재 화면의 완료 알림 카드가 사라지지 않도록 했다. 서버 응답의 알림 ID가 원본과 달라도 `request_id` 기준으로 중복 캐시를 제거한다.
+  - 영향범위: 알림 페이지 친구 요청 수락/거절 후 카드 유지, 알림 목록 새로고침/페이지네이션 병합, 친구 요청 알림 응답 문서
+  - 파일: `lib/features/friend/presentation/providers/notification_provider.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/presentation/providers/notification_provider.dart` 통과, `flutter analyze lib/features/friend/presentation/providers/notification_provider.dart lib/features/friend/data/models/notification_model.dart lib/features/friend/data/models/friend_request_model.dart` 통과, `git diff --check` 통과
+  - 롤백: `NotificationNotifier`의 `_locallyRespondedNotifications`, `_mergeLocalRespondedNotifications`, `_cacheLocalRespondedNotification`, `_removeLocalRespondedNotification`, `_isSameNotification` 병합/캐시 로직을 제거하고 `loadNotifications()`/`loadMore()`가 서버 응답 목록만 사용하도록 되돌린다. PROJECT_CONTEXT의 로컬 병합 설명을 제거한다.
+  - 다음: 실제 기기에서 친구 요청 수락/거절 직후 카드가 처리 완료 상태로 유지되는지, 당겨서 새로고침 후에도 현재 화면에서 사라지지 않는지 확인
+
+- [DONE] (FE) 친구 요청 알림 응답 낙관적 UI 반영
+  - 목적: 친구 요청 알림에서 수락/거절 버튼을 누른 즉시 서버가 갱신할 알림 상태를 화면에 먼저 반영한다.
+  - 변경: `NotificationNotifier.handleNotificationAction()`이 친구 요청 수락/거절 버튼 탭 시 원본 `FRIEND_REQUEST` 알림을 즉시 처리 완료 알림으로 교체하도록 했다. 낙관적 알림은 `FRIEND_REQUEST_ACCEPTED`/`FRIEND_REQUEST_REJECTED`, `actions=[]`, `is_read=true`, `payload.request_status`, `responded_at` 값을 사용한다. 서버 성공 응답의 `data.notification`이 있으면 해당 객체로 다시 교체하고, 없으면 응답 `responded_at` 기준의 완료 알림을 유지한다. 실패 시 원본 알림 목록으로 롤백한다. 알림 모델은 신규 타입과 기존 `FRIEND_ACCEPTED`/`FRIEND_REJECTED` 타입을 모두 파싱하고, 친구 요청 응답 모델은 `data.notification`을 파싱한다.
+  - 영향범위: 알림 페이지 친구 요청 수락/거절 카드 표시, 알림 액션 버튼 제거 시점, 친구 요청 응답 API 파싱, 친구 요청 알림 API 문서
+  - 파일: `lib/features/friend/presentation/providers/notification_provider.dart`, `lib/features/friend/data/models/notification_model.dart`, `lib/features/friend/data/models/friend_request_model.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_API_GUIDE.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/data/models/notification_model.dart lib/features/friend/data/models/friend_request_model.dart lib/features/friend/presentation/providers/notification_provider.dart` 통과, `flutter analyze lib/features/friend/data/models/notification_model.dart lib/features/friend/data/models/friend_request_model.dart lib/features/friend/presentation/providers/notification_provider.dart` 통과, `git diff --check` 통과
+  - 롤백: `NotificationNotifier`의 `_respondToFriendRequest`, `_buildRespondedNotification`, `_replaceNotification` 흐름을 제거하고 기존 성공 후 `_removeNotification` 방식으로 되돌린다. `RespondRequestData.notification`과 `NotificationPayload.requestStatus/respondedAt`, 신규 알림 타입 파싱, 관련 문서 변경을 제거한다.
+  - 다음: 실제 API에서 수락/거절 시 버튼이 즉시 사라지고 처리 완료 문구로 바뀐 뒤, 새로고침 후에도 서버 `data.notification`과 동일한 카드가 유지되는지 확인
+
 - [DONE] (FE) 개인 일정 공개 레벨 드래그 선택 UI 적용
   - 목적: 개인 일정 추가 모달의 공개 레벨 선택을 개별 버튼 클릭 방식이 아니라 좌우 드래그 방식으로 변경한다.
   - 변경: 공개 레벨 0~5 개별 `GestureDetector` 버튼 Row를 제거하고, 하나의 드래그 트랙과 선택 핸들 UI로 교체했다. 사용자가 트랙을 좌우로 드래그하면 터치 위치를 0~5 레벨로 매핑해 `_visibilityLevel`을 갱신한다. 선택된 레벨은 파란 핸들과 채워진 트랙으로 표시한다.
