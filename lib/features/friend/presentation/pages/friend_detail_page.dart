@@ -9,10 +9,7 @@ import '../providers/friend_provider.dart';
 class FriendDetailPage extends ConsumerStatefulWidget {
   final FriendModel friend;
 
-  const FriendDetailPage({
-    super.key,
-    required this.friend,
-  });
+  const FriendDetailPage({super.key, required this.friend});
 
   @override
   ConsumerState<FriendDetailPage> createState() => _FriendDetailPageState();
@@ -34,9 +31,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: CupertinoColors.systemGroupedBackground,
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('친구 정보'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('친구 정보')),
       child: SafeArea(
         child: ListView(
           children: [
@@ -87,9 +82,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
         // 이름
         Text(
           widget.friend.name,
-          style: AppTheme.heading_medium.copyWith(
-            color: CupertinoColors.label,
-          ),
+          style: AppTheme.heading_medium.copyWith(color: CupertinoColors.label),
         ),
         const SizedBox(height: 4),
         // 이메일
@@ -115,9 +108,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
   Widget _buildLevelSection() {
     return CupertinoListSection.insetGrouped(
       header: const Text('친구 레벨 설정'),
-      footer: const Text(
-        '레벨이 높을수록 더 많은 일정을 공유합니다.\n레벨 0: 근무표만 공유',
-      ),
+      footer: const Text('레벨이 높을수록 더 많은 일정을 공유합니다.\n레벨 0: 근무표만 공유'),
       children: [
         CupertinoListTile(
           title: const Text('친구 레벨'),
@@ -162,9 +153,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
   Widget _buildViewSettingSection() {
     return CupertinoListSection.insetGrouped(
       header: const Text('열람 설정'),
-      footer: const Text(
-        '비활성화하면 이 친구가 내 캘린더를 볼 수 없습니다.\n친구 관계는 유지됩니다.',
-      ),
+      footer: const Text('비활성화하면 이 친구가 내 캘린더를 볼 수 없습니다.\n친구 관계는 유지됩니다.'),
       children: [
         CupertinoListTile(
           title: const Text('내 캘린더 공유'),
@@ -202,10 +191,12 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
       _selectedLevel = level;
     });
 
-    final success = await ref.read(friendListProvider.notifier).updateFriendSettings(
-      friendUserId: widget.friend.userId,
-      friendLevel: level,
-    );
+    final success = await ref
+        .read(friendListProvider.notifier)
+        .updateFriendSettings(
+          friendUserId: widget.friend.userId,
+          friendLevel: level,
+        );
 
     setState(() => _isUpdating = false);
 
@@ -224,10 +215,12 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
       _canView = canView;
     });
 
-    final success = await ref.read(friendListProvider.notifier).updateFriendSettings(
-      friendUserId: widget.friend.userId,
-      canView: canView,
-    );
+    final success = await ref
+        .read(friendListProvider.notifier)
+        .updateFriendSettings(
+          friendUserId: widget.friend.userId,
+          canView: canView,
+        );
 
     setState(() => _isUpdating = false);
 
@@ -270,11 +263,13 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
         .read(friendListProvider.notifier)
         .deleteFriend(widget.friend.userId);
 
+    if (!mounted) return;
+
     setState(() => _isUpdating = false);
 
-    if (success && mounted) {
-      Navigator.of(context).pop();
-    } else if (mounted) {
+    if (success) {
+      Navigator.of(context).pop(true);
+    } else {
       _showError('친구 삭제에 실패했습니다.');
     }
   }
@@ -295,4 +290,3 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
     );
   }
 }
-

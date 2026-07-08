@@ -153,12 +153,18 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
     });
   }
 
-  void _navigateToSettings() {
-    Navigator.of(context).push(
-      CupertinoPageRoute<void>(
+  Future<void> _navigateToSettings() async {
+    final wasDeleted = await Navigator.of(context).push<bool>(
+      CupertinoPageRoute<bool>(
         builder: (context) => FriendDetailPage(friend: widget.friend),
       ),
     );
+    if (!mounted || wasDeleted != true) return;
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
   }
 
   void _showErrorDialog(String message) {
