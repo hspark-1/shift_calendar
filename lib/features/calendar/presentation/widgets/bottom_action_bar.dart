@@ -29,12 +29,9 @@ class BottomActionBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: AppTheme.surface_color,
         border: Border(
-          top: BorderSide(
-            color: CupertinoColors.systemGrey5,
-            width: 0.5,
-          ),
+          top: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
         ),
       ),
       child: SafeArea(
@@ -49,9 +46,7 @@ class BottomActionBar extends StatelessWidget {
               label: mode == BottomActionBarMode.main ? '친구' : '시간',
               onTap: onFriendTap,
             ),
-            _buildCalendarButton(
-              onTap: onCalendarTap,
-            ),
+            _buildCalendarButton(onTap: onCalendarTap),
             _buildActionButton(
               icon: CupertinoIcons.bell,
               label: '알림',
@@ -79,22 +74,19 @@ class BottomActionBar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
-              border: Border.all(color: CupertinoColors.systemGrey4),
+              color: AppTheme.surface_color,
+              border: Border.all(color: AppTheme.outline_variant_color),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: CupertinoColors.label,
-                ),
+                Icon(icon, size: 18, color: AppTheme.on_surface_color),
                 const SizedBox(width: 6),
                 Text(
                   label,
                   style: AppTheme.body_small.copyWith(
-                    color: CupertinoColors.label,
+                    color: AppTheme.on_surface_color,
                   ),
                 ),
               ],
@@ -111,10 +103,7 @@ class BottomActionBar extends StatelessWidget {
                   color: CupertinoColors.systemRed,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                constraints: const BoxConstraints(
-                  minWidth: 18,
-                  minHeight: 18,
-                ),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                 child: Center(
                   child: Text(
                     badgeCount > 99 ? '99+' : '$badgeCount',
@@ -142,14 +131,15 @@ class BottomActionBar extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          border: Border.all(color: CupertinoColors.systemGrey4),
+          color: AppTheme.surface_color,
+          border: Border.all(color: AppTheme.outline_variant_color),
           borderRadius: BorderRadius.circular(22),
         ),
         child: Center(
           child: Text(
             '$today',
             style: AppTheme.heading_small.copyWith(
-              color: CupertinoColors.label,
+              color: AppTheme.on_surface_color,
             ),
           ),
         ),
@@ -157,4 +147,3 @@ class BottomActionBar extends StatelessWidget {
     );
   }
 }
-

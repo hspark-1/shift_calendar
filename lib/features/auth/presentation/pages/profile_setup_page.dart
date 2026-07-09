@@ -138,17 +138,17 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       context: context,
       builder: (context) => Container(
         height: 300,
-        color: CupertinoColors.systemBackground.resolveFrom(context),
+        color: AppTheme.surface_color,
         child: Column(
           children: [
             // 헤더
             Container(
               height: 44,
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey6.resolveFrom(context),
+              decoration: const BoxDecoration(
+                color: AppTheme.surface_container_low_color,
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.separator.resolveFrom(context),
+                    color: AppTheme.outline_variant_color,
                     width: 0.5,
                   ),
                 ),
@@ -200,7 +200,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
         middle: const Text('프로필 설정'),
         trailing: _is_loading
@@ -239,7 +239,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
             height: 100,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: CupertinoColors.systemGrey5,
+              color: AppTheme.surface_container_color,
               image: widget.user.profile_image_url != null
                   ? DecorationImage(
                       image: NetworkImage(widget.user.profile_image_url!),
@@ -251,7 +251,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                 ? const Icon(
                     CupertinoIcons.person_fill,
                     size: 50,
-                    color: CupertinoColors.systemGrey,
+                    color: AppTheme.outline_color,
                   )
                 : null,
           ),
@@ -260,7 +260,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
             '프로필 사진',
             style: TextStyle(
               fontSize: 13,
-              color: CupertinoColors.systemGrey.resolveFrom(context),
+              color: AppTheme.on_surface_variant_color,
             ),
           ),
         ],

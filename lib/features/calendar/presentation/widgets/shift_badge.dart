@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../providers/shift_types_provider.dart';
 
 /// 근무 타입 배지 위젯
@@ -19,7 +20,7 @@ class ShiftBadge extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftTypesMap = ref.watch(shiftTypesMapProvider);
     final shiftInfo = shiftTypesMap[shift_type];
-    final color = shiftInfo?.color ?? CupertinoColors.systemGrey;
+    final color = shiftInfo?.color ?? AppTheme.outline_color;
     final label = shiftInfo?.name ?? shift_type;
 
     if (show_label) {
@@ -27,7 +28,7 @@ class ShiftBadge extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppTheme.chip_radius),
           border: Border.all(color: color, width: 1),
         ),
         child: Row(

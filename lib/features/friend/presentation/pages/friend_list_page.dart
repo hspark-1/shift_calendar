@@ -31,7 +31,7 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
     final state = ref.watch(friendListProvider);
 
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
         middle: const Text('친구'),
         trailing: CupertinoButton(
@@ -57,13 +57,13 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
             const Icon(
               CupertinoIcons.exclamationmark_circle,
               size: 48,
-              color: CupertinoColors.systemGrey,
+              color: AppTheme.outline_color,
             ),
             const SizedBox(height: 16),
             Text(
               getErrorMessage(state.error),
               style: AppTheme.body_medium.copyWith(
-                color: CupertinoColors.systemGrey,
+                color: AppTheme.on_surface_variant_color,
               ),
               textAlign: TextAlign.center,
             ),
@@ -86,20 +86,20 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
             const Icon(
               CupertinoIcons.person_2,
               size: 64,
-              color: CupertinoColors.systemGrey3,
+              color: AppTheme.outline_variant_color,
             ),
             const SizedBox(height: 16),
             Text(
               '아직 친구가 없습니다',
               style: AppTheme.body_large.copyWith(
-                color: CupertinoColors.systemGrey,
+                color: AppTheme.on_surface_color,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               '친구를 추가하여 일정을 공유해보세요',
               style: AppTheme.body_small.copyWith(
-                color: CupertinoColors.systemGrey2,
+                color: AppTheme.on_surface_variant_color,
               ),
             ),
             const SizedBox(height: 24),

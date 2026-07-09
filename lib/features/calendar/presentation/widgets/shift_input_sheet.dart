@@ -78,8 +78,10 @@ class _ShiftInputSheetState extends ConsumerState<ShiftInputSheet> {
     return Container(
       height: 320,
       decoration: const BoxDecoration(
-        color: CupertinoColors.systemBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        color: AppTheme.surface_color,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.card_radius),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -91,7 +93,7 @@ class _ShiftInputSheetState extends ConsumerState<ShiftInputSheet> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.systemGrey5,
+                    color: AppTheme.outline_variant_color,
                     width: 0.5,
                   ),
                 ),
@@ -115,16 +117,8 @@ class _ShiftInputSheetState extends ConsumerState<ShiftInputSheet> {
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: CupertinoColors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: CupertinoColors.systemGrey.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+              decoration: AppTheme.cardDecoration(
+                radius: AppTheme.input_radius,
               ),
               child: Row(
                 children: [
@@ -143,7 +137,7 @@ class _ShiftInputSheetState extends ConsumerState<ShiftInputSheet> {
                     Text(
                       shiftInfo.timeDisplay,
                       style: AppTheme.body_small.copyWith(
-                        color: CupertinoColors.systemGrey,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
                   ] else ...[
@@ -151,7 +145,7 @@ class _ShiftInputSheetState extends ConsumerState<ShiftInputSheet> {
                     Text(
                       '근무를 선택하세요',
                       style: AppTheme.body_medium.copyWith(
-                        color: CupertinoColors.systemGrey,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
                   ],
@@ -172,7 +166,7 @@ class _ShiftInputSheetState extends ConsumerState<ShiftInputSheet> {
                     Text(
                       '버튼을 누르면 다음 날로 자동 이동합니다',
                       style: AppTheme.body_small.copyWith(
-                        color: CupertinoColors.systemGrey2,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
                     const SizedBox(height: 8),

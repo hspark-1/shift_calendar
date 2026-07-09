@@ -8,11 +8,7 @@ class FriendListItem extends StatelessWidget {
   final FriendModel friend;
   final VoidCallback? onTap;
 
-  const FriendListItem({
-    super.key,
-    required this.friend,
-    this.onTap,
-  });
+  const FriendListItem({super.key, required this.friend, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -20,10 +16,7 @@ class FriendListItem extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: CupertinoColors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: AppTheme.cardDecoration(),
         child: Row(
           children: [
             // 프로필 이미지
@@ -44,7 +37,7 @@ class FriendListItem extends StatelessWidget {
                   Text(
                     friend.email,
                     style: AppTheme.body_small.copyWith(
-                      color: CupertinoColors.secondaryLabel,
+                      color: AppTheme.on_surface_variant_color,
                     ),
                   ),
                 ],
@@ -57,7 +50,7 @@ class FriendListItem extends StatelessWidget {
             const Icon(
               CupertinoIcons.chevron_forward,
               size: 16,
-              color: CupertinoColors.systemGrey3,
+              color: AppTheme.outline_variant_color,
             ),
           ],
         ),
@@ -71,7 +64,7 @@ class FriendListItem extends StatelessWidget {
       height: 48,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: CupertinoColors.systemGrey5,
+        color: AppTheme.surface_container_color,
         image: friend.profileImageUrl != null
             ? DecorationImage(
                 image: NetworkImage(friend.profileImageUrl!),
@@ -83,7 +76,7 @@ class FriendListItem extends StatelessWidget {
           ? const Icon(
               CupertinoIcons.person_fill,
               size: 24,
-              color: CupertinoColors.systemGrey2,
+              color: AppTheme.outline_color,
             )
           : null,
     );
@@ -94,16 +87,12 @@ class FriendListItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: _getLevelColor().withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.chip_radius),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            CupertinoIcons.star_fill,
-            size: 12,
-            color: _getLevelColor(),
-          ),
+          Icon(CupertinoIcons.star_fill, size: 12, color: _getLevelColor()),
           const SizedBox(width: 4),
           Text(
             'Lv.${friend.friendLevel}',
@@ -125,7 +114,7 @@ class FriendListItem extends StatelessWidget {
       case 1:
         return CupertinoColors.systemGreen;
       case 2:
-        return CupertinoColors.systemBlue;
+        return AppTheme.primary_color;
       case 3:
         return CupertinoColors.systemPurple;
       case 4:
@@ -137,4 +126,3 @@ class FriendListItem extends StatelessWidget {
     }
   }
 }
-

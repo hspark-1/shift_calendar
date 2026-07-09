@@ -65,14 +65,16 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
             : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         height: sheetHeight,
-        decoration: BoxDecoration(
-          color: CupertinoColors.systemBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        decoration: const BoxDecoration(
+          color: AppTheme.surface_color,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.card_radius),
+          ),
         ),
         child: Column(
           children: [
             _buildDraggableHeader(),
-            Container(height: 1, color: CupertinoColors.systemGrey5),
+            Container(height: 1, color: AppTheme.outline_variant_color),
             // 검색 필드
             Padding(
               padding: const EdgeInsets.all(16),
@@ -82,7 +84,7 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
                   Text(
                     '이메일 또는 전화번호로 친구를 찾아보세요',
                     style: AppTheme.body_small.copyWith(
-                      color: CupertinoColors.secondaryLabel,
+                      color: AppTheme.on_surface_variant_color,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -109,8 +111,8 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
                         width: 44,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: CupertinoColors.systemBlue,
-                          borderRadius: BorderRadius.circular(10),
+                          color: AppTheme.primary_color,
+                          borderRadius: AppTheme.input_border_radius,
                         ),
                         child: CupertinoButton(
                           padding: EdgeInsets.zero,
@@ -167,7 +169,7 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
             width: 36,
             height: 5,
             decoration: BoxDecoration(
-              color: CupertinoColors.systemGrey4,
+              color: AppTheme.outline_variant_color,
               borderRadius: BorderRadius.circular(2.5),
             ),
           ),
@@ -208,13 +210,13 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
             const Icon(
               CupertinoIcons.person_badge_minus,
               size: 48,
-              color: CupertinoColors.systemGrey3,
+              color: AppTheme.outline_variant_color,
             ),
             const SizedBox(height: 16),
             Text(
               message,
               style: AppTheme.body_medium.copyWith(
-                color: CupertinoColors.secondaryLabel,
+                color: AppTheme.on_surface_variant_color,
               ),
               textAlign: TextAlign.center,
             ),
@@ -231,13 +233,13 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
             const Icon(
               CupertinoIcons.search,
               size: 48,
-              color: CupertinoColors.systemGrey3,
+              color: AppTheme.outline_variant_color,
             ),
             const SizedBox(height: 16),
             Text(
               '친구의 이메일 또는 전화번호를\n입력해주세요',
               style: AppTheme.body_medium.copyWith(
-                color: CupertinoColors.secondaryLabel,
+                color: AppTheme.on_surface_variant_color,
               ),
               textAlign: TextAlign.center,
             ),
@@ -254,13 +256,13 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
             const Icon(
               CupertinoIcons.person_badge_minus,
               size: 48,
-              color: CupertinoColors.systemGrey3,
+              color: AppTheme.outline_variant_color,
             ),
             const SizedBox(height: 16),
             Text(
               '사용자를 찾을 수 없습니다',
               style: AppTheme.body_medium.copyWith(
-                color: CupertinoColors.secondaryLabel,
+                color: AppTheme.on_surface_variant_color,
               ),
             ),
           ],
@@ -280,11 +282,7 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
       width: double.infinity,
       constraints: const BoxConstraints(minHeight: 280),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: CupertinoColors.systemGrey5, width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -295,7 +293,7 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
                 height: 64,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: CupertinoColors.systemGrey5,
+                  color: AppTheme.surface_container_color,
                   image: user.profileImageUrl != null
                       ? DecorationImage(
                           image: NetworkImage(user.profileImageUrl!),
@@ -307,7 +305,7 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
                     ? const Icon(
                         CupertinoIcons.person_fill,
                         size: 30,
-                        color: CupertinoColors.systemGrey2,
+                        color: AppTheme.outline_color,
                       )
                     : null,
               ),
@@ -329,7 +327,7 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
                     Text(
                       user.email,
                       style: AppTheme.body_medium.copyWith(
-                        color: CupertinoColors.secondaryLabel,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

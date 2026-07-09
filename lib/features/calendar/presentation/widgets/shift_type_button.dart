@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../providers/shift_types_provider.dart';
 
 /// 근무 유형 선택 버튼 위젯
@@ -31,21 +32,12 @@ class ShiftTypeButton extends ConsumerWidget {
         decoration: BoxDecoration(
           color: is_selected
               ? color.withValues(alpha: 0.2)
-              : CupertinoColors.white,
+              : AppTheme.surface_color,
           shape: BoxShape.circle,
           border: Border.all(
-            color: is_selected ? color : CupertinoColors.systemGrey4,
+            color: is_selected ? color : AppTheme.outline_variant_color,
             width: is_selected ? 2.5 : 1,
           ),
-          boxShadow: is_selected
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -55,7 +47,7 @@ class ShiftTypeButton extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: is_selected ? FontWeight.bold : FontWeight.w500,
-                color: is_selected ? color : CupertinoColors.label,
+                color: is_selected ? color : AppTheme.on_surface_color,
               ),
             ),
           ],

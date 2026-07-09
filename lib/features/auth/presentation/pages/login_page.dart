@@ -118,7 +118,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppTheme.background_color,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -155,9 +155,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primary_color.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                color: AppTheme.primary_color.withValues(alpha: 0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -173,24 +173,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ),
         const SizedBox(height: 24),
         // 앱 이름
-        const Text(
-          'Shift Calendar',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: CupertinoColors.label,
-            letterSpacing: -0.5,
-          ),
-        ),
+        const Text('Shift Calendar', style: AppTheme.heading_large),
         const SizedBox(height: 8),
         // 설명
         Text(
           '교대 근무 일정을 쉽게 관리하고\n친구들과 공유하세요',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            color: CupertinoColors.systemGrey.resolveFrom(context),
-            height: 1.5,
+          style: AppTheme.body_large.copyWith(
+            color: AppTheme.on_surface_variant_color,
           ),
         ),
       ],
@@ -206,13 +196,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         decoration: BoxDecoration(
           color: const Color(0xFFFEE500),
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFEE500).withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: _is_loading
             ? const Center(
@@ -264,13 +247,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         decoration: BoxDecoration(
           color: const Color(0xFF03C75A),
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF03C75A).withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: _is_loading
             ? const Center(

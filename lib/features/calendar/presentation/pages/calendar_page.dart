@@ -389,8 +389,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       builder: (context) => Container(
         height: 300,
         decoration: const BoxDecoration(
-          color: CupertinoColors.systemBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          color: AppTheme.surface_color,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.card_radius),
+          ),
         ),
         child: Column(
           children: [
@@ -400,7 +402,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.systemGrey5,
+                    color: AppTheme.outline_variant_color,
                     width: 0.5,
                   ),
                 ),
@@ -559,7 +561,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         ),
       ),
       child: Container(
-        color: CupertinoColors.systemGroupedBackground,
+        color: AppTheme.background_color,
         child: Column(
           children: [
             Expanded(
@@ -664,8 +666,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               CupertinoIcons.chevron_left,
               size: 20,
               color: _canGoToPreviousMonth()
-                  ? CupertinoColors.label
-                  : CupertinoColors.systemGrey3,
+                  ? AppTheme.on_surface_color
+                  : AppTheme.outline_variant_color,
             ),
           ),
           // 년/월 표시 및 선택 버튼
@@ -674,26 +676,18 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  yearMonth,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                    color: CupertinoColors.label,
-                  ),
-                ),
+                Text(yearMonth, style: AppTheme.heading_medium),
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey5,
-                    borderRadius: BorderRadius.circular(6),
+                    color: AppTheme.surface_container_low_color,
+                    borderRadius: BorderRadius.circular(AppTheme.radius_md),
                   ),
                   child: const Icon(
                     CupertinoIcons.chevron_down,
                     size: 12,
-                    color: CupertinoColors.secondaryLabel,
+                    color: AppTheme.on_surface_variant_color,
                   ),
                 ),
               ],
@@ -707,8 +701,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               CupertinoIcons.chevron_right,
               size: 20,
               color: _canGoToNextMonth()
-                  ? CupertinoColors.label
-                  : CupertinoColors.systemGrey3,
+                  ? AppTheme.on_surface_color
+                  : AppTheme.outline_variant_color,
             ),
           ),
           const Spacer(),
@@ -724,8 +718,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               decoration: BoxDecoration(
                 color: _is_shift_add_mode
                     ? AppTheme.primary_color.withValues(alpha: 0.15)
-                    : CupertinoColors.systemGrey6.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(10),
+                    : AppTheme.surface_container_low_color,
+                borderRadius: BorderRadius.circular(AppTheme.input_radius),
               ),
               child: Icon(
                 _is_shift_add_mode ? CupertinoIcons.xmark : CupertinoIcons.add,
@@ -1230,7 +1224,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             availableGestures: AvailableGestures.horizontalSwipe,
             daysOfWeekStyle: DaysOfWeekStyle(
               weekdayStyle: AppTheme.body_small.copyWith(
-                color: CupertinoColors.label,
+                color: AppTheme.on_surface_color,
                 fontWeight: FontWeight.w600,
               ),
               weekendStyle: AppTheme.body_small.copyWith(
@@ -1241,7 +1235,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             calendarStyle: CalendarStyle(
               outsideDaysVisible: true,
               outsideTextStyle: TextStyle(
-                color: CupertinoColors.label.withValues(alpha: 0.25),
+                color: AppTheme.on_surface_color.withValues(alpha: 0.25),
               ),
               todayDecoration: BoxDecoration(
                 color: AppTheme.primary_color.withValues(alpha: 0.25),
@@ -1265,7 +1259,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               ),
               // 주말 텍스트 색상 제거 (토요일은 평일 색상으로 처리하기 위해)
               // weekendTextStyle은 제거하고 defaultBuilder에서 처리
-              defaultTextStyle: const TextStyle(color: CupertinoColors.label),
+              defaultTextStyle: const TextStyle(
+                color: AppTheme.on_surface_color,
+              ),
             ),
             // 공휴일 판단
             holidayPredicate: (day) {
@@ -1327,7 +1323,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   );
                 } else {
                   textStyle = AppTheme.body_small.copyWith(
-                    color: CupertinoColors.label,
+                    color: AppTheme.on_surface_color,
                     fontWeight: FontWeight.w600,
                   );
                 }
@@ -1364,7 +1360,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 // 주말이면 빨간색, 그 외는 평일 색상
                 final textColor = isWeekend
                     ? CupertinoColors.systemRed
-                    : CupertinoColors.label;
+                    : AppTheme.on_surface_color;
 
                 // 확장 모드일 때는 근무 코드도 함께 표시
                 if (_is_expanded_view) {
@@ -1389,7 +1385,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 // 주말이면 빨간색, 그 외는 평일 색상 (투명도 적용)
                 final textColor = isWeekend
                     ? CupertinoColors.systemRed
-                    : CupertinoColors.label;
+                    : AppTheme.on_surface_color;
 
                 // 확장 모드일 때는 근무 코드도 함께 표시
                 if (_is_expanded_view) {
@@ -1542,19 +1538,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.systemGrey.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppTheme.card_border_radius,
         child: Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1565,7 +1551,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.systemGrey5,
+                    color: AppTheme.outline_variant_color,
                     width: 0.5,
                   ),
                 ),
@@ -1584,7 +1570,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         Text(
                           '$totalCount개의 일정',
                           style: AppTheme.body_small.copyWith(
-                            color: CupertinoColors.systemGrey,
+                            color: AppTheme.on_surface_variant_color,
                           ),
                         ),
                     ],
@@ -1634,7 +1620,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(
-                      color: CupertinoColors.systemGrey5,
+                      color: AppTheme.outline_variant_color,
                       width: 0.5,
                     ),
                   ),
@@ -1672,19 +1658,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.black.withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppTheme.card_border_radius,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1697,7 +1673,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 color: AppTheme.primary_color.withValues(alpha: 0.05),
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.systemGrey5,
+                    color: AppTheme.outline_variant_color,
                     width: 0.5,
                   ),
                 ),
@@ -1732,7 +1708,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   Text(
                     '버튼을 누르면 다음 날로 자동 이동합니다',
                     style: AppTheme.body_small.copyWith(
-                      color: CupertinoColors.systemGrey2,
+                      color: AppTheme.on_surface_variant_color,
                     ),
                   ),
                 ],
@@ -1746,7 +1722,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 child: CupertinoButton(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   color: AppTheme.primary_color,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppTheme.input_border_radius,
                   onPressed: _completeShiftAddMode,
                   child: const Text(
                     '완료',
@@ -1815,14 +1791,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       workShift.shiftTypeName,
                       style: AppTheme.body_medium.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: CupertinoColors.label,
+                        color: AppTheme.on_surface_color,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _formatWorkShiftTime(workShift),
                       style: AppTheme.body_small.copyWith(
-                        color: CupertinoColors.secondaryLabel,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
                   ],
@@ -1832,7 +1808,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               Icon(
                 CupertinoIcons.chevron_left,
                 size: 14,
-                color: CupertinoColors.systemGrey3,
+                color: AppTheme.outline_variant_color,
               ),
             ],
           ),
@@ -1886,7 +1862,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     event.title,
                     style: AppTheme.body_medium.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: CupertinoColors.label,
+                      color: AppTheme.on_surface_color,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1895,7 +1871,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       Text(
                         timeDisplay,
                         style: AppTheme.body_small.copyWith(
-                          color: CupertinoColors.secondaryLabel,
+                          color: AppTheme.on_surface_variant_color,
                         ),
                       ),
                       if (event.place != null && event.place!.isNotEmpty) ...[
@@ -1903,7 +1879,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                         Text(
                           '• ${event.place}',
                           style: AppTheme.body_small.copyWith(
-                            color: CupertinoColors.secondaryLabel,
+                            color: AppTheme.on_surface_variant_color,
                           ),
                         ),
                       ],
@@ -1914,7 +1890,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     Text(
                       event.memo!,
                       style: AppTheme.body_small.copyWith(
-                        color: CupertinoColors.secondaryLabel,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1941,13 +1917,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           Icon(
             CupertinoIcons.calendar,
             size: 32,
-            color: CupertinoColors.systemGrey4,
+            color: AppTheme.outline_variant_color,
           ),
           const SizedBox(height: 6),
           Text(
             '등록된 일정이 없습니다',
             style: AppTheme.body_medium.copyWith(
-              color: CupertinoColors.systemGrey2,
+              color: AppTheme.on_surface_variant_color,
             ),
           ),
         ],

@@ -70,8 +70,10 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
       builder: (context) => Container(
         height: 300,
         decoration: const BoxDecoration(
-          color: CupertinoColors.systemBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          color: AppTheme.surface_color,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.card_radius),
+          ),
         ),
         child: Column(
           children: [
@@ -81,7 +83,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.systemGrey5,
+                    color: AppTheme.outline_variant_color,
                     width: 0.5,
                   ),
                 ),
@@ -274,7 +276,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
             child: const Icon(
               CupertinoIcons.chevron_left,
               size: 20,
-              color: CupertinoColors.label,
+              color: AppTheme.on_surface_color,
             ),
           ),
           // 년/월 표시 및 선택 버튼
@@ -283,26 +285,18 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  yearMonth,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                    color: CupertinoColors.label,
-                  ),
-                ),
+                Text(yearMonth, style: AppTheme.heading_medium),
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey5,
-                    borderRadius: BorderRadius.circular(6),
+                    color: AppTheme.surface_container_low_color,
+                    borderRadius: BorderRadius.circular(AppTheme.radius_md),
                   ),
                   child: const Icon(
                     CupertinoIcons.chevron_down,
                     size: 12,
-                    color: CupertinoColors.secondaryLabel,
+                    color: AppTheme.on_surface_variant_color,
                   ),
                 ),
               ],
@@ -315,7 +309,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
             child: const Icon(
               CupertinoIcons.chevron_right,
               size: 20,
-              color: CupertinoColors.label,
+              color: AppTheme.on_surface_color,
             ),
           ),
           const Spacer(),
@@ -349,7 +343,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
       rowHeight: 48,
       daysOfWeekStyle: DaysOfWeekStyle(
         weekdayStyle: AppTheme.body_small.copyWith(
-          color: CupertinoColors.label,
+          color: AppTheme.on_surface_color,
           fontWeight: FontWeight.w600,
         ),
         weekendStyle: AppTheme.body_small.copyWith(
@@ -360,7 +354,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
       calendarStyle: CalendarStyle(
         outsideDaysVisible: true,
         outsideTextStyle: TextStyle(
-          color: CupertinoColors.label.withValues(alpha: 0.25),
+          color: AppTheme.on_surface_color.withValues(alpha: 0.25),
         ),
         todayDecoration: BoxDecoration(
           color: AppTheme.primary_color.withValues(alpha: 0.25),
@@ -379,7 +373,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
           fontWeight: FontWeight.bold,
         ),
         weekendTextStyle: const TextStyle(color: CupertinoColors.systemRed),
-        defaultTextStyle: const TextStyle(color: CupertinoColors.label),
+        defaultTextStyle: const TextStyle(color: AppTheme.on_surface_color),
       ),
       selectedDayPredicate: (day) {
         return isSameDay(_selected_day, day);
@@ -420,17 +414,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.systemGrey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppTheme.cardDecoration(radius: AppTheme.input_radius),
       child: Row(
         children: [
           Text(dateFormat.format(_selected_day), style: AppTheme.heading_small),
@@ -441,7 +425,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
             Text(
               shiftInfo.timeDisplay,
               style: AppTheme.body_small.copyWith(
-                color: CupertinoColors.systemGrey,
+                color: AppTheme.on_surface_variant_color,
               ),
             ),
           ] else ...[
@@ -449,7 +433,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
             Text(
               '근무를 선택하세요',
               style: AppTheme.body_medium.copyWith(
-                color: CupertinoColors.systemGrey,
+                color: AppTheme.on_surface_variant_color,
               ),
             ),
           ],
@@ -463,23 +447,13 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.systemGrey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: Column(
         children: [
           Text(
             '근무 유형 선택',
             style: AppTheme.body_medium.copyWith(
-              color: CupertinoColors.systemGrey,
+              color: AppTheme.on_surface_variant_color,
             ),
           ),
           const SizedBox(height: 16),
@@ -491,7 +465,7 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
           Text(
             '버튼을 누르면 다음 날로 자동 이동합니다',
             style: AppTheme.body_small.copyWith(
-              color: CupertinoColors.systemGrey2,
+              color: AppTheme.on_surface_variant_color,
             ),
           ),
         ],

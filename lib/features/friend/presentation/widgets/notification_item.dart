@@ -21,12 +21,12 @@ class NotificationItem extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: notification.isRead
-            ? CupertinoColors.white
-            : AppTheme.primary_color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
+            ? AppTheme.surface_color
+            : AppTheme.primary_color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.card_radius),
         border: Border.all(
           color: notification.isRead
-              ? CupertinoColors.systemGrey5
+              ? AppTheme.outline_variant_color
               : AppTheme.primary_color.withValues(alpha: 0.2),
           width: 1,
         ),
@@ -53,7 +53,7 @@ class NotificationItem extends StatelessWidget {
                     Text(
                       _formatTimeAgo(notification.createdAt),
                       style: AppTheme.body_small.copyWith(
-                        color: CupertinoColors.secondaryLabel,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
                   ],
@@ -76,7 +76,7 @@ class NotificationItem extends StatelessWidget {
           Text(
             notification.body,
             style: AppTheme.body_medium.copyWith(
-              color: CupertinoColors.label,
+              color: AppTheme.on_surface_color,
             ),
           ),
           // 액션 버튼 (동적 생성)
@@ -96,7 +96,7 @@ class NotificationItem extends StatelessWidget {
     switch (notification.notificationType) {
       case NotificationType.friendRequest:
         icon = CupertinoIcons.person_add;
-        color = CupertinoColors.systemBlue;
+        color = AppTheme.primary_color;
         break;
       case NotificationType.friendAccepted:
         icon = CupertinoIcons.person_2_fill;
@@ -127,11 +127,7 @@ class NotificationItem extends StatelessWidget {
         shape: BoxShape.circle,
         color: color.withValues(alpha: 0.15),
       ),
-      child: Icon(
-        icon,
-        size: 20,
-        color: color,
-      ),
+      child: Icon(icon, size: 20, color: color),
     );
   }
 
@@ -160,16 +156,16 @@ class NotificationItem extends StatelessWidget {
         textColor = CupertinoColors.white;
         break;
       case NotificationActionType.reject:
-        backgroundColor = CupertinoColors.systemGrey5;
-        textColor = CupertinoColors.label.resolveFrom(context);
+        backgroundColor = AppTheme.surface_container_color;
+        textColor = AppTheme.on_surface_color;
         break;
       case NotificationActionType.navigate:
-        backgroundColor = CupertinoColors.systemBlue.withValues(alpha: 0.15);
-        textColor = CupertinoColors.systemBlue;
+        backgroundColor = AppTheme.primary_color.withValues(alpha: 0.15);
+        textColor = AppTheme.primary_color;
         break;
       case NotificationActionType.dismiss:
-        backgroundColor = CupertinoColors.systemGrey5;
-        textColor = CupertinoColors.secondaryLabel.resolveFrom(context);
+        backgroundColor = AppTheme.surface_container_color;
+        textColor = AppTheme.on_surface_variant_color;
         break;
     }
 
@@ -177,7 +173,7 @@ class NotificationItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: backgroundColor,
       minSize: 0,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppTheme.chip_radius),
       onPressed: () => onActionTap?.call(action),
       child: Text(
         action.label,
@@ -207,4 +203,3 @@ class NotificationItem extends StatelessWidget {
     }
   }
 }
-

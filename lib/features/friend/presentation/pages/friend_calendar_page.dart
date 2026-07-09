@@ -186,7 +186,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
         middle: Text(widget.friend.name),
         trailing: CupertinoButton(
@@ -220,7 +220,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
             height: 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: CupertinoColors.systemGrey5,
+              color: AppTheme.surface_container_color,
               image: widget.friend.profileImageUrl != null
                   ? DecorationImage(
                       image: NetworkImage(widget.friend.profileImageUrl!),
@@ -232,7 +232,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                 ? const Icon(
                     CupertinoIcons.person_fill,
                     size: 22,
-                    color: CupertinoColors.systemGrey2,
+                    color: AppTheme.outline_color,
                   )
                 : null,
           ),
@@ -245,14 +245,14 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                   widget.friend.name,
                   style: AppTheme.body_medium.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: CupertinoColors.label,
+                    color: AppTheme.on_surface_color,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   widget.friend.email,
                   style: AppTheme.body_small.copyWith(
-                    color: CupertinoColors.secondaryLabel,
+                    color: AppTheme.on_surface_variant_color,
                   ),
                 ),
               ],
@@ -277,20 +277,13 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
               CupertinoIcons.chevron_left,
               size: 20,
               color: _canGoToPreviousMonth()
-                  ? CupertinoColors.label
-                  : CupertinoColors.systemGrey3,
+                  ? AppTheme.on_surface_color
+                  : AppTheme.outline_variant_color,
             ),
           ),
           Expanded(
             child: Center(
-              child: Text(
-                yearMonth,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: CupertinoColors.label,
-                ),
-              ),
+              child: Text(yearMonth, style: AppTheme.heading_medium),
             ),
           ),
           CupertinoButton(
@@ -300,8 +293,8 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
               CupertinoIcons.chevron_right,
               size: 20,
               color: _canGoToNextMonth()
-                  ? CupertinoColors.label
-                  : CupertinoColors.systemGrey3,
+                  ? AppTheme.on_surface_color
+                  : AppTheme.outline_variant_color,
             ),
           ),
         ],
@@ -336,7 +329,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
           },
           daysOfWeekStyle: DaysOfWeekStyle(
             weekdayStyle: AppTheme.body_small.copyWith(
-              color: CupertinoColors.label,
+              color: AppTheme.on_surface_color,
               fontWeight: FontWeight.w600,
             ),
             weekendStyle: AppTheme.body_small.copyWith(
@@ -374,7 +367,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                   style: AppTheme.body_small.copyWith(
                     color: isWeekend
                         ? CupertinoColors.systemRed
-                        : CupertinoColors.label,
+                        : AppTheme.on_surface_color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -420,7 +413,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
         ? CupertinoColors.systemRed
         : isToday
         ? AppTheme.primary_color
-        : CupertinoColors.label;
+        : AppTheme.on_surface_color;
 
     return SizedBox(
       height: 58,
@@ -496,12 +489,9 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppTheme.card_border_radius,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -510,7 +500,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.systemGrey5,
+                    color: AppTheme.outline_variant_color,
                     width: 0.5,
                   ),
                 ),
@@ -523,7 +513,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                     Text(
                       '$totalCount개의 일정',
                       style: AppTheme.body_small.copyWith(
-                        color: CupertinoColors.systemGrey,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
                 ],
@@ -556,7 +546,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppTheme.input_border_radius,
         border: Border(left: BorderSide(color: color, width: 4)),
       ),
       child: Row(
@@ -575,14 +565,14 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                   workShift.shiftTypeName,
                   style: AppTheme.body_medium.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: CupertinoColors.label,
+                    color: AppTheme.on_surface_color,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   timeText,
                   style: AppTheme.body_small.copyWith(
-                    color: CupertinoColors.secondaryLabel,
+                    color: AppTheme.on_surface_variant_color,
                   ),
                 ),
               ],
@@ -610,7 +600,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.primary_color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppTheme.input_border_radius,
         border: const Border(
           left: BorderSide(color: AppTheme.primary_color, width: 4),
         ),
@@ -634,7 +624,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                   event.title,
                   style: AppTheme.body_medium.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: CupertinoColors.label,
+                    color: AppTheme.on_surface_color,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -643,7 +633,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                     Text(
                       timeText,
                       style: AppTheme.body_small.copyWith(
-                        color: CupertinoColors.secondaryLabel,
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
                     if (event.place != null && event.place!.isNotEmpty) ...[
@@ -652,7 +642,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                         child: Text(
                           event.place!,
                           style: AppTheme.body_small.copyWith(
-                            color: CupertinoColors.secondaryLabel,
+                            color: AppTheme.on_surface_variant_color,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -665,7 +655,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                   Text(
                     event.memo!,
                     style: AppTheme.body_small.copyWith(
-                      color: CupertinoColors.secondaryLabel,
+                      color: AppTheme.on_surface_variant_color,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -684,7 +674,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
       child: Text(
         '등록된 일정이 없습니다',
         style: AppTheme.body_medium.copyWith(
-          color: CupertinoColors.systemGrey2,
+          color: AppTheme.on_surface_variant_color,
         ),
       ),
     );
