@@ -126,7 +126,7 @@ class CreateShiftTypeRequest {
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{'code': code, 'name': name};
-    if (color != null) json['color'] = color;
+    if (color != null) json['color'] = formatApiColorValue(color!);
     if (startTime != null) json['start_time'] = startTime;
     if (endTime != null) json['end_time'] = endTime;
     if (sortOrder != null) json['sort_order'] = sortOrder;
@@ -171,7 +171,7 @@ class UpdateShiftTypeRequest {
     final json = <String, dynamic>{};
     if (code != null) json['code'] = code;
     if (name != null) json['name'] = name;
-    if (color != null) json['color'] = color;
+    if (color != null) json['color'] = formatApiColorValue(color!);
     // 시간 필드: Partial update이지만 시간은 특별 처리
     // - 둘 다 null이면 스케줄 삭제를 위해 명시적으로 null 전송
     // - 둘 다 값이 있으면 스케줄 업데이트/생성

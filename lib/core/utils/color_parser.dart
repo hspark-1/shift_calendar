@@ -25,6 +25,12 @@ int? parseApiColorValue(dynamic colorValue) {
   return null;
 }
 
+/// Flutter `Color` 정수값을 서버 요청용 `#AARRGGBB` 문자열로 변환한다.
+String formatApiColorValue(int colorValue) {
+  final normalizedColor = colorValue & 0xFFFFFFFF;
+  return '#${normalizedColor.toRadixString(16).padLeft(8, '0').toUpperCase()}';
+}
+
 int? _parseHexColor(String hexColor) {
   final normalizedHex = hexColor.trim();
   if (normalizedHex.length == 6) {
