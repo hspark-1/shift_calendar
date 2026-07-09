@@ -33,9 +33,9 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
     final state = ref.watch(notificationProvider);
 
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppTheme.background_color,
       navigationBar: const CupertinoNavigationBar(middle: Text('알림')),
-      child: SafeArea(child: _buildContent(state)),
+      child: SafeArea(bottom: false, child: _buildContent(state)),
     );
   }
 
@@ -54,13 +54,13 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
             const Icon(
               CupertinoIcons.exclamationmark_circle,
               size: 48,
-              color: CupertinoColors.systemGrey,
+              color: AppTheme.outline_color,
             ),
             const SizedBox(height: 16),
             Text(
               getNotificationErrorMessage(state.error),
               style: AppTheme.body_medium.copyWith(
-                color: CupertinoColors.systemGrey,
+                color: AppTheme.on_surface_variant_color,
               ),
               textAlign: TextAlign.center,
             ),
@@ -84,20 +84,20 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
             const Icon(
               CupertinoIcons.bell_slash,
               size: 64,
-              color: CupertinoColors.systemGrey3,
+              color: AppTheme.outline_variant_color,
             ),
             const SizedBox(height: 16),
             Text(
               '알림이 없습니다',
               style: AppTheme.body_large.copyWith(
-                color: CupertinoColors.systemGrey,
+                color: AppTheme.on_surface_color,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               '새로운 알림이 오면 여기에 표시됩니다',
               style: AppTheme.body_small.copyWith(
-                color: CupertinoColors.systemGrey2,
+                color: AppTheme.on_surface_variant_color,
               ),
             ),
           ],
@@ -136,7 +136,32 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
               child: Center(child: CupertinoActivityIndicator()),
             ),
           ),
+        SliverToBoxAdapter(child: _buildListFooter(state)),
       ],
+    );
+  }
+
+  Widget _buildListFooter(NotificationState state) {
+    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+    final footerPadding = bottomSafeArea + 28.0;
+    final pagination = state.pagination;
+    final hasMoreNotifications =
+        pagination != null && pagination.page < pagination.totalPages;
+
+    if (state.isLoading || hasMoreNotifications) {
+      return SizedBox(height: footerPadding);
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, footerPadding),
+      child: Center(
+        child: Text(
+          '모든 알림을 확인했습니다',
+          style: AppTheme.body_small.copyWith(
+            color: AppTheme.on_surface_variant_color,
+          ),
+        ),
+      ),
     );
   }
 
