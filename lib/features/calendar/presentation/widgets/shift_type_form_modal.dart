@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/shift_type_api_model.dart';
 
 /// 근무 타입 추가/편집 모달
@@ -23,7 +24,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
 
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-  Color _selectedColor = CupertinoColors.systemBlue;
+  Color _selectedColor = AppTheme.primary_color;
 
   @override
   void initState() {
@@ -86,7 +87,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   /// 색상 선택
   Future<void> _selectColor() async {
     final colors = [
-      CupertinoColors.systemBlue,
+      AppTheme.primary_color,
       CupertinoColors.systemGreen,
       CupertinoColors.systemOrange,
       const Color(0xFFF5A623), // 오렌지
@@ -118,7 +119,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                 color: color,
                 shape: BoxShape.circle,
                 border: _selectedColor == color
-                    ? Border.all(color: CupertinoColors.systemBlue, width: 3)
+                    ? Border.all(color: AppTheme.primary_color, width: 3)
                     : null,
               ),
             ),
@@ -143,11 +144,15 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+
             return Container(
-              height: 300,
+              height: 300 + bottomSafeArea,
               decoration: const BoxDecoration(
-                color: CupertinoColors.systemBackground,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                color: AppTheme.surface_color,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.card_radius),
+                ),
               ),
               child: Column(
                 children: [
@@ -155,10 +160,10 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                   Container(
                     height: 44,
                     decoration: const BoxDecoration(
-                      color: CupertinoColors.systemGrey6,
+                      color: AppTheme.surface_container_low_color,
                       border: Border(
                         bottom: BorderSide(
-                          color: CupertinoColors.separator,
+                          color: AppTheme.outline_variant_color,
                           width: 0.5,
                         ),
                       ),
@@ -210,6 +215,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                       },
                     ),
                   ),
+                  SizedBox(height: bottomSafeArea),
                 ],
               ),
             );
@@ -302,7 +308,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
 
     final code = _codeController.text.trim().toUpperCase();
     final name = _nameController.text.trim();
-    final color = _selectedColor.value;
+    final color = _selectedColor.toARGB32();
     final startTime = _startTime != null
         ? _timeOfDayToTimeString(_startTime!)
         : null;
@@ -338,9 +344,10 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.shiftType != null;
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 32;
 
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
         middle: Text(isEdit ? '근무 타입 편집' : '근무 타입 추가'),
         leading: CupertinoNavigationBarBackButton(
@@ -356,9 +363,10 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
         ),
       ),
       child: SafeArea(
+        bottom: false,
         child: ListView(
+          padding: EdgeInsets.fromLTRB(0, 20, 0, bottomPadding),
           children: [
-            const SizedBox(height: 20),
             // 입력 폼
             CupertinoListSection.insetGrouped(
               children: [
@@ -405,10 +413,9 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '#${_selectedColor.value.toRadixString(16).substring(2).toUpperCase()}',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          color: CupertinoColors.secondaryLabel,
+                        '#${_selectedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+                        style: AppTheme.body_medium.copyWith(
+                          color: AppTheme.on_surface_variant_color,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -426,19 +433,10 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                       if (_startTime != null)
                         Text(
                           _timeOfDayToDisplayString(_startTime!),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: CupertinoColors.label,
-                          ),
+                          style: AppTheme.body_medium,
                         )
                       else
-                        const Text(
-                          '시간 선택',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: CupertinoColors.tertiaryLabel,
-                          ),
-                        ),
+                        const Text('시간 선택', style: AppTheme.body_medium),
                       if (_startTime != null) ...[
                         const SizedBox(width: 8),
                         CupertinoButton(
@@ -456,7 +454,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                       const Icon(
                         CupertinoIcons.time,
                         size: 20,
-                        color: CupertinoColors.systemBlue,
+                        color: AppTheme.primary_color,
                       ),
                     ],
                   ),
@@ -471,19 +469,10 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                       if (_endTime != null)
                         Text(
                           _timeOfDayToDisplayString(_endTime!),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: CupertinoColors.label,
-                          ),
+                          style: AppTheme.body_medium,
                         )
                       else
-                        const Text(
-                          '시간 선택',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: CupertinoColors.tertiaryLabel,
-                          ),
-                        ),
+                        const Text('시간 선택', style: AppTheme.body_medium),
                       if (_endTime != null) ...[
                         const SizedBox(width: 8),
                         CupertinoButton(
@@ -501,7 +490,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                       const Icon(
                         CupertinoIcons.time,
                         size: 20,
-                        color: CupertinoColors.systemBlue,
+                        color: AppTheme.primary_color,
                       ),
                     ],
                   ),

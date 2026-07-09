@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/shift_type_api_model.dart';
 import '../providers/shift_template_settings_provider.dart';
 import '../providers/shift_types_provider.dart';
@@ -18,6 +19,8 @@ class ShiftTemplateSettingsPage extends ConsumerStatefulWidget {
 
 class _ShiftTemplateSettingsPageState
     extends ConsumerState<ShiftTemplateSettingsPage> {
+  static const int _maxShiftTypes = 10;
+
   @override
   void initState() {
     super.initState();
@@ -59,9 +62,8 @@ class _ShiftTemplateSettingsPageState
     final state = ref.read(shiftTemplateSettingsProvider);
 
     // 최대 10개 제한 체크
-    const maxShiftTypes = 10;
-    if (state.shiftTypes.length >= maxShiftTypes) {
-      _showErrorDialog('근무 타입은 최대 $maxShiftTypes개까지 설정할 수 있습니다.');
+    if (state.shiftTypes.length >= _maxShiftTypes) {
+      _showErrorDialog('근무 타입은 최대 $_maxShiftTypes개까지 설정할 수 있습니다.');
       return;
     }
 
@@ -182,188 +184,168 @@ class _ShiftTemplateSettingsPageState
     }
   }
 
-  /// 템플릿 이름 변경
-  Future<void> _updateTemplateName() async {
-    final state = ref.read(shiftTemplateSettingsProvider);
-    final currentName = state.templateName ?? '';
-
-    final newName = await showCupertinoDialog<String>(
-      context: context,
-      builder: (context) {
-        final controller = TextEditingController(text: currentName);
-        return CupertinoAlertDialog(
-          title: const Text('템플릿 이름 변경'),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: CupertinoTextField(
-              controller: controller,
-              placeholder: '템플릿 이름',
-              autofocus: true,
-            ),
-          ),
-          actions: [
-            CupertinoDialogAction(
-              child: const Text('취소'),
-              onPressed: () => Navigator.pop(context),
-            ),
-            CupertinoDialogAction(
-              child: const Text('저장'),
-              onPressed: () => Navigator.pop(context, controller.text),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (newName != null && newName.trim().isNotEmpty && mounted) {
-      showCupertinoDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) =>
-            const CupertinoAlertDialog(content: CupertinoActivityIndicator()),
-      );
-
-      final success = await ref
-          .read(shiftTemplateSettingsProvider.notifier)
-          .updateTemplateName(newName.trim());
-
-      if (mounted) {
-        Navigator.pop(context); // 로딩 다이얼로그 닫기
-        if (!success) {
-          final errorState = ref.read(shiftTemplateSettingsProvider);
-          _showErrorDialog(_getErrorMessage(errorState.error));
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(shiftTemplateSettingsProvider);
+    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+    final showsShiftTypeList =
+        !(state.is_loading && state.shiftTypes.isEmpty) &&
+        !(state.error != null && state.shiftTypes.isEmpty);
+    final hasReachedMaxShiftTypes = state.shiftTypes.length >= _maxShiftTypes;
 
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: AppTheme.background_color,
+      navigationBar: CupertinoNavigationBar(
+        backgroundColor: AppTheme.background_color,
+        border: const Border(
+          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 1),
+        ),
+        middle: Text(
+          '근무 패턴 설정',
+          style: AppTheme.heading_small.copyWith(
+            color: AppTheme.on_surface_color,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
       child: SafeArea(
-        child: state.is_loading && state.shiftTypes.isEmpty
-            ? const Center(child: CupertinoActivityIndicator())
-            : state.error != null && state.shiftTypes.isEmpty
-            ? Center(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: state.is_loading && state.shiftTypes.isEmpty
+                  ? const Center(child: CupertinoActivityIndicator())
+                  : state.error != null && state.shiftTypes.isEmpty
+                  ? _buildErrorState(state.error)
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
+                      children: [
+                        _buildShiftTypeHeader(state.shiftTypes.length),
+                        const SizedBox(height: 10),
+                        ...state.shiftTypes.map(
+                          (shiftType) => ShiftTypeCard(
+                            shiftType: shiftType,
+                            onTap: () => _editShiftType(shiftType),
+                            onDelete: () => _deleteShiftType(shiftType),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            if (showsShiftTypeList)
+              Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, bottomSafeArea + 16),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      _getErrorMessage(state.error),
-                      style: const TextStyle(
-                        color: CupertinoColors.destructiveRed,
+                    _buildAddButton(state),
+                    if (hasReachedMaxShiftTypes) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '근무 타입은 최대 $_maxShiftTypes개까지 설정할 수 있습니다.\n기존 타입을 삭제하면 다시 추가할 수 있어요.',
+                        style: AppTheme.body_small.copyWith(
+                          color: AppTheme.on_surface_variant_color,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    CupertinoButton(
-                      onPressed: () {
-                        ref
-                            .read(shiftTemplateSettingsProvider.notifier)
-                            .loadData();
-                      },
-                      child: const Text('다시 시도'),
-                    ),
+                    ],
                   ],
                 ),
-              )
-            : CustomScrollView(
-                slivers: [
-                  // 템플릿 정보 섹션
-                  CupertinoSliverNavigationBar(
-                    largeTitle: Text(state.templateName ?? '템플릿'),
-                    trailing: state.is_loading
-                        ? const CupertinoActivityIndicator()
-                        : CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: _updateTemplateName,
-                            child: const Text('이름 변경'),
-                          ),
-                    border: null,
-                    stretch: true,
-                    backgroundColor: CupertinoColors.systemGroupedBackground,
-                  ),
-                  // SliverToBoxAdapter(
-                  //   child: Padding(
-                  //     padding: const EdgeInsets.all(16),
-                  //     child: Column(
-                  //       crossAxisAlignment: CrossAxisAlignment.start,
-                  //       children: [
-                  //         if (state.templateId != null) ...[
-                  //           Text(
-                  //             '템플릿 ID: ${state.templateId}',
-                  //             style: const TextStyle(
-                  //               fontSize: 13,
-                  //               color: CupertinoColors.tertiaryLabel,
-                  //             ),
-                  //           ),
-                  //           const SizedBox(height: 8),
-                  //         ],
-                  //       ],
-                  //     ),
-                  //   ),
-                  // ),
-                  // 근무 타입 목록
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            child: Text(
-                              '근무 타입',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          ...state.shiftTypes.map(
-                            (shiftType) => ShiftTypeCard(
-                              shiftType: shiftType,
-                              onTap: () => _editShiftType(shiftType),
-                              onDelete: () => _deleteShiftType(shiftType),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // 추가 버튼
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          CupertinoButton.filled(
-                            onPressed: state.is_loading ? null : _addShiftType,
-                            child: const Text('+ 근무 타입 추가'),
-                          ),
-                          if (state.shiftTypes.length >= 10)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                '근무 타입은 최대 10개까지 설정할 수 있습니다.',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: CupertinoColors.tertiaryLabel,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(dynamic error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _getErrorMessage(error),
+              style: const TextStyle(color: CupertinoColors.destructiveRed),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            CupertinoButton(
+              onPressed: () {
+                ref.read(shiftTemplateSettingsProvider.notifier).loadData();
+              },
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftTypeHeader(int count) {
+    return Row(
+      children: [
+        Text(
+          '근무 타입',
+          style: AppTheme.body_large.copyWith(
+            color: AppTheme.on_surface_variant_color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.primary_color,
+            borderRadius: BorderRadius.circular(AppTheme.chip_radius),
+          ),
+          child: Text(
+            '$count개 설정됨',
+            style: AppTheme.body_small.copyWith(
+              color: AppTheme.surface_color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddButton(ShiftTemplateSettingsState state) {
+    final isDisabled =
+        state.is_loading || state.shiftTypes.length >= _maxShiftTypes;
+    final backgroundColor = isDisabled
+        ? AppTheme.surface_container_highest_color
+        : AppTheme.primary_dark_color;
+    final foregroundColor = isDisabled
+        ? AppTheme.on_surface_variant_color
+        : AppTheme.surface_color;
+
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      color: backgroundColor,
+      disabledColor: AppTheme.surface_container_highest_color,
+      borderRadius: BorderRadius.circular(AppTheme.card_radius),
+      onPressed: isDisabled ? null : _addShiftType,
+      child: SizedBox(
+        height: 64,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(CupertinoIcons.add, size: 30, color: foregroundColor),
+            const SizedBox(width: 12),
+            Text(
+              '근무 타입 추가',
+              style: AppTheme.body_large.copyWith(
+                color: foregroundColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

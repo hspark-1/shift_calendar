@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/shift_type_api_model.dart';
 
 /// 근무 타입 카드 위젯
@@ -19,94 +20,136 @@ class ShiftTypeCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: CupertinoColors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: AppTheme.surface_color,
+          borderRadius: AppTheme.card_border_radius,
+          border: Border.all(
+            color: AppTheme.outline_variant_color.withValues(alpha: 0.3),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: CupertinoColors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: CupertinoColors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
-            // 색상 표시
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
                 color: shiftType.colorValue ?? CupertinoColors.systemGrey,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: CupertinoColors.black.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: Text(
+                    shiftType.code,
+                    style: AppTheme.body_large.copyWith(
+                      color: AppTheme.surface_color,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 16),
-            // 정보
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        shiftType.code,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        shiftType.name,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          color: CupertinoColors.secondaryLabel,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    shiftType.name,
+                    style: AppTheme.body_large.copyWith(
+                      color: AppTheme.on_surface_color,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (shiftType.startTime != null &&
                       shiftType.endTime != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '${shiftType.startTimeDisplay} - ${shiftType.endTimeDisplay}',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: CupertinoColors.tertiaryLabel,
-                      ),
+                    const SizedBox(height: 2),
+                    _ShiftTypeTimeRow(
+                      icon: CupertinoIcons.clock,
+                      text:
+                          '${shiftType.startTimeDisplay} - ${shiftType.endTimeDisplay}',
                     ),
                   ] else if (shiftType.startTime == null &&
                       shiftType.endTime == null) ...[
-                    const SizedBox(height: 4),
-                    const Text(
-                      '시간 없음',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: CupertinoColors.tertiaryLabel,
-                      ),
+                    const SizedBox(height: 2),
+                    const _ShiftTypeTimeRow(
+                      icon: CupertinoIcons.calendar_badge_minus,
+                      text: '시간 없음',
+                      isItalic: true,
                     ),
                   ],
                 ],
               ),
             ),
-            // 삭제 버튼
             if (onDelete != null)
               CupertinoButton(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.all(4),
                 onPressed: onDelete,
-                minimumSize: Size(0, 0),
+                minimumSize: const Size(32, 32),
                 child: const Icon(
-                  CupertinoIcons.delete,
-                  color: CupertinoColors.destructiveRed,
-                  size: 24,
+                  CupertinoIcons.trash,
+                  color: AppTheme.outline_color,
+                  size: 22,
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ShiftTypeTimeRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool isItalic;
+
+  const _ShiftTypeTimeRow({
+    required this.icon,
+    required this.text,
+    this.isItalic = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppTheme.on_surface_variant_color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            style: AppTheme.body_medium.copyWith(
+              color: AppTheme.on_surface_variant_color,
+              fontWeight: FontWeight.w600,
+              fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
