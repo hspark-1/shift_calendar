@@ -1,6 +1,197 @@
 # 작업 로그
 
+## 2026-07-09
+
+- [DONE] (CHORE) 작업 내용 분리 커밋 및 푸시
+  - 목적: 누적된 프론트/UI/문서 변경사항을 작업 목적별 커밋으로 분리하고 원격 저장소에 반영한다.
+  - 변경: 공통 UI 토큰, 개인 일정 입력 화면, 설정 화면, 근무 타입 설정 화면, 근무 타입 색상 직렬화, 친구 설정 화면, 알림 목록 하단 여백, 문서 갱신을 각각 별도 커밋으로 분리했다. 생성 커밋은 `87de17c`, `e509e33`, `0ab4bde`, `f1ce19a`, `8469aa0`, `a0e9067`, `e2b35c5` 및 문서 정리 커밋이다.
+  - 영향범위: git 이력/원격 반영, `_docs` 문서 최신화. 코드 동작은 각 기능 커밋 범위와 동일하다.
+  - 파일: `_docs/DECISIONS.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `git diff --check` 통과, `dart format --output=none --set-exit-if-changed ...` 통과, `flutter test test/core/utils/color_parser_test.dart` 통과. `flutter analyze`는 기존 snake_case/lowerCamelCase 정책 충돌, 기존 unused/deprecated 항목 등 156건으로 exit 1.
+  - 롤백: 원격 반영 후 문제가 있으면 대상 커밋을 `git revert`로 역순 되돌림한다. 푸시 전이면 필요한 커밋만 새 브랜치로 분리하거나 후속 수정 커밋을 추가한다.
+  - 다음: 원격 `origin/main`에 push 완료 여부 확인
+
+- [DONE] (FE) 설정 진입 근무 패턴 설정 헤더 연결 애니메이션 보강
+  - 목적: 설정 화면에서 근무 패턴 설정 화면으로 진입할 때 상단 헤더가 route 전환과 함께 자연스럽게 연결되도록 한다.
+  - 변경: `ShiftTemplateSettingsPage`의 본문 내부 커스텀 `_buildTopBar()`를 제거하고 `CupertinoPageScaffold.navigationBar`에 `CupertinoNavigationBar`를 배치했다. 설정 화면과 같은 route navigation bar transition을 사용하도록 했고, PROJECT_CONTEXT에 근무 패턴 설정 화면 헤더 규칙을 문서화했다.
+  - 영향범위: 설정 화면의 `근무 패턴 설정` 항목에서 근무 패턴 설정 화면으로 진입/복귀할 때 상단 헤더 전환. 근무 타입 조회/추가/수정/삭제, 하단 추가 버튼, 10개 제한 안내, API, DB 구조는 변경 없음.
+  - 파일: `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/shift_template_settings_page.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/shift_template_settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `ShiftTemplateSettingsPage`의 `navigationBar`를 제거하고 기존 `_buildTopBar()` + 본문 `Column` 상단 배치 구조를 복구한다. PROJECT_CONTEXT의 navigation bar transition 설명도 이전 커스텀 헤더 설명으로 되돌린다.
+  - 다음: 실제 iOS 시뮬레이터/기기에서 설정 화면의 `근무 패턴 설정` 행을 눌렀을 때 `설정` 헤더에서 `근무 패턴 설정` 헤더로 자연스럽게 전환되고, 뒤로가기 시 반대로 이어지는지 확인
+
+- [DONE] (FE) 메인 캘린더 설정 진입 헤더 연결 애니메이션 보강
+  - 목적: 메인 캘린더의 설정 버튼으로 설정 화면에 진입할 때, 알림/친구/친구 설정 흐름처럼 상단 헤더가 자연스럽게 연결되는 느낌을 준다.
+  - 변경: `SettingsPage`의 본문 내부 커스텀 상단 헤더를 제거하고 `CupertinoPageScaffold.navigationBar`에 `CupertinoNavigationBar`를 배치했다. 설정 화면 본문은 단일 `ListView`로 유지하고, 프로필/설정 섹션이 navigation bar 아래에서 시작하도록 상단 padding을 조정했다. PROJECT_CONTEXT에 설정 화면 헤더가 route 간 navigation bar transition을 사용한다는 규칙을 문서화했다.
+  - 영향범위: 메인 캘린더 설정 버튼으로 설정 화면 진입/복귀 시 상단 헤더 전환, 설정 화면 본문 시작 여백. 설정 항목 동작, 근무 패턴 설정 이동, 로그아웃 처리, 인증 상태, API, DB 구조는 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `SettingsPage`의 `navigationBar`를 제거하고 기존 `_buildTopBar()` + `Column` + `Expanded(ListView)` 구조와 `_goBackToSchedule()`를 복구한다. PROJECT_CONTEXT의 navigation bar transition 설명도 이전 커스텀 고정 헤더 설명으로 되돌린다.
+  - 다음: 실제 iOS 시뮬레이터/기기에서 메인 캘린더 우측 설정 버튼을 눌렀을 때 `캘린더` 헤더에서 `설정` 헤더로 자연스럽게 전환되고, 뒤로가기 시 반대로 이어지는지 확인
+
+- [DONE] (FE) 근무 타입 최대 개수 안내 메시지 추가
+  - 목적: 근무 타입이 10개라 추가할 수 없는 상태에서 사용자가 이유를 알 수 있도록 안내 메시지를 표시한다.
+  - 변경: `ShiftTemplateSettingsPage`에 `_maxShiftTypes` 상수를 추가하고, 근무 타입이 10개 이상이면 하단 고정 버튼 위에 `근무 타입은 최대 10개까지 설정할 수 있습니다. 기존 타입을 삭제하면 다시 추가할 수 있어요.` 안내 문구를 표시하도록 했다. 기존 10개 제한 다이얼로그와 버튼 비활성 조건도 같은 상수를 사용하도록 정리했다. PROJECT_CONTEXT에 최대 개수 안내 문구 표시 규칙을 문서화했다.
+  - 영향범위: 근무 패턴 설정 화면의 10개 도달 상태 안내 문구, 추가 버튼 비활성 조건 상수화. 근무 타입 API, 저장/수정/삭제 흐름, 카드 목록, DB 구조는 변경 없음.
+  - 파일: `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/shift_template_settings_page.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/shift_template_settings_page.dart` 통과
+  - 롤백: 하단 고정 버튼 위의 10개 제한 안내 `Text`와 `_maxShiftTypes` 상수 사용 변경을 제거하고, 기존 하드코딩된 10개 조건으로 되돌린다. PROJECT_CONTEXT의 안내 문구 설명도 제거한다.
+  - 다음: 실제 기기에서 근무 타입 10개 상태를 열어 안내 문구가 버튼 위에 자연스럽게 표시되고 텍스트가 잘리지 않는지 확인
+
+- [DONE] (FE) 근무 패턴 설정 목록 하단 잘림 수정
+  - 목적: 근무 타입이 10개일 때 근무 패턴 설정 화면 하단 카드/추가 버튼 영역이 홈 인디케이터 쪽에서 잘려 보이는 문제를 해결한다.
+  - 변경: `ShiftTemplateSettingsPage`의 추가 버튼을 `ListView` 마지막 child에서 스크롤 목록 밖 하단 고정 영역으로 분리했다. 화면 전체는 `SafeArea(bottom: false)`를 사용하고, 하단 버튼 영역은 `MediaQuery` 하단 안전영역을 padding에 반영한다. 근무 타입 목록은 카드만 스크롤하며 버튼 위에서 끝나도록 하단 padding을 조정했다. PROJECT_CONTEXT에 근무 패턴 설정 화면의 하단 고정 버튼 규칙을 문서화했다.
+  - 영향범위: 근무 패턴 설정 화면의 목록 스크롤 영역, 하단 `근무 타입 추가` 버튼 위치와 10개 도달 시 비활성 버튼 표시. 근무 타입 추가/수정/삭제 API, 카드 디자인, DB 구조, 친구 공개 규칙은 변경 없음.
+  - 파일: `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/shift_template_settings_page.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/shift_template_settings_page.dart` 통과
+  - 롤백: `ShiftTemplateSettingsPage`의 하단 고정 버튼 영역을 제거하고, `_buildAddButton(state)`를 다시 `ListView` 마지막 child로 넣는다. PROJECT_CONTEXT의 하단 고정 버튼 설명도 제거한다.
+  - 다음: 실제 iPhone 기기/시뮬레이터에서 근무 타입 10개 상태를 열어 마지막 카드와 비활성 추가 버튼이 홈 인디케이터에 가려지지 않는지 확인
+
+- [DONE] (FE) 근무 타입 설정 팝업 하단 잘림 완화
+  - 목적: 근무 타입 추가/편집 화면과 시간 선택 팝업의 하단 영역이 홈 인디케이터/화면 끝에 붙어 잘려 보이는 문제를 해결한다.
+  - 변경: `ShiftTypeFormModal` 본문을 `SafeArea(bottom: false)` + `ListView` 내부 bottom padding 구조로 바꿔 마지막 안내 문구가 하단에 붙지 않게 했다. 시간 선택 팝업은 `MediaQuery` 하단 안전영역만큼 컨테이너 높이와 spacer를 추가해 피커 휠이 홈 인디케이터 뒤로 내려가지 않게 했다. 같은 파일에서 analyzer가 지적한 deprecated `Color.value` 사용은 `toARGB32()`로 교체했다. PROJECT_CONTEXT에 근무 타입 추가/편집 화면의 하단 안전영역 처리 규칙을 문서화했다.
+  - 영향범위: 근무 타입 추가/편집 화면의 스크롤 하단 여백, 시작/종료 시간 선택 팝업의 하단 안전영역, 근무 타입 색상 정수 추출 방식. 근무 타입 API, validation, 저장/수정/삭제 흐름, DB 구조는 변경 없음.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/widgets/shift_type_form_modal.dart` 통과, `flutter analyze lib/features/calendar/presentation/widgets/shift_type_form_modal.dart` 통과
+  - 롤백: `ShiftTypeFormModal`의 `SafeArea(bottom: false)`, `ListView` bottom padding, 시간 선택 팝업의 하단 spacer/높이 보정을 제거하고, 색상 정수 추출을 이전 방식으로 되돌린다. PROJECT_CONTEXT의 하단 안전영역 설명도 제거한다.
+  - 다음: 실제 iPhone 기기/시뮬레이터에서 근무 타입 추가/편집 화면과 시작/종료 시간 선택 팝업을 열어 안내 문구와 피커 휠이 홈 인디케이터에 겹치지 않는지 확인
+
+- [DONE] (FE) 근무 타입 색상 요청 직렬화 형식 수정
+  - 목적: 근무 타입 추가/수정 API 요청의 `color`를 서버 validation 규칙인 `#AARRGGBB` 문자열로 전송해 400 `VALIDATION_ERROR`를 해결한다.
+  - 변경: `formatApiColorValue()`를 추가해 Flutter `Color` 정수값을 8자리 대문자 hex 문자열로 변환하도록 했다. `CreateShiftTypeRequest.toJson()`과 `UpdateShiftTypeRequest.toJson()`은 `color`가 있을 때 숫자 대신 `#AARRGGBB` 문자열을 전송한다. 색상 파서 테스트에 요청 직렬화 검증을 추가했고, PROJECT_CONTEXT의 근무 타입 색상 규칙에 서버 요청 형식을 문서화했다.
+  - 영향범위: 근무 타입 생성/수정 요청 body의 `color` 필드 직렬화. 응답 색상 파싱, 근무 타입 UI, DB schema, 서버 validation 규칙은 변경 없음.
+  - 파일: `lib/core/utils/color_parser.dart`, `lib/features/calendar/data/models/shift_type_api_model.dart`, `test/core/utils/color_parser_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/core/utils/color_parser.dart lib/features/calendar/data/models/shift_type_api_model.dart test/core/utils/color_parser_test.dart` 통과, `flutter analyze lib/core/utils/color_parser.dart lib/features/calendar/data/models/shift_type_api_model.dart test/core/utils/color_parser_test.dart` 통과, `flutter test test/core/utils/color_parser_test.dart` 통과
+  - 롤백: `CreateShiftTypeRequest`/`UpdateShiftTypeRequest`의 `color` 직렬화를 기존 숫자 전송으로 되돌리고, `formatApiColorValue()`와 관련 테스트/PROJECT_CONTEXT 설명을 제거한다.
+  - 다음: 실제 API 연동에서 근무 타입 추가/수정 요청 body의 `color`가 `#FF0061A4` 형식으로 전송되고 서버 400이 사라지는지 확인
+
+- [DONE] (FE) 근무 타입 설정 화면 10개 제한 디자인 반영
+  - 목적: 근무 타입 설정 화면을 제공된 `stitch_shift_schedule_planner (4)` 시안에 맞추고, 근무 타입 10개 도달 시 추가 버튼을 비활성 색상으로 표시한다.
+  - 변경: `ShiftTemplateSettingsPage`를 고정 상단 `근무 패턴 설정` 헤더, 근무 타입 수 배지, 카드형 근무 타입 목록, 하단 전체 폭 추가 버튼 구조로 변경했다. `ShiftTypeCard`는 원형 색상 배지 안에 코드를 표시하고, 이름/시간 행과 outline 색상 삭제 아이콘을 시안 기준으로 정리했다. 근무 타입이 10개 이상이면 추가 버튼을 `surface-container-highest`(`#E0E3E5`) 배경으로 비활성화하고 추가 모달 진입을 막는다. `AppTheme`에는 `surface_container_highest_color` 토큰과 기존 snake_case 토큰 정책용 lint 예외를 추가했다.
+  - 영향범위: 근무 패턴 설정 화면의 표시 구조, 근무 타입 카드 디자인, 10개 도달 시 추가 버튼 상태. 시안 기준으로 상단 템플릿 이름 변경 액션은 노출하지 않는다. 근무 타입 조회/추가/수정/삭제 API, 근무표 DB 구조, 친구 공개 규칙은 변경 없음.
+  - 파일: `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`, `lib/features/calendar/presentation/widgets/shift_type_card.dart`, `lib/core/theme/app_theme.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/core/theme/app_theme.dart lib/features/calendar/presentation/pages/shift_template_settings_page.dart lib/features/calendar/presentation/widgets/shift_type_card.dart` 통과, `flutter analyze lib/core/theme/app_theme.dart lib/features/calendar/presentation/pages/shift_template_settings_page.dart lib/features/calendar/presentation/widgets/shift_type_card.dart` 통과, `git diff --check` 통과
+  - 롤백: `ShiftTemplateSettingsPage`를 기존 `CupertinoSliverNavigationBar` + `CupertinoButton.filled` 구조로 되돌리고, `ShiftTypeCard`를 코드/이름 Row와 기존 카드 decoration으로 되돌린다. `AppTheme.surface_container_highest_color`와 PROJECT_CONTEXT의 근무 타입 설정 화면 설명을 제거한다.
+  - 다음: 실제 기기에서 9개/10개 상태를 각각 열어 카운트 배지, 카드 간격, 추가 버튼 비활성 배경색(`#E0E3E5`)과 터치 차단을 확인
+
+- [DONE] (FE) 설정 섹션 테두리 렌더링 구조 수정
+  - 목적: 설정 섹션 카드가 같은 크기의 바깥/안쪽 박스 2개처럼 렌더링되어 radius 값에 따라 border가 일부만 보이는 문제를 해결한다.
+  - 변경: `_buildSettingsCard()`에서 border를 먼저 그리는 outer `DecoratedBox`를 제거했다. 행 배경/구분선은 `ClipRRect`로 한 번만 클리핑하고, 카드 외곽선은 `Container.foregroundDecoration`에서 primary tint 1px border로 마지막에 그리도록 변경했다.
+  - 영향범위: 설정 화면의 근무 관리/앱 설정/계정 및 보안/지원 섹션 카드 외곽선 렌더링. 프로필 카드, 행 구분선, 설정 항목 탭 동작, 헤더 고정, 로그아웃 처리, 인증 상태, DB/공개 범위 규칙은 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `_buildSettingsCard()`를 outer `DecoratedBox` + inner `ClipRRect` 구조로 되돌리고, PROJECT_CONTEXT의 `foregroundDecoration` 설명을 이전 outline 설명으로 되돌린다.
+  - 다음: 실제 기기에서 섹션 카드 radius를 키워도 외곽선이 내부 surface에 덮이지 않고 전체 둘레에 일정하게 보이는지 확인
+
+- [DONE] (FE) 설정 섹션 테두리 색상 적용
+  - 목적: 설정 화면의 근무 관리/앱 설정/계정 및 보안/지원 섹션 카드 외곽선에 더 명확한 색상을 적용한다.
+  - 변경: `SettingsPage`에 설정 섹션 카드 전용 `_settings_section_border_color`를 추가하고, `_buildSettingsCard()`의 outer `DecoratedBox` border 색상을 기존 outline variant에서 primary tint 색상으로 변경했다. 내부 행 구분선은 기존 outline variant를 유지했다.
+  - 영향범위: 설정 화면의 근무 관리/앱 설정/계정 및 보안/지원 섹션 카드 외곽선 색상. 프로필 카드, 행 구분선, 설정 항목 탭 동작, 헤더 고정, 로그아웃 처리, 인증 상태, DB/공개 범위 규칙은 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `_settings_section_border_color`를 제거하고 `_buildSettingsCard()` border 색상을 `AppTheme.outline_variant_color`로 되돌린다. PROJECT_CONTEXT의 primary tint outline 설명도 이전 outline 설명으로 되돌린다.
+  - 다음: 실제 기기에서 설정 섹션 카드 외곽선 색상이 과하게 튀지 않고 radius 모서리에서 끊겨 보이지 않는지 확인
+
+- [DONE] (FE) 설정 화면 헤더 고정
+  - 목적: 설정 화면을 스크롤해도 상단 `설정` 헤더와 뒤로가기 버튼이 화면 상단에 고정되도록 한다.
+  - 변경: `SettingsPage`의 최상위 내용을 단일 `ListView`에서 `Column`으로 바꾸고, `_buildTopBar()`를 스크롤 영역 밖에 배치했다. 프로필 카드, 설정 섹션, 로그아웃 버튼은 `Expanded` 내부 `ListView`로 분리해 본문만 스크롤되도록 했다.
+  - 영향범위: 설정 화면 스크롤 구조와 헤더 고정 동작. 설정 항목 탭, 근무 패턴 설정 이동, 로그아웃 처리, 미구현 기능 alert, 인증 상태, DB/공개 범위 규칙은 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `SettingsPage`의 `Column` + fixed `_buildTopBar()` + `Expanded(ListView)` 구조를 제거하고, `_buildTopBar()`를 다시 본문 `ListView`의 첫 child로 넣는 이전 구조로 되돌린다. PROJECT_CONTEXT의 헤더 고정 설명을 제거한다.
+  - 다음: 실제 기기에서 설정 화면을 끝까지 스크롤해도 상단 `설정` 헤더와 뒤로가기 버튼이 고정되어 있는지 확인
+
+- [DONE] (FE) 설정 화면 80% 밀도 조정 및 섹션 테두리 클리핑 수정
+  - 목적: 설정 화면의 글자/박스/아이콘/토글 크기가 다른 화면보다 커 보이는 문제를 줄이고, 섹션 카드의 radius 모서리에서 1px outline이 미묘하게 잘려 보이는 문제를 정리한다.
+  - 변경: `SettingsPage`에 설정 화면 전용 `_settings_scale = 0.8`과 `_scaledTextStyle()`을 추가해 페이지 좌우/하단 패딩, 상단 헤더, 프로필 카드, 아바타/편집 버튼, 섹션 간격, 섹션 제목, 행 높이/패딩, 아이콘, chevron, 정적 토글, 로그아웃 버튼 크기와 글씨를 기존 대비 80% 수준으로 줄였다. 섹션 카드의 outline과 clipping을 같은 `Container`에서 처리하던 구조를 `DecoratedBox` outer border + `ClipRRect` inner content 구조로 바꿔 rounded corner의 1px 테두리가 잘려 보이는 현상을 줄였다.
+  - 영향범위: 설정 화면의 시각 밀도, 섹션 카드 모서리 렌더링, 설정 화면 내부 터치 영역. 근무 패턴 설정 이동, 로그아웃 처리, 미구현 기능 alert, 인증 상태, DB/공개 범위 규칙은 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `_settings_scale`/`_scaledTextStyle()` 적용과 `_buildSettingsCard()`의 `DecoratedBox` + inner `ClipRRect` 구조를 제거하고 이전 고정 치수 및 `Container(clipBehavior: Clip.antiAlias, decoration: AppTheme.cardDecoration(...))` 섹션 카드 구조로 되돌린다. PROJECT_CONTEXT의 0.8 스케일/outline 클리핑 설명도 제거한다.
+  - 다음: 실제 기기에서 설정 화면과 캘린더/친구 화면을 나란히 비교해 텍스트 크기, 행 높이, 섹션 모서리 outline이 자연스럽게 보이는지 확인
+
+- [DONE] (FE) 설정 화면 디자인 시안 재반영
+  - 목적: 제공된 설정 화면 시안(`design/stitch_shift_schedule_planner (3)`)에 맞춰 현재 설정 페이지의 간격, 카드 크기, 아이콘, 토글, 로그아웃 버튼 스타일을 재정렬한다.
+  - 변경: `SettingsPage`의 상단을 좌측 영문 타이틀/하단 설정 내비게이션 구조에서 중앙 `설정` 헤더와 좌측 뒤로가기 구조로 변경했다. 하단 설정 내비게이션을 제거하고, 프로필 카드의 아바타/텍스트 크기와 섹션 간격, 설정 행 높이/패딩, chevron, 토글, 로그아웃 버튼을 제공 시안 기준으로 축소·정렬했다. 미구현 토글은 상태 변경 없이 정적 토글 UI와 `준비 중인 기능` alert를 유지한다. 버전 정보는 하드코딩 대신 `AppConstants.app_version`을 표시하도록 변경했다.
+  - 영향범위: 설정 화면 UI 레이아웃, 설정 화면 내 뒤로가기/스크롤 구조, 토글 표시 방식, 버전 정보 표시. 인증 상태/로그아웃 처리, 근무 패턴 설정 이동, 미구현 기능 차단 정책, DB/공개 범위 규칙은 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `SettingsPage`의 중앙 `설정` 헤더/정적 토글/축소된 카드·행 치수/하단 내비게이션 제거 변경을 되돌리고 이전 좌측 `Settings` 헤더와 `_buildBottomNavigationBar()` 구조로 복구한다. PROJECT_CONTEXT의 설정 화면 설명도 이전 하단 내비게이션 설명으로 되돌린다.
+  - 다음: 실제 기기에서 제공된 캡처와 비교해 상단 헤더, 프로필 카드 높이, 각 섹션 행 높이, 긴 이메일 말줄임, 로그아웃 버튼 위치를 확인
+
+- [DONE] (FE) 설정 화면 디자인 및 미구현 기능 차단
+  - 목적: 제공된 설정 화면 시안에 맞춰 설정 페이지를 재구성하고, 아직 개발되지 않은 설정 항목은 alert로 접근을 막는다.
+  - 변경: `SettingsPage`를 시안 기반의 커스텀 설정 화면으로 재구성했다. 상단 `Settings` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션, 하단 설정 내비게이션, 별도 로그아웃 버튼을 추가했다. 실제 구현된 근무 패턴 설정은 기존 `ShiftTemplateSettingsPage`로 이동하고, 로그아웃은 기존 인증 Provider 흐름을 유지한다. 프로필 편집, 기본 알림 설정, 다크 모드, 언어 및 지역, 글꼴 크기, 비밀번호 변경, 로그인 생체 인증, 공지사항, 고객 센터, 하단 Shifts/History 탭은 `준비 중인 기능` alert를 표시하고 상태를 변경하지 않도록 막았다.
+  - 영향범위: 설정 화면 UI, 설정 항목 탭 동작, 미구현 기능 접근 차단, 로그아웃 버튼 위치. 인증 상태/로그아웃 처리, 근무 템플릿 설정 화면, DB/공개 범위 규칙은 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `SettingsPage`의 커스텀 카드/하단 내비게이션/미구현 alert 변경을 제거하고 이전 `CupertinoListSection.insetGrouped` 프로필/계정 섹션 구조로 되돌린다. PROJECT_CONTEXT의 설정 화면 시안 및 alert 차단 설명을 이전 내용으로 되돌린다.
+  - 다음: 실제 기기에서 설정 화면 스크롤, 긴 이름/이메일 말줄임, 각 미구현 항목 alert, 근무 패턴 설정 이동, 로그아웃 확인 다이얼로그를 확인
+
+- [DONE] (FE) 친구 설정 화면 밀도 조정
+  - 목적: 친구 설정 화면의 요소 크기와 여백을 줄이고, 친구 레벨 설정을 개인 일정 추가 화면과 같은 드래그형 레벨 조정 컴포넌트로 맞춘다.
+  - 변경: `FriendDetailPage`의 프로필 이미지, 이름/이메일 글자 크기, 카드 내부 패딩, 카드 간격, 삭제 버튼, 공유 토글 표시 크기를 전반적으로 줄였다. 프로필 사진 옆 연필 아이콘은 제거했다. 친구 레벨 설정은 기존 개별 버튼 Row를 제거하고, 개인 일정 추가 모달의 공개 레벨 선택과 같은 0~5 탭/좌우 드래그 트랙으로 변경했다.
+  - 영향범위: 친구 설정 화면의 시각 밀도, 친구 레벨 선택 조작 방식, 프로필 표시. 친구 설정 저장 API, 저장 시점, 친구 삭제 흐름은 변경 없음.
+  - 파일: `lib/features/friend/presentation/pages/friend_detail_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/presentation/pages/friend_detail_page.dart` 통과, `flutter analyze lib/features/friend/presentation/pages/friend_detail_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `FriendDetailPage`의 축소된 치수와 `_buildFriendLevelSelector()`/`_updateFriendLevelFromPosition()`을 제거하고 이전 개별 레벨 버튼 Row와 큰 프로필/카드 치수로 되돌린다. PROJECT_CONTEXT와 FRIEND_FEATURE_DESIGN의 컴팩트 레이아웃/드래그 트랙 설명을 제거한다.
+  - 다음: 실제 기기에서 친구 설정 화면을 열어 75% 수준의 밀도, 긴 이름/이메일 말줄임, 레벨 탭/드래그 조작, 공유 토글 터치 영역을 확인
+
+- [DONE] (FE) 친구 설정 화면 디자인 변경 반영
+  - 목적: 제공된 친구 정보 디자인 시안에 맞춰 친구 상세/설정 화면의 레이아웃과 시각 스타일을 정리한다.
+  - 변경: `FriendDetailPage`를 시안 기준의 상단 프로필 중심 레이아웃으로 재구성했다. 내비게이션 바에는 뒤로가기와 `Save` 액션을 배치했고, 프로필 이미지는 원형 이미지/편집 표시 FAB 형태로 변경했다. 친구 레벨 설정은 단일 선택 0~5 세그먼트 카드로 바꾸고, `friend_level_settings.friend_level >= events.visibility_level` 규칙에 맞춰 현재 레벨 설명을 표시한다. 내 캘린더 공유 토글은 별도 카드로 정리했다. 레벨/공유 설정은 화면에서 먼저 변경하고 `Save`를 눌렀을 때 기존 친구 설정 API로 `friend_level`, `can_view`를 함께 저장하도록 변경했다. 친구 삭제 버튼은 시안의 연한 오류 배경과 사람 삭제 아이콘을 적용했다.
+  - 영향범위: 친구 캘린더 우측 설정 버튼으로 진입하는 `FriendDetailPage` UI, 친구 레벨/캘린더 공유 설정 저장 시점, 친구 삭제 버튼 시각 표현. 친구 캘린더 조회 API, 친구 삭제 성공 후 `Navigator.pop(true)` 흐름, DB 공개 조건은 변경 없음.
+  - 파일: `lib/features/friend/presentation/pages/friend_detail_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/presentation/pages/friend_detail_page.dart` 통과, `flutter analyze lib/features/friend/presentation/pages/friend_detail_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `FriendDetailPage`의 커스텀 내비게이션 바/프로필 섹션/카드형 레벨·공유 설정/저장 버튼 흐름을 제거하고 기존 즉시 저장형 `CupertinoListSection.insetGrouped` 기반 구조로 되돌린다. PROJECT_CONTEXT와 FRIEND_FEATURE_DESIGN의 `Save` 저장 시점 설명을 제거한다.
+  - 다음: 실제 iOS/Android 기기에서 친구 정보 화면을 열어 시안과의 간격, 긴 이름/이메일 말줄임, Save 비활성/활성 상태, 설정 저장 후 친구 목록의 레벨/공유 상태 반영을 확인
+
 ## 2026-07-08
+
+- [DONE] (FE) 설정 페이지 섹션 배경 사각형 제거
+  - 목적: 설정 페이지의 프로필/계정 섹션 뒤에 보이는 큰 네모 배경을 제거하고 앱 배경과 카드 스타일을 통일한다.
+  - 변경: `CupertinoListSection.insetGrouped`의 기본 section 배경색(`CupertinoColors.systemGroupedBackground`)이 앱 배경과 달라 프로필/계정 영역 뒤에 큰 사각형 띠처럼 보이던 원인을 확인했다. 설정 화면의 두 list section에 `backgroundColor: AppTheme.background_color`를 명시하고 실제 행 묶음에는 `AppTheme.cardDecoration()`을 적용했다. 프로젝트 snake_case 변수명과 Flutter 기본 lint 충돌은 `_is_logging_out` 한 줄에만 lint 예외를 명시했다.
+  - 영향범위: 설정 페이지 프로필/계정 섹션의 배경 및 카드 보더 표시. 로그아웃, 근무 설정 이동, 인증 상태 흐름은 변경 없음.
+  - 파일: `lib/features/auth/presentation/pages/settings_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/auth/presentation/pages/settings_page.dart` 통과, `flutter analyze lib/features/auth/presentation/pages/settings_page.dart` 통과
+  - 롤백: 설정 페이지의 `CupertinoListSection.insetGrouped`에서 `backgroundColor`, `decoration` 지정을 제거하고 `_is_logging_out` lint 예외와 PROJECT_CONTEXT의 설정 화면 section 배경 규칙을 제거한다.
+  - 다음: 실제 iPhone 기기/시뮬레이터에서 설정 화면의 프로필/계정 섹션 뒤에 전체 폭 사각형 배경이 남지 않는지 확인
+
+- [DONE] (FE) 알림 목록 하단 잘림 완화
+  - 목적: 알림 목록 하단 카드가 홈 인디케이터/화면 끝에서 잘린 것처럼 보이는 느낌을 줄인다.
+  - 변경: `NotificationPage`의 최상위 `SafeArea`에서 하단 안전영역 적용을 제외하고, 목록 끝에 홈 인디케이터 높이를 반영한 footer sliver를 추가했다. 추가 페이지가 남아 있거나 로딩 중이면 하단 여백만 표시하고, 마지막 페이지에서는 `모든 알림을 확인했습니다` 문구를 표시한다.
+  - 영향범위: 알림 목록 화면의 하단 스크롤 여백과 마지막 페이지 footer 표시. 알림 API, 알림 액션 처리, 친구 요청 수락/거절 흐름은 변경 없음.
+  - 파일: `lib/features/friend/presentation/pages/notification_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/friend/presentation/pages/notification_page.dart` 통과, `flutter analyze lib/features/friend/presentation/pages/notification_page.dart` 통과
+  - 롤백: `NotificationPage`의 `SafeArea(bottom: false)`를 기존 `SafeArea`로 되돌리고 `_buildListFooter()`와 footer `SliverToBoxAdapter`를 제거한다. PROJECT_CONTEXT의 알림 목록 footer 규칙도 제거한다.
+  - 다음: 실제 iPhone 기기/시뮬레이터에서 알림 목록 최하단까지 스크롤해 마지막 카드가 홈 인디케이터와 겹치지 않고 자연스럽게 끝나는지 확인
+
+- [DONE] (FE) 전체 화면 디자인 통일
+  - 목적: 제공된 디자인 문서 기준으로 캘린더/친구/알림/개인 일정 화면의 시각 언어를 통일한다.
+  - 변경: Shift Harmony 디자인 토큰을 `AppTheme`에 중앙화했다. Primary를 `#0061A4`, 배경을 `#F8F9FB`, surface/outline/text/radius 토큰으로 정리하고 `cardDecoration()` helper를 추가했다. 캘린더 메인/근무 추가/근무 입력/근무 타입 설정, 개인 일정 모달, 친구 목록/친구 캘린더/친구 상세/친구 추가 모달, 알림 목록, 로그인/스플래시/설정/프로필 화면의 배경, 카드, outline, 보조 텍스트, primary 버튼 색을 공용 토큰으로 맞췄다. 무거운 카드 shadow는 대부분 outline 기반 카드로 교체했고, 근무 타입 색상/공휴일/오류/성공/소셜 로그인 브랜드 색은 의미 색상으로 유지했다. 디자인 적용 정책 ADR-0003과 PROJECT_CONTEXT UI 디자인 시스템 섹션을 추가했다.
+  - 영향범위: 앱 전반의 Flutter presentation UI 스타일, 공용 테마 토큰, 카드/모달/선택일/친구/알림/근무 타입 컴포넌트의 시각 표현. API 요청/응답, 라우팅, DB/권한 규칙은 변경 없음.
+  - 파일: `lib/core/theme/app_theme.dart`, `lib/main.dart`, `lib/features/auth/presentation/pages/login_page.dart`, `lib/features/auth/presentation/pages/profile_setup_page.dart`, `lib/features/auth/presentation/pages/settings_page.dart`, `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/calendar/presentation/pages/shift_add_page.dart`, `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`, `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`, `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`, `lib/features/calendar/presentation/widgets/shift_badge.dart`, `lib/features/calendar/presentation/widgets/shift_input_sheet.dart`, `lib/features/calendar/presentation/widgets/shift_type_button.dart`, `lib/features/calendar/presentation/widgets/shift_type_card.dart`, `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `lib/features/friend/presentation/pages/friend_detail_page.dart`, `lib/features/friend/presentation/pages/friend_list_page.dart`, `lib/features/friend/presentation/pages/notification_page.dart`, `lib/features/friend/presentation/widgets/add_friend_modal.dart`, `lib/features/friend/presentation/widgets/friend_list_item.dart`, `lib/features/friend/presentation/widgets/notification_item.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format ...` 통과, `flutter test test/core/utils/color_parser_test.dart` 통과, `git diff --check` 통과. `flutter analyze ...`는 타입/컴파일 오류 없이 완료됐지만 기존 프로젝트 snake_case 네이밍 규칙과 Flutter analyzer lowerCamelCase 규칙 충돌, 기존 미사용 `_showTimezonePicker`, deprecated API info 등 74건으로 exit 1.
+  - 롤백: `AppTheme`의 Shift Harmony 토큰/`cardDecoration()` 추가와 각 화면의 `AppTheme` 토큰 참조를 이전 `CupertinoColors.*`/파일별 `Color(...)`/shadow 기반 스타일로 되돌린다. `_docs/PROJECT_CONTEXT.md`의 UI 디자인 시스템 섹션과 `_docs/DECISIONS.md`의 ADR-0003을 제거한다.
+  - 다음: 실제 iOS/Android 기기에서 캘린더, 개인 일정 모달, 친구 상세/추가 모달, 알림 카드, 근무 타입 설정 화면을 열어 카드 반경/보더/텍스트 크기와 긴 한글 텍스트 overflow를 확인
+
+- [DONE] (FE) 개인 일정 등록 화면 미리보기 overflow 수정
+  - 목적: 개인 일정 등록 화면의 하단 미리보기 일러스트에서 발생하는 `RenderFlex overflowed` 오류를 제거한다.
+  - 변경: 하단 미리보기 카드의 휴대폰 내부 미니 스케줄 UI에서 고정 높이 합이 내부 제약보다 커지던 문제를 수정했다. 미니 상태 점, 라인, 일정 블록, 간격 높이를 줄여 94px 내부 높이 안에 들어가도록 조정했다.
+  - 영향범위: 개인 일정 등록 화면 하단 미리보기 일러스트 렌더링
+  - 파일: `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/widgets/personal_event_form_modal.dart` 통과, `flutter analyze lib/features/calendar/presentation/widgets/personal_event_form_modal.dart` 통과, `git diff --check` 통과
+  - 롤백: `_buildPreviewIllustration()`의 미니 스케줄 상태 점/라인/일정 블록/간격 높이를 이전 값으로 되돌린다.
+  - 다음: 앱에서 개인 일정 등록 화면을 다시 열어 노란/검은 overflow 표시와 콘솔 `RenderFlex overflowed` 로그가 사라졌는지 확인
+
+- [DONE] (FE) 개인 일정 등록 화면 디자인 수정
+  - 목적: 제공된 디자인 시안을 참고해 개인 일정 등록 화면의 정보 구조와 시각 스타일을 정리한다.
+  - 변경: `PersonalEventFormModal`을 시안 기반의 전체 화면 카드형 레이아웃으로 재구성했다. 기본 정보는 제목 밑줄 입력, 장소 선택 행, 메모 박스로 정리했고 장소 행은 입력/삭제 다이얼로그를 띄우도록 했다. 일시 섹션은 종일 토글, 시작/종료 날짜+시간 행, 반복 `안 함` 안내 행으로 바꿨다. 공개 설정은 0~5 세그먼트 트랙에서 탭/드래그로 선택하게 했고, 공개 레벨 설명은 현재 DB 규칙(`friend_level >= visibility_level`)에 맞춰 표시한다. 하단에는 외부 네트워크 이미지 없이 코드 기반 스케줄 미리보기 카드를 추가했다.
+  - 영향범위: 메인 캘린더의 개인 일정 등록 모달 UI, 장소 입력 방식, 일시 선택 표시, 공개 레벨 선택/설명 표시, 개인 일정 화면 문서
+  - 파일: `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/EVENT_API_GUIDE.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/widgets/personal_event_form_modal.dart` 통과, `flutter analyze lib/features/calendar/presentation/widgets/personal_event_form_modal.dart` 통과, `git diff --check` 통과
+  - 롤백: `PersonalEventFormModal`의 카드형 섹션/장소 다이얼로그/반복 안내/세그먼트 공개 레벨/미리보기 카드 변경을 제거하고 기존 `CupertinoListSection.insetGrouped` 기반 제목·장소·메모·일시·드래그 공개 레벨 구성으로 되돌린다. PROJECT_CONTEXT와 EVENT_API_GUIDE의 화면 구조 설명을 이전 내용으로 되돌린다.
+  - 다음: iOS 시뮬레이터에서 제목/장소/메모 입력, 날짜/시간 선택, 종일 토글, 공개 레벨 탭/드래그, 저장 요청 값(`place`, `visibility_level`)을 확인
 
 - [DONE] (FE) 친구 요청 수락 후 친구 캘린더 이동
   - 목적: 알림에서 친구 요청을 수락하면 수락된 친구의 스케줄/캘린더 화면을 바로 보여준다.

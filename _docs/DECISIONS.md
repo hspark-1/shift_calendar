@@ -44,6 +44,33 @@
 - 추후 과제(언제 다시 평가)
   - 일정 색상, 반복 일정, 알림, 참석자, 카테고리 요구사항이 확정되면 `events` 확장 ADR을 별도로 작성한다.
 
+## ADR-0003: Shift Harmony 디자인은 Cupertino 구조 안에서 공용 토큰으로 적용
+
+- 배경(문제)
+  - 디자인 문서의 Shift Harmony 색상/표면/반경 기준과 기존 Flutter 화면의 `CupertinoColors.systemBlue`,
+    `systemGroupedBackground`, 파일별 흰색 카드/그림자 스타일이 섞여 있었다.
+  - 개인 일정 모달, 캘린더, 친구, 알림, 근무 설정 화면이 서로 다른 카드 반경과 보조색을 사용해
+    같은 앱 안에서 화면 톤이 달라 보였다.
+- 선택지(대안)
+  - A. 화면별로 필요한 색상만 직접 수정하고 기존 하드코딩을 유지한다.
+  - B. `AppTheme`에 Shift Harmony 토큰을 중앙화하고, 기존 Cupertino 화면 구조는 유지한 채
+    페이지/위젯이 공용 토큰을 참조하도록 바꾼다.
+  - C. Material 3 기반으로 앱 전체를 재작성한다.
+- 결정(무엇을 선택)
+  - B를 선택한다.
+- 근거(왜)
+  - 프로젝트 문서와 기존 구현은 Cupertino 기반이며, 라우팅/상태/API 흐름을 바꾸지 않고 시각 언어만 통일하는 것이 이번 요청 범위에 맞다.
+  - 공용 토큰을 사용하면 이후 화면 추가 시 배경, 카드, outline, primary 색상 기준을 재사용할 수 있다.
+  - Material 3 전환은 컴포넌트, 네비게이션, 테스트 범위가 커져 현재 디자인 통일 작업의 리스크를 키운다.
+- 결과/영향(좋은 점/트레이드오프)
+  - `AppTheme`가 `#F8F9FB` 배경, `#0061A4` primary, surface/outline/text/radius 토큰과 `cardDecoration()`을 제공한다.
+  - 캘린더, 친구, 알림, 근무 관련 화면은 흰색 surface + 얇은 outline + 16px 카드 반경을 기본으로 맞춘다.
+  - 근무 타입 색상, 공휴일, 성공/오류/소셜 로그인 색상은 의미 색상으로 유지한다.
+  - 현재 프로젝트의 snake_case 네이밍 규칙과 Flutter analyzer의 lowerCamelCase lint는 계속 충돌할 수 있다.
+- 추후 과제(언제 다시 평가)
+  - 실제 기기 확인 후 카드 반경을 8px로 낮출지, 16px를 유지할지 디자인 문서 간 차이를 정리한다.
+  - Plus Jakarta Sans/Inter 폰트 asset을 프로젝트에 포함할지 결정한다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식

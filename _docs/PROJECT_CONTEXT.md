@@ -20,6 +20,67 @@
 - **로컬 저장소**: Flutter Secure Storage, Shared Preferences
 - **코드 생성**: Freezed, JSON Serializable, Riverpod Generator
 
+### UI 디자인 시스템
+
+- 디자인 기준은 Shift Harmony 문서(`../design/DESIGN.md`,
+  `../design/design prompt/DESIGN.md`,
+  `../design/design prompt/flutter_fe_development_prompt_shift_harmony.md`)를 따른다.
+- 앱 구조는 기존 Flutter Cupertino 기반을 유지하고, Material 3 전환은 하지 않는다.
+- 공용 색/타이포/반경/보더 토큰은 `lib/core/theme/app_theme.dart`에 둔다.
+- 핵심 토큰:
+  - 배경: `#F8F9FB`
+  - Primary: `#0061A4`
+  - Surface: `#FFFFFF`
+  - Surface container: `#F2F4F6`, `#ECEEF0`, `#E0E3E5`
+  - Text: `#191C1E`, 보조 텍스트 `#414750`
+  - Outline: `#C1C7D2`
+- 카드/섹션은 흰색 surface + 16px radius + 얇은 outline을 기본으로 한다.
+  무거운 shadow는 쓰지 않고, 선택/상태 강조는 색상 tint와 border로 표현한다.
+- 입력/작은 컨트롤은 12px radius, badge/chip은 pill 성격의 16px radius를 사용한다.
+- 근무 타입 색상, 공휴일 빨간색, 성공/오류/소셜 로그인 브랜드 색처럼 의미가 있는 색은
+  공용 surface 규칙과 별도로 유지한다.
+- 파일 역할/의존성/사용 예:
+  - `lib/core/theme/app_theme.dart`: Shift Harmony 공용 토큰과 `CupertinoThemeData`,
+    `cardDecoration()` helper를 제공한다. 페이지/위젯은 배경, 카드, outline, 텍스트 색을
+    직접 하드코딩하지 않고 이 토큰을 우선 사용한다. `surface_container_highest_color`
+    (`#E0E3E5`)는 비활성/최대치 도달 버튼 배경처럼 더 높은 surface 상태에 사용한다.
+  - `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`: 근무 패턴 설정 화면.
+    `../design/stitch_shift_schedule_planner (4)/code.html` 시안의 중앙 `근무 패턴 설정`
+    헤더, 근무 타입 수 배지, 카드형 근무 타입 목록, 하단 `근무 타입 추가` 버튼을
+    Cupertino 기반 위젯으로 구현한다. 상단 `근무 패턴 설정` 헤더와 뒤로가기는
+    `CupertinoPageScaffold.navigationBar`에 두어 설정 화면의 `CupertinoNavigationBar`와
+    route 전환 시 같은 헤더 transition을 타게 한다. 근무 타입은 최대 10개까지 추가 가능하며,
+    10개에 도달하면 추가 버튼을 `AppTheme.surface_container_highest_color` 배경으로
+    비활성 표시하고 추가 모달 진입을 막는다. 이때 버튼 위에는 최대 10개 제한과 기존 타입
+    삭제 후 추가 가능하다는 안내 문구를 표시한다. 추가 버튼은 스크롤 목록 안에 넣지 않고
+    하단 안전영역을 반영한 고정 영역에 둬, 근무 타입이 10개여도 버튼과 마지막 카드가
+    홈 인디케이터에 잘려 보이지 않게 한다. 시안 기준으로 이 화면 상단에는 템플릿 이름
+    변경 액션을 노출하지 않는다.
+  - `lib/features/calendar/presentation/widgets/shift_type_card.dart`: 근무 타입 목록 카드.
+    원형 색상 배지 안에 코드, 오른쪽 본문에 이름과 시간 또는 `시간 없음`을 표시하고,
+    삭제 버튼은 `CupertinoIcons.trash`와 outline 색상으로 표현한다. 카드는
+    `ShiftTemplateSettingsPage`에서 편집/삭제 액션을 주입받아 사용한다.
+  - `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`: 근무 타입 추가/편집 화면.
+    `CupertinoPageRoute`로 진입하며, 본문은 `SafeArea(bottom: false)`와 내부 bottom padding을
+    함께 사용해 안내 문구가 홈 인디케이터/화면 끝에 붙어 잘려 보이지 않게 한다. 시간 선택
+    팝업은 하단 안전영역만큼 컨테이너 높이와 spacer를 늘려 피커 휠이 화면 하단에 겹치지 않게 한다.
+  - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
+    시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션,
+    정적 토글, 별도 로그아웃 버튼을 Cupertino 커스텀 위젯으로 구현한다. 설정 화면 내부에는
+    하단 내비게이션을 두지 않고, 메인 캘린더에서 push된 페이지로 뒤로가기를 제공한다.
+    상단 `설정` 헤더와 뒤로가기는 `CupertinoPageScaffold.navigationBar`에 두어 메인
+    캘린더의 `CupertinoNavigationBar`와 route 전환 시 같은 헤더 transition을 타게 한다.
+    프로필/설정 섹션/로그아웃 버튼만 본문 `ListView`에서 스크롤한다.
+    다른 화면보다 크게 보이지 않도록 설정 화면 전용 `_settings_scale = 0.8`을 사용해
+    프로필, 섹션, 행, 아이콘, 토글, 로그아웃 버튼 치수를 축소한다. 섹션 카드는
+    행 배경/구분선을 `ClipRRect`로 먼저 클리핑하고, `foregroundDecoration`이 primary
+    tint 1px outline을 마지막에 그려 같은 크기의 내부 surface가 border를 덮지 않게 한다.
+    실제 구현된 항목은 `ShiftTemplateSettingsPage`로 이동하는 근무 패턴 설정과 로그아웃이다.
+    프로필 편집, 기본 알림 설정, 다크 모드, 언어 및 지역, 글꼴 크기, 비밀번호 변경,
+    로그인 생체 인증, 공지사항, 고객 센터는 `_showFeatureUnavailableAlert()`로
+    "준비 중인 기능" alert를 표시하고 상태를 변경하지 않는다. 버전 정보는
+    `AppConstants.app_version`을 표시한다.
+
 ### 아키텍처 개요
 
 ```
@@ -86,8 +147,10 @@ CalendarPage
     개인 일정 입력 모달. `CalendarPage`에서 `showCupertinoModalPopup`으로 호출하고
     저장 시 `CreateEventRequest`를 반환한다. 모달은 전체 화면 고정 높이로 표시하고,
     키보드 표시 시 모달 자체를 리사이즈하지 않는다. 리스트가 맨 위에 있을 때 아래로
-    스와이프하면 닫힌다. 공개 레벨은 0~5 버튼 클릭이 아니라 좌우 드래그 트랙으로
-    선택한다.
+    스와이프하면 닫힌다. 기본 정보/일시/공개 설정은 디자인 시안 기반 카드형 섹션으로
+    구성한다. 장소 행은 선택 시 입력 다이얼로그를 띄워 `place` 값을 편집하고, 반복 행은
+    현재 API 미지원으로 `안 함` 고정 안내만 제공한다. 공개 레벨은 0~5 세그먼트 트랙에서
+    탭 또는 좌우 드래그로 선택한다.
   - `_docs/EVENT_API_GUIDE.md`: 개인 일정 생성 API, 입력 필수/선택값,
     공개 레벨 규칙, 서버 DDL 확인 요청을 정리한 서버 구현 문서다.
 
@@ -107,6 +170,11 @@ FriendListPage
 - `FriendDetailPage`에서 친구 삭제가 성공하면 `Navigator.pop(true)`로 삭제 결과를
   `FriendCalendarPage`에 반환하고, `FriendCalendarPage`가 자기 자신을 닫아 친구 리스트로
   복귀한다.
+- `FriendDetailPage`의 친구 레벨/캘린더 공유 토글은 화면 안에서 먼저 변경하고, 상단 `Save`를
+  눌렀을 때 기존 `PUT /api/v1/friends/:friend_user_id/settings` API로 `friend_level`과
+  `can_view`를 함께 저장한다. 저장 전 뒤로가기는 변경값을 폐기한다.
+- 친구 설정 화면은 컴팩트 레이아웃을 기본으로 하며, 프로필 사진 위 편집 아이콘은 표시하지 않는다.
+  친구 레벨은 개인 일정 추가 모달의 공개 레벨 선택과 같은 0~5 탭/드래그 트랙으로 조정한다.
 - 친구 캘린더 응답은 기존 `CalendarRangeResponse` 형식(`work_shifts`, `events`)을 재사용한다.
 - 공개 판단은 서버 책임이다. 서버는 `friend_level_settings.owner_user_id = friend_user_id`,
   `friend_level_settings.friend_user_id = viewer_user_id`, `can_view=true`,
@@ -142,6 +210,9 @@ NotificationPage
 - 서버 실패 시에는 교체 전 원본 알림 목록으로 롤백하고 기존 에러 다이얼로그 흐름을 사용한다.
 - 알림 타입 파서는 서버 신규 타입 `FRIEND_REQUEST_ACCEPTED`/`FRIEND_REQUEST_REJECTED`와
   기존 타입 `FRIEND_ACCEPTED`/`FRIEND_REJECTED`를 모두 수용한다.
+- 알림 목록은 `SafeArea(bottom: false)`와 목록 끝 footer 여백을 함께 사용해 마지막 카드가
+  홈 인디케이터/화면 끝에서 잘린 것처럼 보이지 않게 한다. 추가 페이지가 남아 있거나 로딩 중이면
+  footer 문구 대신 하단 여백만 표시하고, 마지막 페이지에서만 완료 문구를 표시한다.
 
 # 사용하는 DB Schema
 
@@ -403,7 +474,11 @@ COMMENT ON TABLE shift_type_schedules IS '버전별 근무 시간표 스냅샷(�
 - DB 문서상 `shift_types.color`는 Flutter `Color` 정수값(`0xAARRGGBB`) 기준이다.
 - 실제 API 응답은 정수 또는 문자열(`#AARRGGBB`, `#RRGGBB`, `0xAARRGGBB`, 10진수 문자열)로 들어올 수 있다.
 - 클라이언트는 `lib/core/utils/color_parser.dart`의 `parseApiColorValue()`로 응답 색상을 정규화한다.
-- 사용 예: `ShiftTypeApiModel.color`, `WorkShiftApiModel.shiftTypeColor` 파싱 시 공통 사용한다.
+- 서버의 근무 타입 생성/수정 validation은 `color` 요청값을 `#AARRGGBB` 문자열로 요구한다.
+  `CreateShiftTypeRequest`와 `UpdateShiftTypeRequest`는 `formatApiColorValue()`를 사용해
+  Flutter `Color` 정수값을 요청용 문자열로 변환한 뒤 전송한다.
+- 사용 예: `ShiftTypeApiModel.color`, `WorkShiftApiModel.shiftTypeColor` 파싱 시 `parseApiColorValue()`를,
+  근무 타입 생성/수정 요청 직렬화 시 `formatApiColorValue()`를 공통 사용한다.
 
 -- =========================================================
 -- 7) EVENTS (개인 일정)
