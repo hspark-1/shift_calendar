@@ -4,12 +4,12 @@
 
 - [DONE] (CHORE) 작업 내용 분리 커밋 및 푸시
   - 목적: 누적된 프론트/UI/문서 변경사항을 작업 목적별 커밋으로 분리하고 원격 저장소에 반영한다.
-  - 변경: 공통 UI 토큰, 개인 일정 입력 화면, 설정 화면, 근무 타입 설정 화면, 근무 타입 색상 직렬화, 친구 설정 화면, 알림 목록 하단 여백, 문서 갱신을 각각 별도 커밋으로 분리했다. 생성 커밋은 `87de17c`, `e509e33`, `0ab4bde`, `f1ce19a`, `8469aa0`, `a0e9067`, `e2b35c5` 및 문서 정리 커밋이다.
+  - 변경: 공통 UI 토큰, 개인 일정 입력 화면, 설정 화면, 근무 타입 설정 화면, 근무 타입 색상 직렬화, 친구 설정 화면, 알림 목록 하단 여백, 문서 갱신을 각각 별도 커밋으로 분리했다. 생성 커밋은 `87de17c`, `e509e33`, `0ab4bde`, `f1ce19a`, `8469aa0`, `a0e9067`, `e2b35c5`, `ca7e27c`이다.
   - 영향범위: git 이력/원격 반영, `_docs` 문서 최신화. 코드 동작은 각 기능 커밋 범위와 동일하다.
   - 파일: `_docs/DECISIONS.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
   - 테스트: `git diff --check` 통과, `dart format --output=none --set-exit-if-changed ...` 통과, `flutter test test/core/utils/color_parser_test.dart` 통과. `flutter analyze`는 기존 snake_case/lowerCamelCase 정책 충돌, 기존 unused/deprecated 항목 등 156건으로 exit 1.
   - 롤백: 원격 반영 후 문제가 있으면 대상 커밋을 `git revert`로 역순 되돌림한다. 푸시 전이면 필요한 커밋만 새 브랜치로 분리하거나 후속 수정 커밋을 추가한다.
-  - 다음: 원격 `origin/main`에 push 완료 여부 확인
+  - 다음: 원격 `origin/main` push 완료
 
 - [DONE] (FE) 설정 진입 근무 패턴 설정 헤더 연결 애니메이션 보강
   - 목적: 설정 화면에서 근무 패턴 설정 화면으로 진입할 때 상단 헤더가 route 전환과 함께 자연스럽게 연결되도록 한다.
