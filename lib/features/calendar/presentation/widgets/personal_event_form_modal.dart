@@ -78,14 +78,25 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     return _combineDateTime(_endDate, _endTime);
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat('yyyy.MM.dd', 'ko_KR').format(date);
+  String _formatDisplayDate(DateTime date) {
+    return DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(date);
   }
 
-  String _formatTime(Duration time) {
-    final hour = time.inHours.toString().padLeft(2, '0');
+  String _formatDisplayTime(Duration time) {
+    final hour24 = time.inHours.remainder(24);
+    final period = hour24 < 12 ? '오전' : '오후';
+    final hour12Value = hour24.remainder(12);
+    final hour12 = hour12Value == 0 ? 12 : hour12Value;
+    final hour = hour12.toString().padLeft(2, '0');
     final minute = time.inMinutes.remainder(60).toString().padLeft(2, '0');
-    return '$hour:$minute';
+    return '$period $hour:$minute';
+  }
+
+  String _visibilityDescription() {
+    if (_visibilityLevel == 0) {
+      return '레벨 0: 열람 허용된 기본 친구에게 공개됩니다.';
+    }
+    return '레벨 $_visibilityLevel: 친구 레벨 $_visibilityLevel 이상에게 공개됩니다.';
   }
 
   String? _emptyToNull(String value) {
@@ -109,6 +120,66 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     );
   }
 
+  Future<void> _editPlace() async {
+    final controller = TextEditingController(text: _placeController.text);
+    final result = await showCupertinoDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return CupertinoAlertDialog(
+          title: const Text('장소'),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: CupertinoTextField(
+              controller: controller,
+              autofocus: true,
+              placeholder: '장소를 입력하세요',
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('취소'),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(dialogContext, ''),
+              child: const Text('삭제'),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(dialogContext, controller.text),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (result == null) return;
+
+    setState(() {
+      _placeController.text = result.trim();
+    });
+  }
+
+  void _showRepeatInfo() {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('반복'),
+        content: const Text('반복 일정은 아직 지원하지 않습니다.'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _selectDate({required bool isStartDate}) async {
     final currentDate = isStartDate ? _startDate : _endDate;
     DateTime selectedDate = currentDate;
@@ -121,8 +192,10 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
             return Container(
               height: 300,
               decoration: const BoxDecoration(
-                color: CupertinoColors.systemBackground,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                color: AppTheme.surface_color,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.card_radius),
+                ),
               ),
               child: Column(
                 children: [
@@ -180,8 +253,10 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
             return Container(
               height: 300,
               decoration: const BoxDecoration(
-                color: CupertinoColors.systemBackground,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                color: AppTheme.surface_color,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.card_radius),
+                ),
               ),
               child: Column(
                 children: [
@@ -236,9 +311,9 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     return Container(
       height: 44,
       decoration: const BoxDecoration(
-        color: CupertinoColors.systemGrey6,
+        color: AppTheme.surface_container_low_color,
         border: Border(
-          bottom: BorderSide(color: CupertinoColors.separator, width: 0.5),
+          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
         ),
       ),
       child: Row(
@@ -330,20 +405,38 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
         data: mediaQuery.copyWith(viewInsets: EdgeInsets.zero),
         child: CupertinoPageScaffold(
           resizeToAvoidBottomInset: false,
-          backgroundColor: CupertinoColors.systemGroupedBackground,
+          backgroundColor: AppTheme.background_color,
           navigationBar: CupertinoNavigationBar(
+            backgroundColor: AppTheme.background_color,
+            border: const Border(
+              bottom: BorderSide(
+                color: AppTheme.outline_variant_color,
+                width: 0.5,
+              ),
+            ),
             middle: const Text('개인 일정 추가'),
             leading: CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
+              child: const Text(
+                '취소',
+                style: TextStyle(
+                  color: AppTheme.primary_color,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             trailing: CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _save,
               child: const Text(
                 '저장',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: AppTheme.primary_color,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -352,12 +445,15 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
             child: ListView(
               controller: _scrollController,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.only(bottom: keyboardHeight + 24),
+              padding: EdgeInsets.fromLTRB(24, 28, 24, keyboardHeight + 48),
               children: [
-                const SizedBox(height: 16),
                 _buildBasicSection(),
+                const SizedBox(height: 28),
                 _buildTimeSection(),
+                const SizedBox(height: 28),
                 _buildVisibilitySection(),
+                // const SizedBox(height: 28),
+                // _buildPreviewSection(),
               ],
             ),
           ),
@@ -366,127 +462,376 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     );
   }
 
-  Widget _buildBasicSection() {
-    final fieldWidth = MediaQuery.of(context).size.width * 0.56;
-
-    return CupertinoListSection.insetGrouped(
-      header: const Text('기본 정보'),
+  Widget _buildSection({required String title, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CupertinoListTile(
-          title: const Text('제목'),
-          trailing: SizedBox(
-            width: fieldWidth,
-            child: CupertinoTextField(
-              controller: _titleController,
-              placeholder: '일정 제목',
-              textAlign: TextAlign.right,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            ),
-          ),
-        ),
-        CupertinoListTile(
-          title: const Text('장소'),
-          trailing: SizedBox(
-            width: fieldWidth,
-            child: CupertinoTextField(
-              controller: _placeController,
-              placeholder: '선택',
-              textAlign: TextAlign.right,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            ),
-          ),
-        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          child: CupertinoTextField(
-            controller: _memoController,
-            placeholder: '메모',
-            minLines: 3,
-            maxLines: 5,
-            padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.only(left: 6, bottom: 14),
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: AppTheme.on_surface_variant_color,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.25,
+            ),
           ),
         ),
+        child,
       ],
+    );
+  }
+
+  Widget _buildFormCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(20),
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: AppTheme.cardDecoration(),
+      child: child,
+    );
+  }
+
+  Widget _buildBasicSection() {
+    final placeText = _placeController.text.trim();
+
+    return _buildSection(
+      title: '기본 정보',
+      child: _buildFormCard(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '일정 제목 (필수)',
+              style: TextStyle(
+                color: AppTheme.on_surface_variant_color,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            CupertinoTextField(
+              controller: _titleController,
+              placeholder: '일정 제목을 입력하세요',
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppTheme.outline_variant_color,
+                    width: 1,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.only(bottom: 12),
+              style: const TextStyle(
+                color: AppTheme.on_surface_color,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+                height: 1.25,
+              ),
+              placeholderStyle: const TextStyle(
+                color: AppTheme.outline_color,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 18),
+            CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: _editPlace,
+              child: Row(
+                children: [
+                  const Icon(
+                    CupertinoIcons.location,
+                    color: AppTheme.outline_color,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      placeText.isEmpty ? '장소 선택 (선택)' : placeText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: placeText.isEmpty
+                            ? AppTheme.outline_color
+                            : AppTheme.on_surface_color,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w400,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    CupertinoIcons.chevron_forward,
+                    color: AppTheme.outline_color,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              '메모 (선택)',
+              style: TextStyle(
+                color: AppTheme.on_surface_variant_color,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            CupertinoTextField(
+              controller: _memoController,
+              placeholder: '메모를 입력하세요',
+              minLines: 4,
+              maxLines: 6,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.surface_container_low_color,
+                borderRadius: AppTheme.input_border_radius,
+              ),
+              style: const TextStyle(
+                color: AppTheme.on_surface_color,
+                fontSize: 18,
+                fontWeight: FontWeight.w400,
+                height: 1.3,
+              ),
+              placeholderStyle: const TextStyle(
+                color: AppTheme.outline_color,
+                fontSize: 18,
+                fontWeight: FontWeight.w400,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildTimeSection() {
-    return CupertinoListSection.insetGrouped(
-      header: const Text('일시'),
-      children: [
-        CupertinoListTile(
-          title: const Text('종일'),
-          trailing: CupertinoSwitch(
-            value: _allDay,
-            onChanged: (value) {
-              setState(() {
-                _allDay = value;
-              });
-            },
-          ),
+    return _buildSection(
+      title: '일시',
+      child: _buildFormCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Row(
+                children: [
+                  const Icon(
+                    CupertinoIcons.clock,
+                    color: AppTheme.outline_color,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      '종일',
+                      style: TextStyle(
+                        color: AppTheme.on_surface_color,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w500,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  CupertinoSwitch(
+                    value: _allDay,
+                    onChanged: (value) {
+                      setState(() {
+                        _allDay = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            _buildDivider(),
+            _buildDateTimeRow(
+              label: '시작',
+              date: _startDate,
+              time: _startTime,
+              onDateTap: () => _selectDate(isStartDate: true),
+              onTimeTap: () => _selectTime(isStartTime: true),
+            ),
+            _buildDivider(),
+            _buildDateTimeRow(
+              label: '종료',
+              date: _endDate,
+              time: _endTime,
+              onDateTap: () => _selectDate(isStartDate: false),
+              onTimeTap: () => _selectTime(isStartTime: false),
+            ),
+            _buildDivider(),
+            _buildRepeatRow(),
+          ],
         ),
-        _buildPickerTile(
-          title: '시작일',
-          value: _formatDate(_startDate),
-          icon: CupertinoIcons.calendar,
-          onTap: () => _selectDate(isStartDate: true),
-        ),
-        if (!_allDay)
-          _buildPickerTile(
-            title: '시작시간',
-            value: _formatTime(_startTime),
-            icon: CupertinoIcons.time,
-            onTap: () => _selectTime(isStartTime: true),
-          ),
-        _buildPickerTile(
-          title: '종료일',
-          value: _formatDate(_endDate),
-          icon: CupertinoIcons.calendar,
-          onTap: () => _selectDate(isStartDate: false),
-        ),
-        if (!_allDay)
-          _buildPickerTile(
-            title: '종료시간',
-            value: _formatTime(_endTime),
-            icon: CupertinoIcons.time,
-            onTap: () => _selectTime(isStartTime: false),
-          ),
-      ],
+      ),
     );
   }
 
-  Widget _buildPickerTile({
-    required String title,
-    required String value,
-    required IconData icon,
-    required VoidCallback onTap,
+  Widget _buildDivider() {
+    return Container(height: 0.5, color: AppTheme.outline_variant_color);
+  }
+
+  Widget _buildDateTimeRow({
+    required String label,
+    required DateTime date,
+    required Duration time,
+    required VoidCallback onDateTap,
+    required VoidCallback onTimeTap,
   }) {
-    return CupertinoListTile(
-      title: Text(title),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Row(
         children: [
-          Text(
-            value,
-            style: AppTheme.body_medium.copyWith(color: CupertinoColors.label),
+          Expanded(
+            child: CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              alignment: Alignment.centerLeft,
+              onPressed: onDateTap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppTheme.on_surface_variant_color,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatDisplayDate(date),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppTheme.on_surface_color,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w400,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
-          Icon(icon, size: 18, color: AppTheme.primary_color),
+          if (!_allDay) ...[
+            const SizedBox(width: 12),
+            CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: onTimeTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface_container_low_color,
+                  borderRadius: AppTheme.input_border_radius,
+                ),
+                child: Text(
+                  _formatDisplayTime(time),
+                  style: const TextStyle(
+                    color: AppTheme.primary_color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
-      onTap: onTap,
     );
   }
 
-  void _updateVisibilityLevelFromDrag({
+  Widget _buildRepeatRow() {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: _showRepeatInfo,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '반복',
+                    style: TextStyle(
+                      color: AppTheme.on_surface_variant_color,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '안 함',
+                    style: TextStyle(
+                      color: AppTheme.on_surface_color,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w400,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.surface_container_low_color,
+                borderRadius: AppTheme.input_border_radius,
+              ),
+              child: const Text(
+                '안 함',
+                style: TextStyle(
+                  color: AppTheme.primary_color,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(
+              CupertinoIcons.chevron_forward,
+              color: AppTheme.outline_color,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _updateVisibilityLevelFromPosition({
     required Offset localPosition,
     required double trackWidth,
   }) {
     if (trackWidth <= 0) return;
 
     final clampedX = localPosition.dx.clamp(0.0, trackWidth).toDouble();
-    final ratio = clampedX / trackWidth;
-    final nextLevel = (ratio * 5).round().clamp(0, 5).toInt();
+    final segmentWidth = trackWidth / 6;
+    final nextLevel = (clampedX / segmentWidth).floor().clamp(0, 5).toInt();
 
     if (nextLevel == _visibilityLevel) return;
 
@@ -495,99 +840,83 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     });
   }
 
-  Widget _buildVisibilityLevelDragSelector() {
+  Widget _buildVisibilityLevelSelector() {
     const selectorHeight = 56.0;
-    const thumbSize = 42.0;
+    const selectorPadding = 4.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final trackWidth = constraints.maxWidth;
-        final levelRatio = _visibilityLevel / 5;
-        final thumbTravel = trackWidth - thumbSize;
-        final thumbLeft = thumbTravel <= 0 ? 0.0 : thumbTravel * levelRatio;
-        final fillWidth = trackWidth * levelRatio;
+        final innerWidth = trackWidth - (selectorPadding * 2);
+        final segmentWidth = innerWidth <= 0 ? 0.0 : innerWidth / 6;
+        final indicatorLeft =
+            selectorPadding + (segmentWidth * _visibilityLevel);
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
+          onTapDown: (details) {
+            _updateVisibilityLevelFromPosition(
+              localPosition: details.localPosition,
+              trackWidth: trackWidth,
+            );
+          },
           onHorizontalDragStart: (details) {
-            _updateVisibilityLevelFromDrag(
+            _updateVisibilityLevelFromPosition(
               localPosition: details.localPosition,
               trackWidth: trackWidth,
             );
           },
           onHorizontalDragUpdate: (details) {
-            _updateVisibilityLevelFromDrag(
+            _updateVisibilityLevelFromPosition(
               localPosition: details.localPosition,
               trackWidth: trackWidth,
             );
           },
-          child: SizedBox(
+          child: Container(
             height: selectorHeight,
+            decoration: BoxDecoration(
+              color: AppTheme.surface_container_color,
+              borderRadius: AppTheme.input_border_radius,
+            ),
             child: Stack(
-              alignment: Alignment.centerLeft,
               children: [
-                Container(
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey5,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 90),
-                  curve: Curves.easeOut,
-                  width: fillWidth,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary_color.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                Row(
-                  children: [
-                    for (int level = 0; level <= 5; level++)
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            '$level',
-                            style: AppTheme.body_small.copyWith(
-                              color: level == _visibilityLevel
-                                  ? CupertinoColors.white
-                                  : CupertinoColors.secondaryLabel,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 90),
+                  duration: const Duration(milliseconds: 140),
                   curve: Curves.easeOut,
-                  left: thumbLeft,
-                  width: thumbSize,
-                  height: thumbSize,
+                  top: selectorPadding,
+                  bottom: selectorPadding,
+                  left: indicatorLeft,
+                  width: segmentWidth,
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppTheme.primary_color,
-                      borderRadius: BorderRadius.circular(13),
-                      boxShadow: [
-                        BoxShadow(
-                          color: CupertinoColors.black.withValues(alpha: 0.16),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Center(
-                      child: Text(
-                        '$_visibilityLevel',
-                        style: AppTheme.body_medium.copyWith(
-                          color: CupertinoColors.white,
-                          fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: selectorPadding,
+                  ),
+                  child: Row(
+                    children: [
+                      for (int level = 0; level <= 5; level++)
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              '$level',
+                              style: TextStyle(
+                                color: level == _visibilityLevel
+                                    ? CupertinoColors.white
+                                    : AppTheme.on_surface_color,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -599,14 +928,50 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
   }
 
   Widget _buildVisibilitySection() {
-    return CupertinoListSection.insetGrouped(
-      header: const Text('공개 레벨 설정'),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-          child: _buildVisibilityLevelDragSelector(),
+    return _buildSection(
+      title: '공개 설정',
+      child: _buildFormCard(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '공개 레벨 설정 (0~5)',
+              style: TextStyle(
+                color: AppTheme.outline_color,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _buildVisibilityLevelSelector(),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  CupertinoIcons.info_circle,
+                  color: AppTheme.on_surface_variant_color,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _visibilityDescription(),
+                    style: const TextStyle(
+                      color: AppTheme.on_surface_variant_color,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
