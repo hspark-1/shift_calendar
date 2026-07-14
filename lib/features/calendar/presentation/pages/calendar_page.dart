@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,6 +59,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   // 근무 추가 모드 시작 시 초기 스케줄 상태 저장 (변경사항 추적용)
   Map<DateTime, String?>? _initial_schedules;
+  CalendarFormat? _calendar_format_before_shift_add;
+  bool? _expanded_view_before_shift_add;
 
   // 로딩 상태
   bool _isLoading = false;
@@ -69,6 +73,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   // 확장 모드 시 행 높이
   double get _calendarRowHeight {
+    if (_is_shift_add_mode) {
+      return 60.0;
+    }
     if (_is_expanded_view) {
       return 60.0; // 확장 모드: 더 높은 행 (날짜 + 근무 코드)
     }
@@ -134,7 +141,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       }
     } catch (e) {
       // 에러 발생 시 빈 Set 사용
-      print('공휴일 로딩 실패: $e');
+      debugPrint('공휴일 로딩 실패: $e');
     }
   }
 
@@ -156,7 +163,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           }
         })
         .catchError((e) {
-          print('공휴일 비동기 로딩 실패 ($year년): $e');
+          debugPrint('공휴일 비동기 로딩 실패 ($year년): $e');
         });
   }
 
@@ -581,71 +588,67 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // 하단 액션 바
-            BottomActionBar(
-              mode: BottomActionBarMode.main,
-              unreadNotificationCount: ref.watch(
-                unreadNotificationCountProvider,
-              ),
-              onFriendTap: () {
-                Navigator.of(context).push(
-                  CupertinoPageRoute<void>(
-                    builder: (context) => const FriendListPage(),
-                  ),
-                );
-              },
-              onCalendarTap: () {
-                // 오늘 날짜로 이동
-                final now = DateTime.now();
-                final normalizedNow = _normalizeDate(now);
-                // focusedDay와 selectedDay를 동시에 업데이트
-                // TableCalendar는 focusedDay 변경 시 자동으로 페이지를 변경하지만,
-                // NotificationListener가 스크롤 알림을 차단하면 onPageChanged가 호출되지 않을 수 있음
-                // 따라서 focusedDay 변경 후 명시적으로 onPageChanged 로직을 실행
-                setState(() {
-                  _focused_day = normalizedNow;
-                  _selected_day = normalizedNow;
-                });
-                // onPageChanged가 호출되지 않을 수 있으므로,
-                // 페이지 변경이 완료된 후 상태를 확실히 업데이트
-                SchedulerBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    // focusedDay가 변경되었는지 확인하고, 필요시 다시 업데이트
-                    final currentNormalized = _normalizeDate(_focused_day);
-                    if (!isSameDay(currentNormalized, normalizedNow)) {
-                      setState(() {
-                        _focused_day = normalizedNow;
-                        _selected_day = normalizedNow;
-                      });
-                      // 월 변경 시 데이터 로딩
-                      _loadCalendarData(normalizedNow);
-                      // 공휴일도 함께 로드
-                      _loadHolidays(
-                        normalizedNow.year,
-                        month: normalizedNow.month,
-                      );
-                    }
-                  }
-                });
-              },
-              onNotificationTap: () {
-                Navigator.of(context)
-                    .push(
-                      CupertinoPageRoute<void>(
-                        builder: (context) => const NotificationPage(),
-                      ),
-                    )
-                    .then((_) {
-                      // 알림 페이지에서 돌아오면 미읽음 개수 새로고침
-                      ref
-                          .read(notificationProvider.notifier)
-                          .fetchUnreadCount();
-                    });
-              },
-            ),
+            _buildMainBottomActionBar(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMainBottomActionBar() {
+    return BottomActionBar(
+      mode: BottomActionBarMode.main,
+      unreadNotificationCount: ref.watch(unreadNotificationCountProvider),
+      onFriendTap: () {
+        Navigator.of(context).push(
+          CupertinoPageRoute<void>(
+            builder: (context) => const FriendListPage(),
+          ),
+        );
+      },
+      onCalendarTap: () {
+        // 오늘 날짜로 이동
+        final now = DateTime.now();
+        final normalizedNow = _normalizeDate(now);
+        // focusedDay와 selectedDay를 동시에 업데이트
+        // TableCalendar는 focusedDay 변경 시 자동으로 페이지를 변경하지만,
+        // NotificationListener가 스크롤 알림을 차단하면 onPageChanged가 호출되지 않을 수 있음
+        // 따라서 focusedDay 변경 후 명시적으로 onPageChanged 로직을 실행
+        setState(() {
+          _focused_day = normalizedNow;
+          _selected_day = normalizedNow;
+        });
+        // onPageChanged가 호출되지 않을 수 있으므로,
+        // 페이지 변경이 완료된 후 상태를 확실히 업데이트
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            // focusedDay가 변경되었는지 확인하고, 필요시 다시 업데이트
+            final currentNormalized = _normalizeDate(_focused_day);
+            if (!isSameDay(currentNormalized, normalizedNow)) {
+              setState(() {
+                _focused_day = normalizedNow;
+                _selected_day = normalizedNow;
+              });
+              // 월 변경 시 데이터 로딩
+              _loadCalendarData(normalizedNow);
+              // 공휴일도 함께 로드
+              _loadHolidays(normalizedNow.year, month: normalizedNow.month);
+            }
+          }
+        });
+      },
+      onNotificationTap: () {
+        Navigator.of(context)
+            .push(
+              CupertinoPageRoute<void>(
+                builder: (context) => const NotificationPage(),
+              ),
+            )
+            .then((_) {
+              // 알림 페이지에서 돌아오면 미읽음 개수 새로고침
+              ref.read(notificationProvider.notifier).fetchUnreadCount();
+            });
+      },
     );
   }
 
@@ -738,8 +741,20 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     setState(() {
       // 초기 상태 저장 (깊은 복사)
       _initial_schedules = Map.from(_schedules);
+      _calendar_format_before_shift_add = _calendar_format;
+      _expanded_view_before_shift_add = _is_expanded_view;
+      _calendar_format = CalendarFormat.month;
+      _is_expanded_view = true;
       _is_shift_add_mode = true;
     });
+  }
+
+  void _restoreCalendarViewAfterShiftAdd() {
+    _calendar_format =
+        _calendar_format_before_shift_add ?? CalendarFormat.month;
+    _is_expanded_view = _expanded_view_before_shift_add ?? false;
+    _calendar_format_before_shift_add = null;
+    _expanded_view_before_shift_add = null;
   }
 
   /// 날짜를 YYYY-MM-DD 형식으로 변환
@@ -836,6 +851,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       setState(() {
         _is_shift_add_mode = false;
         _initial_schedules = null;
+        _restoreCalendarViewAfterShiftAdd();
       });
       return;
     }
@@ -862,6 +878,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         setState(() {
           _is_shift_add_mode = false;
           _initial_schedules = null;
+          _restoreCalendarViewAfterShiftAdd();
           for (final workShift in response.data.workShifts) {
             final normalizedDate = _normalizeDate(workShift.workDate);
             _workShifts[normalizedDate] = workShift;
@@ -904,6 +921,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       }
       _is_shift_add_mode = false;
       _initial_schedules = null;
+      _restoreCalendarViewAfterShiftAdd();
     });
   }
 
@@ -1027,11 +1045,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
+          final isMonthChanged =
+              nextDay.month != _focused_day.month ||
+              nextDay.year != _focused_day.year;
           _selected_day = nextDay;
-          // 월이 바뀌면 포커스도 변경
-          if (nextDay.month != _focused_day.month ||
-              nextDay.year != _focused_day.year) {
+          if (isMonthChanged) {
             _focused_day = nextDay;
+          }
+          // 월이 바뀌면 데이터도 함께 로딩
+          if (isMonthChanged) {
             // 월 변경 시 데이터 로딩
             _loadCalendarData(nextDay);
             // 공휴일도 함께 로드
@@ -1154,7 +1176,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 포인터 이동 이벤트 처리 (확장/축소 모드 전환)
   void _onPointerMove(PointerMoveEvent event) {
-    if (_pointer_start_y == null) return;
+    if (_pointer_start_y == null || _is_shift_add_mode) return;
 
     final currentY = event.position.dy;
     final deltaY = currentY - _pointer_start_y!;
@@ -1652,90 +1674,123 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 근무 설정 모드 overlay
   Widget _buildShiftAddOverlay() {
     final dateFormat = DateFormat('yyyy.MM.dd', 'ko_KR');
-    final currentShift = _getScheduleForDay(_selected_day ?? DateTime.now());
-    final shiftTypesMap = ref.watch(shiftTypesMapProvider);
-    final shiftInfo = currentShift != null ? shiftTypesMap[currentShift] : null;
+    final selectedDate = _selected_day ?? DateTime.now();
+    final currentShift = _getScheduleForDay(selectedDate);
+    final shiftTypesAsync = ref.watch(shiftTypesProvider);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: AppTheme.cardDecoration(),
-      child: ClipRRect(
-        borderRadius: AppTheme.card_border_radius,
+      decoration: AppTheme.cardDecoration(
+        color: AppTheme.surface_container_low_color,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 날짜 헤더
-            Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: AppTheme.primary_color.withValues(alpha: 0.05),
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppTheme.outline_variant_color,
-                    width: 0.5,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    dateFormat.format(selectedDate),
+                    style: AppTheme.heading_small.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    dateFormat.format(_selected_day ?? DateTime.now()),
-                    style: AppTheme.heading_small,
-                  ),
-                  const SizedBox(width: 12),
-                  if (currentShift != null && shiftInfo != null)
-                    ShiftBadge(
-                      shift_type: currentShift,
-                      size: 16,
-                      show_label: true,
-                    ),
-                ],
-              ),
+                const SizedBox(width: 12),
+                _buildShiftAddCompleteButton(),
+              ],
             ),
-            // 근무 유형 선택 버튼
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ShiftTypeButtonGroup(
+            const SizedBox(height: 10),
+            Expanded(
+              child: shiftTypesAsync.when(
+                data: (shiftTypes) {
+                  if (shiftTypes.isEmpty) {
+                    return _buildShiftTypeEmptyState();
+                  }
+
+                  final sortedShiftTypes = [...shiftTypes]
+                    ..sort((a, b) => a.sort_order.compareTo(b.sort_order));
+
+                  return ShiftTypeSelectionGrid(
+                    shift_types: sortedShiftTypes,
                     selected_shift: currentShift,
                     onShiftSelected: _onShiftSelected,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '버튼을 누르면 다음 날로 자동 이동합니다',
-                    style: AppTheme.body_small.copyWith(
-                      color: AppTheme.on_surface_variant_color,
-                    ),
-                  ),
-                ],
+                  );
+                },
+                loading: () =>
+                    const Center(child: CupertinoActivityIndicator()),
+                error: (error, stackTrace) => _buildShiftTypeErrorState(),
               ),
             ),
-            // 완료 버튼
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: CupertinoButton(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  color: AppTheme.primary_color,
-                  borderRadius: AppTheme.input_border_radius,
-                  onPressed: _completeShiftAddMode,
-                  child: const Text(
-                    '완료',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: CupertinoColors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
+            const SizedBox(height: 10),
+            Text(
+              '버튼을 누르면 다음 날로 자동 이동합니다',
+              textAlign: TextAlign.center,
+              style: AppTheme.body_small.copyWith(
+                color: AppTheme.outline_color,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftTypeEmptyState() {
+    return Center(
+      child: Text(
+        '등록된 근무 타입이 없습니다',
+        style: AppTheme.body_medium.copyWith(
+          color: AppTheme.on_surface_variant_color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftTypeErrorState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '근무 타입을 불러오지 못했습니다',
+            style: AppTheme.body_medium.copyWith(
+              color: AppTheme.on_surface_variant_color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: AppTheme.primary_color,
+            borderRadius: AppTheme.input_border_radius,
+            onPressed: () => ref.invalidate(shiftTypesProvider),
+            child: const Text(
+              '다시 시도',
+              style: TextStyle(color: CupertinoColors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftAddCompleteButton() {
+    return SizedBox(
+      height: 36,
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        color: AppTheme.primary_color,
+        borderRadius: BorderRadius.circular(AppTheme.radius_md),
+        onPressed: _completeShiftAddMode,
+        child: const Text(
+          '완료',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: CupertinoColors.white,
+            fontSize: 14,
+          ),
         ),
       ),
     );

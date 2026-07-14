@@ -44,6 +44,31 @@
     `cardDecoration()` helper를 제공한다. 페이지/위젯은 배경, 카드, outline, 텍스트 색을
     직접 하드코딩하지 않고 이 토큰을 우선 사용한다. `surface_container_highest_color`
     (`#E0E3E5`)는 비활성/최대치 도달 버튼 배경처럼 더 높은 surface 상태에 사용한다.
+  - `lib/features/calendar/presentation/pages/calendar_page.dart`: 메인 캘린더 화면.
+    `TableCalendar`와 `/calendar/range` 응답을 결합해 저장된 근무표/개인 일정을 표시한다.
+    우측 상단 `+` 버튼으로 근무 추가 모드에 들어가면 선택일 헤더 아래에 근무 타입 원형
+    버튼을 표시한다. 날짜 헤더 오른쪽에는 36px 높이의 compact `완료` 버튼을 배치하고,
+    별도 하단 완료 버튼과 근무 타입 수 배지는 표시하지 않는다. 원형 버튼은 한 행 최대 5개,
+    최대 2행으로 배치해 타입 1~10개를 내부 스크롤 없이 노출한다. 버튼 안에는 코드와 이름을
+    표시하며, 선택 시 해당 타입 색상의 tint와 굵은 outline을 사용한다.
+    버튼을 누르면 `_schedules`에 선택 근무를 임시 저장한 뒤 다음 날로 자동 이동한다.
+    날짜 헤더/완료 버튼, 버튼 그리드, 안내 문구는 하나의
+    `surface_container_low_color` 카드 영역 안에 둔다. 근무 추가 모드에서는
+    진입 전 `CalendarFormat`과 확장 상태를 저장한 뒤 `CalendarFormat.month`와 확장 보기를
+    활성화해 60px 날짜 셀 아래에 근무 코드를 표시한다. 입력 중에는 수직 드래그 확장/축소를
+    잠그고, 완료/취소 시 진입 전 달력 형식과 확장 상태를 복구한다. 2주 보기로 강제 전환하지
+    않는다. 다음 날 자동 이동은 월 경계를 넘을 때만 `_focused_day`를 갱신한다. 근무 설정 카드
+    내부는 12px padding을 사용한다.
+  - `lib/features/calendar/presentation/widgets/shift_type_button.dart`: 근무 타입 선택 버튼 위젯.
+    기존 `ShiftTypeButtonGroup`은 근무 추가 페이지/시트에서 Provider 기반 원형 버튼을 표시하고,
+    `ShiftTypeSelectionGrid`는 메인 캘린더가 전달한 정렬된 `ShiftTypeInfo` 목록을 실제 너비와
+    높이에 맞춰 최대 5열로 배치한다. 메인 그리드는 코드/이름, 선택 상태, 접근성 label을
+    제공하며 선택 콜백으로 코드만 반환한다.
+  - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 메인 하단 내비게이션.
+    친구, 오늘, 알림 이동 액션과 미읽음 알림 배지를 표시하며 기본적으로 상단 outline을 그린다.
+  - `test/features/calendar/presentation/widgets/shift_type_button_test.dart`:
+    `ShiftTypeSelectionGrid`가 320x128 영역에서 타입 1~10개를 스크롤/오버플로우 없이 표시하는지,
+    10개를 5개씩 2행으로 배치하는지, 선택 코드를 콜백으로 전달하는지 검증한다.
   - `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`: 근무 패턴 설정 화면.
     `../design/stitch_shift_schedule_planner (4)/code.html` 시안의 중앙 `근무 패턴 설정`
     헤더, 근무 타입 수 배지, 카드형 근무 타입 목록, 하단 `근무 타입 추가` 버튼을
@@ -117,8 +142,13 @@ CalendarPage
 - 메인 캘린더의 저장된 근무표 표시는 서버가 반환한 `WorkShiftApiModel`을 기준으로 한다.
 - `work_shifts` 응답의 `shift_type_code`, `shift_type_name`, `shift_type_color`,
   `start_time`, `end_time`은 저장된 근무표 표시용 스냅샷이다.
-- `shiftTypesProvider`는 현재 계정의 근무 타입 설정 조회 및 근무 입력 버튼 표시용으로만 사용한다.
+- `shiftTypesProvider`는 현재 계정의 근무 타입 설정 조회 및 근무 입력 원형 버튼 표시용으로만 사용한다.
 - 저장된 근무표를 화면에 그릴 때는 `shiftTypesProvider`의 코드별 캐시로 색상/이름/시간을 재해석하지 않는다.
+- 메인 캘린더 근무 추가 모드는 서버 저장 전 `_schedules`에 임시 선택값을 쌓는다.
+  진입 시 기존 `CalendarFormat`/확장 상태를 저장하고 월 확장 보기를 활성화하며, 입력 중에는
+  확장/축소 드래그를 잠근다. 완료/취소 시 기존 달력 형식과 확장 상태를 복구한다.
+  선택일의 원형 버튼에서 근무 타입을 누르면 다음 날로 자동 이동하고, 근무 설정 카드 내부 `완료` 버튼을
+  눌렀을 때 변경된 항목만 `WorkShiftService.batchUpsertWorkShifts()`로 저장한다.
 - 로그인/로그아웃으로 계정이 바뀌면 근무 타입, 근무 템플릿 설정, 친구, 알림 Provider 캐시를 무효화한다.
 
 ### 개인 일정 생성/표시 흐름

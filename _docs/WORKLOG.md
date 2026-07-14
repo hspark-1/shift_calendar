@@ -1,5 +1,90 @@
 # 작업 로그
 
+## 2026-07-14
+
+- [TODO] (CHORE) 현재 변경사항 목적별 커밋 및 푸시
+  - 목적: 개발 API 주소 변경과 메인 캘린더 근무 입력 UI 변경을 목적별 git 이력으로 분리해 원격 `origin/main`에 반영한다.
+  - 변경: 검증 후 API 설정과 캘린더 UI를 별도 커밋으로 생성하고 푸시할 예정이다.
+  - 영향범위: git 이력, 원격 `main`, 작업 문서. 런타임 동작은 각 변경 항목의 영향범위와 동일하다.
+  - 파일: `lib/core/constants/api_constants.dart`, 캘린더 관련 코드/테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 파일 포맷/정적 분석, 위젯 테스트, `git diff --check` 예정
+  - 롤백: 원격 반영 후 문제 시 생성 커밋을 역순으로 `git revert`한다.
+  - 다음: 변경 검증 후 목적별 stage/commit/push
+
+- [DONE] (CHORE) 개발 API 서버 호스트 변경 문서화
+  - 목적: 로컬 개발 환경이 사용하는 API 서버 주소를 현재 접속 대상에 맞춘다.
+  - 변경: `ApiConstants.base_url_dev`의 호스트가 `172.30.1.13`에서 `172.30.1.49`로 변경된 현재 작업 트리를 문서화한다.
+  - 영향범위: 개발 모드의 모든 API 요청 대상. 운영 API 주소는 변경하지 않는다.
+  - 파일: `lib/core/constants/api_constants.dart`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/core/constants/api_constants.dart` 변경 없음. 대상 `flutter analyze`에서 error/warning 0건이며 프로젝트 snake_case 정책과 기본 린트가 충돌하는 기존 naming info 25건을 확인했다. `git diff --check` 통과.
+  - 롤백: `base_url_dev` 호스트를 `172.30.1.13`으로 되돌린다.
+  - 다음: 캘린더 UI 변경과 분리해 커밋 및 푸시
+
+- [DONE] (FE) 근무 입력 완료 버튼을 날짜 헤더로 이동
+  - 목적: 근무 타입 개수 `N개`가 표시되던 날짜 헤더 오른쪽에 완료 액션을 배치하고, 하단 버튼이 차지하던 공간을 근무 타입 영역에 돌려준다.
+  - 변경: `shift_types_data`와 `_buildShiftTypeCountBadge()`를 제거하고 날짜 헤더 오른쪽에 `_buildShiftAddCompleteButton()`을 배치했다. 완료 버튼은 36px 높이, 14px 텍스트의 compact primary 버튼으로 변경했다. 카드 하단의 48px 전체 너비 완료 버튼과 앞 여백을 제거해 원형 근무 타입 영역이 남은 높이를 더 사용할 수 있게 했다. 버튼은 기존 `_completeShiftAddMode()`를 그대로 호출한다.
+  - 영향범위: 메인 캘린더 근무 입력 카드의 헤더와 완료 버튼 위치. 저장 로직/API는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/calendar_page.dart` 0건 통과, `flutter test test/features/calendar/presentation/widgets/shift_type_button_test.dart` 2건 통과, `git diff --check` 통과.
+  - 롤백: 헤더 완료 버튼을 제거하고 타입 수 배지 및 하단 전체 너비 완료 버튼을 복구한다.
+  - 다음: 실제 기기에서 날짜와 완료 버튼이 한 행에 잘리지 않고 표시되며 저장 동작이 동일한지 확인
+
+- [DONE] (FE) 근무 입력 모드 진입 시 달력 확장 보기 활성화
+  - 목적: 근무 입력 모드의 달력 행 높이 60px에 맞춰 날짜 아래 근무 코드가 보이는 확장 모드를 자동 활성화한다.
+  - 변경: 근무 입력 진입 시 `_calendar_format_before_shift_add`와 `_expanded_view_before_shift_add`에 기존 상태를 저장한 뒤 `CalendarFormat.month`, `_is_expanded_view=true`를 적용했다. 따라서 60px 날짜 셀에 근무 코드가 함께 표시된다. 변경 없음 종료, 저장 성공, 취소 경로는 공통 `_restoreCalendarViewAfterShiftAdd()`로 진입 전 형식/확장 상태를 복구한다. 입력 중에는 `_onPointerMove()`가 확장/축소를 바꾸지 않도록 잠갔다. 2주 보기 강제 전환은 추가하지 않았다.
+  - 영향범위: 메인 캘린더 근무 입력 모드의 달력 셀 표시, 진입/종료 시 달력 상태, 수직 드래그 동작. 근무 선택/저장 API는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/calendar_page.dart` 0건 통과, `flutter test test/features/calendar/presentation/widgets/shift_type_button_test.dart` 2건 통과, `git diff --check` 통과.
+  - 롤백: `_calendar_format_before_shift_add`와 진입 시 월 확장 설정을 제거하고, 복원 함수를 확장 상태만 복구하도록 되돌린 뒤 입력 중 포인터 이동 차단을 제거한다.
+  - 다음: 실제 기기에서 근무 설정 진입 시 근무 코드가 표시되고 완료/취소 시 기존 달력 형식으로 돌아오는지 확인
+
+- [DONE] (FE) 근무 입력 모드의 2주 보기 강제 전환 제거
+  - 목적: 메인 캘린더에서 근무 설정을 시작해도 사용자가 보던 달력 형식을 유지하고, 달력이 자동으로 2주 보기로 바뀌지 않게 한다.
+  - 변경: `_calendar_format_before_shift_add`와 근무 입력 진입 시 `CalendarFormat.twoWeeks`를 대입하던 로직을 제거했다. 종료 시 달력 형식을 복원하던 처리도 제거해 월/2주/주 중 진입 전 형식을 그대로 유지한다. 확장 보기는 입력 중 셀/카드 공간 충돌을 막기 위해 기존처럼 임시 해제 후 종료 시 복구한다. 다음 날 자동 이동은 2주 보기 전용 매일 포커스 이동을 제거하고 월 경계를 넘을 때만 `_focused_day`를 갱신한다.
+  - 영향범위: 메인 캘린더 근무 입력 모드 진입/종료 시 달력 표시 형식과 다음 날 이동 시 달력 포커스. 근무 선택, 선택일 이동, 저장 API, 원형 버튼 그리드는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/calendar_page.dart` 0건 통과, `flutter test test/features/calendar/presentation/widgets/shift_type_button_test.dart` 2건 통과, `git diff --check` 통과.
+  - 롤백: `_calendar_format_before_shift_add` 필드와 진입 시 `CalendarFormat.twoWeeks` 설정, 종료 시 기존 형식 복원, 입력 중 매일 `_focused_day` 이동 로직을 다시 추가한다.
+  - 다음: 실제 기기에서 월 보기 상태로 근무 설정에 진입/완료/취소해 월 보기가 유지되는지 확인
+
+- [DONE] (FE) 메인 캘린더 근무 입력 원형 버튼 레이아웃 복원
+  - 목적: 일별 근무 입력 화면의 세로 스크롤 리스트를 원형 선택 버튼으로 바꾸고, 등록된 근무 타입 1~10개를 스크롤 없이 한 화면에서 확인하고 선택할 수 있게 한다.
+  - 변경: `CalendarPage`의 스크롤 리스트를 `ShiftTypeSelectionGrid`로 교체했다. 그리드는 가용 너비/높이로 버튼 지름을 계산하고 한 행 최대 5개, 최대 2행으로 중앙 정렬해 1~10개를 모두 노출한다. 각 원형 버튼에는 근무 코드와 이름을 표시하고, 선택 시 타입 색상의 tint/굵은 outline을 적용한다. 날짜 헤더에는 현재 타입 수를 `N개`로 표시하며 기존 로딩/빈 상태/오류 재시도, 선택 후 다음 날 자동 이동, 완료 저장 흐름은 유지했다.
+  - 영향범위: 메인 캘린더 근무 추가 모드의 근무 타입 선택 UI와 `shift_type_button.dart`의 재사용 위젯. 근무 저장 API, 기존 `ShiftTypeButtonGroup` 사용 화면, 근무 패턴 설정 화면은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/calendar/presentation/widgets/shift_type_button.dart`, `test/features/calendar/presentation/widgets/shift_type_button_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 3개 파일 `dart format` 통과, 대상 3개 파일 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets/shift_type_button_test.dart` 2건 통과. 테스트에서 320x128 영역의 타입 1~10개 무스크롤 표시, 10개 5열 2행 배치, 선택 콜백을 검증했다. 프로젝트 전체 `flutter analyze`는 error 0건이며 이번 범위 밖의 기존 warning/info 140건을 확인했다. `git diff --check` 통과.
+  - 롤백: `CalendarPage`의 `ShiftTypeSelectionGrid`와 타입 수 배지를 제거하고 이전 `ListView.builder`/리스트 항목 위젯을 복구한 뒤, `shift_type_button.dart`의 신규 그리드와 전용 테스트를 제거한다.
+  - 다음: 실제 iPhone 최소 지원 화면에서 10개 버튼의 코드/이름 가독성과 다음 날 자동 이동 시 선택 상태를 확인
+
+## 2026-07-10
+
+- [DONE] (FE) 메인 캘린더 근무 입력 모드 가용 영역 확대
+  - 목적: 근무 입력 모드에서 월 달력과 근무 타입 카드가 세로 공간을 과도하게 차지해 실제 선택 가능한 리스트 영역이 좁아지는 문제를 줄인다.
+  - 변경: 근무 추가 모드 진입 시 현재 달력 형식/확장 보기 상태를 저장한 뒤 `CalendarFormat.twoWeeks`로 전환하고 확장 보기를 해제한다. 저장/취소/변경 없음 종료 시 이전 상태를 복구한다. 다음 날 자동 이동 시 `_focused_day`를 같이 이동해 2주 보기에서 선택일이 보이도록 했다. 근무 설정 카드 padding, 리스트 행 높이, 텍스트 크기, 체크 아이콘, 완료 버튼 높이를 줄여 compact 밀도로 조정했고 기존 `print`는 `debugPrint`로 바꿨다. `CalendarPage`에 프로젝트 snake_case 정책용 `ignore_for_file: non_constant_identifier_names`를 명시해 대상 analyzer가 통과하도록 했다.
+  - 영향범위: 메인 캘린더 근무 추가 모드의 달력 높이, 근무 타입 리스트 카드 밀도, 완료 버튼 높이
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/calendar_page.dart` 통과, `git diff --check` 통과
+  - 롤백: `_calendar_format_before_shift_add`/`_expanded_view_before_shift_add` 저장·복구 로직과 근무 입력 모드의 `CalendarFormat.twoWeeks` 전환을 제거하고, `_calendarRowHeight`와 `_buildShiftAddOverlay()`/`_buildShiftTypeListItem()`/`_buildShiftAddCompleteButton()` 치수를 이전 값으로 되돌린다. PROJECT_CONTEXT의 compact 입력 모드 설명도 제거한다.
+  - 다음: 실제 iPhone에서 근무 입력 모드 진입 시 2주 달력으로 충분한 리스트 높이가 확보되는지, 다음 날 자동 이동 중 선택일이 계속 보이는지 확인
+
+- [DONE] (FE) 메인 캘린더 근무 설정 영역 카드화 및 완료 버튼 내부 배치
+  - 목적: `stitch_shift_harmony_design_system` 시안처럼 근무 타입 리스트 전체를 하나의 영역으로 감싸고, `완료` 버튼을 하단 footer가 아니라 해당 영역 내부에 배치한다.
+  - 변경: `CalendarPage`의 근무 추가 모드 영역을 `surface_container_low_color` 카드로 감싸고, 날짜 헤더/근무 타입 리스트/안내 문구/`완료` 버튼을 모두 카드 내부에 배치했다. 리스트는 카드 안에서만 스크롤하고, `완료` 버튼은 56px 높이의 primary 버튼으로 카드 하단에 고정했다. 이전에 추가했던 하단 footer 분리와 `BottomActionBar.showTopBorder` 옵션은 제거되어 최종 diff에서 `bottom_action_bar.dart` 변경은 사라졌다. `PROJECT_CONTEXT.md`의 메인 캘린더 근무 추가 모드 설명도 현재 구조로 갱신했다.
+  - 영향범위: 메인 캘린더 근무 추가 모드의 리스트 컨테이너, 완료 버튼 위치, 하단 내비게이션과의 간격
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart lib/features/calendar/presentation/widgets/bottom_action_bar.dart` 통과, `flutter analyze lib/features/calendar/presentation/pages/calendar_page.dart lib/features/calendar/presentation/widgets/bottom_action_bar.dart`는 기존 `CalendarPage`의 snake_case/avoid_print info 10건으로 exit 1이며 신규 error/warning은 없음.
+  - 롤백: `CalendarPage`의 `_buildShiftAddOverlay()`에서 외부 카드 decoration/padding과 내부 `완료` 버튼을 제거하고, 이전 리스트-only 본문 또는 기존 `ShiftTypeButtonGroup` 구조로 되돌린다. `PROJECT_CONTEXT.md`의 카드 내부 완료 버튼 설명도 함께 되돌린다.
+  - 다음: 실제 iOS 시뮬레이터/기기에서 근무 추가 모드 카드의 높이, 리스트 스크롤, 카드 내부 `완료` 버튼과 하단 내비게이션 간 간격이 시안과 맞는지 확인
+
+- [DONE] (FE) 메인 캘린더 근무 설정 리스트 디자인 반영
+  - 목적: 메인 캘린더 우측 상단 `+` 버튼으로 근무 설정 영역을 열었을 때, 제공된 `mainpage calendar shift set` 시안처럼 선택일 기준 근무 타입 리스트를 표시하고 선택 UX를 정리한다.
+  - 변경: `CalendarPage`의 근무 추가 모드 UI를 원형 버튼 그룹에서 세로 리스트로 교체했다. 리스트 항목은 좌측 색상 바, 선택 시 shift tint 배경, primary outline, 체크 아이콘을 표시한다. 항목 선택 시 기존처럼 `_schedules`에 임시 저장한 뒤 다음 날로 이동한다. `완료` 버튼은 리스트 내부에서 하단 `BottomActionBar` 위 고정 footer로 분리했고, `BottomActionBar`에는 외부 footer와 border가 겹치지 않도록 `showTopBorder` 옵션을 추가했다. `PROJECT_CONTEXT.md`에 메인 캘린더 근무 추가 모드와 수정 파일 역할을 문서화했다.
+  - 영향범위: 메인 캘린더의 근무 추가 모드 UI, 선택일 근무 타입 선택/다음 날 이동 흐름, 하단 완료 버튼 표시
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart lib/features/calendar/presentation/widgets/bottom_action_bar.dart` 통과, `flutter analyze lib/features/calendar/presentation/widgets/bottom_action_bar.dart` 통과, `git diff --check` 통과. `flutter analyze lib/features/calendar/presentation/pages/calendar_page.dart lib/features/calendar/presentation/widgets/bottom_action_bar.dart`는 기존 `CalendarPage`의 snake_case/avoid_print info 10건으로 exit 1이며, 이번 변경으로 추가된 `show_top_border`/`unnecessary_underscores` lint는 수정 완료.
+  - 롤백: `CalendarPage`의 `_buildShiftAddOverlay()`를 기존 카드형 날짜 헤더 + `ShiftTypeButtonGroup` + 내부 완료 버튼 구조로 되돌리고, 하단 `_buildShiftAddFooter()`/`_buildMainBottomActionBar()` 분리를 제거한다. `BottomActionBar.showTopBorder` 옵션과 PROJECT_CONTEXT의 근무 추가 리스트 설명도 제거한다.
+  - 다음: 실제 iOS 시뮬레이터/기기에서 우측 상단 `+` 버튼을 눌러 근무 추가 모드 진입 후 리스트 카드 높이, 긴 근무 타입명 말줄임, 선택 체크 아이콘, 다음 날 자동 이동, 하단 `완료` 버튼 위치가 시안처럼 보이는지 확인
+
 ## 2026-07-09
 
 - [DONE] (CHORE) 작업 내용 분리 커밋 및 푸시

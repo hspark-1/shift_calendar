@@ -1,6 +1,11 @@
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
+
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/shift_type_info.dart';
 import '../providers/shift_types_provider.dart';
 
 /// 근무 유형 선택 버튼 위젯
@@ -156,6 +161,159 @@ class ShiftTypeButtonGroup extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// 메인 캘린더 근무 입력용 반응형 원형 버튼 그리드
+class ShiftTypeSelectionGrid extends StatelessWidget {
+  const ShiftTypeSelectionGrid({
+    super.key,
+    required this.shift_types,
+    required this.selected_shift,
+    required this.onShiftSelected,
+  });
+
+  final List<ShiftTypeInfo> shift_types;
+  final String? selected_shift;
+  final ValueChanged<String> onShiftSelected;
+
+  static const int _max_columns = 5;
+  static const double _max_button_size = 64;
+  static const double _horizontal_gap = 8;
+  static const double _vertical_gap = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final item_count = shift_types.length;
+        if (item_count == 0) {
+          return const SizedBox.shrink();
+        }
+
+        final column_count = math.min(item_count, _max_columns);
+        final row_count = (item_count / column_count).ceil();
+        final width_limited_size =
+            (constraints.maxWidth -
+                (_horizontal_gap * (column_count - 1)) -
+                0.5) /
+            column_count;
+        final height_limited_size = constraints.maxHeight.isFinite
+            ? (constraints.maxHeight - (_vertical_gap * (row_count - 1))) /
+                  row_count
+            : _max_button_size;
+        final button_size = math.max(
+          0.0,
+          math.min(
+            _max_button_size,
+            math.min(width_limited_size, height_limited_size),
+          ),
+        );
+
+        return Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            runAlignment: WrapAlignment.center,
+            spacing: _horizontal_gap,
+            runSpacing: _vertical_gap,
+            children: shift_types.map((shift_info) {
+              return _ShiftTypeCircleButton(
+                shift_info: shift_info,
+                size: button_size,
+                is_selected: selected_shift == shift_info.code,
+                onTap: () => onShiftSelected(shift_info.code),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ShiftTypeCircleButton extends StatelessWidget {
+  const _ShiftTypeCircleButton({
+    required this.shift_info,
+    required this.size,
+    required this.is_selected,
+    required this.onTap,
+  });
+
+  final ShiftTypeInfo shift_info;
+  final double size;
+  final bool is_selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = shift_info.color;
+
+    return Semantics(
+      button: true,
+      selected: is_selected,
+      label: '${shift_info.name} ${shift_info.code} 근무',
+      child: CupertinoButton(
+        key: ValueKey('shift_type_${shift_info.code}'),
+        padding: EdgeInsets.zero,
+        borderRadius: BorderRadius.circular(size / 2),
+        onPressed: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: size,
+          height: size,
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: is_selected
+                ? color.withValues(alpha: 0.16)
+                : AppTheme.surface_color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: is_selected ? color : color.withValues(alpha: 0.48),
+              width: is_selected ? 2.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    shift_info.code,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 1),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    shift_info.name,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: is_selected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: AppTheme.on_surface_variant_color,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
