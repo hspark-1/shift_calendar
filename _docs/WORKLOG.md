@@ -2,14 +2,14 @@
 
 ## 2026-07-14
 
-- [TODO] (CHORE) 현재 변경사항 목적별 커밋 및 푸시
+- [DONE] (CHORE) 현재 변경사항 목적별 커밋 및 푸시
   - 목적: 개발 API 주소 변경과 메인 캘린더 근무 입력 UI 변경을 목적별 git 이력으로 분리해 원격 `origin/main`에 반영한다.
-  - 변경: 검증 후 API 설정과 캘린더 UI를 별도 커밋으로 생성하고 푸시할 예정이다.
+  - 변경: 개발 API 주소 변경을 `04ad4cc`(`chore(api): update development server host`), 캘린더 근무 입력 UI/테스트/문서를 `481c0f1`(`feat(calendar): refine shift entry controls`)로 분리해 `origin/main`에 푸시했다.
   - 영향범위: git 이력, 원격 `main`, 작업 문서. 런타임 동작은 각 변경 항목의 영향범위와 동일하다.
   - 파일: `lib/core/constants/api_constants.dart`, 캘린더 관련 코드/테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
-  - 테스트: 대상 파일 포맷/정적 분석, 위젯 테스트, `git diff --check` 예정
-  - 롤백: 원격 반영 후 문제 시 생성 커밋을 역순으로 `git revert`한다.
-  - 다음: 변경 검증 후 목적별 stage/commit/push
+  - 테스트: 대상 4개 Dart 파일 `dart format` 변경 없음, 캘린더/위젯/테스트 대상 `flutter analyze` 0건, API 상수 대상 error/warning 0건과 기존 naming info 25건 확인, `flutter test test/features/calendar/presentation/widgets/shift_type_button_test.dart` 2건 통과, `git diff --check` 통과. `git push origin main` 성공.
+  - 롤백: 기능 변경은 `git revert 481c0f1`, 개발 API 주소 변경은 `git revert 04ad4cc` 순서로 되돌린다.
+  - 다음: 원격 `origin/main` 반영 완료
 
 - [DONE] (CHORE) 개발 API 서버 호스트 변경 문서화
   - 목적: 로컬 개발 환경이 사용하는 API 서버 주소를 현재 접속 대상에 맞춘다.
