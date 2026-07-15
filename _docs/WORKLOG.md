@@ -2,14 +2,14 @@
 
 ## 2026-07-15
 
-- [TODO] (CHORE) 완료된 캘린더 변경사항 커밋 및 푸시
+- [DONE] (CHORE) 완료된 캘린더 변경사항 커밋 및 푸시
   - 목적: 현재 작업 트리에서 완료된 캘린더 피커, 메인/친구 캘린더 UI 및 반응형 2주 보기 변경을 목적별 커밋으로 정리해 원격 저장소에 반영한다.
-  - 변경: 전체 테스트와 변경 검증 후 기존 staging 경계를 기준으로 기능 커밋을 생성하고 `origin/main`에 푸시 예정
+  - 변경: 기존 staging 경계를 보존해 `36f6c31 feat(calendar): polish calendar and picker UI`, `cfc9a55 feat(calendar): refine responsive calendar layouts` 커밋을 생성하고 `origin/main`에 푸시했다.
   - 영향범위: Git 이력과 원격 `main` 브랜치. 런타임 동작은 현재 검증된 작업 트리와 동일하다.
   - 파일: 현재 staged/unstaged 캘린더 관련 변경 전체와 `_docs/WORKLOG.md`
-  - 테스트: 전체 `flutter test`, 대상 analyzer 결과와 `git diff --check` 확인 예정
+  - 테스트: 캘린더/피커 및 관련 유틸 테스트 23건 통과, 변경 대상 `flutter analyze` 0건, `git diff --check` 통과. 전체 `flutter test`에서는 현재 Riverpod 구조와 맞지 않는 기존 `test/widget_test.dart` 카운터 템플릿 1건이 `ProviderScope` 누락으로 실패했으며 이번 범위에서는 수정하지 않았다.
   - 롤백: 원격 반영 후 필요 시 생성된 커밋을 `git revert`하고 푸시한다.
-  - 다음: 전체 검증, 기능 커밋 생성 및 푸시
+  - 다음: 기존 `test/widget_test.dart`를 현재 앱 구조에 맞는 스모크 테스트로 교체
 
 - [DONE] (FE) 750px 미만 친구 캘린더 2주 보기 고정
   - 목적: 메인 캘린더와 동일하게 작은 화면의 친구 캘린더도 2주 범위만 표시해 읽기 전용 일정 영역을 확보한다.
