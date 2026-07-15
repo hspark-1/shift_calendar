@@ -1,6 +1,206 @@
 # 작업 로그
 
+## 2026-07-15
+
+- [TODO] (CHORE) 완료된 캘린더 변경사항 커밋 및 푸시
+  - 목적: 현재 작업 트리에서 완료된 캘린더 피커, 메인/친구 캘린더 UI 및 반응형 2주 보기 변경을 목적별 커밋으로 정리해 원격 저장소에 반영한다.
+  - 변경: 전체 테스트와 변경 검증 후 기존 staging 경계를 기준으로 기능 커밋을 생성하고 `origin/main`에 푸시 예정
+  - 영향범위: Git 이력과 원격 `main` 브랜치. 런타임 동작은 현재 검증된 작업 트리와 동일하다.
+  - 파일: 현재 staged/unstaged 캘린더 관련 변경 전체와 `_docs/WORKLOG.md`
+  - 테스트: 전체 `flutter test`, 대상 analyzer 결과와 `git diff --check` 확인 예정
+  - 롤백: 원격 반영 후 필요 시 생성된 커밋을 `git revert`하고 푸시한다.
+  - 다음: 전체 검증, 기능 커밋 생성 및 푸시
+
+- [DONE] (FE) 750px 미만 친구 캘린더 2주 보기 고정
+  - 목적: 메인 캘린더와 동일하게 작은 화면의 친구 캘린더도 2주 범위만 표시해 읽기 전용 일정 영역을 확보한다.
+  - 변경: `FriendCalendarPage`에 `MediaQuery` 화면 높이 판별 getter와 실제 표시용 `CalendarFormat` getter를 추가했다. 750px 미만에서는 `CalendarFormat.twoWeeks`, 750px 이상에서는 기존 `CalendarFormat.month`를 `TableCalendar`에 전달하며 행 높이도 같은 판별 결과를 재사용한다. 명시적 `MediaQuery`를 사용하는 740px/750px 경계 테스트를 추가하고 기존 월 보기 레이아웃 회귀 검증은 800px에서 유지했다.
+  - 영향범위: 친구 캘린더의 화면 높이별 `CalendarFormat` 선택. 친구 캘린더 API와 공개 범위 규칙은 변경하지 않는다. 750px 미만에서는 월 전체 대신 2주 범위를 표시하는 동작 변경이 있다.
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 친구 캘린더 위젯 테스트 3건 통과. 740px에서 초기 및 다음 기간 이동 후 모두 2주 보기인지, 750px에서 월 보기인지, 800px에서 기존 읽기 전용 일정 카드와 월 레이아웃 회귀가 유지되는지 검증했다. 대상 코드/테스트 `flutter analyze` 0건, `dart format` 통과.
+  - 롤백: 친구 캘린더의 화면 높이별 형식 선택 로직과 관련 테스트·문서 기록을 제거한다.
+  - 다음: 실제 높이 750px 전후 기기에서 친구 일정 카드의 가용 높이와 2주 기간 이동을 확인
+
+- [DONE] (FE) 750px 미만 화면 메인 캘린더 2주 보기 고정
+  - 목적: 세로 공간이 부족한 화면에서 메인 캘린더가 항상 2주 범위만 표시하도록 해 일정 영역을 안정적으로 확보한다.
+  - 변경: `MediaQuery` 화면 높이가 750px 미만인지 판별하는 공용 getter와 실제 표시용 `CalendarFormat` getter를 추가했다. 작은 화면에서는 내부 `_calendar_format` 값과 관계없이 `CalendarFormat.twoWeeks`를 `TableCalendar`에 전달하고 형식 변경 콜백도 비활성화해 일반/compact/근무 추가 상태 모두 2주 보기를 유지한다. 750px 이상에서는 기존 `_calendar_format` 상태를 그대로 사용한다. 기존 행 높이 분기도 같은 화면 높이 getter를 재사용한다.
+  - 영향범위: 메인 캘린더의 화면 높이별 `CalendarFormat` 선택. 캘린더 API와 데이터 구조는 변경하지 않는다. 750px 미만에서는 월 전체 대신 2주 범위를 표시하는 동작 변경이 있다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: `CalendarPage` 위젯 테스트 4건 통과. 명시적 `MediaQuery` 높이 740px에서 초기 및 compact 전환 후 모두 2주 보기인지, 750px에서 기존 월 보기인지 검증했다. 대상 코드/테스트 `flutter analyze` 0건, `dart format` 통과.
+  - 롤백: 화면 높이에 따른 형식 선택 로직과 관련 테스트·문서 기록을 제거한다.
+  - 다음: 실제 높이 750px 전후 기기에서 2주 달력과 선택일 일정 영역의 공간 배분을 확인
+
+- [DONE] (FIX) 근무 일정 스와이프 삭제 배경 radius 적용
+  - 목적: 근무 일정을 왼쪽으로 부분 스와이프할 때 삭제 배경의 노출된 왼쪽 경계도 12px radius로 보이게 한다.
+  - 변경: `_RoundedDeleteDismissible`이 `Dismissible.onUpdate.progress`를 자체 상태로 관리하고 `LayoutBuilder`의 항목 너비와 곱해 실제 노출 폭을 계산하도록 했다. 삭제 배경은 계산된 폭으로 오른쪽 정렬하고 `AppTheme.input_border_radius`를 적용해 부분 스와이프 시에도 현재 보이는 영역의 양쪽 모서리가 둥글게 렌더링된다. 진행률 상태를 근무 일정 항목 내부에 격리해 드래그마다 `CalendarPage` 전체가 다시 빌드되지 않게 했으며, 기존 `confirmDismiss` 삭제 API 및 실패 복원 흐름은 유지했다.
+  - 영향범위: 메인 캘린더 선택일 근무 일정의 스와이프 삭제 배경. 삭제 API 계약, 로컬 삭제 상태, 개인 일정 표시는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 390x740 화면에 근무 일정을 렌더링하고 72px 부분 스와이프한 상태에서 삭제 배경 너비가 72px이며 `AppTheme.input_border_radius`가 적용되는지 검증했다. 대상 위젯 테스트 2건 통과, 대상 코드/테스트 `flutter analyze` 0건, `dart format` 통과.
+  - 롤백: `_RoundedDeleteDismissible`을 제거하고 근무 일정 항목을 고정 너비 배경의 기존 `Dismissible`로 복구한 뒤 관련 위젯 테스트와 문서 설명을 제거한다.
+  - 다음: 실제 기기에서 짧은 드래그와 삭제 임계값 이상 드래그 모두 배경 radius와 아이콘 위치가 자연스러운지 확인
+
+- [DONE] (INVESTIGATION) 근무 일정 스와이프 삭제 배경 radius 확인
+  - 목적: 근무 일정을 왼쪽으로 스와이프하기 시작할 때 삭제 배경의 오른쪽만 둥글고 왼쪽 노출 경계는 각져 보이는 원인을 확인하고 수정 방향을 정한다.
+  - 변경: 현재 삭제 배경은 항목 전체 너비의 12px radius `Container`이며, Flutter 3.38.5의 `Dismissible`은 이동 중인 앞 카드가 비운 영역만 `_DismissibleClipper`의 직사각형 `ClipRect`로 노출한다. end-to-start 스와이프 초반에는 전체 배경의 오른쪽 모서리만 보이고 왼쪽 radius는 아직 클립 영역 밖에 있어, 노출 영역의 왼쪽 경계가 각지게 보이는 것이 직접 원인이다. 외곽 `ClipRRect` 추가만으로는 내부 이동 경계가 둥글어지지 않는다. 최소 수정안은 전용 근무 일정 항목 위젯에서 `Dismissible.onUpdate.progress`와 항목 너비로 현재 노출 폭을 계산하고, 그 폭을 가진 12px radius 삭제 배경을 오른쪽 정렬하는 것이다. 삭제 API와 `confirmDismiss` 흐름은 유지한다.
+  - 영향범위: 조사 및 문서화만 수행. 런타임 코드, 삭제 API, 로컬 상태는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, Flutter SDK `packages/flutter/lib/src/widgets/dismissible.dart`, `_docs/WORKLOG.md`
+  - 테스트: 현재 위젯 트리와 Flutter SDK의 `Dismissible.build()`, `_DismissibleClipper.getClip()`, `Dismissible.onUpdate` 계약을 직접 대조했다. 런타임 코드는 변경하지 않아 Flutter 테스트는 실행하지 않았고 `git diff --check`만 확인한다.
+  - 롤백: 이 조사 기록을 제거한다.
+  - 다음: 위 `근무 일정 스와이프 삭제 배경 radius 적용` 작업에서 구현과 회귀 테스트를 완료했다.
+
+- [DONE] (FIX) 메인 달력 마지막 행 선택 사각형 클리핑 수정
+  - 목적: 메인 페이지에서도 offset이 적용된 선택 사각형이 마지막 행에서 잘리지 않도록 한다.
+  - 변경: 390x740 화면의 마지막 날짜를 선택했을 때 확장 보기 선택 사각형 하단이 `TableCalendar` 경계보다 4px 내려가는 현상을 재현했다. `CalendarStyle.tablePadding` 하단에 8px을 적용해 확장 보기의 4px offset과 compact 보기의 8px offset을 내부 `PageView` 높이에 포함했다. 일정 카드 앞 외부 간격은 12px에서 4px로 줄여 달력 표 본문부터 카드까지 기존 총 12px을 유지했다. `TableCalendar`에는 명시적 key를 추가해 핫 리로드 시 내부 페이지 높이가 이전 상태로 남지 않게 했다.
+  - 영향범위: `CalendarPage`의 달력 선택 표시와 달력 아래 일정 영역 배치.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 수정 전 대상 위젯 테스트에서 확장 보기 선택 박스 하단이 달력 경계 396px보다 아래인 400px로 실패하는 것을 확인했다. 수정 후 캘린더 presentation 테스트 9건과 친구 캘린더 회귀 테스트 1건, 총 10건 통과. 테스트는 확장 보기와 compact 보기에서 현재 월 마지막 날짜의 선택 사각형 하단이 달력 경계 안인지 확인한다. 대상 코드/테스트 `flutter analyze` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: `CalendarStyle.tablePadding`, `TableCalendar` key를 제거하고 일정 카드 앞 간격을 12px로 되돌린 뒤 마지막 행 좌표 검증을 제거한다.
+  - 다음: 실제 기기에서 5주/6주 월의 마지막 행 및 compact 전환 후 선택 outline을 확인
+
+- [DONE] (FIX) 친구 달력 마지막 행 선택 사각형 클리핑 재확인 및 수정
+  - 목적: 실제 화면에서 마지막 행 선택 사각형 하단이 계속 잘리는 현상을 재현하고 내부 렌더링 경계에 맞는 수정으로 해결한다.
+  - 변경: 현재 코드에 이전 조사에서 권장한 내부 padding과 컴포넌트 간격이 실제 적용되지 않아 390x740 위젯 테스트에서 달력 표 본문과 일정 카드 사이가 0px인 상태를 재현했다. `CalendarStyle.tablePadding` 하단에 8px을 적용해 패키지 내부 `PageView` 높이에 선택 사각형 overflow 영역을 포함하고, 일정 카드 앞에 별도 8px `SizedBox`를 추가했다. `TableCalendar`에는 명시적 key를 부여해 기존 상태로 핫 리로드할 때도 페이지 높이가 다시 초기화되게 했다. 테스트는 현재 월 마지막 날짜를 선택해 58px 선택 사각형 하단이 `TableCalendar` 경계 안에 있는지 직접 좌표로 검증한다.
+  - 영향범위: `FriendCalendarPage`의 달력 선택 표시와 달력·일정 카드 사이 간격.
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 수정 전 `flutter test test/features/friend/presentation/pages/friend_calendar_page_test.dart`에서 달력 표 본문과 일정 카드 사이가 기대 16px, 실제 0px로 실패하는 것을 확인했다. 수정 후 같은 위젯 테스트 1건 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `dart format` 통과. 마지막 행 선택 사각형 하단 경계, 표 본문부터 일정 카드까지 16px, 카드 하단 16px, 오늘 복귀 회귀를 함께 검증한다.
+  - 롤백: `CalendarStyle.tablePadding`, 일정 카드 앞 `SizedBox`, `TableCalendar` key와 마지막 행 좌표 검증을 제거한다.
+  - 다음: 실제 기기에서 핫 리로드 후에도 마지막 행 선택 사각형 outline이 온전히 표시되는지 확인
+
+- [DONE] (INVESTIGATION) 친구 달력 마지막 행 선택 사각형 잘림 원인 및 수정안 검토
+  - 목적: 컴포넌트 사이 외부 여백을 추가한 뒤에도 마지막 행 선택 사각형 하단 outline이 잘리는 원인을 확인하고 안전한 수정 방향을 정한다.
+  - 변경: 선택 사각형은 58x58px에 y=4px offset으로 셀 경계를 넘겨 그리며 셀 Stack은 `Clip.none`이다. 그러나 `table_calendar` 3.2.0의 상위 `PageView.builder`는 기본 `Clip.hardEdge`이므로 마지막 행에서 넘친 outline을 자른다. 현재 `TableCalendar` 바깥의 8px padding은 이 내부 클리핑 경계를 확장하지 않는다. 최소 변경안은 바깥 padding을 `CalendarStyle.tablePadding: EdgeInsets.only(bottom: AppTheme.spacing_sm)`으로 옮기는 것이다. 패키지의 페이지 높이 계산이 `tablePadding.vertical`을 포함하므로 4px offset을 내부 영역에 수용할 수 있다.
+  - 영향범위: 조사 및 문서화만 수행. 런타임 코드는 변경하지 않는다.
+  - 파일: `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 앱 코드와 `table_calendar` 3.2.0의 `table_calendar.dart`, `calendar_core.dart`, `calendar_page.dart`, `table_calendar_base.dart`를 직접 대조해 셀/페이지 클리핑과 높이 계산을 확인했다. 런타임 코드는 변경하지 않아 Flutter 테스트는 실행하지 않았다.
+  - 롤백: 해당 조사 기록과 `PROJECT_CONTEXT.md`의 현재 제약 설명을 제거한다.
+  - 다음: 외부 하단 padding을 `CalendarStyle.tablePadding`으로 옮기고 마지막 행 날짜 선택 시 선택 사각형 하단이 달력 경계 안에 있는지 위젯 테스트로 고정한다.
+
+- [DONE] (FE) 친구 캘린더와 일정 카드 사이 여백 보강
+  - 목적: 하단 행의 선택 사각형이 4px offset으로 일정 카드 방향에 그려질 때 잘려 보이지 않도록 컴포넌트 사이 공간을 확보한다.
+  - 변경: `_buildCalendarSection()`의 `TableCalendar` 아래에 `AppTheme.spacing_sm` 8px padding을 추가해 offset 선택 사각형이 그려질 내부 여유를 확보했다. 달력 섹션과 일정 카드 사이의 기존 12px 고정 간격은 같은 8px 토큰으로 정리해, TableCalendar 실제 하단부터 일정 카드 상단까지의 전체 간격을 16px으로 구성했다. 선택 사각형의 4px offset은 유지했다.
+  - 영향범위: `FriendCalendarPage`의 달력과 선택일 일정 카드 사이 세로 간격. 선택일 offset과 데이터 동작은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/friend/presentation/pages/friend_calendar_page_test.dart` 1건 통과. 390x740 화면에서 `TableCalendar` 하단과 일정 카드 상단의 실제 좌표 차이가 16px 이상이며 기존 하단 안전영역과 오늘 이동 회귀 테스트가 함께 통과하는지 확인했다.
+  - 롤백: `_buildCalendarSection()`의 달력 하단 padding을 제거하고 일정 카드 앞 간격을 12px로 되돌린 뒤 관련 좌표 테스트와 문서를 복구한다.
+  - 다음: 실제 기기에서 5주/6주 월의 마지막 행 선택 사각형 하단 outline이 온전히 보이는지 확인
+
+- [DONE] (FIX) 친구 캘린더 오늘 이동 시 빌드 중 setState 예외 수정
+  - 목적: 다른 월에서 `오늘` 버튼을 누를 때 `setState() or markNeedsBuild() called during build` 예외가 발생하지 않게 한다.
+  - 변경: 3개월 뒤로 이동한 뒤 `오늘` 버튼을 누르는 위젯 테스트로 동일 예외를 재현했다. `TableCalendar`의 가로 PageView가 여러 달을 이동하며 보낸 `ScrollStartNotification`/`ScrollUpdateNotification`이 상위 `CupertinoNavigationBar`의 `_handleScrollNotification()`에 전달되고, 일정 영역 `Flexible`이 빌드 중인 시점에 내비게이션 바가 자체 `setState()`를 호출한 것이 직접 원인이었다. `_buildCalendar()`를 `NotificationListener<ScrollNotification>`로 감싸 가로 시작/갱신 알림을 달력 경계에서 소비했다. `onPageChanged`의 페이지 상태 갱신도 다음 프레임으로 지연해 같은 프레임의 중복 변경을 방지했다.
+  - 영향범위: `FriendCalendarPage`의 오늘/월 페이지 이동 상태 갱신. 데이터 및 UI 디자인은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 수정 전 `flutter test test/features/friend/presentation/pages/friend_calendar_page_test.dart`에서 동일한 `CupertinoNavigationBar` 빌드 중 setState 예외를 재현했다. 수정 후 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, 같은 위젯 테스트 1건 통과, `git diff --check` 통과. 테스트는 3개월 뒤로 이동하는 동안과 `오늘` 복귀 후 각각 `tester.takeException()`이 null인지 확인한다.
+  - 롤백: `_buildCalendar()`의 가로 스크롤 알림 필터를 제거하고 `onPageChanged`를 즉시 `setState()`로 되돌린 뒤 강화한 회귀 테스트와 문서를 복구한다. 동일 예외가 다시 발생한다.
+  - 다음: 실제 기기에서 여러 달 떨어진 상태와 빠른 연속 탭 모두 `오늘` 복귀가 정상인지 확인
+
+- [DONE] (FE) 친구 캘린더 오늘 이동 버튼 추가
+  - 목적: 다른 월이나 날짜를 보고 있을 때 친구의 오늘 일정으로 즉시 돌아올 수 있게 한다.
+  - 변경: 월 헤더 오른쪽에 primary tint와 pill 반경을 사용하는 32px 높이의 compact `오늘` 버튼을 추가했다. 버튼을 누르면 로컬 현재 날짜를 일 단위로 정규화해 `_selectedDay`와 `_focusedDay`를 동시에 갱신하고, 해당 월의 친구 캘린더 데이터를 조회한다. 데이터 로딩 중에는 버튼 왼쪽에 기존 activity indicator를 유지한다.
+  - 영향범위: `FriendCalendarPage`의 월 헤더와 날짜 이동 동작. 친구 일정 조회 API 계약은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/friend/presentation/pages/friend_calendar_page_test.dart` 1건 통과. 다음 달로 이동한 뒤 `오늘` 버튼을 눌러 `TableCalendar.focusedDay`, 선택일 predicate와 선택일 일정 카드 날짜가 현재 날짜로 복귀하는지 검증했고 `git diff --check`도 통과했다.
+  - 롤백: `_goToToday()`과 월 헤더의 `friend-calendar-today-button`, 관련 테스트 assertion 및 문서 기록을 제거한다.
+  - 다음: 실제 기기에서 로딩 인디케이터와 오늘 버튼이 동시에 보일 때 월 헤더가 잘리지 않는지 확인
+
+- [DONE] (FE) 친구 캘린더 일정 카드 하단 여백 확보
+  - 목적: 선택일 일정 카드가 페이지 바닥과 홈 인디케이터 영역에 붙어 보이지 않도록 하단 호흡을 확보한다.
+  - 변경: `FriendCalendarPage`의 본문 `SafeArea`에 하단 시스템 안전영역을 활성화하고 `AppTheme.spacing_md` 기준 최소 16px bottom padding을 적용했다. 일정 카드에는 테스트용 식별 키를 추가했다.
+  - 영향범위: `FriendCalendarPage`의 선택일 일정 카드 아래 여백. 달력 및 일정 데이터 동작은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/friend/presentation/pages/friend_calendar_page_test.dart` 1건 통과. 390x740 화면에서 일정 카드 하단과 화면 바닥 사이가 16px 이상인지 검증했고 `git diff --check`도 통과했다.
+  - 롤백: 본문 `SafeArea.minimum`과 일정 카드 식별 키, 관련 테스트 assertion 및 문서 기록을 제거한다.
+  - 다음: 실제 홈 인디케이터가 있는 기기에서 시스템 안전영역이 적용된 카드 하단 간격을 확인
+
+- [DONE] (FE) 친구 캘린더 화면 디자인 통일
+  - 목적: 친구 캘린더의 중복 프로필 정보와 분리된 월 이동 영역을 정리하고, 달력 및 선택일 일정 목록을 메인 캘린더와 같은 시각 규칙으로 통일한다.
+  - 변경: 내비게이션 바 아래에서 친구 이름/이메일을 반복하던 프로필 행을 제거했다. 월 이동 헤더와 `TableCalendar`를 하나의 섹션으로 묶고 메인 캘린더와 같은 좌우 이동 배치 및 공용 `YearMonthPickerSheet` 진입을 추가했다. 날짜 셀은 52/56px 반응형 행, primary tint/outline 선택 사각형, 오늘 밑줄, 11px 근무 코드 배지를 사용하며 일요일은 accent red, 토요일은 primary blue로 구분한다. 선택일 카드는 메인 화면과 같은 근무 시간 포맷, 장소 구분점, 아이콘이 포함된 빈 상태를 사용하되 친구 일정의 읽기 전용 동작은 유지했다.
+  - 영향범위: `FriendCalendarPage`의 화면 구성과 표시 스타일. 친구 캘린더 조회/설정/삭제 API 및 공개 범위 판정은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/friend/presentation/pages/friend_calendar_page_test.dart` 1건 통과. 390x740 화면에서 중복 이메일 미노출, 토요일 primary 색상, 사각형 선택 표시, 근무/개인 일정 카드, 연/월 이동 시트와 레이아웃 예외 없음까지 확인했다. `git diff --check` 통과.
+  - 롤백: `FriendCalendarPage`에서 공용 연/월 시트와 메인 달력형 셀 빌더를 제거하고 기존 분리형 중앙 월 헤더, 62px 원형 선택/오늘 셀, 양쪽 빨간 주말 표현, 중복 프로필 행과 텍스트 전용 빈 상태를 복구한 뒤 관련 테스트·문서를 제거한다.
+  - 다음: 실제 기기에서 긴 친구 이름의 내비게이션 말줄임, 5주/6주 월의 선택 사각형과 일정 카드 가용 높이를 확인
+
+- [DONE] (FIX) 메인 달력 날짜 선택 시 숫자 위치 고정
+  - 목적: 날짜를 선택할 때 숫자가 아래로 2px 이동하는 시각적 흔들림을 제거한다.
+  - 변경: 선택 전에는 `EdgeInsets.all(2)`, 선택 후에는 `EdgeInsets.fromLTRB(2, 4, 2, 0)`이 적용돼 전체 여백 합계는 같아도 콘텐츠 중심이 2px 내려가던 조건부 `content_padding`을 제거했다. 날짜 콘텐츠는 선택 여부와 관계없이 2px 사방 padding을 사용한다. 현재 선택 배경 설정값(근무 코드 보기 58px/오프셋 4px, compact 보기 48px/오프셋 8px)은 유지했다.
+  - 영향범위: 메인 달력 날짜와 근무 코드 콘텐츠의 선택 전후 세로 위치. 선택 배경 크기·오프셋, 오늘 밑줄, 근무 점, 선택 색상/굵기와 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 다음 날짜의 숫자 중심 Y 좌표를 선택 전후 비교해 0.1px 오차 이내로 동일한지 검증했다. 현재 선택 배경의 compact 48x48px 및 셀 중심 대비 8px 하단 배치와 작은 화면 레이아웃 예외 없음도 함께 확인했다. 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation` 9건 통과, `git diff --check`와 staged diff check 통과.
+  - 롤백: `content_padding`을 선택 상태에 따라 위 4px/아래 0px 또는 2px 사방으로 분기하도록 되돌리고 관련 테스트·문서를 복구한다.
+  - 다음: 실제 기기에서 일반 날짜를 연속 선택할 때 숫자 기준선이 흔들리지 않는지 확인
+
+- [DONE] (FE) 메인 달력 선택일 박스를 콘텐츠 중심 크기로 축소
+  - 목적: 선택 상태 사각형을 날짜 셀 전체 너비가 아니라 날짜 숫자와 근무 표시를 감싸는 제시 영역으로 조정한다.
+  - 변경: `_buildCalendarDayCell()`의 선택 tint/outline과 날짜 콘텐츠를 동일한 전체 크기 `AnimatedContainer`에서 분리해 `Stack` 레이어로 구성했다. 제시 이미지의 검은 영역에 맞춰 compact 점 보기의 선택 배경은 44x44px 정사각형과 중심 대비 4px 하단 오프셋을 사용한다. 날짜+근무 코드 보기에서는 46px 고정 콘텐츠와 최대 44px 코드가 잘리지 않도록 48x48px 정사각형과 2px 하단 오프셋을 사용한다. 날짜·오늘 밑줄·근무 표시에는 기존 padding을 유지하고 선택 배경만 축소/이동한다.
+  - 영향범위: 메인 달력 선택일 tint/outline의 크기와 위치. 날짜/오늘 밑줄, 근무 점·코드, 일반 셀, 선택 동작과 API/DB는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 390x740 `CalendarPage` 위젯 테스트에서 확장 보기 선택 배경이 48x48px인지, 위로 드래그한 compact 보기에서 44x44px 및 셀 중심 대비 4px 하단 배치인지, 두 모드에서 레이아웃 예외가 없는지 검증했다. 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation` 9건 통과, `git diff --check`와 staged diff check 통과.
+  - 롤백: 선택 배경/콘텐츠 `Stack`을 제거하고 전체 셀을 채우는 단일 `AnimatedContainer`와 조건부 margin 구조로 복구한 뒤 관련 테스트·문서를 되돌린다.
+  - 다음: 실제 기기 compact 보기에서 선택 사각형이 제시 영역과 일치하는지, 다음 행과 충분히 분리되는지 확인
+
 ## 2026-07-14
+
+- [DONE] (FE) 메인 달력 선택일 박스 세로 위치 하향 조정
+  - 목적: 선택 상태를 나타내는 사각형이 날짜 셀 위쪽에 치우쳐 보이는 문제를 개선한다.
+  - 변경: `CalendarStyle.markersAlignment`는 행 전체를 채우는 커스텀 선택 셀의 위치를 바꾸지 못하는 것을 `table_calendar` 3.2.0의 `_buildCell()`/`CellContent` 구현으로 확인했다. 일반 셀은 기존 2px 사방 margin을 유지하고, 선택 셀만 `EdgeInsets.fromLTRB(2, 4, 2, 0)`을 적용해 박스 높이와 내부 46px 콘텐츠 영역은 유지하면서 시각적 중심을 2px 아래로 옮겼다.
+  - 영향범위: 메인 달력 선택일 박스와 그 안의 날짜/근무 배지 세로 위치. 일반 날짜, 오늘 밑줄, compact 근무 점, 행 높이와 선택 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 390x740 `CalendarPage` 위젯 테스트에 선택 셀의 비대칭 margin 검증을 추가했다. 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation` 9건 통과, `git diff --check`와 staged diff check 통과.
+  - 롤백: 선택 셀의 조건부 `cell_margin`을 제거하고 `margin: const EdgeInsets.all(2)`로 복구한 뒤 관련 테스트·문서 기록을 제거한다.
+  - 다음: 실제 기기에서 선택 박스가 날짜 행 아래 경계와 붙어 보이지 않는지, 오늘 밑줄·근무 배지와 균형이 맞는지 확인
+
+- [DONE] (FIX) 작은 화면 달력 근무 배지 셀 2px 오버플로 수정
+  - 목적: 750px 미만 화면의 52px 달력 행에서 날짜/근무 배지 Column이 2px 넘치는 RenderFlex 오류를 제거한다.
+  - 변경: 52px 행에서 셀 높이를 `_calendarRowHeight - 4`로 다시 제한한 뒤 2px 사방 margin까지 적용해 실제 자식 제약이 44px로 줄어들었고, 날짜 28px + 간격 2px + 근무 배지 16px의 46px 합계가 2px 넘치는 원인을 확인했다. `AnimatedContainer` 높이를 `double.infinity`로 바꿔 `TableCalendar`가 전달한 실제 셀 높이를 채우게 했으며, margin을 제외한 48px 안에 기존 46px 콘텐츠가 배치되도록 했다.
+  - 영향범위: 메인 달력 날짜 셀의 내부 높이 제약. 날짜/오늘/선택 상태, 근무 배지 디자인, 행 높이와 사용자 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 390x740 화면과 빈 캘린더/알림 가짜 서비스를 사용한 `CalendarPage` 위젯 테스트에서 레이아웃 예외가 없음을 확인했다. 대상 코드/테스트 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation` 9건 통과, `git diff --check` 통과.
+  - 롤백: 날짜 셀 `AnimatedContainer.height`를 `_calendarRowHeight - 4`로 되돌리고 회귀 테스트와 문서 항목을 제거한다. 단, 750px 미만 화면의 동일한 2px 오버플로가 다시 발생한다.
+  - 다음: 실제 750px 미만 iPhone에서 5주/6주 월의 날짜, 오늘 밑줄, 근무 배지와 선택 박스 정렬을 확인
+
+- [DONE] (FE) 메인 달력 선택일 박스 중앙 정렬
+  - 목적: 선택일 박스가 날짜 셀의 하단 정렬을 따라 치우치지 않도록 셀 중앙에 배치한다.
+  - 변경: `TableCalendar`의 `CalendarStyle.markersAlignment`를 기본 `bottomCenter`에서 `Alignment.center`로 변경해 선택일의 tint/outline 박스와 날짜 셀 콘텐츠가 셀 중앙에 정렬되도록 했다. compact 보기의 근무 점과 확장 보기의 근무 코드 배지는 각각 기존 `Positioned`/셀 내부 위치를 유지한다.
+  - 영향범위: 메인 달력 날짜 셀 콘텐츠와 선택일 박스의 세로 위치. 근무 점/배지, 오늘 밑줄, 선택 상태와 달력 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, 대상 파일 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets` 8건 통과, `git diff --check` 통과.
+  - 롤백: `CalendarStyle.markersAlignment`의 `Alignment.center` 설정을 제거해 기본 `bottomCenter` 정렬로 되돌린다.
+  - 다음: 실제 기기에서 compact 점 보기와 확장 근무 배지 보기 모두 선택 박스가 날짜 셀 중앙에 놓이는지 확인
+
+- [DONE] (FE) 메인 달력 오늘 원형 표시를 밑줄로 교체
+  - 목적: 오늘 날짜의 outline 원을 제거하고 근무 배지·선택 셀과 구분되는 별도 표시 방식으로 오늘 상태를 전달한다.
+  - 변경: 오늘 날짜를 감싸던 28px primary tint/outline 원을 제거했다. 오늘은 굵은 primary 날짜 텍스트 아래에 12x2px primary 밑줄을 표시하며, 오늘과 선택일이 겹쳐도 선택 셀의 tint/outline과 오늘 밑줄이 함께 나타난다. 근무 코드는 별도 하단 배지 영역을 계속 사용한다.
+  - 영향범위: 메인 달력의 오늘 날짜 표시. 선택 셀, 근무 배지, 주말 색상과 달력 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, 대상 파일 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets` 8건 통과, `git diff --check` 통과.
+  - 롤백: `is_today` 날짜의 밑줄을 제거하고 28px primary tint/outline 원으로 다시 감싼다.
+  - 다음: 실제 기기에서 오늘 밑줄과 근무 코드 배지가 충분히 분리되어 보이는지 확인
+
+- [DONE] (FE) 메인 달력 선택일 원형 표시 제거
+  - 목적: 선택일 셀에 중복 적용된 채움 원을 제거하고 셀 tint/outline만으로 선택 상태를 표현한다.
+  - 변경: `_buildCalendarDayCell()`에서 선택일에 적용하던 28px primary 채움 원과 흰색 날짜 텍스트를 제거했다. 선택일 날짜는 굵은 primary 텍스트로 표시하고 기존 셀 전체의 primary tint와 outline은 유지한다. 오늘이면서 선택되지 않은 날짜의 28px primary outline 원은 유지했다.
+  - 영향범위: 메인 달력 선택일의 날짜 숫자 표시. 선택 셀 tint/outline, 오늘 표시, 근무 배지, 주말 색상과 달력 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, 대상 파일 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets` 8건 통과, `git diff --check` 통과.
+  - 롤백: `is_selected`일 때 날짜 숫자를 28px primary 채움 원과 흰색 텍스트로 다시 감싼다.
+  - 다음: 실제 기기에서 선택 셀 tint/outline만으로 선택 상태가 충분히 구분되는지 확인
+
+- [DONE] (FE) 메인 달력 카드 외형 원복
+  - 목적: 메인 달력에 적용한 흰색 surface, 16px 반경, outline 카드 외형만 제거해 이전의 배경 일체형 표현으로 되돌린다.
+  - 변경: `_buildCalendar()`에서 `TableCalendar`를 감싸던 16px 화면 여백, 8px 내부 여백, 흰색 surface, 16px 반경과 outline의 `Container`를 제거하고 기존처럼 `Listener`를 직접 반환하도록 원복했다. 근무 코드 기본 노출, 반응형 행 높이, 선택일/오늘 표시, 일요일/토요일 색상과 compact 전환은 유지했다.
+  - 영향범위: 메인 달력의 외부 배경, 여백, 테두리. 날짜 셀 디자인, 근무 배지, 월 이동·날짜 선택·근무 입력·저장 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, 대상 파일 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets` 8건 통과, `git diff --check` 통과.
+  - 롤백: `_buildCalendar()`의 `Listener`를 16px margin, 8px padding, `AppTheme.cardDecoration()`을 가진 `Container`로 다시 감싼다.
+  - 다음: 실제 기기에서 페이지 배경과 달력 사이의 밀도, 선택 셀 및 근무 배지 가독성을 확인
+
+- [DONE] (FE) 메인 달력 Shift Harmony 디자인 적용
+  - 목적: 메인 달력에 Shift Harmony 시안의 카드 표면, 근무 코드 중심 정보 구조, 선택 상태와 주말 색상 체계를 적용해 월 근무표 탐색성을 높인다.
+  - 변경: `TableCalendar`를 16px 화면 여백, 8px 내부 여백, 흰색 surface, 16px 반경과 outline의 Shift Harmony 카드로 감쌌다. 일반 달력의 기본 상태를 근무 코드 표시 모드로 바꾸고 근무 배지 텍스트를 11px로 높였으며, 화면 높이 750px 미만에서는 52px, 그 외에는 56px 행을 사용해 시안의 정보 밀도를 작은 화면에 맞췄다. 모든 날짜 상태를 공용 셀 빌더로 통합해 선택일은 primary tint/outline 셀과 28px 채움 원, 오늘이지만 미선택인 날짜는 primary outline 원으로 구분하고 180ms 선택 전환을 적용했다. 일요일/공휴일은 accent red, 토요일은 primary blue, 평일 요일은 보조 텍스트 색상으로 표시한다. 위로 드래그하는 기존 compact 점 보기와 월/2주/주 형식, 좌우 이동, 근무 입력 모드 복원은 유지했다.
+  - 영향범위: 메인 캘린더 달력의 컨테이너, 기본 행 높이, 날짜/요일 색상, 근무 배지, 선택일/오늘 표시. 선택일 일정 카드, 근무/개인 일정 데이터, 월 이동·날짜 선택·근무 입력·저장 API/DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, 대상 파일 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets` 8건 통과, `git diff --check` 통과. 프로젝트 전체 `flutter analyze`는 이번 변경과 무관한 기존 warning/info 134건을 확인했다.
+  - 롤백: 달력 외부 `AppTheme.cardDecoration()` 컨테이너를 제거하고 `_is_expanded_view` 기본값과 행 높이를 이전 값으로 복구한 뒤 `_buildCalendarDayCell()`을 이전 확장 셀/상태별 빌더로 되돌린다.
+  - 다음: 실제 iPhone에서 5주/6주 월과 750px 전후 화면 높이의 카드 크기, 선택 애니메이션, 근무 배지 가독성을 확인
 
 - [DONE] (FE) 메인 캘린더 일정 추가 행 디자인 반영
   - 목적: 제공된 Shift Harmony 시안 중 선택일 일정 컴포넌트의 `일정 추가하기...` 행만 현재 메인 캘린더에 반영한다.

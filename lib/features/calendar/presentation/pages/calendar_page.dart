@@ -40,7 +40,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   bool _is_shift_add_mode = false;
 
   // 확장 보기 모드 (날짜 밑에 근무 코드 표시)
-  bool _is_expanded_view = false;
+  bool _is_expanded_view = true;
 
   // 포인터 시작 위치 (Listener용)
   double? _pointer_start_y;
@@ -72,13 +72,18 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   // 공휴일 목록 (년도별)
   final Map<int, Set<DateTime>> _holidays = {};
 
+  bool get _isShortScreen => MediaQuery.sizeOf(context).height < 750;
+
+  CalendarFormat get _visibleCalendarFormat =>
+      _isShortScreen ? CalendarFormat.twoWeeks : _calendar_format;
+
   // 확장 모드 시 행 높이
   double get _calendarRowHeight {
     if (_is_shift_add_mode) {
       return 60.0;
     }
     if (_is_expanded_view) {
-      return 60.0; // 확장 모드: 더 높은 행 (날짜 + 근무 코드)
+      return _isShortScreen ? 52.0 : 56.0;
     }
     return 48.0; // 기본 모드
   }
@@ -475,7 +480,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     _buildMonthHeader(),
                     // 캘린더 위젯
                     _buildCalendar(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppTheme.spacing_xs),
                     // 선택된 날짜 정보 및 일정 목록
                     Flexible(child: _buildSelectedDayInfo()),
                   ],
@@ -647,7 +652,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   void _restoreCalendarViewAfterShiftAdd() {
     _calendar_format =
         _calendar_format_before_shift_add ?? CalendarFormat.month;
-    _is_expanded_view = _expanded_view_before_shift_add ?? false;
+    _is_expanded_view = _expanded_view_before_shift_add ?? true;
     _calendar_format_before_shift_add = null;
     _expanded_view_before_shift_add = null;
   }
@@ -959,8 +964,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     });
   }
 
-  /// 확장 모드용 날짜 셀 빌더 (날짜 + 근무 코드 표시)
-  Widget _buildExpandedDayCell({
+  /// 날짜, 선택 상태, 근무 코드를 함께 표시하는 달력 셀
+  Widget _buildCalendarDayCell({
     required DateTime date,
     required Color text_color,
     bool is_today = false,
@@ -977,91 +982,140 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               ? null
               : shift_types_map[shift_type]
         : null;
-    final badgeText = _is_shift_add_mode ? shiftType : workShift?.shiftTypeCode;
-    final badgeColor = _is_shift_add_mode
-        ? editShiftInfo?.color ??
-              (workShift == null ? null : _getWorkShiftColor(workShift))
-        : (workShift == null ? null : _getWorkShiftColor(workShift));
+    final badge_text = _is_shift_add_mode
+        ? shift_type
+        : work_shift?.shiftTypeCode;
+    final badge_color = _is_shift_add_mode
+        ? edit_shift_info?.color ??
+              (work_shift == null ? null : _getWorkShiftColor(work_shift))
+        : (work_shift == null ? null : _getWorkShiftColor(work_shift));
+    final show_shift_badge = _is_expanded_view || _is_shift_add_mode;
+    final content_padding = const EdgeInsets.all(2);
+    final selection_box_size = show_shift_badge ? 58.0 : 48.0;
+    final selection_box_offset_y = show_shift_badge ? 4.0 : 8.0;
 
     // 외부 날짜(이전/다음 달)는 투명도 적용
-    final outsideAlpha = isOutside ? 0.4 : 1.0;
-
-    return SizedBox(
-      height: 56, // 고정 높이로 모든 셀이 동일한 높이 유지
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 날짜 숫자 (고정 높이 28)
-          SizedBox(
+    final outside_alpha = is_outside ? 0.4 : 1.0;
+    final date_text_color = is_selected || is_today
+        ? AppTheme.primary_color
+        : text_color.withValues(alpha: outside_alpha);
+    final date_text = Text(
+      '${date.day}',
+      style: TextStyle(
+        color: date_text_color,
+        fontSize: 14,
+        fontWeight: is_selected || is_today
+            ? FontWeight.w700
+            : FontWeight.normal,
+      ),
+    );
+    final date_indicator = is_today
+        ? SizedBox(
+            width: 28,
             height: 28,
-            child: Center(
-              child: (isToday || isSelected)
-                  ? Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary_color
-                            : AppTheme.primary_color.withValues(alpha: 0.25),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${date.day}',
-                          style: TextStyle(
-                            color: textColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                date_text,
+                const SizedBox(height: 1),
+                Container(
+                  width: 12,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary_color,
+                    borderRadius: BorderRadius.circular(AppTheme.radius_sm),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : date_text;
+
+    final cell_content = show_shift_badge
+        ? Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 28, child: Center(child: date_indicator)),
+              const SizedBox(height: 2),
+              SizedBox(
+                height: 16,
+                child: badge_text != null && badge_color != null
+                    ? ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 44),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badge_color.withValues(alpha: outside_alpha),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radius_sm,
+                            ),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              badge_text,
+                              style: TextStyle(
+                                color: CupertinoColors.white.withValues(
+                                  alpha: outside_alpha,
+                                ),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  : Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        color: textColor.withValues(alpha: outsideAlpha),
-                        fontSize: 14,
-                      ),
-                    ),
+                      )
+                    : null,
+              ),
+            ],
+          )
+        : Center(child: date_indicator);
+
+    return SizedBox.expand(
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Transform.translate(
+            offset: Offset(0, selection_box_offset_y),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeInOut,
+              width: is_selected ? selection_box_size : 0,
+              height: is_selected ? selection_box_size : 0,
+              decoration: BoxDecoration(
+                color: is_selected
+                    ? AppTheme.primary_color.withValues(alpha: 0.08)
+                    : null,
+                borderRadius: BorderRadius.circular(AppTheme.radius_md),
+                border: is_selected
+                    ? Border.all(
+                        color: AppTheme.primary_color.withValues(alpha: 0.24),
+                      )
+                    : null,
+              ),
             ),
           ),
-          const SizedBox(height: 2),
-          // 근무 코드 표시 (고정 높이 16)
-          SizedBox(
-            height: 16,
-            child: badgeText != null && badgeColor != null
-                ? ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 44),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: outsideAlpha),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          badgeText,
-                          style: TextStyle(
-                            color: CupertinoColors.white.withValues(
-                              alpha: outsideAlpha,
-                            ),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                : null,
+          Positioned.fill(
+            child: Padding(padding: content_padding, child: cell_content),
           ),
         ],
       ),
     );
+  }
+
+  Color _getCalendarDateColor(DateTime date) {
+    if (_isHoliday(date) || date.weekday == DateTime.sunday) {
+      return AppTheme.accent_red_color;
+    }
+    if (date.weekday == DateTime.saturday) {
+      return AppTheme.primary_color;
+    }
+    return AppTheme.on_surface_color;
   }
 
   /// 포인터 다운 이벤트 처리
@@ -1122,21 +1176,20 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           child: TableCalendar(
+            key: const ValueKey('main-calendar'),
             firstDay: DateTime.utc(2000, 1, 1),
             lastDay: DateTime.utc(2050, 12, 31),
             focusedDay: _focused_day,
-            calendarFormat: _calendar_format,
+            calendarFormat: _visibleCalendarFormat,
             locale: 'ko_KR',
             headerVisible: false,
             daysOfWeekHeight: 32,
             rowHeight: _calendarRowHeight,
-            availableCalendarFormats: _is_expanded_view
-                ? const {CalendarFormat.month: '월'}
-                : const {
-                    CalendarFormat.month: '월',
-                    CalendarFormat.twoWeeks: '2주',
-                    CalendarFormat.week: '주',
-                  },
+            availableCalendarFormats: const {
+              CalendarFormat.month: '월',
+              CalendarFormat.twoWeeks: '2주',
+              CalendarFormat.week: '주',
+            },
             // 수평 스와이프만 허용하여 수직 드래그가 GestureDetector로 전달되도록 함
             availableGestures: AvailableGestures.horizontalSwipe,
             daysOfWeekStyle: DaysOfWeekStyle(
@@ -1150,6 +1203,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               ),
             ),
             calendarStyle: CalendarStyle(
+              tablePadding: const EdgeInsets.only(bottom: AppTheme.spacing_sm),
+              cellMargin: const EdgeInsets.all(2),
+              markersAlignment: Alignment.bottomCenter,
               outsideDaysVisible: true,
               outsideTextStyle: TextStyle(
                 color: AppTheme.on_surface_color.withValues(alpha: 0.25),
@@ -1208,11 +1264,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 }
               });
             },
-            onFormatChanged: (format) {
-              setState(() {
-                _calendar_format = format;
-              });
-            },
+            onFormatChanged: _isShortScreen
+                ? null
+                : (format) {
+                    setState(() {
+                      _calendar_format = format;
+                    });
+                  },
             onPageChanged: (focusedDay) {
               SchedulerBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
@@ -1227,161 +1285,59 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               });
             },
             calendarBuilders: CalendarBuilders(
-              // 요일 헤더 커스터마이징 (토요일과 일요일은 빨간색)
+              // 요일 헤더: 일요일은 빨간색, 토요일은 primary 색상
               dowBuilder: (context, day) {
                 final weekday = day.weekday;
-                final isWeekend =
-                    weekday == DateTime.saturday || weekday == DateTime.sunday;
-                TextStyle textStyle;
-                if (isWeekend) {
-                  textStyle = AppTheme.body_small.copyWith(
-                    color: CupertinoColors.systemRed,
-                    fontWeight: FontWeight.w600,
-                  );
-                } else {
-                  textStyle = AppTheme.body_small.copyWith(
-                    color: AppTheme.on_surface_color,
-                    fontWeight: FontWeight.w600,
-                  );
-                }
+                final text_color = weekday == DateTime.sunday
+                    ? AppTheme.accent_red_color
+                    : weekday == DateTime.saturday
+                    ? AppTheme.primary_color
+                    : AppTheme.on_surface_variant_color;
                 return Center(
                   child: Text(
                     DateFormat('E', 'ko_KR').format(day),
-                    style: textStyle,
+                    style: AppTheme.body_small.copyWith(
+                      color: text_color,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 );
               },
-              // 공휴일 빌더 (holidayPredicate가 true인 경우)
+              // 공휴일은 일요일과 같은 accent red로 표시
               holidayBuilder: (context, date, focused) {
-                // 확장 모드일 때는 근무 코드도 함께 표시
-                if (_is_expanded_view) {
-                  return _buildExpandedDayCell(
-                    date: date,
-                    textColor: CupertinoColors.systemRed,
-                  );
-                }
-                // 공휴일은 항상 빨간색
-                return Center(
-                  child: Text(
-                    '${date.day}',
-                    style: const TextStyle(color: CupertinoColors.systemRed),
-                  ),
+                return _buildCalendarDayCell(
+                  date: date,
+                  text_color: AppTheme.accent_red_color,
+                  is_outside:
+                      date.year != focused.year || date.month != focused.month,
                 );
               },
-              // 날짜 셀 커스터마이징 (토요일과 일요일은 빨간색)
-              // 공휴일은 holidayBuilder에서 처리되므로 여기서는 주말만 처리
               defaultBuilder: (context, date, focused) {
-                final weekday = date.weekday;
-                final isWeekend =
-                    weekday == DateTime.saturday || weekday == DateTime.sunday;
-                // 주말이면 빨간색, 그 외는 평일 색상
-                final textColor = isWeekend
-                    ? CupertinoColors.systemRed
-                    : AppTheme.on_surface_color;
-
-                // 확장 모드일 때는 근무 코드도 함께 표시
-                if (_is_expanded_view) {
-                  return _buildExpandedDayCell(
-                    date: date,
-                    textColor: textColor,
-                  );
-                }
-
-                return Center(
-                  child: Text(
-                    '${date.day}',
-                    style: TextStyle(color: textColor),
-                  ),
+                return _buildCalendarDayCell(
+                  date: date,
+                  text_color: _getCalendarDateColor(date),
                 );
               },
-              // 이전/다음 달 날짜 (outside days)
               outsideBuilder: (context, date, focused) {
-                final weekday = date.weekday;
-                final isWeekend =
-                    weekday == DateTime.saturday || weekday == DateTime.sunday;
-                // 주말이면 빨간색, 그 외는 평일 색상 (투명도 적용)
-                final textColor = isWeekend
-                    ? CupertinoColors.systemRed
-                    : AppTheme.on_surface_color;
-
-                // 확장 모드일 때는 근무 코드도 함께 표시
-                if (_is_expanded_view) {
-                  return _buildExpandedDayCell(
-                    date: date,
-                    textColor: textColor,
-                    isOutside: true,
-                  );
-                }
-
-                return Center(
-                  child: Text(
-                    '${date.day}',
-                    style: TextStyle(color: textColor.withValues(alpha: 0.4)),
-                  ),
+                return _buildCalendarDayCell(
+                  date: date,
+                  text_color: _getCalendarDateColor(date),
+                  is_outside: true,
                 );
               },
-              // 오늘 날짜 스타일 (공휴일이거나 주말이면 빨간색, 아니면 primary color)
               todayBuilder: (context, date, focused) {
-                final weekday = date.weekday;
-                final isHoliday = _isHoliday(date);
-                final isWeekend =
-                    weekday == DateTime.saturday || weekday == DateTime.sunday;
-
-                // 주말이거나 공휴일이면 빨간색, 그 외는 primary color
-                final textColor = (isWeekend || isHoliday)
-                    ? CupertinoColors.systemRed
-                    : AppTheme.primary_color;
-
-                // 확장 모드일 때는 근무 코드도 함께 표시
-                if (_is_expanded_view) {
-                  return _buildExpandedDayCell(
-                    date: date,
-                    textColor: textColor,
-                    isToday: true,
-                  );
-                }
-
-                return Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary_color.withValues(alpha: 0.25),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                return _buildCalendarDayCell(
+                  date: date,
+                  text_color: _getCalendarDateColor(date),
+                  is_today: true,
                 );
               },
-              // 선택된 날짜 스타일
               selectedBuilder: (context, date, focused) {
-                // 확장 모드일 때는 근무 코드도 함께 표시
-                if (_is_expanded_view) {
-                  return _buildExpandedDayCell(
-                    date: date,
-                    textColor: CupertinoColors.white,
-                    isSelected: true,
-                  );
-                }
-
-                return Container(
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primary_color,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${date.day}',
-                      style: const TextStyle(
-                        color: CupertinoColors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                return _buildCalendarDayCell(
+                  date: date,
+                  text_color: _getCalendarDateColor(date),
+                  is_today: isSameDay(date, DateTime.now()),
+                  is_selected: true,
                 );
               },
               // 마커 (근무 배지) - 확장 모드에서는 날짜 셀에 이미 표시되므로 숨김
@@ -1405,7 +1361,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 final workShift = _getWorkShiftForDay(date);
                 if (workShift != null) {
                   return Positioned(
-                    bottom: 2,
+                    bottom: 0,
                     child: _buildWorkShiftDot(workShift, size: 8),
                   );
                 }
@@ -1702,25 +1658,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Dismissible(
-        key: Key('${workShift.workShiftId}_$index'),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 16),
-          decoration: BoxDecoration(
-            color: CupertinoColors.systemRed.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            CupertinoIcons.trash,
-            color: CupertinoColors.systemRed,
-          ),
-        ),
-        confirmDismiss: (_) => _confirmDeleteWorkShift(_selected_day),
-        onDismissed: (_) {
-          // confirmDismiss에서 이미 처리됨
-        },
+      child: _RoundedDeleteDismissible(
+        dismissible_key: Key('${workShift.workShiftId}_$index'),
+        confirm_dismiss: (_) => _confirmDeleteWorkShift(_selected_day),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
@@ -1883,6 +1823,73 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RoundedDeleteDismissible extends StatefulWidget {
+  const _RoundedDeleteDismissible({
+    required this.dismissible_key,
+    required this.confirm_dismiss,
+    required this.child,
+  });
+
+  final Key dismissible_key;
+  final Future<bool> Function(DismissDirection direction) confirm_dismiss;
+  final Widget child;
+
+  @override
+  State<_RoundedDeleteDismissible> createState() =>
+      _RoundedDeleteDismissibleState();
+}
+
+class _RoundedDeleteDismissibleState extends State<_RoundedDeleteDismissible> {
+  double _dismiss_progress = 0;
+
+  void _handleDismissUpdate(DismissUpdateDetails details) {
+    final next_progress = details.progress.clamp(0.0, 1.0).toDouble();
+    if ((_dismiss_progress - next_progress).abs() < 0.0001) return;
+
+    setState(() {
+      _dismiss_progress = next_progress;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final reveal_width = constraints.maxWidth * _dismiss_progress;
+
+        return Dismissible(
+          key: widget.dismissible_key,
+          direction: DismissDirection.endToStart,
+          onUpdate: _handleDismissUpdate,
+          background: Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              key: const ValueKey('work-shift-delete-background'),
+              width: reveal_width,
+              height: double.infinity,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: AppTheme.spacing_md),
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemRed.withValues(alpha: 0.1),
+                borderRadius: AppTheme.input_border_radius,
+              ),
+              child: const Icon(
+                CupertinoIcons.trash,
+                color: CupertinoColors.systemRed,
+              ),
+            ),
+          ),
+          confirmDismiss: widget.confirm_dismiss,
+          onDismissed: (_) {
+            // confirmDismiss에서 이미 처리됨
+          },
+          child: widget.child,
+        );
+      },
     );
   }
 }

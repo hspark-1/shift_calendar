@@ -56,7 +56,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
         middle: Text(
           '친구 정보',
           style: AppTheme.heading_small.copyWith(
-            color: AppTheme.primary_dark_color,
+            color: AppTheme.on_surface_color,
             fontWeight: FontWeight.w700,
           ),
         ),
