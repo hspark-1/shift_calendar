@@ -675,7 +675,8 @@ Future<bool> loginWithKakao() async {
 
 - **공휴일**: 빨간색으로 표시 (일요일과 동일)
 - **토요일**: primary blue, **일요일**: 빨간색으로 표시
-- **공휴일 이름**: 하단 일정 리스트의 날짜 헤더에 표시
+- **공휴일 이름**: 하단 일정 리스트의 날짜 오른쪽 하단에 한 줄 accent red 라벨로 표시하며,
+  공휴일 유무와 관계없이 날짜·일정 수 헤더 높이를 동일하게 유지
 
 ### 구현 세부사항
 
@@ -694,7 +695,7 @@ Future<bool> loginWithKakao() async {
 3. **UI 통합**
    - `table_calendar`의 `holidayPredicate` 사용
    - `CalendarBuilders`로 공휴일/주말 스타일링
-   - 하단 일정 리스트에 공휴일 이름 동적 표시
+   - 하단 일정 리스트의 날짜 오른쪽 하단에 공휴일 이름을 한 줄로 동적 표시
 
 ### 환경 변수
 

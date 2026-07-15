@@ -1394,6 +1394,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final selectedDate = _selected_day ?? DateTime.now();
     final normalizedDate = _normalizeDate(selectedDate);
     final workShift = _getWorkShiftForDay(selectedDate);
+    final holiday_name = _isHoliday(selectedDate)
+        ? KoreanHolidays.getHolidayName(selectedDate) ?? '공휴일'
+        : null;
 
     // 해당 날짜의 일정(Events) 목록
     final dayEvents = _events[normalizedDate] ?? [];
@@ -1421,37 +1424,45 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                   ),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                key: const ValueKey('selected-day-header-content'),
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        dateFormat.format(selectedDate),
-                        style: AppTheme.heading_small,
-                      ),
-                      const Spacer(),
-                      if (totalCount > 0)
+                  Expanded(
+                    child: Row(
+                      key: const ValueKey('selected-day-title-content'),
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
                         Text(
-                          '$totalCount개의 일정',
-                          style: AppTheme.body_small.copyWith(
-                            color: AppTheme.on_surface_variant_color,
+                          dateFormat.format(selectedDate),
+                          style: AppTheme.heading_small,
+                        ),
+                        if (holiday_name != null) ...[
+                          const SizedBox(width: AppTheme.spacing_sm),
+                          Flexible(
+                            child: Text(
+                              holiday_name,
+                              key: const ValueKey('selected-day-holiday-name'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.body_small.copyWith(
+                                color: AppTheme.accent_red_color,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
-                        ),
-                    ],
+                        ],
+                      ],
+                    ),
                   ),
-                  // 공휴일 이름 표시
-                  if (_isHoliday(selectedDate))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        KoreanHolidays.getHolidayName(selectedDate) ?? '공휴일',
-                        style: AppTheme.body_small.copyWith(
-                          color: CupertinoColors.systemRed,
-                          fontWeight: FontWeight.w500,
-                        ),
+                  if (totalCount > 0) ...[
+                    const SizedBox(width: AppTheme.spacing_sm),
+                    Text(
+                      '$totalCount개의 일정',
+                      style: AppTheme.body_small.copyWith(
+                        color: AppTheme.on_surface_variant_color,
                       ),
                     ),
+                  ],
                 ],
               ),
             ),

@@ -152,6 +152,62 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('선택일 날짜와 일정 수를 같은 헤더 행에 배치한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 750));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final work_shift = WorkShiftApiModel(
+      workShiftId: 'work-shift-header-test',
+      workDate: DateTime(now.year, now.month, now.day),
+      shiftTypeCode: 'D',
+      shiftTypeName: '데이',
+      shiftTypeColor: 0xFF0061A4,
+      startTime: '07:00:00',
+      endTime: '15:00:00',
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          calendarServiceProvider.overrideWithValue(
+            _FakeCalendarService(work_shifts: [work_shift]),
+          ),
+          notificationProvider.overrideWith(
+            (ref) => _FakeNotificationNotifier(),
+          ),
+        ],
+        child: const CupertinoApp(home: CalendarPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    for (var wait_count = 0; wait_count < 50; wait_count++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    final header = find.byKey(const ValueKey('selected-day-header-content'));
+    final title_content = find.byKey(
+      const ValueKey('selected-day-title-content'),
+    );
+    final selected_date =
+        '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+
+    expect(header, findsOneWidget);
+    expect(tester.widget(header), isA<Row>());
+    expect(
+      tester.widget<Row>(title_content).crossAxisAlignment,
+      CrossAxisAlignment.end,
+    );
+    expect(
+      tester.getCenter(find.text(selected_date)).dy,
+      closeTo(tester.getCenter(find.text('1개의 일정')).dy, 0.1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('2주 보기 마지막 토요일 근무 입력 후 다음 페이지 일요일로 이동한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 740));
     addTearDown(() => tester.binding.setSurfaceSize(null));

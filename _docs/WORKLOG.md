@@ -2,6 +2,24 @@
 
 ## 2026-07-16
 
+- [DONE] (FE) 메인 캘린더 공휴일명 하단 정렬
+  - 목적: 날짜 오른쪽으로 이동한 공휴일명의 상하 위치를 날짜 영역 하단에 맞춘다.
+  - 변경: 날짜와 공휴일명을 담는 내부 `Row`에 `CrossAxisAlignment.end`를 적용해 공휴일 라벨을 날짜 영역 하단에 정렬했다. 내부 행에 테스트 key를 추가하고 회귀 테스트가 하단 정렬값을 검증하도록 보강했으며 프로젝트 문서의 표시 위치를 `날짜 오른쪽 하단`으로 갱신했다.
+  - 영향범위: 메인 캘린더 선택일 헤더의 날짜·공휴일명 내부 행 수직 정렬. 헤더 전체 높이, 오른쪽 일정 수, 공휴일 로딩/판단과 일정 데이터는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 코드/테스트 `dart format` 통과, 대상 2개 파일 `flutter analyze` 0건 통과, 헤더 행 회귀 테스트 1건 통과, `git diff --check` 통과.
+  - 롤백: 공휴일명 영역의 하단 정렬 설정을 제거한다.
+  - 다음: 실제 기기에서 날짜보다 작은 공휴일 라벨이 의도한 하단 위치에 표시되는지 확인
+
+- [DONE] (FE) 메인 캘린더 공휴일명 위치 조정
+  - 목적: 선택일 날짜·일정 수 헤더의 높이가 공휴일 유무에 따라 달라지지 않도록 공휴일명을 다른 위치로 이동한다.
+  - 변경: 선택일 카드 헤더에서 날짜 아래에 조건부로 추가하던 공휴일명 두 번째 줄을 제거하고, 날짜 오른쪽의 한 줄 accent red 라벨로 이동했다. 날짜·공휴일명 영역을 `Expanded`로 두고 공휴일명에는 한 줄 말줄임을 적용해 오른쪽 `N개의 일정`을 유지한다. 날짜와 일정 수가 동일한 헤더 행과 세로 위치에 배치되는 위젯 테스트를 추가하고 현재 표시 규칙을 프로젝트 문서에 반영했다.
+  - 영향범위: 메인 캘린더 선택일 일정 카드의 공휴일명 위치와 헤더 높이. 공휴일 로딩/판단, 날짜 셀 색상, 근무·개인 일정 목록과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 코드/테스트 `dart format` 통과, 대상 2개 파일 `flutter analyze` 0건 통과, 신규 헤더 행 회귀 테스트 1건 통과, `git diff --check` 통과. 변경 전 전체 `calendar_page_test.dart` 실행에서는 이번 작업과 무관하게 선택 사각형 배경의 기존 테스트 기대값(surface)과 구현값(primary 8% tint)이 달라 1건 실패하는 상태를 확인했다.
+  - 롤백: 변경된 공휴일명 배치를 기존 날짜 헤더 아래 위치로 되돌린다.
+  - 다음: 실제 기기에서 긴 공휴일명과 일정 수가 함께 표시될 때 말줄임과 헤더 높이를 확인
+
 - [DONE] (CHORE) 캘린더 날짜 상호작용 변경사항 커밋 및 푸시
   - 목적: 완료된 2주 보기 자동 이동 수정과 선택일·주말·공휴일 색상 구분 개선을 검증된 문서·테스트와 함께 Git 이력으로 정리해 원격 `main`에 반영한다.
   - 변경: 캘린더 코드, 회귀 테스트, PROJECT_CONTEXT/DECISIONS/WORKLOG 변경을 `14be245 fix(calendar): improve date selection interactions` 기능 커밋으로 정리했다. 이 작업 로그의 완료 상태는 후속 문서 커밋으로 기록하고 두 커밋을 `origin/main`에 푸시한다.
