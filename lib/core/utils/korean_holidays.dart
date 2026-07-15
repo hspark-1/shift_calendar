@@ -1,346 +1,347 @@
-import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
-/// 한국 법정 공휴일 판단 유틸리티
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// 한국 법정 공휴일 조회와 앱 공용 캐시를 관리한다.
 class KoreanHolidays {
   KoreanHolidays._();
 
-  /// 공휴일 캐시 (년도별)
+  static const _cache_storage_key = 'korean_holidays_cache_v1';
+  static const _cache_version = 1;
+
+  /// 공휴일 캐시 (연도 -> 날짜 집합)
   static final Map<int, Set<DateTime>> _holiday_cache = {};
 
   /// 공휴일 이름 캐시 (날짜 -> 공휴일 이름)
   static final Map<DateTime, String> _holiday_name_cache = {};
 
-  /// 로드된 월 범위 추적 (연도별로 로드된 월 목록)
-  /// 예: {2026: {1, 2, 3}} - 2026년의 1월, 2월, 3월 범위가 로드됨
+  /// API 조회를 완료한 월 (연도 -> 월 집합)
   static final Map<int, Set<int>> _loaded_month_ranges = {};
 
-  /// 현재 로딩 중인 요청 추적 (중복 호출 방지)
-  static final Set<String> _loading_requests = {};
+  /// 같은 월의 중복 API 요청을 하나의 Future로 합친다.
+  static final Map<String, Future<void>> _loading_requests = {};
+
+  static SharedPreferences? _preferences;
+  static Future<void>? _initialization;
+
+  static Future<Map<DateTime, String>> Function(int year, int month)?
+  _holiday_fetcher_override;
+
+  /// 앱 시작 시 로컬에 저장된 공휴일 캐시를 메모리로 복원한다.
+  static Future<void> initialize() {
+    return _initialization ??= _restoreCache();
+  }
+
+  static Future<void> _restoreCache() async {
+    final preferences = await SharedPreferences.getInstance();
+    _preferences = preferences;
+
+    final raw_cache = preferences.getString(_cache_storage_key);
+    if (raw_cache == null || raw_cache.isEmpty) return;
+
+    try {
+      final decoded_cache = jsonDecode(raw_cache);
+      if (decoded_cache is! Map<String, dynamic> ||
+          decoded_cache['version'] != _cache_version) {
+        return;
+      }
+
+      final holidays = decoded_cache['holidays'];
+      if (holidays is List) {
+        for (final holiday in holidays) {
+          if (holiday is! Map) continue;
+
+          final date_value = holiday['date'];
+          if (date_value is! String) continue;
+
+          final parsed_date = DateTime.tryParse(date_value);
+          if (parsed_date == null) continue;
+
+          final normalized_date = _normalizeDate(parsed_date);
+          _holiday_cache
+              .putIfAbsent(normalized_date.year, () => <DateTime>{})
+              .add(normalized_date);
+
+          final name_value = holiday['name'];
+          if (name_value is String && name_value.isNotEmpty) {
+            _holiday_name_cache[normalized_date] = name_value;
+          }
+        }
+      }
+
+      final loaded_months = decoded_cache['loaded_months'];
+      if (loaded_months is Map) {
+        for (final entry in loaded_months.entries) {
+          final year = int.tryParse(entry.key.toString());
+          final months = entry.value;
+          if (year == null || months is! List) continue;
+
+          _loaded_month_ranges[year] = months
+              .whereType<num>()
+              .map((month) => month.toInt())
+              .where((month) => month >= 1 && month <= 12)
+              .toSet();
+        }
+      }
+    } on FormatException catch (error) {
+      debugPrint('저장된 공휴일 캐시 형식 오류: $error');
+    } catch (error) {
+      debugPrint('저장된 공휴일 캐시 복원 실패: $error');
+    }
+  }
+
+  static Future<void> _persistCache() async {
+    final preferences = _preferences ?? await SharedPreferences.getInstance();
+    _preferences = preferences;
+
+    final holidays = <Map<String, String?>>[];
+    final years = _holiday_cache.keys.toList()..sort();
+    for (final year in years) {
+      final dates = _holiday_cache[year]!.toList()..sort();
+      for (final date in dates) {
+        holidays.add({
+          'date': _dateStorageKey(date),
+          'name': _holiday_name_cache[date],
+        });
+      }
+    }
+
+    final loaded_months = <String, List<int>>{};
+    final loaded_years = _loaded_month_ranges.keys.toList()..sort();
+    for (final year in loaded_years) {
+      loaded_months['$year'] = _loaded_month_ranges[year]!.toList()..sort();
+    }
+
+    await preferences.setString(
+      _cache_storage_key,
+      jsonEncode({
+        'version': _cache_version,
+        'holidays': holidays,
+        'loaded_months': loaded_months,
+      }),
+    );
+  }
+
+  static String _dateStorageKey(DateTime date) {
+    final normalized_date = _normalizeDate(date);
+    final month = normalized_date.month.toString().padLeft(2, '0');
+    final day = normalized_date.day.toString().padLeft(2, '0');
+    return '${normalized_date.year}-$month-$day';
+  }
 
   /// 날짜 정규화 (시간 제거)
   static DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
 
-  /// 두 날짜가 같은 날인지 확인
+  /// 두 날짜가 같은 날인지 확인한다.
   static bool isSameDay(DateTime date1, DateTime date2) {
-    final normalized1 = _normalizeDate(date1);
-    final normalized2 = _normalizeDate(date2);
-    return normalized1.year == normalized2.year &&
-        normalized1.month == normalized2.month &&
-        normalized1.day == normalized2.day;
+    return _normalizeDate(date1) == _normalizeDate(date2);
   }
 
-  /// 공공데이터포털 API에서 공휴일 데이터 가져오기
-  /// API 키가 없으면 null 반환
-  /// 한국천문연구원 특일 정보 API 사용 (현재 월 기준 앞뒤 한 달씩 총 3개월만 조회)
-  static Future<Set<DateTime>?> _fetchHolidaysForMonthRange(
+  /// 한국천문연구원 특일 정보 API에서 요청 월 앞뒤 1개월을 조회한다.
+  static Future<Map<DateTime, String>> _fetchHolidaysForMonthRange(
     int year,
     int month,
   ) async {
-    // .env 파일에서 API 키 가져오기
-    final apiKey = dotenv.env['DATA_GO_KR_API_KEY'];
-
-    if (apiKey == null || apiKey.isEmpty) {
-      return null; // API 키가 없으면 null 반환
+    final override = _holiday_fetcher_override;
+    if (override != null) {
+      return override(year, month);
     }
+
+    if (!dotenv.isInitialized) return {};
+
+    final api_key = dotenv.env['DATA_GO_KR_API_KEY'];
+    if (api_key == null || api_key.isEmpty) return {};
+
+    final holidays = <DateTime, String>{};
+    final months_to_load = [
+      DateTime(year, month - 1),
+      DateTime(year, month),
+      DateTime(year, month + 1),
+    ];
 
     try {
       final dio = Dio();
-
-      // 한국천문연구원 특일 정보 API
-      // 요청주소: http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo
-      final url =
+      const url =
           'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo';
 
-      final Set<DateTime> allHolidays = {};
-
-      // 현재 월 기준으로 앞뒤 한 달씩 총 3개월만 조회
-      final monthsToLoad = <Map<String, int>>[];
-      print("$year $month");
-
-      // 이전 달
-      if (month == 1) {
-        monthsToLoad.add({'year': year - 1, 'month': 12});
-      } else {
-        monthsToLoad.add({'year': year, 'month': month - 1});
-      }
-
-      // 현재 달
-      monthsToLoad.add({'year': year, 'month': month});
-
-      // 다음 달
-      if (month == 12) {
-        monthsToLoad.add({'year': year + 1, 'month': 1});
-      } else {
-        monthsToLoad.add({'year': year, 'month': month + 1});
-      }
-
-      for (final monthData in monthsToLoad) {
-        final targetYear = monthData['year']!;
-        final targetMonth = monthData['month']!;
-
+      for (final target_month in months_to_load) {
         final response = await dio.get(
           url,
           queryParameters: {
-            'serviceKey': apiKey,
-            'solYear': targetYear.toString(),
-            'solMonth': targetMonth.toString().padLeft(2, '0'),
+            'serviceKey': api_key,
+            'solYear': target_month.year.toString(),
+            'solMonth': target_month.month.toString().padLeft(2, '0'),
             'numOfRows': '100',
             'pageNo': '1',
             '_type': 'json',
           },
-          options: Options(
-            // 모든 상태 코드를 받아서 처리
-            validateStatus: (status) => true,
-          ),
+          options: Options(validateStatus: (status) => true),
         );
 
         final data = response.data;
+        if (response.statusCode != 200 || data is! Map) continue;
 
-        // 응답이 문자열인 경우 먼저 체크 (에러 메시지일 수 있음)
-        if (data is String) {
-          // "Unauthorized" 같은 문자열 응답 처리
-          if (data.contains('Unauthorized') ||
-              data.contains('인증') ||
-              data.contains('401') ||
-              data.contains('403') ||
-              data.trim().toLowerCase() == 'unauthorized') {
-            // 인증 오류 - API 키 문제, 다음 월 시도
-            continue;
-          }
-          // XML 응답인 경우 파싱 필요 (현재는 JSON만 처리)
+        final response_data = data['response'];
+        if (response_data is! Map) continue;
+
+        final header = response_data['header'];
+        if (header is Map) {
+          final result_code = header['resultCode']?.toString();
+          if (result_code != null && result_code != '00') continue;
+        }
+
+        final body = response_data['body'];
+        if (body is! Map) continue;
+
+        final items_data = body['items'];
+        if (items_data is! Map) continue;
+
+        final items = items_data['item'];
+        final List<dynamic> item_list;
+        if (items is List) {
+          item_list = items;
+        } else if (items is Map) {
+          item_list = [items];
+        } else {
           continue;
         }
 
-        // 응답 상태 코드 확인
-        if (response.statusCode == 200) {
-          // 응답 구조 확인
-          final responseData = data['response'];
-          if (responseData == null) {
-            // response가 없으면 에러 응답일 수 있음
-            continue;
-          }
+        for (final item in item_list) {
+          if (item is! Map || item['isHoliday']?.toString() != 'Y') continue;
 
-          // 에러 체크
-          final header = responseData['header'];
-          if (header != null) {
-            final resultCode = header['resultCode']?.toString();
-            if (resultCode != null && resultCode != '00') {
-              // resultCode '03', '04', '05'는 인증 오류 (API 키 문제)
-              // 기타 에러도 스킵하고 다음 월 시도
-              continue;
-            }
-          }
+          final locdate = item['locdate']?.toString();
+          if (locdate == null || locdate.length != 8) continue;
 
-          final body = responseData['body'];
-          if (body == null) {
-            continue;
-          }
-
-          final itemsData = body['items'];
-          // items가 null이거나 빈 문자열이면 스킵
-          if (itemsData == null || itemsData == '' || itemsData is! Map) {
-            continue;
-          }
-
-          final items = itemsData['item'];
-          if (items == null) {
-            continue;
-          }
-
-          // items가 Map인 경우 (단일 항목)와 List인 경우 (여러 항목) 처리
-          final List<dynamic> itemsList;
-          if (items is List) {
-            itemsList = items;
-          } else if (items is Map) {
-            itemsList = [items];
-          } else {
-            // 예상치 못한 타입이면 스킵
-            continue;
-          }
-
-          for (final item in itemsList) {
-            // isHoliday가 "Y"인 것만 공휴일로 처리
-            final isHoliday = item['isHoliday']?.toString();
-            if (isHoliday != 'Y') {
-              continue; // 공휴일이 아니면 스킵
-            }
-
-            // locdate 필드 사용 (YYYYMMDD 형식)
-            // locdate는 int 또는 String으로 올 수 있음
-            final locdateValue = item['locdate'];
-            String? locdateStr;
-            if (locdateValue is int) {
-              locdateStr = locdateValue.toString();
-            } else if (locdateValue is String) {
-              locdateStr = locdateValue;
-            }
-
-            if (locdateStr != null && locdateStr.length == 8) {
-              try {
-                // YYYYMMDD 형식을 DateTime으로 변환
-                final holidayYear = int.parse(locdateStr.substring(0, 4));
-                final holidayMonth = int.parse(locdateStr.substring(4, 6));
-                final day = int.parse(locdateStr.substring(6, 8));
-                final holidayDate = DateTime(holidayYear, holidayMonth, day);
-                allHolidays.add(holidayDate);
-
-                // 공휴일 이름 저장 (dateName 필드)
-                final dateName = item['dateName']?.toString();
-                if (dateName != null && dateName.isNotEmpty) {
-                  final normalizedDate = _normalizeDate(holidayDate);
-                  _holiday_name_cache[normalizedDate] = dateName;
-                }
-              } catch (e) {
-                print('날짜 파싱 에러: $locdateStr, $e');
-              }
-            }
+          try {
+            final holiday_date = DateTime(
+              int.parse(locdate.substring(0, 4)),
+              int.parse(locdate.substring(4, 6)),
+              int.parse(locdate.substring(6, 8)),
+            );
+            holidays[_normalizeDate(holiday_date)] =
+                item['dateName']?.toString() ?? '';
+          } on FormatException catch (error) {
+            debugPrint('공휴일 날짜 파싱 실패 ($locdate): $error');
           }
         }
-        // 디버그 로그 제거 (성능 최적화)
       }
-
-      if (allHolidays.isEmpty) {
-        return null;
-      }
-      // 정규화된 날짜로 변환하여 반환 (시간 제거)
-      final normalizedHolidays = allHolidays
-          .map((date) => _normalizeDate(date))
-          .toSet();
-      return normalizedHolidays;
-    } catch (e, stackTrace) {
-      // API 호출 실패 시 null 반환
-      print('공휴일 API 호출 에러: $e');
-      print('스택 트레이스: $stackTrace');
+    } catch (error, stack_trace) {
+      debugPrint('공휴일 API 호출 실패: $error');
+      debugPrintStack(stackTrace: stack_trace);
     }
 
-    return null;
+    return holidays;
   }
 
-  /// 해당 연도의 공휴일 목록 가져오기 (캐시 사용)
-  /// Public 메서드로 외부에서 호출 가능
-  /// 현재는 월별 lazy loading을 위해 월 정보도 필요
+  /// 해당 연도의 공휴일을 반환하고, 월이 있으면 앞뒤 1개월까지 조회한다.
   static Future<Set<DateTime>> getHolidaysForYear(
     int year, {
     int? month,
   }) async {
-    // 캐시 키를 연도+월로 변경하거나, 연도별로 유지하되 필요한 월만 조회
-    // 간단하게 연도별 캐시는 유지하되, 월 정보가 있으면 해당 월 범위만 조회
-    if (month != null) {
-      // 요청 키 생성 (중복 호출 방지)
-      final requestKey = '$year-$month';
+    await initialize();
 
-      // 이미 로딩 중인 요청이면 기다림
-      if (_loading_requests.contains(requestKey)) {
-        // 로딩이 완료될 때까지 대기 (최대 5초)
-        int waitCount = 0;
-        while (_loading_requests.contains(requestKey) && waitCount < 50) {
-          await Future.delayed(const Duration(milliseconds: 100));
-          waitCount++;
-        }
-        // 대기 후에도 캐시에 있으면 반환
-        if (_holiday_cache.containsKey(year)) {
-          return _holiday_cache[year]!;
-        }
-      }
-
-      // 해당 월 범위가 이미 로드되었는지 확인
-      final loadedMonths = _loaded_month_ranges[year];
-      if (loadedMonths != null && loadedMonths.contains(month)) {
-        // 이미 로드된 월 범위면 캐시에서 반환
-        if (_holiday_cache.containsKey(year)) {
-          return _holiday_cache[year]!;
-        }
-      }
-
-      // 로딩 시작 표시
-      _loading_requests.add(requestKey);
-
-      try {
-        // 월 정보가 있으면 해당 월 범위만 조회
-        final apiHolidays = await _fetchHolidaysForMonthRange(year, month);
-        final Set<DateTime> holidays = apiHolidays ?? {};
-
-        // 기존 캐시에 병합
-        if (_holiday_cache.containsKey(year)) {
-          _holiday_cache[year]!.addAll(holidays);
-        } else {
-          _holiday_cache[year] = holidays;
-        }
-
-        // 로드된 월 범위 기록
-        _loaded_month_ranges.putIfAbsent(year, () => <int>{}).add(month);
-        // 이전/다음 달도 로드된 것으로 표시 (3개월 범위이므로)
-        if (month > 1) {
-          _loaded_month_ranges.putIfAbsent(year, () => <int>{}).add(month - 1);
-        }
-        if (month < 12) {
-          _loaded_month_ranges.putIfAbsent(year, () => <int>{}).add(month + 1);
-        }
-        // 경계 월 처리
-        if (month == 1) {
-          _loaded_month_ranges.putIfAbsent(year - 1, () => <int>{}).add(12);
-        }
-        if (month == 12) {
-          _loaded_month_ranges.putIfAbsent(year + 1, () => <int>{}).add(1);
-        }
-
-        return _holiday_cache[year]!;
-      } finally {
-        // 로딩 완료 표시
-        _loading_requests.remove(requestKey);
-      }
+    if (month == null) {
+      return _holiday_cache.putIfAbsent(year, () => <DateTime>{});
     }
 
-    // 월 정보가 없으면 기존 로직 (하위 호환성)
-    if (_holiday_cache.containsKey(year)) {
-      return _holiday_cache[year]!;
+    if (_loaded_month_ranges[year]?.contains(month) ?? false) {
+      return _holiday_cache.putIfAbsent(year, () => <DateTime>{});
     }
 
-    // 월 정보가 없으면 빈 Set 반환 (lazy loading을 위해)
-    _holiday_cache[year] = <DateTime>{};
-    return _holiday_cache[year]!;
+    final request_key = '$year-$month';
+    final active_request = _loading_requests[request_key];
+    if (active_request != null) {
+      await active_request;
+      return _holiday_cache.putIfAbsent(year, () => <DateTime>{});
+    }
+
+    final request = _loadAndPersistMonthRange(year, month);
+    _loading_requests[request_key] = request;
+    try {
+      await request;
+    } finally {
+      _loading_requests.remove(request_key);
+    }
+
+    return _holiday_cache.putIfAbsent(year, () => <DateTime>{});
   }
 
-  /// 해당 날짜가 한국 법정 공휴일인지 확인
-  /// 비동기 메서드이므로 Future를 반환합니다
+  static Future<void> _loadAndPersistMonthRange(int year, int month) async {
+    final holidays = await _fetchHolidaysForMonthRange(year, month);
+    for (final entry in holidays.entries) {
+      final normalized_date = _normalizeDate(entry.key);
+      _holiday_cache
+          .putIfAbsent(normalized_date.year, () => <DateTime>{})
+          .add(normalized_date);
+      if (entry.value.isNotEmpty) {
+        _holiday_name_cache[normalized_date] = entry.value;
+      }
+    }
+
+    for (final loaded_month in [
+      DateTime(year, month - 1),
+      DateTime(year, month),
+      DateTime(year, month + 1),
+    ]) {
+      _loaded_month_ranges
+          .putIfAbsent(loaded_month.year, () => <int>{})
+          .add(loaded_month.month);
+    }
+
+    await _persistCache();
+  }
+
+  /// 해당 날짜가 한국 법정 공휴일인지 비동기로 확인한다.
   static Future<bool> isHoliday(DateTime date) async {
-    final normalized = _normalizeDate(date);
-    final year = normalized.year;
-
-    // 해당 연도의 공휴일 목록 가져오기 (캐시 사용)
-    final holidays = await getHolidaysForYear(year);
-    return holidays.any((holiday) => isSameDay(normalized, holiday));
+    final normalized_date = _normalizeDate(date);
+    final holidays = await getHolidaysForYear(normalized_date.year);
+    return holidays.contains(normalized_date);
   }
 
-  /// 동기 버전 (캐시된 공휴일만 확인)
-  /// 빠른 체크가 필요한 경우 사용 (캐시가 이미 로드된 경우에만 정확함)
+  /// 메모리에 복원되거나 조회된 공휴일인지 동기 방식으로 확인한다.
   static bool isFixedHoliday(DateTime date) {
-    final normalized = _normalizeDate(date);
-    final year = normalized.year;
-
-    // 캐시에 있는 경우만 확인
-    if (_holiday_cache.containsKey(year)) {
-      return _holiday_cache[year]!.any(
-        (holiday) => isSameDay(normalized, holiday),
-      );
-    }
-
-    return false;
+    final normalized_date = _normalizeDate(date);
+    return _holiday_cache[normalized_date.year]?.contains(normalized_date) ??
+        false;
   }
 
-  /// 해당 날짜의 공휴일 이름 가져오기
-  /// 공휴일이 아니면 null 반환
+  /// 해당 날짜의 공휴일 이름을 반환한다.
   static String? getHolidayName(DateTime date) {
-    final normalized = _normalizeDate(date);
-    return _holiday_name_cache[normalized];
+    return _holiday_name_cache[_normalizeDate(date)];
   }
 
-  /// 캐시 초기화
-  static void clearCache() {
+  /// 메모리와 로컬에 저장된 공휴일 캐시를 모두 삭제한다.
+  static Future<void> clearCache() async {
+    await initialize();
     _holiday_cache.clear();
     _holiday_name_cache.clear();
+    _loaded_month_ranges.clear();
+    _loading_requests.clear();
+    await _preferences?.remove(_cache_storage_key);
+  }
+
+  @visibleForTesting
+  static void setHolidayFetcherForTesting(
+    Future<Map<DateTime, String>> Function(int year, int month)? fetcher,
+  ) {
+    _holiday_fetcher_override = fetcher;
+  }
+
+  @visibleForTesting
+  static void resetForTesting() {
+    _holiday_cache.clear();
+    _holiday_name_cache.clear();
+    _loaded_month_ranges.clear();
+    _loading_requests.clear();
+    _preferences = null;
+    _initialization = null;
+    _holiday_fetcher_override = null;
   }
 }

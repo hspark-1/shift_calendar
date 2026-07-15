@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shift_calendar/core/theme/app_theme.dart';
+import 'package:shift_calendar/core/utils/korean_holidays.dart';
 import 'package:shift_calendar/features/calendar/data/models/event_api_model.dart';
 import 'package:shift_calendar/features/calendar/data/models/work_shift_api_model.dart';
 import 'package:shift_calendar/features/friend/data/models/friend_model.dart';
 import 'package:shift_calendar/features/friend/data/services/friend_service.dart';
 import 'package:shift_calendar/features/friend/presentation/pages/friend_calendar_page.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeFriendService extends FriendService {
   _FakeFriendService(this.response) : super(Dio());
@@ -59,6 +61,13 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     await initializeDateFormatting('ko_KR');
   });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    KoreanHolidays.resetForTesting();
+  });
+
+  tearDown(KoreanHolidays.resetForTesting);
 
   testWidgets('750px 미만 친구 캘린더는 2주 보기로 고정한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 740));
@@ -129,6 +138,56 @@ void main() {
       tester.widget<TableCalendar>(calendar).calendarFormat,
       CalendarFormat.month,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('친구 캘린더가 공용 캐시의 공휴일 색상과 이름을 표시한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final selected_date = DateTime(now.year, now.month, now.day);
+    KoreanHolidays.setHolidayFetcherForTesting((year, month) async {
+      return {selected_date: '테스트 공휴일'};
+    });
+
+    final response = CalendarRangeResponse(
+      success: true,
+      data: CalendarRangeData(workShifts: const [], events: const []),
+    );
+    final friend = FriendModel(
+      userId: 'friend-holiday',
+      name: '공휴일 친구',
+      email: 'holiday@example.com',
+      friendLevel: 0,
+      canView: true,
+      createdAt: selected_date,
+    );
+
+    await tester.pumpWidget(
+      _buildTestApp(screen_height: 800, response: response, friend: friend),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final calendar = tester.widget<TableCalendar>(
+      find.byKey(const ValueKey('friend-calendar')),
+    );
+    expect(calendar.holidayPredicate?.call(selected_date), isTrue);
+    expect(find.text('테스트 공휴일'), findsOneWidget);
+
+    final selected_cell = find.byKey(
+      ValueKey(
+        'CellContent-${selected_date.year}-${selected_date.month}-${selected_date.day}',
+      ),
+    );
+    final selected_date_text = tester.widget<Text>(
+      find.descendant(
+        of: selected_cell,
+        matching: find.text('${selected_date.day}'),
+      ),
+    );
+    expect(selected_date_text.style?.color, AppTheme.accent_red_color);
     expect(tester.takeException(), isNull);
   });
 

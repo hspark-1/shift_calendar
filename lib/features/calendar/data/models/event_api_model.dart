@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'work_shift_api_model.dart';
 
 /// API 응답의 일정 정보 모델
@@ -33,6 +35,42 @@ class EventApiModel {
       endAt: DateTime.parse(json['end_at'] as String).toLocal(),
       visibilityLevel: json['visibility_level'] as int,
     );
+  }
+}
+
+DateTime normalizeCalendarDate(DateTime date) {
+  return DateTime(date.year, date.month, date.day);
+}
+
+/// 일정 기간을 날짜별 맵에 반영한다. `end_at`은 API 계약상 exclusive다.
+void addEventToCalendarDateMap(
+  Map<DateTime, List<EventApiModel>> events_by_date,
+  EventApiModel event,
+) {
+  final start_date = normalizeCalendarDate(event.startAt);
+  var end_date = normalizeCalendarDate(event.endAt);
+  final ends_at_midnight =
+      event.endAt.hour == 0 &&
+      event.endAt.minute == 0 &&
+      event.endAt.second == 0 &&
+      event.endAt.millisecond == 0 &&
+      event.endAt.microsecond == 0;
+
+  if (ends_at_midnight) {
+    end_date = end_date.subtract(const Duration(days: 1));
+  }
+  if (end_date.isBefore(start_date)) {
+    end_date = start_date;
+  }
+
+  var current_date = start_date;
+  while (current_date.isBefore(end_date) ||
+      current_date.isAtSameMomentAs(end_date)) {
+    final event_list = events_by_date.putIfAbsent(current_date, () => []);
+    event_list.removeWhere((item) => item.eventId == event.eventId);
+    event_list.add(event);
+    event_list.sort((a, b) => a.startAt.compareTo(b.startAt));
+    current_date = current_date.add(const Duration(days: 1));
   }
 }
 

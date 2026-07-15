@@ -44,6 +44,15 @@
     `cardDecoration()` helper를 제공한다. 페이지/위젯은 배경, 카드, outline, 텍스트 색을
     직접 하드코딩하지 않고 이 토큰을 우선 사용한다. `surface_container_highest_color`
     (`#E0E3E5`)는 비활성/최대치 도달 버튼 배경처럼 더 높은 surface 상태에 사용한다.
+  - `lib/core/utils/korean_holidays.dart`: 한국천문연구원 특일 정보 API의 요청 월 앞뒤 1개월
+    공휴일을 조회하는 앱 공용 데이터 원천이다. 날짜·이름과 조회 완료 월을 메모리에 병합하고
+    `SharedPreferences`의 `korean_holidays_cache_v1` JSON에 저장한다. `main.dart`는 앱 시작 시
+    `initialize()`를 호출해 이전 실행의 캐시를 먼저 복원하며, 메인·친구 캘린더는 월 이동 시
+    `getHolidaysForYear(year, month: month)`를 호출하고 동기 `isFixedHoliday()`로 렌더링한다.
+    같은 연도/월의 동시 요청은 하나의 Future를 공유하고, 1월·12월 조회 결과는 실제 날짜 연도에
+    나누어 저장한다. 사용 예는 날짜 셀의 `holidayPredicate`와 선택일 카드의 `getHolidayName()`이다.
+  - `test/core/utils/korean_holidays_test.dart`: 가짜 API 조회 결과가 로컬 저장소에 기록되고 메모리
+    초기화 후 다시 복원되는지, 연도 경계 날짜가 실제 연도 캐시에 보존되는지 검증한다.
   - `lib/features/calendar/presentation/pages/calendar_page.dart`: 메인 캘린더 화면.
     `TableCalendar`와 `/calendar/range` 응답을 결합해 저장된 근무표/개인 일정을 표시한다.
     월 헤더를 누르면 공용 `YearMonthPickerSheet`를 열고, 사용자가 선택한 연도/월로 이동한 뒤
@@ -80,6 +89,15 @@
     다음 날 자동 이동은 `_selected_day`와 `_focused_day`를 함께 갱신해 월/2주 보기의 표시 페이지가
     선택일을 따라가게 하며, 캘린더·공휴일 데이터 추가 조회는 월 경계를 넘을 때만 실행한다.
     근무 설정 카드 내부는 12px padding을 사용한다.
+  - `lib/features/calendar/presentation/widgets/calendar_month_view.dart`: 메인·친구 캘린더가
+    함께 사용하는 월 헤더와 `TableCalendar` 표시 위젯. 공통 2000~2050 범위, 한국어 요일,
+    반응형 형식/행 높이 입력, 날짜 의미 색상, 근무 코드 배지, 오늘 밑줄, 선택 surface·2px
+    outline을 한 곳에서 렌더링한다. 각 페이지는 조회 상태와 날짜별 색상/배지 데이터,
+    날짜·페이지 선택 콜백, 메인 전용 compact marker만 주입한다.
+  - `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`: 메인·친구 캘린더가
+    함께 사용하는 선택일 일정 카드. 날짜/공휴일/일정 수 헤더, 근무·개인 일정 행, 빈 상태를
+    제공한다. 메인은 근무 삭제 wrapper와 개인 일정 추가 footer를 주입하고, 친구 캘린더는
+    기본 읽기 전용 근무 행을 사용한다.
   - `lib/features/calendar/presentation/widgets/shift_type_button.dart`: 근무 타입 선택 버튼 위젯.
     기존 `ShiftTypeButtonGroup`은 근무 추가 페이지/시트에서 Provider 기반 원형 버튼을 표시하고,
     `ShiftTypeSelectionGrid`는 메인 캘린더가 전달한 정렬된 `ShiftTypeInfo` 목록을 실제 너비와
@@ -226,6 +244,8 @@ CalendarPage
 - `owner_user_id`, `created_by_user_id`는 서버가 인증 사용자 기준으로 채운다.
 - 프론트는 로컬 `DateTime`을 UTC ISO 문자열로 변환해 요청하고, 응답의 `start_at`/`end_at`은 로컬 시간으로 파싱해 표시한다.
 - 종일 일정은 `end_at`을 배타적 종료 시각으로 사용한다. 하루짜리 종일 일정은 선택일 00:00부터 다음 날 00:00까지로 저장한다.
+- `event_api_model.dart`의 `addEventToCalendarDateMap()`이 메인·친구 응답을 같은 날짜별 맵으로
+  변환한다. 자정인 배타적 종료일은 제외하고, 같은 일정 ID는 중복 제거한 뒤 시작 시각순으로 정렬한다.
 - 공개 판단은 서버 책임이다. 내 일정을 친구가 볼 때 서버는 `friend_level_settings.owner_user_id = 내 user_id`,
   `friend_level_settings.friend_user_id = 조회자 user_id`, `can_view=true`,
   `friend_level >= events.visibility_level` 조건을 적용한다.
@@ -243,6 +263,8 @@ CalendarPage
     종료일의 선후 관계를 자동 보정하며, 시간은 기존 `Duration` 상태와 저장 검증 흐름을 유지한다.
   - `_docs/EVENT_API_GUIDE.md`: 개인 일정 생성 API, 입력 필수/선택값,
     공개 레벨 규칙, 서버 DDL 확인 요청을 정리한 서버 구현 문서다.
+  - `test/features/calendar/data/models/event_api_model_test.dart`: 일정 날짜별 매핑의 자정
+    배타적 종료 처리와 일정 ID 중복 제거·시작 시각 정렬을 검증한다.
 
 ### 친구 캘린더 조회 흐름
 
@@ -267,7 +289,8 @@ FriendListPage
 - 친구 달력은 메인 달력과 같은 화면 높이 규칙을 사용해 750px 미만에서는 2주 보기와 52px 행으로
   고정하고, 750px 이상에서는 월 보기와 56px 행을 사용한다. 근무 코드 배지, 흰색 surface 배경과
   2px primary dark outline 선택 사각형, 오늘 밑줄을 사용하며 일요일은 accent red, 토요일은
-  primary blue로 표시한다. 선택 후에도 해당 요일 의미 색상을 유지한다. 달력 내부에는
+  primary blue로 표시한다. `KoreanHolidays` 공용 캐시의 공휴일도 accent red로 표시하고 선택일
+  카드 날짜 오른쪽에 공휴일명을 표시하며, 선택 후에도 해당 날짜 의미 색상을 유지한다. 달력 내부에는
   `CalendarStyle.tablePadding`으로 8px 하단 여유를 두어 `PageView`가 마지막 행의 4px offset 선택
   사각형까지 포함하도록 한다. 일정 카드 앞에는 별도 8px 간격을 두어 달력 표 본문부터 카드까지
   총 16px을 확보한다.
@@ -292,10 +315,14 @@ FriendListPage
 - 파일 역할/의존성/사용 예:
   - `lib/features/friend/presentation/pages/friend_calendar_page.dart`: 친구 이름과 설정 진입,
     화면 높이별 2주/월 읽기 전용 달력 및 선택일 일정 카드를 표시한다. `FriendService`의 공개
-    필터링 결과를 `WorkShiftApiModel`/`EventApiModel`로 렌더링하고 공용 `YearMonthPickerSheet`를 사용한다.
+    필터링 결과를 `WorkShiftApiModel`/`EventApiModel`로 렌더링하고 공용 `CalendarMonthView`,
+    `CalendarScheduleCard`, `YearMonthPickerSheet`를 사용한다. 메인과 동일한 이벤트 날짜 매핑을
+    사용하므로 종일 일정의 배타적 종료일을 중복 표시하지 않는다. 진입·월 이동·오늘 복귀 때
+    `KoreanHolidays`의 월별 공용 캐시를 요청해 메인과 같은 공휴일 색상과 이름을 표시한다.
   - `test/features/friend/presentation/pages/friend_calendar_page_test.dart`: 가짜 `FriendService`로
     명시적 `MediaQuery` 높이 740px에서 2주 보기 고정, 750px에서 월 보기 유지 여부를 검증한다.
-    390x800 월 보기에서는 중복 프로필 제거, 선택된 토요일/일요일의 의미 색상, surface 배경·2px
+    390x800 월 보기에서는 중복 프로필 제거, 선택된 토요일/일요일·공휴일의 의미 색상과 공휴일명,
+    surface 배경·2px
     primary dark outline 사각형 선택 표시, 근무 시간 포맷,
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지, 달력과 선택일 일정 카드 사이 및 카드 하단의
     최소 16px 여백, 3개월 뒤에서 오늘로 복귀할 때 빌드 중 setState 예외가 없는지와 연/월 이동

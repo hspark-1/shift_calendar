@@ -2,6 +2,33 @@
 
 ## 2026-07-16
 
+- [TODO] (CHORE) 캘린더 공용화·공휴일 캐시 변경사항 커밋 및 푸시
+  - 목적: 완료된 메인·친구 캘린더 공용 위젯 리팩토링과 공휴일 로컬 캐시 변경을 검증된 문서·테스트와 함께 Git 이력으로 정리해 원격 저장소에 반영한다.
+  - 변경: 예정 — 현재 변경 범위와 검증 상태를 재확인하고 하나의 기능 커밋으로 생성한 뒤 `origin/main`에 푸시한다.
+  - 영향범위: Git 이력과 원격 `main` 브랜치. 런타임 동작은 완료된 캘린더 변경과 동일하다.
+  - 파일: 현재 캘린더 공용화·공휴일 캐시 관련 코드, 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 예정 — 변경 대상 테스트, 정적 분석, 포맷 및 staged diff 검사 결과 확인
+  - 롤백: 원격 반영 후 필요 시 생성 커밋을 `git revert`하고 푸시한다.
+  - 다음: 검증, 커밋, 푸시 후 DONE으로 갱신
+
+- [DONE] (FE) 공휴일 API 로컬 캐시와 전체 캘린더 공유
+  - 목적: 앱에서 조회한 공휴일 API 데이터를 로컬에 보존하고 메인·친구 일정 조회 캘린더가 동일한 공휴일 데이터와 표시 규칙을 사용하도록 한다.
+  - 변경: `KoreanHolidays`가 요청 월 앞뒤 1개월의 API 결과를 실제 날짜 연도별 메모리에 병합하고 날짜·이름·조회 완료 월을 `SharedPreferences`의 버전 1 JSON으로 저장하도록 변경했다. 동일 월 동시 요청은 하나의 Future를 공유한다. `main.dart`에서 앱 시작 시 이전 캐시를 복원하고, 메인 페이지의 중복 `_holidays` 캐시를 제거해 공용 소스만 참조한다. 친구 캘린더도 진입·월 이동·오늘 복귀 시 공용 캐시를 조회하며 공휴일을 accent red로 표시하고 선택일 카드에 공휴일명을 노출한다. ADR-0006과 프로젝트 컨텍스트에 캐시 수명주기·파일 역할·표시 규칙을 기록했다.
+  - 영향범위: 공휴일 API 캐시 수명주기, 앱 초기화, 메인·친구 캘린더의 공휴일 표시, 관련 테스트와 아키텍처 문서. Behavior change: 친구 일정 조회 달력에도 공휴일 색상과 이름이 표시되며, 조회 완료 월은 앱 재시작 후에도 API를 다시 호출하지 않는다. 일정/근무 API 및 DB 공개 범위 계약은 변경하지 않는다.
+  - 파일: `lib/core/utils/korean_holidays.dart`, `lib/main.dart`, `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/core/utils/korean_holidays_test.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 로컬 저장·재시작 복원 단위 테스트 1건, 친구 캘린더 공휴일 표시 포함 위젯 테스트 4건, 메인 캘린더 회귀 테스트 6건으로 총 11건 통과. 변경 대상 코드/테스트 7개 파일 `flutter analyze` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: `main.dart`의 캐시 초기화와 `KoreanHolidays`의 SharedPreferences 직렬화·복원 코드를 제거하고, 친구 화면의 월별 공휴일 조회/표시 연결을 제거한 뒤 메인 페이지의 기존 페이지 전용 공휴일 캐시를 복원한다. 기존 로컬 키 `korean_holidays_cache_v1`은 남아도 이전 코드에서 읽지 않는다.
+  - 다음: 실제 기기에서 최초 API 조회 후 앱을 완전히 종료·재실행하고 네트워크 없이 메인·친구 달력의 공휴일 색상과 이름이 유지되는지 확인한다. 임시공휴일 갱신 요구가 생기면 ADR-0006의 후속 과제로 TTL 또는 수동 새로고침 정책을 추가한다.
+
+- [DONE] (REFACTOR) 메인·친구 캘린더 공용 표시 코드 추출
+  - 목적: 메인 캘린더와 친구 일정 조회 캘린더의 중복 구현을 실제 동작 기준으로 비교하고, 동일한 날짜 셀·선택일 일정 표시 규칙을 공용 위젯으로 추출한다.
+  - 변경: 두 페이지에 중복된 월 헤더, `TableCalendar` 설정, 날짜 의미 색상·오늘 밑줄·근무 코드 배지·선택 사각형 렌더링을 `CalendarMonthView`로 추출했다. 선택일 카드의 날짜/공휴일/일정 수 헤더, 근무/개인 일정 행, 빈 상태는 `CalendarScheduleCard`로 추출했다. 메인은 compact marker, 근무 편집/삭제, 개인 일정 추가 footer를 주입하고 친구 화면은 읽기 전용 기본 행을 사용한다. 문서/테스트와 달랐던 선택 배경을 두 화면 모두 흰색 surface로 복구하고 공휴일명 행을 하단 정렬했다. 이벤트 날짜별 매핑은 `addEventToCalendarDateMap()`으로 공통화해 친구 화면도 자정인 exclusive 종료일을 제외하고 일정 ID 중복 제거·시작 시각 정렬을 적용한다.
+  - 영향범위: 메인·친구 캘린더의 월 헤더, 날짜 셀, 선택일 일정 카드와 이벤트 날짜별 매핑. 메인 근무 입력/저장/삭제, 개인 일정 추가, 공휴일 조회와 친구 조회/공개 필터링 API는 기존 페이지 책임으로 유지한다. 선택 surface 복구와 친구 종일 일정 종료일 중복 제거는 문서화된 기존 계약에 맞춘 동작 수정이다.
+  - 파일: `lib/features/calendar/data/models/event_api_model.dart`, `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/calendar/presentation/widgets/calendar_month_view.dart`, `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`, `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/calendar/data/models/event_api_model_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 변경 대상 8개 코드/테스트 파일 `flutter analyze` 0건, 이벤트 매핑 2건·메인 캘린더 6건·친구 캘린더 3건 총 11건 통과, `dart format` 및 `git diff --check` 통과. 전체 `flutter analyze`는 이번 범위 밖 기존 warning/info 134건을 확인했고, 전체 `flutter test`는 관련 테스트를 포함해 27건 통과 후 기존 `test/widget_test.dart`의 `ProviderScope` 누락 및 현재 앱과 무관한 카운터 기대값으로 1건 실패했다.
+  - 롤백: 두 페이지의 `CalendarMonthView`/`CalendarScheduleCard` 사용을 기존 로컬 렌더링으로 되돌리고 `event_api_model.dart` 공용 매핑 함수와 전용 테스트를 제거한다. 선택 배경을 되돌릴 경우 문서/기존 테스트와 다시 불일치한다.
+  - 다음: 실제 기기에서 메인 compact/근무 입력 모드와 친구 읽기 전용 화면의 월 이동, 긴 장소 말줄임, 종일 일정 종료일 표시를 확인한다.
+
 - [DONE] (FE) 메인 캘린더 공휴일명 하단 정렬
   - 목적: 날짜 오른쪽으로 이동한 공휴일명의 상하 위치를 날짜 영역 하단에 맞춘다.
   - 변경: 날짜와 공휴일명을 담는 내부 `Row`에 `CrossAxisAlignment.end`를 적용해 공휴일 라벨을 날짜 영역 하단에 정렬했다. 내부 행에 테스트 key를 추가하고 회귀 테스트가 하단 정렬값을 검증하도록 보강했으며 프로젝트 문서의 표시 위치를 `날짜 오른쪽 하단`으로 갱신했다.

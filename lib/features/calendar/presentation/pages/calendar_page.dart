@@ -14,6 +14,8 @@ import '../../../friend/presentation/providers/notification_provider.dart';
 import '../providers/shift_types_provider.dart';
 import '../widgets/shift_badge.dart';
 import '../widgets/bottom_action_bar.dart';
+import '../widgets/calendar_month_view.dart';
+import '../widgets/calendar_schedule_card.dart';
 import '../widgets/personal_event_form_modal.dart';
 import '../widgets/shift_type_button.dart';
 import '../widgets/year_month_picker_sheet.dart';
@@ -69,9 +71,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   // 로드된 월 추적: Set<String> (예: "2026-01")
   final Set<String> _loadedMonths = {};
 
-  // 공휴일 목록 (년도별)
-  final Map<int, Set<DateTime>> _holidays = {};
-
   bool get _isShortScreen => MediaQuery.sizeOf(context).height < 750;
 
   CalendarFormat get _visibleCalendarFormat =>
@@ -103,7 +102,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 날짜 정규화 (시간 제거)
   DateTime _normalizeDate(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
+    return normalizeCalendarDate(date);
   }
 
   /// 월 키 생성 (예: "2026-01")
@@ -111,96 +110,21 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}';
   }
 
-  /// 공휴일 데이터 로딩 (Lazy Loading - 필요한 연도만 로드)
+  /// 공용 공휴일 캐시를 필요한 월 기준으로 갱신한다.
   Future<void> _loadHolidays(int year, {int? month}) async {
-    // 월 정보가 없으면 로드하지 않음 (lazy loading을 위해 필수)
-    if (month == null) {
-      return;
-    }
+    if (month == null) return;
 
     try {
-      // 현재 연도만 먼저 로드 (월 정보 포함하여 3개월만 조회)
-      final holidays = await _fetchHolidaysForYear(year, month: month);
-
-      // 기존 데이터와 병합 (같은 연도의 다른 월로 이동할 때도 데이터 누적)
-      final existingHolidays = _holidays[year];
-      if (existingHolidays != null) {
-        existingHolidays.addAll(holidays);
-        _holidays[year] = existingHolidays;
-      } else {
-        _holidays[year] = holidays;
-      }
-
-      // UI 업데이트를 위해 setState 호출
-      if (mounted) {
-        setState(() {});
-      }
-
-      // 경계 월인 경우에만 인접 연도도 미리 로드
-      // 12월이면 다음 연도 1월도 미리 로드
-      if (month == 12 && !_holidays.containsKey(year + 1)) {
-        _loadHolidaysForYearAsync(year + 1, month: 1);
-      }
-      // 1월이면 이전 연도 12월도 미리 로드
-      if (month == 1 && !_holidays.containsKey(year - 1)) {
-        _loadHolidaysForYearAsync(year - 1, month: 12);
-      }
-    } catch (e) {
-      // 에러 발생 시 빈 Set 사용
-      debugPrint('공휴일 로딩 실패: $e');
+      await KoreanHolidays.getHolidaysForYear(year, month: month);
+      if (mounted) setState(() {});
+    } catch (error) {
+      debugPrint('공휴일 로딩 실패: $error');
     }
   }
 
-  /// 공휴일 데이터 비동기 로딩 (UI 업데이트 없이 백그라운드에서 로드)
-  void _loadHolidaysForYearAsync(int year, {int? month}) {
-    if (_holidays.containsKey(year)) {
-      return;
-    }
-
-    // 월 정보가 없으면 현재 월로 가정 (하위 호환성)
-    final targetMonth = month ?? DateTime.now().month;
-    _fetchHolidaysForYear(year, month: targetMonth)
-        .then((holidays) {
-          if (mounted && !_holidays.containsKey(year)) {
-            _holidays[year] = holidays;
-            if (mounted) {
-              setState(() {});
-            }
-          }
-        })
-        .catchError((e) {
-          debugPrint('공휴일 비동기 로딩 실패 ($year년): $e');
-        });
-  }
-
-  /// 해당 연도의 공휴일 목록 가져오기 (월 정보 포함)
-  Future<Set<DateTime>> _fetchHolidaysForYear(int year, {int? month}) async {
-    // KoreanHolidays의 public 메서드 사용 (월 정보 전달)
-    return await KoreanHolidays.getHolidaysForYear(year, month: month);
-  }
-
-  /// 해당 날짜가 공휴일인지 확인 (동기, 최적화된 검색)
+  /// 복원되거나 조회된 공용 캐시에서 공휴일 여부를 확인한다.
   bool _isHoliday(DateTime date) {
-    final normalized = _normalizeDate(date);
-    final year = normalized.year;
-
-    // 해당 연도의 공휴일 목록 확인
-    final holidaysForYear = _holidays[year];
-    if (holidaysForYear == null || holidaysForYear.isEmpty) {
-      // 아직 로드되지 않은 경우 비동기로 로드 시도 (UI 블로킹 없음)
-      if (!_holidays.containsKey(year)) {
-        _loadHolidaysForYearAsync(year, month: normalized.month);
-      }
-      return false;
-    }
-
-    // Set의 any를 사용하여 효율적으로 검색
-    return holidaysForYear.any((holiday) {
-      final normalizedHoliday = _normalizeDate(holiday);
-      return normalized.year == normalizedHoliday.year &&
-          normalized.month == normalizedHoliday.month &&
-          normalized.day == normalizedHoliday.day;
-    });
+    return KoreanHolidays.isFixedHoliday(date);
   }
 
   /// 3달 데이터 로딩 (전월, 현재월, 다음월)
@@ -244,7 +168,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
           // 일정 데이터 병합
           for (final event in response.data.events) {
-            _addEventToDateMap(event);
+            addEventToCalendarDateMap(_events, event);
           }
 
           // 로드된 월 추가
@@ -268,35 +192,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     }
   }
 
-  /// 일정 기간을 날짜별 맵에 반영한다. end_at은 DB/API 계약상 exclusive로 해석한다.
-  void _addEventToDateMap(EventApiModel event) {
-    final startDate = _normalizeDate(event.startAt);
-    var endDate = _normalizeDate(event.endAt);
-    final endAtMidnight =
-        event.endAt.hour == 0 &&
-        event.endAt.minute == 0 &&
-        event.endAt.second == 0 &&
-        event.endAt.millisecond == 0 &&
-        event.endAt.microsecond == 0;
-
-    if (endAtMidnight) {
-      endDate = endDate.subtract(const Duration(days: 1));
-    }
-    if (endDate.isBefore(startDate)) {
-      endDate = startDate;
-    }
-
-    var currentDate = startDate;
-    while (currentDate.isBefore(endDate) ||
-        currentDate.isAtSameMomentAs(endDate)) {
-      final eventList = _events.putIfAbsent(currentDate, () => []);
-      eventList.removeWhere((e) => e.eventId == event.eventId);
-      eventList.add(event);
-      eventList.sort((a, b) => a.startAt.compareTo(b.startAt));
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
-  }
-
   /// 선택된 날짜의 스케줄 반환 (하루에 하나의 근무만 반환)
   String? _getScheduleForDay(DateTime day) {
     final normalizedDate = _normalizeDate(day);
@@ -311,21 +206,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   Color _getWorkShiftColor(WorkShiftApiModel workShift) {
     return Color(workShift.shiftTypeColor ?? 0xFF8E8E93);
-  }
-
-  String _formatWorkShiftTime(WorkShiftApiModel workShift) {
-    if (workShift.startTime == null || workShift.endTime == null) {
-      return '근무없음';
-    }
-
-    return '${_formatApiTime(workShift.startTime!)} ~ ${_formatApiTime(workShift.endTime!)}';
-  }
-
-  String _formatApiTime(String time) {
-    if (time.length >= 5) {
-      return time.substring(0, 5);
-    }
-    return time;
   }
 
   /// 이전 달로 이동 가능한지 확인
@@ -436,7 +316,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         Navigator.pop(context);
         final eventDate = _normalizeDate(event.startAt);
         setState(() {
-          _addEventToDateMap(event);
+          addEventToCalendarDateMap(_events, event);
           _selected_day = eventDate;
           _focused_day = eventDate;
         });
@@ -554,84 +434,31 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 년/월 헤더 위젯
   Widget _buildMonthHeader() {
-    final yearMonth = DateFormat('yyyy.MM', 'ko_KR').format(_focused_day);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 이전 달 버튼 (항상 표시, 이동 불가능할 때는 비활성화)
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _canGoToPreviousMonth() ? _goToPreviousMonth : null,
-            child: Icon(
-              CupertinoIcons.chevron_left,
-              size: 20,
-              color: _canGoToPreviousMonth()
-                  ? AppTheme.on_surface_color
-                  : AppTheme.outline_variant_color,
-            ),
+    return CalendarMonthHeader(
+      focused_day: _focused_day,
+      can_go_to_previous_month: _canGoToPreviousMonth(),
+      can_go_to_next_month: _canGoToNextMonth(),
+      onPreviousMonth: _goToPreviousMonth,
+      onNextMonth: _goToNextMonth,
+      onSelectYearMonth: _showYearMonthPicker,
+      trailing: GestureDetector(
+        onTap: _is_shift_add_mode ? _onCancelShiftAddMode : _startShiftAddMode,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _is_shift_add_mode
+                ? AppTheme.primary_color.withValues(alpha: 0.15)
+                : AppTheme.surface_container_low_color,
+            borderRadius: BorderRadius.circular(AppTheme.input_radius),
           ),
-          // 년/월 표시 및 선택 버튼
-          GestureDetector(
-            onTap: _showYearMonthPicker,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(yearMonth, style: AppTheme.heading_medium),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface_container_low_color,
-                    borderRadius: BorderRadius.circular(AppTheme.radius_md),
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.chevron_down,
-                    size: 12,
-                    color: AppTheme.on_surface_variant_color,
-                  ),
-                ),
-              ],
-            ),
+          child: Icon(
+            _is_shift_add_mode ? CupertinoIcons.xmark : CupertinoIcons.add,
+            size: 20,
+            color: AppTheme.primary_color,
           ),
-          // 다음 달 버튼 (항상 표시, 이동 불가능할 때는 비활성화)
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _canGoToNextMonth() ? _goToNextMonth : null,
-            child: Icon(
-              CupertinoIcons.chevron_right,
-              size: 20,
-              color: _canGoToNextMonth()
-                  ? AppTheme.on_surface_color
-                  : AppTheme.outline_variant_color,
-            ),
-          ),
-          const Spacer(),
-          // 근무 추가 버튼 (X 버튼)
-          GestureDetector(
-            onTap: _is_shift_add_mode
-                ? _onCancelShiftAddMode
-                : _startShiftAddMode,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _is_shift_add_mode
-                    ? AppTheme.primary_color.withValues(alpha: 0.15)
-                    : AppTheme.surface_container_low_color,
-                borderRadius: BorderRadius.circular(AppTheme.input_radius),
-              ),
-              child: Icon(
-                _is_shift_add_mode ? CupertinoIcons.xmark : CupertinoIcons.add,
-                size: 20,
-                color: AppTheme.primary_color,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -960,14 +787,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     });
   }
 
-  /// 날짜, 선택 상태, 근무 코드를 함께 표시하는 달력 셀
-  Widget _buildCalendarDayCell({
-    required DateTime date,
-    required Color text_color,
-    bool is_today = false,
-    bool is_selected = false,
-    bool is_outside = false,
-  }) {
+  CalendarDayBadgeData? _getDayBadge(DateTime date) {
     final work_shift = _getWorkShiftForDay(date);
     final shift_type = _getScheduleForDay(date);
     final shift_types_map = _is_shift_add_mode
@@ -985,119 +805,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         ? edit_shift_info?.color ??
               (work_shift == null ? null : _getWorkShiftColor(work_shift))
         : (work_shift == null ? null : _getWorkShiftColor(work_shift));
-    final show_shift_badge = _is_expanded_view || _is_shift_add_mode;
-    final content_padding = const EdgeInsets.all(2);
-    final selection_box_size = show_shift_badge ? 58.0 : 48.0;
-    final selection_box_offset_y = show_shift_badge ? 4.0 : 8.0;
-
-    // 외부 날짜(이전/다음 달)는 투명도 적용
-    final outside_alpha = is_outside ? 0.4 : 1.0;
-    final date_text_color = text_color.withValues(alpha: outside_alpha);
-    final date_text = Text(
-      '${date.day}',
-      style: TextStyle(
-        color: date_text_color,
-        fontSize: 14,
-        fontWeight: is_selected || is_today
-            ? FontWeight.w700
-            : FontWeight.normal,
-      ),
-    );
-    final date_indicator = is_today
-        ? SizedBox(
-            width: 28,
-            height: 28,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                date_text,
-                const SizedBox(height: 1),
-                Container(
-                  width: 12,
-                  height: 2,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary_color,
-                    borderRadius: BorderRadius.circular(AppTheme.radius_sm),
-                  ),
-                ),
-              ],
-            ),
-          )
-        : date_text;
-
-    final cell_content = show_shift_badge
-        ? Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 28, child: Center(child: date_indicator)),
-              const SizedBox(height: 2),
-              SizedBox(
-                height: 16,
-                child: badge_text != null && badge_color != null
-                    ? ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 44),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badge_color.withValues(alpha: outside_alpha),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radius_sm,
-                            ),
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              badge_text,
-                              style: TextStyle(
-                                color: CupertinoColors.white.withValues(
-                                  alpha: outside_alpha,
-                                ),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
-            ],
-          )
-        : Center(child: date_indicator);
-
-    return SizedBox.expand(
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          Transform.translate(
-            offset: Offset(0, selection_box_offset_y),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeInOut,
-              width: is_selected ? selection_box_size : 0,
-              height: is_selected ? selection_box_size : 0,
-              decoration: BoxDecoration(
-                color: is_selected
-                    ? AppTheme.primary_color.withValues(alpha: 0.08)
-                    : null,
-                borderRadius: BorderRadius.circular(AppTheme.radius_md),
-                border: is_selected
-                    ? Border.all(color: AppTheme.primary_dark_color, width: 2)
-                    : null,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Padding(padding: content_padding, child: cell_content),
-          ),
-        ],
-      ),
-    );
+    if (badge_text == null || badge_color == null) return null;
+    return CalendarDayBadgeData(text: badge_text, color: badge_color);
   }
 
   Color _getCalendarDateColor(DateTime date) {
@@ -1154,103 +863,40 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       onPointerUp: _onPointerUp,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          // TableCalendar의 내부 스크롤 알림(페이지 점프로 인한)만 차단
-          // ScrollUpdateNotification과 ScrollStartNotification만 차단하여
-          // 다른 알림은 정상적으로 전파되도록 함
-          // ScrollEndNotification은 전파 허용하여 onPageChanged가 정상 작동하도록 함
           if (notification is ScrollUpdateNotification ||
               notification is ScrollStartNotification) {
-            return true; // 차단
+            return true;
           }
-          return false; // 전파 허용 (ScrollEndNotification 포함)
+          return false;
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          child: TableCalendar(
-            key: const ValueKey('main-calendar'),
-            firstDay: DateTime.utc(2000, 1, 1),
-            lastDay: DateTime.utc(2050, 12, 31),
-            focusedDay: _focused_day,
-            calendarFormat: _visibleCalendarFormat,
-            locale: 'ko_KR',
-            headerVisible: false,
-            daysOfWeekHeight: 32,
-            rowHeight: _calendarRowHeight,
-            availableCalendarFormats: const {
+          child: CalendarMonthView(
+            calendar_key: const ValueKey('main-calendar'),
+            focused_day: _focused_day,
+            selected_day: _selected_day,
+            calendar_format: _visibleCalendarFormat,
+            row_height: _calendarRowHeight,
+            date_color_builder: _getCalendarDateColor,
+            day_badge_builder: _getDayBadge,
+            show_day_badge: _is_expanded_view || _is_shift_add_mode,
+            holiday_predicate: _isHoliday,
+            available_calendar_formats: const {
               CalendarFormat.month: '월',
               CalendarFormat.twoWeeks: '2주',
               CalendarFormat.week: '주',
             },
-            // 수평 스와이프만 허용하여 수직 드래그가 GestureDetector로 전달되도록 함
-            availableGestures: AvailableGestures.horizontalSwipe,
-            daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: AppTheme.body_small.copyWith(
-                color: AppTheme.on_surface_color,
-                fontWeight: FontWeight.w600,
-              ),
-              weekendStyle: AppTheme.body_small.copyWith(
-                color: CupertinoColors.systemRed,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            calendarStyle: CalendarStyle(
-              tablePadding: const EdgeInsets.only(bottom: AppTheme.spacing_sm),
-              cellMargin: const EdgeInsets.all(2),
-              markersAlignment: Alignment.bottomCenter,
-              outsideDaysVisible: true,
-              outsideTextStyle: TextStyle(
-                color: AppTheme.on_surface_color.withValues(alpha: 0.25),
-              ),
-              todayDecoration: BoxDecoration(
-                color: AppTheme.primary_color.withValues(alpha: 0.25),
-                shape: BoxShape.circle,
-              ),
-              todayTextStyle: const TextStyle(
-                color: AppTheme.primary_color,
-                fontWeight: FontWeight.bold,
-              ),
-              selectedDecoration: const BoxDecoration(
-                color: AppTheme.primary_color,
-                shape: BoxShape.circle,
-              ),
-              selectedTextStyle: const TextStyle(
-                color: CupertinoColors.white,
-                fontWeight: FontWeight.bold,
-              ),
-              // 공휴일 텍스트 색상 (빨간색)
-              holidayTextStyle: const TextStyle(
-                color: CupertinoColors.systemRed,
-              ),
-              // 주말 텍스트 색상 제거 (토요일은 평일 색상으로 처리하기 위해)
-              // weekendTextStyle은 제거하고 defaultBuilder에서 처리
-              defaultTextStyle: const TextStyle(
-                color: AppTheme.on_surface_color,
-              ),
-            ),
-            // 공휴일 판단
-            holidayPredicate: (day) {
-              return _isHoliday(day);
-            },
-            selectedDayPredicate: (day) {
-              return isSameDay(_selected_day, day);
-            },
-            onDaySelected: (selectedDay, focusedDay) {
-              // 날짜 선택은 즉시 반영되어야 하므로 addPostFrameCallback 사용하지 않음
+            onDaySelected: (selected_day, focused_day) {
               setState(() {
-                _selected_day = selectedDay;
-                // focusedDay 변경은 빌드 중 setState를 방지하기 위해 지연
-                if (focusedDay.month != _focused_day.month ||
-                    focusedDay.year != _focused_day.year) {
+                _selected_day = selected_day;
+                if (focused_day.month != _focused_day.month ||
+                    focused_day.year != _focused_day.year) {
                   SchedulerBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
-                      setState(() {
-                        _focused_day = focusedDay;
-                      });
-                      // 월 변경 시 데이터 로딩
-                      _loadCalendarData(focusedDay);
-                      // 공휴일도 함께 로드 (월 정보 포함)
-                      _loadHolidays(focusedDay.year, month: focusedDay.month);
+                      setState(() => _focused_day = focused_day);
+                      _loadCalendarData(focused_day);
+                      _loadHolidays(focused_day.year, month: focused_day.month);
                     }
                   });
                 }
@@ -1263,107 +909,40 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                       _calendar_format = format;
                     });
                   },
-            onPageChanged: (focusedDay) {
+            onPageChanged: (focused_day) {
               SchedulerBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
-                  setState(() {
-                    _focused_day = focusedDay;
-                  });
-                  // 월 변경 시 데이터 로딩
-                  _loadCalendarData(focusedDay);
-                  // 공휴일도 함께 로드 (lazy loading)
-                  _loadHolidays(focusedDay.year, month: focusedDay.month);
+                  setState(() => _focused_day = focused_day);
+                  _loadCalendarData(focused_day);
+                  _loadHolidays(focused_day.year, month: focused_day.month);
                 }
               });
             },
-            calendarBuilders: CalendarBuilders(
-              // 요일 헤더: 일요일은 빨간색, 토요일은 primary 색상
-              dowBuilder: (context, day) {
-                final weekday = day.weekday;
-                final text_color = weekday == DateTime.sunday
-                    ? AppTheme.accent_red_color
-                    : weekday == DateTime.saturday
-                    ? AppTheme.primary_color
-                    : AppTheme.on_surface_variant_color;
-                return Center(
-                  child: Text(
-                    DateFormat('E', 'ko_KR').format(day),
-                    style: AppTheme.body_small.copyWith(
-                      color: text_color,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                );
-              },
-              // 공휴일은 일요일과 같은 accent red로 표시
-              holidayBuilder: (context, date, focused) {
-                return _buildCalendarDayCell(
-                  date: date,
-                  text_color: AppTheme.accent_red_color,
-                  is_outside:
-                      date.year != focused.year || date.month != focused.month,
-                );
-              },
-              defaultBuilder: (context, date, focused) {
-                return _buildCalendarDayCell(
-                  date: date,
-                  text_color: _getCalendarDateColor(date),
-                );
-              },
-              outsideBuilder: (context, date, focused) {
-                return _buildCalendarDayCell(
-                  date: date,
-                  text_color: _getCalendarDateColor(date),
-                  is_outside: true,
-                );
-              },
-              todayBuilder: (context, date, focused) {
-                return _buildCalendarDayCell(
-                  date: date,
-                  text_color: _getCalendarDateColor(date),
-                  is_today: true,
-                );
-              },
-              selectedBuilder: (context, date, focused) {
-                return _buildCalendarDayCell(
-                  date: date,
-                  text_color: _getCalendarDateColor(date),
-                  is_today: isSameDay(date, DateTime.now()),
-                  is_selected: true,
-                );
-              },
-              // 마커 (근무 배지) - 확장 모드에서는 날짜 셀에 이미 표시되므로 숨김
-              markerBuilder: (context, date, events) {
-                // 확장 모드에서는 마커 숨김
-                if (_is_expanded_view) {
-                  return null;
-                }
+            marker_builder: (context, date, events) {
+              if (_is_expanded_view) return null;
 
-                if (_is_shift_add_mode) {
-                  final shiftType = _getScheduleForDay(date);
-                  if (shiftType != null && shiftType.isNotEmpty) {
-                    return Positioned(
-                      bottom: 2,
-                      child: ShiftBadge(shift_type: shiftType, size: 8),
-                    );
-                  }
-                  return null;
-                }
-
-                final workShift = _getWorkShiftForDay(date);
-                if (workShift != null) {
+              if (_is_shift_add_mode) {
+                final shift_type = _getScheduleForDay(date);
+                if (shift_type != null && shift_type.isNotEmpty) {
                   return Positioned(
-                    bottom: 0,
-                    child: _buildWorkShiftDot(workShift, size: 8),
+                    bottom: 2,
+                    child: ShiftBadge(shift_type: shift_type, size: 8),
                   );
                 }
                 return null;
-              },
-            ),
-          ), // TableCalendar
-        ), // AnimatedContainer
-      ), // NotificationListener
-    ); // Listener
+              }
+
+              final work_shift = _getWorkShiftForDay(date);
+              if (work_shift == null) return null;
+              return Positioned(
+                bottom: 0,
+                child: _buildWorkShiftDot(work_shift, size: 8),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   /// 근무표 색상 점 위젯
@@ -1390,7 +969,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 스케줄 카드 (항상 표시되는 일정 목록)
   Widget _buildScheduleCard() {
-    final dateFormat = DateFormat('yyyy.MM.dd', 'ko_KR');
     final selectedDate = _selected_day ?? DateTime.now();
     final normalizedDate = _normalizeDate(selectedDate);
     final workShift = _getWorkShiftForDay(selectedDate);
@@ -1398,97 +976,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         ? KoreanHolidays.getHolidayName(selectedDate) ?? '공휴일'
         : null;
 
-    // 해당 날짜의 일정(Events) 목록
     final dayEvents = _events[normalizedDate] ?? [];
 
-    // 총 일정 개수 (근무표 + Events)
-    final totalCount = (workShift != null ? 1 : 0) + dayEvents.length;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: AppTheme.cardDecoration(),
-      child: ClipRRect(
-        borderRadius: AppTheme.card_border_radius,
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 날짜 헤더
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppTheme.outline_variant_color,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Row(
-                key: const ValueKey('selected-day-header-content'),
-                children: [
-                  Expanded(
-                    child: Row(
-                      key: const ValueKey('selected-day-title-content'),
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          dateFormat.format(selectedDate),
-                          style: AppTheme.heading_small,
-                        ),
-                        if (holiday_name != null) ...[
-                          const SizedBox(width: AppTheme.spacing_sm),
-                          Flexible(
-                            child: Text(
-                              holiday_name,
-                              key: const ValueKey('selected-day-holiday-name'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTheme.body_small.copyWith(
-                                color: AppTheme.accent_red_color,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (totalCount > 0) ...[
-                    const SizedBox(width: AppTheme.spacing_sm),
-                    Text(
-                      '$totalCount개의 일정',
-                      style: AppTheme.body_small.copyWith(
-                        color: AppTheme.on_surface_variant_color,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            // 일정 목록
-            Expanded(
-              child: totalCount > 0
-                  ? SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 근무표 표시
-                          if (workShift != null)
-                            _buildWorkShiftItem(workShift, 0),
-                          // Events 표시
-                          ...dayEvents.asMap().entries.map((entry) {
-                            return _buildEventItem(entry.value, entry.key);
-                          }),
-                        ],
-                      ),
-                    )
-                  : _buildEmptySchedule(),
-            ),
-            _buildAddPersonalEventButton(),
-          ],
-        ),
-      ),
+    return CalendarScheduleCard(
+      selected_date: selectedDate,
+      work_shift: workShift,
+      events: dayEvents,
+      holiday_name: holiday_name,
+      work_shift_item_builder: _buildWorkShiftItem,
+      footer: _buildAddPersonalEventButton(),
     );
   }
 
@@ -1657,174 +1153,20 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 근무표 아이템 위젯
   Widget _buildWorkShiftItem(WorkShiftApiModel workShift, int index) {
-    final color = _getWorkShiftColor(workShift);
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: _RoundedDeleteDismissible(
         dismissible_key: Key('${workShift.workShiftId}_$index'),
         confirm_dismiss: (_) => _confirmDeleteWorkShift(_selected_day),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border(left: BorderSide(color: color, width: 4)),
-          ),
-          child: Row(
-            children: [
-              // 색상 인디케이터
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 10),
-              // 근무 정보
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      workShift.shiftTypeName,
-                      style: AppTheme.body_medium.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.on_surface_color,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _formatWorkShiftTime(workShift),
-                      style: AppTheme.body_small.copyWith(
-                        color: AppTheme.on_surface_variant_color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // 삭제 힌트 아이콘
-              Icon(
-                CupertinoIcons.chevron_left,
-                size: 14,
-                color: AppTheme.outline_variant_color,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 일정(Event) 아이템 위젯
-  Widget _buildEventItem(EventApiModel event, int index) {
-    // 시간 표시 형식 결정
-    String timeDisplay;
-    if (event.allDay) {
-      timeDisplay = '종일';
-    } else {
-      final startTime = DateFormat('HH:mm', 'ko_KR').format(event.startAt);
-      final endTime = DateFormat('HH:mm', 'ko_KR').format(event.endAt);
-      timeDisplay = '$startTime - $endTime';
-    }
-
-    // 일정 색상 (기본값: primary color)
-    final eventColor = AppTheme.primary_color;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: eventColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border(left: BorderSide(color: eventColor, width: 4)),
-        ),
-        child: Row(
-          children: [
-            // 색상 인디케이터
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: eventColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 10),
-            // 일정 정보
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: AppTheme.body_medium.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.on_surface_color,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Text(
-                        timeDisplay,
-                        style: AppTheme.body_small.copyWith(
-                          color: AppTheme.on_surface_variant_color,
-                        ),
-                      ),
-                      if (event.place != null && event.place!.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          '• ${event.place}',
-                          style: AppTheme.body_small.copyWith(
-                            color: AppTheme.on_surface_variant_color,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (event.memo != null && event.memo!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      event.memo!,
-                      style: AppTheme.body_small.copyWith(
-                        color: AppTheme.on_surface_variant_color,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 빈 일정 위젯
-  Widget _buildEmptySchedule() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(
-            CupertinoIcons.calendar,
-            size: 32,
+        child: CalendarWorkShiftItem(
+          work_shift: workShift,
+          include_margin: false,
+          trailing: Icon(
+            CupertinoIcons.chevron_left,
+            size: 14,
             color: AppTheme.outline_variant_color,
           ),
-          const SizedBox(height: 6),
-          Text(
-            '등록된 일정이 없습니다',
-            style: AppTheme.body_medium.copyWith(
-              color: AppTheme.on_surface_variant_color,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

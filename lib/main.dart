@@ -6,6 +6,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/korean_holidays.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/profile_setup_page.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
@@ -29,6 +30,9 @@ void main() async {
 
   // 한국어 로케일 데이터 초기화
   await initializeDateFormatting('ko_KR', null);
+
+  // 이전 실행에서 저장한 공휴일을 모든 캘린더가 즉시 사용할 수 있게 복원
+  await KoreanHolidays.initialize();
 
   runApp(const ProviderScope(child: ShiftCalendarApp()));
 }
