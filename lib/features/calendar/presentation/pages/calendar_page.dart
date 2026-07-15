@@ -16,6 +16,7 @@ import '../widgets/shift_badge.dart';
 import '../widgets/bottom_action_bar.dart';
 import '../widgets/personal_event_form_modal.dart';
 import '../widgets/shift_type_button.dart';
+import '../widgets/year_month_picker_sheet.dart';
 import '../../data/services/work_shift_service.dart';
 import '../../data/services/calendar_service.dart';
 import '../../data/models/event_api_model.dart';
@@ -387,127 +388,21 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   }
 
   /// 연/월 선택 피커 표시
-  void _showYearMonthPicker() {
-    int selectedYear = _focused_day.year;
-    int selectedMonth = _focused_day.month;
-
-    showCupertinoModalPopup(
+  Future<void> _showYearMonthPicker() async {
+    final selected_date = await showYearMonthPickerSheet(
       context: context,
-      builder: (context) => Container(
-        height: 300,
-        decoration: const BoxDecoration(
-          color: AppTheme.surface_color,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppTheme.card_radius),
-          ),
-        ),
-        child: Column(
-          children: [
-            // 헤더
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppTheme.outline_variant_color,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('취소'),
-                  ),
-                  const Text('연도/월 선택', style: AppTheme.heading_small),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      final newFocusedDay = DateTime(
-                        selectedYear,
-                        selectedMonth,
-                        1,
-                      );
-                      Navigator.pop(context);
-                      SchedulerBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            _focused_day = newFocusedDay;
-                          });
-                          // 월 변경 시 데이터 로딩
-                          _loadCalendarData(newFocusedDay);
-                          // 공휴일도 함께 로드
-                          _loadHolidays(
-                            newFocusedDay.year,
-                            month: newFocusedDay.month,
-                          );
-                        }
-                      });
-                    },
-                    child: const Text(
-                      '확인',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 피커
-            Expanded(
-              child: Row(
-                children: [
-                  // 연도 피커
-                  Expanded(
-                    child: CupertinoPicker(
-                      scrollController: FixedExtentScrollController(
-                        initialItem: selectedYear - 2000,
-                      ),
-                      itemExtent: 40,
-                      onSelectedItemChanged: (index) {
-                        selectedYear = 2000 + index;
-                      },
-                      children: List.generate(
-                        51, // 2000 ~ 2050
-                        (index) => Center(
-                          child: Text(
-                            '${2000 + index}년',
-                            style: AppTheme.body_large,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 월 피커
-                  Expanded(
-                    child: CupertinoPicker(
-                      scrollController: FixedExtentScrollController(
-                        initialItem: selectedMonth - 1,
-                      ),
-                      itemExtent: 40,
-                      onSelectedItemChanged: (index) {
-                        selectedMonth = index + 1;
-                      },
-                      children: List.generate(
-                        12,
-                        (index) => Center(
-                          child: Text(
-                            '${index + 1}월',
-                            style: AppTheme.body_large,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      initial_date: _focused_day,
+      first_year: 2000,
+      last_year: 2050,
     );
+
+    if (selected_date == null || !mounted) return;
+
+    setState(() {
+      _focused_day = selected_date;
+    });
+    _loadCalendarData(selected_date);
+    _loadHolidays(selected_date.year, month: selected_date.month);
   }
 
   /// 개인 일정 추가 모달 표시
@@ -1067,20 +962,20 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 확장 모드용 날짜 셀 빌더 (날짜 + 근무 코드 표시)
   Widget _buildExpandedDayCell({
     required DateTime date,
-    required Color textColor,
-    bool isToday = false,
-    bool isSelected = false,
-    bool isOutside = false,
+    required Color text_color,
+    bool is_today = false,
+    bool is_selected = false,
+    bool is_outside = false,
   }) {
-    final workShift = _getWorkShiftForDay(date);
-    final shiftType = _getScheduleForDay(date);
-    final shiftTypesMap = _is_shift_add_mode
+    final work_shift = _getWorkShiftForDay(date);
+    final shift_type = _getScheduleForDay(date);
+    final shift_types_map = _is_shift_add_mode
         ? ref.watch(shiftTypesMapProvider)
         : null;
-    final editShiftInfo = _is_shift_add_mode && shiftType != null
-        ? shiftTypesMap == null
+    final edit_shift_info = _is_shift_add_mode && shift_type != null
+        ? shift_types_map == null
               ? null
-              : shiftTypesMap[shiftType]
+              : shift_types_map[shift_type]
         : null;
     final badgeText = _is_shift_add_mode ? shiftType : workShift?.shiftTypeCode;
     final badgeColor = _is_shift_add_mode
@@ -1631,38 +1526,43 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     )
                   : _buildEmptySchedule(),
             ),
-            // 개인 일정 추가하기 버튼
-            GestureDetector(
-              onTap: _showPersonalEventModal,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: AppTheme.outline_variant_color,
-                      width: 0.5,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      CupertinoIcons.plus_circle,
-                      size: 20,
-                      color: AppTheme.primary_color,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '일정 추가하기...',
-                      style: AppTheme.body_medium.copyWith(
-                        color: AppTheme.primary_color,
-                      ),
-                    ),
-                  ],
-                ),
+            _buildAddPersonalEventButton(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 선택일 카드 내부의 개인 일정 추가 액션
+  Widget _buildAddPersonalEventButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacing_sm,
+        AppTheme.spacing_xs,
+        AppTheme.spacing_sm,
+        AppTheme.spacing_sm,
+      ),
+      child: CupertinoButton(
+        minimumSize: const Size(44, 44),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacing_sm,
+          vertical: AppTheme.spacing_sm,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radius_md),
+        pressedOpacity: 0.65,
+        onPressed: _showPersonalEventModal,
+        child: Row(
+          children: [
+            const Icon(
+              CupertinoIcons.plus_circle,
+              size: 24,
+              color: AppTheme.primary_color,
+            ),
+            const SizedBox(width: AppTheme.spacing_sm),
+            Text(
+              '일정 추가하기...',
+              style: AppTheme.body_medium.copyWith(
+                color: AppTheme.primary_color,
               ),
             ),
           ],

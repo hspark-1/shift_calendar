@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/event_api_model.dart';
+import 'date_picker_sheet.dart';
+import 'time_picker_sheet.dart';
 
 /// 개인 일정 추가 모달
 class PersonalEventFormModal extends StatefulWidget {
@@ -182,46 +184,12 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
 
   Future<void> _selectDate({required bool isStartDate}) async {
     final currentDate = isStartDate ? _startDate : _endDate;
-    DateTime selectedDate = currentDate;
-
-    final result = await showCupertinoModalPopup<DateTime>(
+    final result = await showDatePickerSheet(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              height: 300,
-              decoration: const BoxDecoration(
-                color: AppTheme.surface_color,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.card_radius),
-                ),
-              ),
-              child: Column(
-                children: [
-                  _buildPickerHeader(
-                    title: isStartDate ? '시작일 선택' : '종료일 선택',
-                    onConfirm: () => Navigator.pop(context, selectedDate),
-                  ),
-                  Expanded(
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.date,
-                      initialDateTime: currentDate,
-                      minimumYear: 2000,
-                      maximumYear: 2050,
-                      onDateTimeChanged: (date) {
-                        setModalState(() {
-                          selectedDate = _dateOnly(date);
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      title: isStartDate ? '시작일 선택' : '종료일 선택',
+      initial_date: currentDate,
+      minimum_date: DateTime(2000, 1, 1),
+      maximum_date: DateTime(2050, 12, 31),
     );
 
     if (result == null) return;
@@ -243,54 +211,10 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
 
   Future<void> _selectTime({required bool isStartTime}) async {
     final currentTime = isStartTime ? _startTime : _endTime;
-    Duration selectedTime = currentTime;
-
-    final result = await showCupertinoModalPopup<Duration>(
+    final result = await showTimePickerSheet(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              height: 300,
-              decoration: const BoxDecoration(
-                color: AppTheme.surface_color,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.card_radius),
-                ),
-              ),
-              child: Column(
-                children: [
-                  _buildPickerHeader(
-                    title: isStartTime ? '시작시간 선택' : '종료시간 선택',
-                    onConfirm: () => Navigator.pop(context, selectedTime),
-                  ),
-                  Expanded(
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.time,
-                      initialDateTime: DateTime(
-                        2026,
-                        1,
-                        1,
-                        currentTime.inHours,
-                        currentTime.inMinutes.remainder(60),
-                      ),
-                      use24hFormat: true,
-                      onDateTimeChanged: (date) {
-                        setModalState(() {
-                          selectedTime = Duration(
-                            hours: date.hour,
-                            minutes: date.minute,
-                          );
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      title: isStartTime ? '시작시간 선택' : '종료시간 선택',
+      initial_time: currentTime,
     );
 
     if (result == null) return;
@@ -302,37 +226,6 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
         _endTime = result;
       }
     });
-  }
-
-  Widget _buildPickerHeader({
-    required String title,
-    required VoidCallback onConfirm,
-  }) {
-    return Container(
-      height: 44,
-      decoration: const BoxDecoration(
-        color: AppTheme.surface_container_low_color,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          Text(title, style: AppTheme.heading_small),
-          CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            onPressed: onConfirm,
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _save() {

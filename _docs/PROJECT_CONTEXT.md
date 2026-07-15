@@ -46,6 +46,8 @@
     (`#E0E3E5`)는 비활성/최대치 도달 버튼 배경처럼 더 높은 surface 상태에 사용한다.
   - `lib/features/calendar/presentation/pages/calendar_page.dart`: 메인 캘린더 화면.
     `TableCalendar`와 `/calendar/range` 응답을 결합해 저장된 근무표/개인 일정을 표시한다.
+    월 헤더를 누르면 공용 `YearMonthPickerSheet`를 열고, 사용자가 선택한 연도/월로 이동한 뒤
+    해당 기간의 캘린더와 공휴일 데이터를 로드한다.
     우측 상단 `+` 버튼으로 근무 추가 모드에 들어가면 선택일 헤더 아래에 근무 타입 원형
     버튼을 표시한다. 날짜 헤더 오른쪽에는 36px 높이의 compact `완료` 버튼을 배치하고,
     별도 하단 완료 버튼과 근무 타입 수 배지는 표시하지 않는다. 원형 버튼은 한 행 최대 5개,
@@ -64,6 +66,25 @@
     `ShiftTypeSelectionGrid`는 메인 캘린더가 전달한 정렬된 `ShiftTypeInfo` 목록을 실제 너비와
     높이에 맞춰 최대 5열로 배치한다. 메인 그리드는 코드/이름, 선택 상태, 접근성 label을
     제공하며 선택 콜백으로 코드만 반환한다.
+  - `lib/features/calendar/presentation/widgets/year_month_picker_sheet.dart`: 메인 캘린더와 근무 추가
+    화면이 함께 사용하는 연도/월 선택 하단 시트. 현재 선택값 요약, `이번 달` 빠른 이동,
+    연도·월 휠, 취소/이동 액션을 Shift Harmony surface/primary 토큰으로 표시한다.
+    호출 화면은 자신의 `TableCalendar.firstDay`/`lastDay`와 같은 연도 범위를 전달하고,
+    반환된 월의 1일을 focused day로 사용한다.
+  - `lib/features/calendar/presentation/widgets/date_picker_sheet.dart`: 개인 일정의 시작일/종료일처럼
+    일 단위 날짜를 선택하는 공용 하단 시트. 연도/월 선택 시트와 같은 핸들, 선택값 요약 카드,
+    빠른 `오늘` 액션, surface 기반 피커 카드, 취소/적용 버튼을 제공한다. 호출 화면이 최소/최대
+    날짜를 전달하며, 결과는 시간이 제거된 로컬 `DateTime`으로 반환한다.
+  - `lib/features/calendar/presentation/widgets/time_picker_sheet.dart`: 개인 일정의 시작시간/종료시간처럼
+    시·분 단위 시간을 선택하는 공용 하단 시트. 선택 시간을 오전/오후 형식으로 요약하고,
+    `지금` 빠른 선택, 24시간 시·분 휠, 취소/적용 버튼을 날짜 선택 시트와 같은 구조로 제공한다.
+    결과는 0~23시와 0~59분으로 정규화된 `Duration`으로 반환한다.
+  - `test/features/calendar/presentation/widgets/year_month_picker_sheet_test.dart`:
+    연도/월 선택 시트의 초기 선택값 표시, 선택 결과 반환, 취소 시 null 반환을 검증한다.
+  - `test/features/calendar/presentation/widgets/date_picker_sheet_test.dart`: 날짜 선택 시트의 초기 날짜
+    요약 표시, 선택 결과 반환, 취소 시 null 반환을 검증한다.
+  - `test/features/calendar/presentation/widgets/time_picker_sheet_test.dart`: 시간 선택 시트의 초기 시간
+    요약 표시, 선택 결과 반환, 취소 시 null 반환을 검증한다.
   - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 메인 하단 내비게이션.
     친구, 오늘, 알림 이동 액션과 미읽음 알림 배지를 표시하며 기본적으로 상단 outline을 그린다.
   - `test/features/calendar/presentation/widgets/shift_type_button_test.dart`:
@@ -162,7 +183,9 @@ CalendarPage
   → 선택 날짜 일정 목록에 즉시 반영
 ```
 
-- 메인 캘린더 선택일 카드의 `일정 추가하기...`는 개인 일정 추가 모달을 띄운다.
+- 메인 캘린더 선택일 카드는 일정 수에 맞춰 높이가 줄어들고, 일정이 가용 높이를 넘을 때만 목록을
+  내부 스크롤한다. `일정 추가하기...`는 목록 바로 다음의 구분선 없는 primary 인셋 액션으로 표시하며
+  개인 일정 추가 모달을 띄운다.
 - 입력 필수값은 `title`, `all_day`, `start_at`, `end_at`, `visibility_level`이다.
 - 선택값은 `place`, `memo`이며, 빈 문자열은 요청에서 제외한다.
 - `owner_user_id`, `created_by_user_id`는 서버가 인증 사용자 기준으로 채운다.
@@ -180,7 +203,9 @@ CalendarPage
     스와이프하면 닫힌다. 기본 정보/일시/공개 설정은 디자인 시안 기반 카드형 섹션으로
     구성한다. 장소 행은 선택 시 입력 다이얼로그를 띄워 `place` 값을 편집하고, 반복 행은
     현재 API 미지원으로 `안 함` 고정 안내만 제공한다. 공개 레벨은 0~5 세그먼트 트랙에서
-    탭 또는 좌우 드래그로 선택한다.
+    탭 또는 좌우 드래그로 선택한다. 시작일/종료일은 공용 `DatePickerSheet`, 시작시간/종료시간은
+    공용 `TimePickerSheet`에서 선택한다. 날짜 선택 결과가 기존 반대편 날짜를 넘어가면 시작일과
+    종료일의 선후 관계를 자동 보정하며, 시간은 기존 `Duration` 상태와 저장 검증 흐름을 유지한다.
   - `_docs/EVENT_API_GUIDE.md`: 개인 일정 생성 API, 입력 필수/선택값,
     공개 레벨 규칙, 서버 DDL 확인 요청을 정리한 서버 구현 문서다.
 

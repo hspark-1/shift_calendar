@@ -2,6 +2,42 @@
 
 ## 2026-07-14
 
+- [DONE] (FE) 메인 캘린더 일정 추가 행 디자인 반영
+  - 목적: 제공된 Shift Harmony 시안 중 선택일 일정 컴포넌트의 `일정 추가하기...` 행만 현재 메인 캘린더에 반영한다.
+  - 변경: 선택일 카드가 남은 높이를 강제로 채우던 `Expanded` 목록을 loose `Flexible`로 바꿔 일정 수에 맞춰 카드가 줄어들고 추가 액션이 마지막 일정 바로 아래에 오도록 했다. 일정이 많으면 기존처럼 목록만 내부 스크롤된다. 추가 행은 상단 구분선이 있는 전체 너비 푸터 대신 디자인 시안의 `p-sm`, `mt-xs`, 8px 반경을 반영한 44px 인셋 `CupertinoButton`으로 교체하고 primary 색상의 24px 원형 더하기 아이콘과 눌림 피드백을 적용했다. 기존 `_showPersonalEventModal()` 진입 동작은 유지했다.
+  - 영향범위: 메인 캘린더 선택일 카드의 높이, 일정 목록과 개인 일정 추가 진입 행의 배치/스타일. 캘린더 본문, 근무/개인 일정 항목, 개인 일정 입력 모달, 저장 API/DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format lib/features/calendar/presentation/pages/calendar_page.dart` 통과, 대상 파일 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets` 8건 통과, `git diff --check` 통과. 프로젝트 전체 `flutter analyze`는 이번 변경 파일이 아닌 기존 코드의 warning/info 134건을 확인했다.
+  - 롤백: 선택일 카드 목록을 `Expanded`와 `MainAxisSize.max`로 복구하고 `_buildAddPersonalEventButton()`을 제거한 뒤 기존 상단 구분선 `GestureDetector` 푸터를 되살린다.
+  - 다음: 실제 iPhone에서 일정 0개/1개/여러 개일 때 카드 높이와 추가 행 위치, 눌림 영역을 확인
+
+- [DONE] (FE) 개인 일정 시간 선택 모달 디자인 통일
+  - 목적: 개인 일정 추가 화면의 시작시간/종료시간 선택에도 날짜 선택 시트와 동일한 정보 구조와 디자인을 적용한다.
+  - 변경: 기존 300px 기본 시간 팝업을 공용 `TimePickerSheet`로 교체했다. 새 시트는 날짜 선택 시트와 같은 28px 상단 반경, 드래그 핸들, 제목/설명, 선택 시간 요약 카드, `지금` 빠른 선택, 시·분 피커 카드, 취소/적용 버튼과 하단 안전영역을 사용한다. 피커는 기존처럼 24시간 형식을 유지하고, 상단 요약은 `오전 09:00`처럼 읽기 쉬운 형식으로 표시한다. 개인 일정의 시작시간/종료시간 상태는 기존 `Duration` 타입을 그대로 사용한다.
+  - 영향범위: 개인 일정 추가 화면의 시작시간/종료시간 선택 모달 UI와 선택값 반환. 종일 토글, 시작/종료 날짜, 종료 시각 검증, 일정 저장 요청, UTC 변환, API/DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/time_picker_sheet.dart`, `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`, `test/features/calendar/presentation/widgets/time_picker_sheet_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 3개 Dart 파일 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, 시간/날짜/연도월 선택 시트 테스트 6건 통과, `git diff --check` 통과.
+  - 롤백: `PersonalEventFormModal._selectTime()`을 이전 내부 `showCupertinoModalPopup` + `CupertinoDatePicker` 구현으로 되돌리고 `time_picker_sheet.dart`, 전용 테스트, PROJECT_CONTEXT 역할 설명을 제거한다.
+  - 다음: 실제 iPhone에서 시작/종료시간 시트의 휠 가독성, `지금` 선택, 오전/오후 요약과 홈 인디케이터 여백을 확인
+
+- [DONE] (FE) 개인 일정 날짜 선택 모달 디자인 통일
+  - 목적: 개인 일정 추가 화면의 시작일/종료일 선택 모달에도 개선된 캘린더 선택 시트의 시각 언어와 명확한 액션 구조를 적용한다.
+  - 변경: 기존 300px 기본 `CupertinoDatePicker` 팝업을 공용 `DatePickerSheet`로 교체했다. 새 시트는 연도/월 선택 시트와 같은 28px 상단 반경, 드래그 핸들, 제목/설명, 선택 날짜 요약 카드, `오늘` 빠른 선택, 연·월·일 피커 카드, 취소/적용 버튼과 하단 안전영역을 사용한다. 개인 일정의 시작일/종료일 모두 2000-01-01~2050-12-31 범위로 연결했고, 선택 후 시작일과 종료일의 순서가 역전되면 반대편 날짜를 맞추는 기존 로직은 유지했다.
+  - 영향범위: 개인 일정 추가 화면의 시작일/종료일 선택 모달 UI, 날짜 선택 결과 반환. 시간 선택 모달, 일정 저장 요청, UTC 변환, 종일 일정의 배타적 종료 규칙, API/DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/date_picker_sheet.dart`, `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`, `test/features/calendar/presentation/widgets/date_picker_sheet_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 3개 Dart 파일 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, 날짜/연도월 선택 시트 테스트 4건 통과, `git diff --check` 통과.
+  - 롤백: `PersonalEventFormModal._selectDate()`를 이전 내부 `showCupertinoModalPopup` + `CupertinoDatePicker` 구현으로 되돌리고 `date_picker_sheet.dart`, 전용 테스트, PROJECT_CONTEXT 역할 설명을 제거한다.
+  - 다음: 실제 iPhone에서 시작일/종료일 시트의 높이, 연·월·일 휠 가독성, `오늘` 선택과 홈 인디케이터 여백을 확인
+
+- [DONE] (FE) 연도/월 선택 모달 디자인 개선
+  - 목적: 메인 캘린더와 근무 추가 화면의 연도/월 선택 모달을 현재 디자인 시스템에 맞게 정돈하고, 선택값과 이동 액션을 더 명확하게 제공한다.
+  - 변경: 화면별로 중복되어 있던 300px 높이 연도/월 피커를 공용 `YearMonthPickerSheet`로 교체했다. 시트에 드래그 핸들, 제목/설명, 현재 선택값 요약 카드, `이번 달` 빠른 이동, 구분된 연도·월 휠 카드, 하단 취소/이동 버튼을 추가하고 Shift Harmony 색상·반경 토큰을 적용했다. 메인 캘린더는 2000~2050, 근무 추가 화면은 실제 `TableCalendar` 범위와 같은 2020~2030만 선택하도록 연결했다. 선택/취소 반환 동작을 위젯 테스트로 추가했다.
+  - 영향범위: 메인 캘린더와 근무 추가 화면의 연도/월 선택 모달 UI, 선택 가능한 연도 범위, 선택 후 focused day 이동 및 메인 캘린더 데이터 재조회. API/DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/calendar/presentation/pages/shift_add_page.dart`, `lib/features/calendar/presentation/widgets/year_month_picker_sheet.dart`, `test/features/calendar/presentation/widgets/year_month_picker_sheet_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 4개 Dart 파일 `dart format` 통과, 대상 코드/테스트 `flutter analyze` 0건 통과, `flutter test test/features/calendar/presentation/widgets/year_month_picker_sheet_test.dart` 2건 통과, `git diff --check` 통과. 전체 `flutter test`에서는 신규 테스트를 포함한 12건이 통과했으나, 이번 변경과 무관한 기존 기본 `test/widget_test.dart`가 `MyApp`을 `ProviderScope` 없이 직접 실행하는 `Counter increments smoke test`라 기존 상태 그대로 1건 실패했다.
+  - 롤백: 두 페이지의 `showYearMonthPickerSheet()` 호출을 이전 화면별 `showCupertinoModalPopup` + `CupertinoPicker` 구현으로 되돌리고 공용 시트/테스트 파일 및 PROJECT_CONTEXT 역할 설명을 제거한다.
+  - 다음: 실제 iPhone에서 시트 높이, 휠 스크롤 감도, 홈 인디케이터 여백과 `이번 달` 애니메이션을 확인
+
 - [DONE] (CHORE) 현재 변경사항 목적별 커밋 및 푸시
   - 목적: 개발 API 주소 변경과 메인 캘린더 근무 입력 UI 변경을 목적별 git 이력으로 분리해 원격 `origin/main`에 반영한다.
   - 변경: 개발 API 주소 변경을 `04ad4cc`(`chore(api): update development server host`), 캘린더 근무 입력 UI/테스트/문서를 `481c0f1`(`feat(calendar): refine shift entry controls`)로 분리해 `origin/main`에 푸시했다.

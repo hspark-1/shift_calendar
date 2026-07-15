@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -7,6 +9,7 @@ import '../providers/shift_types_provider.dart';
 import '../widgets/shift_badge.dart';
 import '../widgets/bottom_action_bar.dart';
 import '../widgets/shift_type_button.dart';
+import '../widgets/year_month_picker_sheet.dart';
 
 /// 근무 추가 페이지
 class ShiftAddPage extends ConsumerStatefulWidget {
@@ -61,111 +64,19 @@ class _ShiftAddPageState extends ConsumerState<ShiftAddPage> {
   }
 
   /// 연/월 선택 피커 표시
-  void _showYearMonthPicker() {
-    int selectedYear = _focused_day.year;
-    int selectedMonth = _focused_day.month;
-
-    showCupertinoModalPopup(
+  Future<void> _showYearMonthPicker() async {
+    final selected_date = await showYearMonthPickerSheet(
       context: context,
-      builder: (context) => Container(
-        height: 300,
-        decoration: const BoxDecoration(
-          color: AppTheme.surface_color,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppTheme.card_radius),
-          ),
-        ),
-        child: Column(
-          children: [
-            // 헤더
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppTheme.outline_variant_color,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('취소'),
-                  ),
-                  const Text('연도/월 선택', style: AppTheme.heading_small),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      setState(() {
-                        _focused_day = DateTime(selectedYear, selectedMonth, 1);
-                      });
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      '확인',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 피커
-            Expanded(
-              child: Row(
-                children: [
-                  // 연도 피커
-                  Expanded(
-                    child: CupertinoPicker(
-                      scrollController: FixedExtentScrollController(
-                        initialItem: selectedYear - 2020,
-                      ),
-                      itemExtent: 40,
-                      onSelectedItemChanged: (index) {
-                        selectedYear = 2020 + index;
-                      },
-                      children: List.generate(
-                        21, // 2020 ~ 2040
-                        (index) => Center(
-                          child: Text(
-                            '${2020 + index}년',
-                            style: AppTheme.body_large,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 월 피커
-                  Expanded(
-                    child: CupertinoPicker(
-                      scrollController: FixedExtentScrollController(
-                        initialItem: selectedMonth - 1,
-                      ),
-                      itemExtent: 40,
-                      onSelectedItemChanged: (index) {
-                        selectedMonth = index + 1;
-                      },
-                      children: List.generate(
-                        12,
-                        (index) => Center(
-                          child: Text(
-                            '${index + 1}월',
-                            style: AppTheme.body_large,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      initial_date: _focused_day,
+      first_year: 2020,
+      last_year: 2030,
     );
+
+    if (selected_date == null || !mounted) return;
+
+    setState(() {
+      _focused_day = selected_date;
+    });
   }
 
   /// 다음 날로 이동
