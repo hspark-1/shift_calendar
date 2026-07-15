@@ -2,14 +2,14 @@
 
 ## 2026-07-16
 
-- [TODO] (CHORE) 캘린더 날짜 상호작용 변경사항 커밋 및 푸시
+- [DONE] (CHORE) 캘린더 날짜 상호작용 변경사항 커밋 및 푸시
   - 목적: 완료된 2주 보기 자동 이동 수정과 선택일·주말·공휴일 색상 구분 개선을 검증된 문서·테스트와 함께 Git 이력으로 정리해 원격 `main`에 반영한다.
-  - 변경: 현재 unstaged 상태의 캘린더 코드, 회귀 테스트, PROJECT_CONTEXT/DECISIONS/WORKLOG 변경을 하나의 기능 커밋으로 정리하고 푸시 결과를 후속 문서 커밋에 기록할 예정이다.
+  - 변경: 캘린더 코드, 회귀 테스트, PROJECT_CONTEXT/DECISIONS/WORKLOG 변경을 `14be245 fix(calendar): improve date selection interactions` 기능 커밋으로 정리했다. 이 작업 로그의 완료 상태는 후속 문서 커밋으로 기록하고 두 커밋을 `origin/main`에 푸시한다.
   - 영향범위: Git 이력과 원격 `main` 브랜치. 런타임 동작은 현재 검증된 작업 트리와 동일하다.
   - 파일: 현재 캘린더 관련 변경 전체와 `_docs/WORKLOG.md`
-  - 테스트: 기존 완료 기록의 메인 캘린더 5건·친구 캘린더 3건, 대상 `flutter analyze` 0건, `git diff --check` 결과를 재확인할 예정이다.
+  - 테스트: 메인 캘린더 5건·친구 캘린더 3건 전체 통과, 변경 대상 `flutter analyze` 0건, 기능 커밋 전 `git diff --cached --check` 통과
   - 롤백: 원격 반영 후 필요 시 생성 커밋을 `git revert`하고 푸시한다.
-  - 다음: 기능 커밋 생성 후 원격 `main` 푸시
+  - 다음: 후속 작업 로그 커밋 생성 후 원격 `main` 푸시
 
 - [DONE] (FE) 캘린더 선택일과 주말·공휴일 색상 구분 개선
   - 목적: 선택일의 primary 글자색이 토요일 색상과 같고 공휴일의 빨간색을 덮어쓰는 문제를 해결해 날짜 의미와 선택 상태를 동시에 식별할 수 있게 한다.
