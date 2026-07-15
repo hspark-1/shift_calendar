@@ -939,27 +939,23 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 다음 날로 이동
   void _moveToNextDay() {
-    final nextDay = (_selected_day ?? DateTime.now()).add(
+    final next_day = (_selected_day ?? DateTime.now()).add(
       const Duration(days: 1),
     );
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        final is_month_changed =
+            next_day.month != _focused_day.month ||
+            next_day.year != _focused_day.year;
         setState(() {
-          final isMonthChanged =
-              nextDay.month != _focused_day.month ||
-              nextDay.year != _focused_day.year;
-          _selected_day = nextDay;
-          if (isMonthChanged) {
-            _focused_day = nextDay;
-          }
-          // 월이 바뀌면 데이터도 함께 로딩
-          if (isMonthChanged) {
-            // 월 변경 시 데이터 로딩
-            _loadCalendarData(nextDay);
-            // 공휴일도 함께 로드
-            _loadHolidays(nextDay.year, month: nextDay.month);
-          }
+          _selected_day = next_day;
+          _focused_day = next_day;
         });
+        // 월이 바뀌면 데이터도 함께 로딩
+        if (is_month_changed) {
+          _loadCalendarData(next_day);
+          _loadHolidays(next_day.year, month: next_day.month);
+        }
       }
     });
   }
@@ -996,9 +992,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
     // 외부 날짜(이전/다음 달)는 투명도 적용
     final outside_alpha = is_outside ? 0.4 : 1.0;
-    final date_text_color = is_selected || is_today
-        ? AppTheme.primary_color
-        : text_color.withValues(alpha: outside_alpha);
+    final date_text_color = text_color.withValues(alpha: outside_alpha);
     final date_text = Text(
       '${date.day}',
       style: TextStyle(
@@ -1093,9 +1087,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     : null,
                 borderRadius: BorderRadius.circular(AppTheme.radius_md),
                 border: is_selected
-                    ? Border.all(
-                        color: AppTheme.primary_color.withValues(alpha: 0.24),
-                      )
+                    ? Border.all(color: AppTheme.primary_dark_color, width: 2)
                     : null,
               ),
             ),

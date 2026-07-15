@@ -10,7 +10,9 @@ import 'package:shift_calendar/core/theme/app_theme.dart';
 import 'package:shift_calendar/features/calendar/data/models/event_api_model.dart';
 import 'package:shift_calendar/features/calendar/data/models/work_shift_api_model.dart';
 import 'package:shift_calendar/features/calendar/data/services/calendar_service.dart';
+import 'package:shift_calendar/features/calendar/domain/entities/shift_type_info.dart';
 import 'package:shift_calendar/features/calendar/presentation/pages/calendar_page.dart';
+import 'package:shift_calendar/features/calendar/presentation/providers/shift_types_provider.dart';
 import 'package:shift_calendar/features/friend/data/services/friend_service.dart';
 import 'package:shift_calendar/features/friend/data/services/notification_service.dart';
 import 'package:shift_calendar/features/friend/presentation/providers/notification_provider.dart';
@@ -39,6 +41,33 @@ class _FakeNotificationNotifier extends NotificationNotifier {
 
   @override
   Future<void> fetchUnreadCount() async {}
+}
+
+DateTime _secondSaturdayOfVisibleTwoWeeks(TableCalendar calendar) {
+  final first_day = calendar.firstDay;
+  final focused_day = calendar.focusedDay;
+  final first_page_start = first_day.subtract(
+    Duration(days: first_day.weekday % DateTime.daysPerWeek),
+  );
+  final focused_utc = DateTime.utc(
+    focused_day.year,
+    focused_day.month,
+    focused_day.day,
+  );
+  final page_index = focused_utc.difference(first_page_start).inDays ~/ 14;
+  final page_base = first_day.add(Duration(days: page_index * 14));
+  final visible_start = page_base.subtract(
+    Duration(days: page_base.weekday % DateTime.daysPerWeek),
+  );
+  return visible_start.add(const Duration(days: 13));
+}
+
+DateTime _firstWeekdayOfMonth(DateTime date, int weekday) {
+  final first_day = DateTime(date.year, date.month);
+  final day_offset =
+      (weekday - first_day.weekday + DateTime.daysPerWeek) %
+      DateTime.daysPerWeek;
+  return first_day.add(Duration(days: day_offset));
 }
 
 void main() {
@@ -123,6 +152,86 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('2주 보기 마지막 토요일 근무 입력 후 다음 페이지 일요일로 이동한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          calendarServiceProvider.overrideWithValue(_FakeCalendarService()),
+          notificationProvider.overrideWith(
+            (ref) => _FakeNotificationNotifier(),
+          ),
+          shiftTypesProvider.overrideWith(
+            (ref) async => const [
+              ShiftTypeInfo(
+                code: 'D',
+                name: '데이',
+                color: Color(0xFF0061A4),
+                sort_order: 0,
+              ),
+            ],
+          ),
+        ],
+        child: const CupertinoApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(390, 740)),
+            child: CalendarPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final calendar_finder = find.byKey(const ValueKey('main-calendar'));
+    var calendar = tester.widget<TableCalendar>(calendar_finder);
+    var second_saturday = _secondSaturdayOfVisibleTwoWeeks(calendar);
+    var next_day = second_saturday.add(const Duration(days: 1));
+
+    if (second_saturday.month != next_day.month) {
+      await tester.drag(calendar_finder, const Offset(-300, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump(const Duration(milliseconds: 350));
+      calendar = tester.widget<TableCalendar>(calendar_finder);
+      second_saturday = _secondSaturdayOfVisibleTwoWeeks(calendar);
+      next_day = second_saturday.add(const Duration(days: 1));
+    }
+    expect(second_saturday.month, next_day.month);
+
+    final saturday_cell = find.byKey(
+      ValueKey(
+        'CellContent-${second_saturday.year}-${second_saturday.month}-${second_saturday.day}',
+      ),
+    );
+    expect(saturday_cell, findsOneWidget);
+    await tester.tapAt(tester.getCenter(saturday_cell));
+    await tester.pump();
+
+    await tester.tap(find.byIcon(CupertinoIcons.add));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('shift_type_D')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    calendar = tester.widget<TableCalendar>(calendar_finder);
+    expect(isSameDay(calendar.focusedDay, next_day), isTrue);
+    expect(calendar.selectedDayPredicate?.call(next_day), isTrue);
+    expect(
+      find.byKey(
+        ValueKey(
+          'CellContent-${next_day.year}-${next_day.month}-${next_day.day}',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('월 보기에서 날짜 셀과 선택 박스 레이아웃을 유지한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -169,6 +278,54 @@ void main() {
     );
 
     expect(selected_container, findsOneWidget);
+
+    final saturday = _firstWeekdayOfMonth(now, DateTime.saturday);
+    final saturday_cell = find.byKey(
+      ValueKey(
+        'CellContent-${saturday.year}-${saturday.month}-${saturday.day}',
+      ),
+    );
+    await tester.tapAt(tester.getCenter(saturday_cell));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final saturday_date_text = tester.widget<Text>(
+      find.descendant(
+        of: saturday_cell,
+        matching: find.text('${saturday.day}'),
+      ),
+    );
+    expect(saturday_date_text.style?.color, AppTheme.primary_color);
+
+    final saturday_selection = find.descendant(
+      of: saturday_cell,
+      matching: find.byWidgetPredicate((widget) {
+        if (widget is! AnimatedContainer) return false;
+        final decoration = widget.decoration;
+        return decoration is BoxDecoration && decoration.border != null;
+      }),
+    );
+    final saturday_selection_widget = tester.widget<AnimatedContainer>(
+      saturday_selection,
+    );
+    final saturday_selection_decoration =
+        saturday_selection_widget.decoration! as BoxDecoration;
+    final saturday_selection_border =
+        saturday_selection_decoration.border! as Border;
+    expect(saturday_selection_decoration.color, AppTheme.surface_color);
+    expect(saturday_selection_border.top.color, AppTheme.primary_dark_color);
+    expect(saturday_selection_border.top.width, 2);
+
+    final sunday = _firstWeekdayOfMonth(now, DateTime.sunday);
+    final sunday_cell = find.byKey(
+      ValueKey('CellContent-${sunday.year}-${sunday.month}-${sunday.day}'),
+    );
+    await tester.tapAt(tester.getCenter(sunday_cell));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final sunday_date_text = tester.widget<Text>(
+      find.descendant(of: sunday_cell, matching: find.text('${sunday.day}')),
+    );
+    expect(sunday_date_text.style?.color, AppTheme.accent_red_color);
 
     final next_day = DateTime(now.year, now.month, now.day + 1);
     final next_cell = find.byKey(

@@ -54,15 +54,17 @@
     위로 드래그하면 기존 48px compact 점 표시로 접을 수 있으나 750px 미만의 2주 형식은 유지된다.
     날짜 셀은 행 높이를 다시 수동 계산하지 않고 `TableCalendar`가 전달한 실제 가용 높이를 채우며,
     2px 외부 여백을 제외한 영역에 날짜와 근무 배지를 배치해 작은 화면에서도 넘치지 않게 한다.
-    선택일은 primary tint/outline 사각형과 굵은 primary 날짜 텍스트로 표시하며 별도 원은 그리지 않는다.
+    선택일은 흰색 surface 배경과 2px primary dark outline 사각형, 굵은 날짜 텍스트로 표시하며
+    별도 원은 그리지 않는다. 선택 여부가 날짜 의미 색상을 덮어쓰지 않으므로 토요일은 primary blue,
+    일요일과 공휴일은 accent red를 선택 후에도 유지한다.
     선택 배경은 날짜 콘텐츠와 분리해 셀 전체 너비를 채우지 않는다. compact 점 보기에서는
     날짜와 점을 감싸는 48x48px, 근무 코드 보기에서는 58x58px 설정값을 사용하되 실제 크기는
     날짜 셀의 가용 너비·높이로 제한된다. 선택 배경의 하단 오프셋은 compact 8px, 근무 코드 보기
     4px이며, 날짜 콘텐츠는 선택 여부와 관계없이 2px 사방 padding을 사용해 숫자 위치를 고정한다.
     `CalendarStyle.tablePadding` 하단 8px이 마지막 행 선택 배경의 offset을 내부 `PageView` 경계에
     포함하고, 일정 카드 앞 외부 간격은 4px을 사용해 기존 달력 본문-to-카드 간격 12px을 유지한다.
-    오늘은 선택 여부와 관계없이 굵은 primary 날짜 텍스트와 숫자 아래 12x2px primary 밑줄로
-    구분한다. 일요일과 공휴일은 accent red, 토요일은 primary blue를 사용한다.
+    오늘은 선택 여부와 관계없이 날짜 의미 색상을 유지한 굵은 날짜 텍스트와 숫자 아래 12x2px
+    primary 밑줄로 구분한다. 일요일과 공휴일은 accent red, 토요일은 primary blue를 사용한다.
     우측 상단 `+` 버튼으로 근무 추가 모드에 들어가면 선택일 헤더 아래에 근무 타입 원형
     버튼을 표시한다. 날짜 헤더 오른쪽에는 36px 높이의 compact `완료` 버튼을 배치하고,
     별도 하단 완료 버튼과 근무 타입 수 배지는 표시하지 않는다. 원형 버튼은 한 행 최대 5개,
@@ -75,8 +77,9 @@
     활성화해 60px 날짜 셀 아래에 근무 코드를 표시한다. 입력 중에는 수직 드래그 확장/축소를
     잠그고, 완료/취소 시 진입 전 달력 형식과 확장 상태를 복구한다. 근무 추가 모드 자체는 2주
     보기로 전환하지 않지만 화면 높이가 750px 미만이면 전역 반응형 규칙에 따라 2주 보기를 유지한다.
-    다음 날 자동 이동은 월 경계를 넘을 때만 `_focused_day`를 갱신한다. 근무 설정 카드 내부는
-    12px padding을 사용한다.
+    다음 날 자동 이동은 `_selected_day`와 `_focused_day`를 함께 갱신해 월/2주 보기의 표시 페이지가
+    선택일을 따라가게 하며, 캘린더·공휴일 데이터 추가 조회는 월 경계를 넘을 때만 실행한다.
+    근무 설정 카드 내부는 12px padding을 사용한다.
   - `lib/features/calendar/presentation/widgets/shift_type_button.dart`: 근무 타입 선택 버튼 위젯.
     기존 `ShiftTypeButtonGroup`은 근무 추가 페이지/시트에서 Provider 기반 원형 버튼을 표시하고,
     `ShiftTypeSelectionGrid`는 메인 캘린더가 전달한 정렬된 `ShiftTypeInfo` 목록을 실제 너비와
@@ -103,8 +106,10 @@
     요약 표시, 선택 결과 반환, 취소 시 null 반환을 검증한다.
   - `test/features/calendar/presentation/pages/calendar_page_test.dart`: 캘린더/알림 서비스를 가짜 구현으로
     대체하고 390x740 크기에서는 2주 보기가 고정되는지, 390x750 경계 크기에서는 기존 월 보기가
-    유지되는지 검증한다. 또한 날짜·근무 배지 셀의 레이아웃 예외와 확장/compact 보기의 마지막 행
-    선택 사각형이 달력 경계 안에 포함되는지 검증한다.
+    유지되는지 검증한다. 2주 보기의 두 번째 토요일에서 근무를 입력하면 선택일·focused day·표시
+    페이지가 다음 일요일로 함께 이동하는 회귀도 확인한다. 또한 선택된 토요일/일요일의 의미 색상과
+    surface 배경·2px primary dark outline, 날짜·근무 배지 셀의 레이아웃 예외, 확장/compact 보기의
+    마지막 행 선택 사각형이 달력 경계 안에 포함되는지 검증한다.
   - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 메인 하단 내비게이션.
     친구, 오늘, 알림 이동 액션과 미읽음 알림 배지를 표시하며 기본적으로 상단 outline을 그린다.
   - `test/features/calendar/presentation/widgets/shift_type_button_test.dart`:
@@ -257,8 +262,9 @@ FriendListPage
   `CupertinoNavigationBar`가 빌드 중 상태를 변경하지 않게 하며, `onPageChanged` 상태 반영은
   다음 프레임에서 처리한다.
 - 친구 달력은 메인 달력과 같은 화면 높이 규칙을 사용해 750px 미만에서는 2주 보기와 52px 행으로
-  고정하고, 750px 이상에서는 월 보기와 56px 행을 사용한다. 근무 코드 배지, primary tint/outline
-  선택 사각형, 오늘 밑줄을 사용하며 일요일은 accent red, 토요일은 primary blue로 표시한다. 달력 내부에는
+  고정하고, 750px 이상에서는 월 보기와 56px 행을 사용한다. 근무 코드 배지, 흰색 surface 배경과
+  2px primary dark outline 선택 사각형, 오늘 밑줄을 사용하며 일요일은 accent red, 토요일은
+  primary blue로 표시한다. 선택 후에도 해당 요일 의미 색상을 유지한다. 달력 내부에는
   `CalendarStyle.tablePadding`으로 8px 하단 여유를 두어 `PageView`가 마지막 행의 4px offset 선택
   사각형까지 포함하도록 한다. 일정 카드 앞에는 별도 8px 간격을 두어 달력 표 본문부터 카드까지
   총 16px을 확보한다.
@@ -286,7 +292,8 @@ FriendListPage
     필터링 결과를 `WorkShiftApiModel`/`EventApiModel`로 렌더링하고 공용 `YearMonthPickerSheet`를 사용한다.
   - `test/features/friend/presentation/pages/friend_calendar_page_test.dart`: 가짜 `FriendService`로
     명시적 `MediaQuery` 높이 740px에서 2주 보기 고정, 750px에서 월 보기 유지 여부를 검증한다.
-    390x800 월 보기에서는 중복 프로필 제거, 토요일 색상, 사각형 선택 표시, 근무 시간 포맷,
+    390x800 월 보기에서는 중복 프로필 제거, 선택된 토요일/일요일의 의미 색상, surface 배경·2px
+    primary dark outline 사각형 선택 표시, 근무 시간 포맷,
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지, 달력과 선택일 일정 카드 사이 및 카드 하단의
     최소 16px 여백, 3개월 뒤에서 오늘로 복귀할 때 빌드 중 setState 예외가 없는지와 연/월 이동
     시트 노출을 검증한다.

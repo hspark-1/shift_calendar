@@ -46,6 +46,14 @@ Widget _buildTestApp({
   );
 }
 
+DateTime _firstWeekdayOfMonth(DateTime date, int weekday) {
+  final first_day = DateTime(date.year, date.month);
+  final day_offset =
+      (weekday - first_day.weekday + DateTime.daysPerWeek) %
+      DateTime.daysPerWeek;
+  return first_day.add(Duration(days: day_offset));
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -220,6 +228,37 @@ void main() {
     final selection_widget = tester.widget<AnimatedContainer>(selection_box);
     final selection_decoration = selection_widget.decoration! as BoxDecoration;
     expect(selection_decoration.shape, BoxShape.rectangle);
+    final selection_border = selection_decoration.border! as Border;
+    expect(selection_decoration.color, AppTheme.surface_color);
+    expect(selection_border.top.color, AppTheme.primary_dark_color);
+    expect(selection_border.top.width, 2);
+
+    final saturday = _firstWeekdayOfMonth(selected_date, DateTime.saturday);
+    final saturday_cell = find.byKey(
+      ValueKey(
+        'CellContent-${saturday.year}-${saturday.month}-${saturday.day}',
+      ),
+    );
+    await tester.tapAt(tester.getCenter(saturday_cell));
+    await tester.pump(const Duration(milliseconds: 200));
+    final selected_saturday_text = tester.widget<Text>(
+      find.descendant(
+        of: saturday_cell,
+        matching: find.text('${saturday.day}'),
+      ),
+    );
+    expect(selected_saturday_text.style?.color, AppTheme.primary_color);
+
+    final sunday = _firstWeekdayOfMonth(selected_date, DateTime.sunday);
+    final sunday_cell = find.byKey(
+      ValueKey('CellContent-${sunday.year}-${sunday.month}-${sunday.day}'),
+    );
+    await tester.tapAt(tester.getCenter(sunday_cell));
+    await tester.pump(const Duration(milliseconds: 200));
+    final selected_sunday_text = tester.widget<Text>(
+      find.descendant(of: sunday_cell, matching: find.text('${sunday.day}')),
+    );
+    expect(selected_sunday_text.style?.color, AppTheme.accent_red_color);
 
     final last_day = DateTime(selected_date.year, selected_date.month + 1, 0);
     final last_day_cell = find.byKey(

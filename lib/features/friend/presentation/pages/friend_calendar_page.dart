@@ -437,9 +437,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   }) {
     final work_shift = _getWorkShiftForDay(date);
     final outside_alpha = is_outside ? 0.4 : 1.0;
-    final date_text_color = is_selected || is_today
-        ? AppTheme.primary_color
-        : text_color.withValues(alpha: outside_alpha);
+    final date_text_color = text_color.withValues(alpha: outside_alpha);
     final date_text = Text(
       '${date.day}',
       style: TextStyle(
@@ -505,9 +503,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
                     : null,
                 borderRadius: BorderRadius.circular(AppTheme.radius_md),
                 border: is_selected
-                    ? Border.all(
-                        color: AppTheme.primary_color.withValues(alpha: 0.24),
-                      )
+                    ? Border.all(color: AppTheme.primary_dark_color, width: 2)
                     : null,
               ),
             ),

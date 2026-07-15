@@ -1,6 +1,44 @@
 # 작업 로그
 
+## 2026-07-16
+
+- [TODO] (CHORE) 캘린더 날짜 상호작용 변경사항 커밋 및 푸시
+  - 목적: 완료된 2주 보기 자동 이동 수정과 선택일·주말·공휴일 색상 구분 개선을 검증된 문서·테스트와 함께 Git 이력으로 정리해 원격 `main`에 반영한다.
+  - 변경: 현재 unstaged 상태의 캘린더 코드, 회귀 테스트, PROJECT_CONTEXT/DECISIONS/WORKLOG 변경을 하나의 기능 커밋으로 정리하고 푸시 결과를 후속 문서 커밋에 기록할 예정이다.
+  - 영향범위: Git 이력과 원격 `main` 브랜치. 런타임 동작은 현재 검증된 작업 트리와 동일하다.
+  - 파일: 현재 캘린더 관련 변경 전체와 `_docs/WORKLOG.md`
+  - 테스트: 기존 완료 기록의 메인 캘린더 5건·친구 캘린더 3건, 대상 `flutter analyze` 0건, `git diff --check` 결과를 재확인할 예정이다.
+  - 롤백: 원격 반영 후 필요 시 생성 커밋을 `git revert`하고 푸시한다.
+  - 다음: 기능 커밋 생성 후 원격 `main` 푸시
+
+- [DONE] (FE) 캘린더 선택일과 주말·공휴일 색상 구분 개선
+  - 목적: 선택일의 primary 글자색이 토요일 색상과 같고 공휴일의 빨간색을 덮어쓰는 문제를 해결해 날짜 의미와 선택 상태를 동시에 식별할 수 있게 한다.
+  - 변경: 메인·친구 캘린더가 선택일/오늘의 날짜 글자색을 무조건 primary로 덮어쓰던 로직을 제거했다. 토요일은 primary blue, 일요일과 메인 캘린더 공휴일은 accent red를 선택 후에도 유지하며, 선택 상태는 흰색 surface 배경과 2px primary dark outline, 굵은 글씨로 분리했다. 기존 선택 박스 크기·오프셋·180ms 애니메이션과 오늘 밑줄은 유지했다. 선택된 토요일/일요일의 의미 색상과 선택 배경·테두리를 메인·친구 캘린더 위젯 테스트로 고정하고, ADR-0005와 프로젝트 컨텍스트에 시각 상태 분리 정책을 기록했다. 이전 문서에 남아 있던 양쪽 주말 빨간색 규칙도 현재 구현에 맞게 토요일 primary blue/일요일 red로 정정했다.
+  - 영향범위: 메인 캘린더와 친구 캘린더의 날짜 셀 선택 스타일, 관련 위젯 테스트와 UI 정책 문서. 날짜 선택 동작, 근무/개인 일정 데이터, API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 대상 코드/테스트 `dart format` 통과, 대상 4개 파일 `flutter analyze` 0건 통과, `calendar_page_test.dart` 5건과 `friend_calendar_page_test.dart` 3건 전체 통과, `git diff --check` 통과
+  - 롤백: 날짜 셀의 선택 시 의미 색상 유지와 surface/2px outline을 기존 primary 글자색 및 8% tint/24% outline으로 되돌리고 관련 테스트·문서를 제거한다.
+  - 다음: 실제 기기에서 선택된 평일·토요일·공휴일의 2px outline 무게와 날짜 의미 색상 가독성 확인
+
 ## 2026-07-15
+
+- [DONE] (FIX) 2주 보기 근무 입력 다음 날짜 자동 이동 동기화
+  - 목적: 2주 보기의 두 번째 주 토요일에서 근무를 선택하면 다음 일요일 선택 상태와 달력 표시 페이지가 함께 이동하도록 수정한다.
+  - 변경: `_moveToNextDay()`가 다음 날의 월 변경 여부와 관계없이 `_selected_day`와 `_focused_day`를 함께 갱신하도록 변경했다. `table_calendar`가 변경된 focused day로 2주 페이지를 계산해 페이지 경계에서 다음 화면으로 애니메이션 이동한다. 캘린더·공휴일 데이터 로딩은 `setState` 밖에서 기존과 동일하게 월이 바뀔 때만 실행한다. 2주 페이지의 마지막 토요일을 동적으로 계산해 다음 일요일의 focused day, 선택 predicate, 렌더 셀을 검증하는 영구 위젯 테스트를 추가했다.
+  - 영향범위: 메인 캘린더 근무 추가 모드의 날짜 자동 이동과 관련 위젯 테스트. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 신규 회귀 테스트 1건 단독 통과, `calendar_page_test.dart` 전체 5건 통과, 대상 코드/테스트 `flutter analyze` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: `_moveToNextDay()`의 focused day 동기화와 회귀 테스트·문서 변경을 되돌린다.
+  - 다음: 실제 작은 화면 기기에서 두 번째 토요일 입력 후 다음 페이지 애니메이션과 연속 근무 입력 감각 확인
+
+- [DONE] (INVESTIGATION) 2주 보기 근무 입력 자동 이동 불일치 진단
+  - 목적: 작은 화면의 2주 보기에서 두 번째 주 토요일 근무를 선택한 뒤 선택일은 다음 날로 바뀌지만 달력 표시 구간이 따라가지 않는 원인을 확인하고 수정 방향을 정한다.
+  - 변경: `_moveToNextDay()`는 다음 날이 `_focused_day`와 다른 월일 때만 `_focused_day`를 변경하고 있었다. 반면 `table_calendar` 3.2.0의 2주 보기는 `focusedDay`를 기준으로 14일 단위 페이지 인덱스를 계산하고, `focusedDay` 입력이 바뀌어야 내부 `PageController`를 해당 페이지로 이동한다. 따라서 같은 달 안에서 2주 페이지 경계만 넘으면 `_selected_day`만 다음 날로 바뀌고 달력 페이지는 그대로 남는 것이 직접 원인이다. 수정 시 `_selected_day`와 `_focused_day`를 항상 다음 날로 함께 갱신하고, API/공휴일 로딩만 기존처럼 월 변경 시 실행하는 방향이 가장 작고 형식 독립적이다. `pageJumpingEnabled`는 날짜 탭에만 적용되므로 이 자동 이동 문제의 해결책이 아니다.
+  - 영향범위: 조사 및 문서화만 수행하며 런타임 코드는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/WORKLOG.md`
+  - 테스트: 임시 위젯 테스트에서 390x740 2주 보기의 두 번째 토요일에 근무를 입력하면 선택일 헤더는 다음 일요일로 바뀌지만 `TableCalendar.focusedDay`는 기존 값이고 다음 일요일 셀이 렌더 트리에 없는 현상을 재현했다. 임시 테스트는 조사 후 제거했다. 기존 `calendar_page_test.dart` 4건 통과, 대상 코드/테스트 `flutter analyze` 0건.
+  - 롤백: 이 조사 기록을 제거한다.
+  - 다음: `_moveToNextDay()`에서 두 날짜 상태를 함께 갱신하고 같은 달의 2주 경계, 월 경계, 페이지 내부 이동을 검증하는 영구 회귀 테스트를 추가
 
 - [DONE] (CHORE) 완료된 캘린더 변경사항 커밋 및 푸시
   - 목적: 현재 작업 트리에서 완료된 캘린더 피커, 메인/친구 캘린더 UI 및 반응형 2주 보기 변경을 목적별 커밋으로 정리해 원격 저장소에 반영한다.
