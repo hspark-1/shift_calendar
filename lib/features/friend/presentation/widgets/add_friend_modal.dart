@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,9 +21,11 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
   static const double _minSheetHeightFactor = 0.42;
   static const double _initialSheetHeightFactor = 0.68;
   static const double _maxSheetHeightFactor = 1.0 - _sheetTopGapFactor;
+  static const double _headerHeight = 66;
 
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  final _validationBubbleLink = LayerLink();
   bool _isSending = false;
   bool _isDraggingSheet = false;
   double _sheetHeightFactor = _initialSheetHeightFactor;
@@ -51,16 +55,19 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
     final keyboardHeight = mediaQuery.viewInsets.bottom;
     final isKeyboardVisible = keyboardHeight > 0;
     final topGap = screenHeight * _sheetTopGapFactor;
-    final sheetHeight = isKeyboardVisible
-        ? screenHeight - keyboardHeight - topGap
-        : screenHeight * _sheetHeightFactor;
+    final availableSheetHeight = math.max(
+      0.0,
+      screenHeight - keyboardHeight - topGap,
+    );
+    final sheetHeight = math.min(
+      screenHeight * _sheetHeightFactor,
+      availableSheetHeight,
+    );
 
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
+    return Padding(
       padding: EdgeInsets.only(bottom: keyboardHeight),
       child: AnimatedContainer(
-        duration: _isDraggingSheet
+        duration: _isDraggingSheet || isKeyboardVisible
             ? Duration.zero
             : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
@@ -71,68 +78,92 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
             top: Radius.circular(AppTheme.card_radius),
           ),
         ),
-        child: Column(
+        child: Stack(
           children: [
-            _buildDraggableHeader(),
-            Container(height: 1, color: AppTheme.outline_variant_color),
-            // 검색 필드
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '이메일 또는 전화번호로 친구를 찾아보세요',
-                    style: AppTheme.body_small.copyWith(
-                      color: AppTheme.on_surface_variant_color,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+            Column(
+              children: [
+                _buildDraggableHeader(),
+                Container(height: 1, color: AppTheme.outline_variant_color),
+                // 검색 필드
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: CupertinoSearchTextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          placeholder: '이메일 또는 전화번호 입력',
-                          onSubmitted: (value) => _searchUser(),
-                          onChanged: (value) {
-                            // 이메일/전화번호 검색은 최대 1명만 표시하므로 입력이
-                            // 바뀌면 이전 단일 결과를 즉시 숨긴다.
-                            ref.read(searchUserProvider.notifier).reset();
-                            if (_validationMessage != null) {
-                              setState(() => _validationMessage = null);
-                            }
-                          },
+                      Text(
+                        '이메일 또는 전화번호로 친구를 찾아보세요',
+                        style: AppTheme.body_small.copyWith(
+                          color: AppTheme.on_surface_variant_color,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 44,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary_color,
-                          borderRadius: AppTheme.input_border_radius,
-                        ),
-                        child: CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: _searchUser,
-                          child: const Icon(
-                            CupertinoIcons.search,
-                            size: 20,
-                            color: CupertinoColors.white,
+                      const SizedBox(height: 12),
+                      CompositedTransformTarget(
+                        link: _validationBubbleLink,
+                        child: TapRegion(
+                          onTapOutside: (_) => _focusNode.unfocus(),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: CupertinoSearchTextField(
+                                  controller: _controller,
+                                  focusNode: _focusNode,
+                                  placeholder: '이메일 또는 전화번호 입력',
+                                  onSubmitted: (value) => _searchUser(),
+                                  onChanged: (value) {
+                                    // 이메일/전화번호 검색은 최대 1명만 표시하므로 입력이
+                                    // 바뀌면 이전 단일 결과를 즉시 숨긴다.
+                                    ref
+                                        .read(searchUserProvider.notifier)
+                                        .reset();
+                                    if (_validationMessage != null) {
+                                      setState(() => _validationMessage = null);
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 44,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary_color,
+                                  borderRadius: AppTheme.input_border_radius,
+                                ),
+                                child: CupertinoButton(
+                                  key: const ValueKey(
+                                    'add-friend-search-button',
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  onPressed: _searchUser,
+                                  child: const Icon(
+                                    CupertinoIcons.search,
+                                    size: 20,
+                                    color: CupertinoColors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ],
                   ),
-                  if (_validationMessage != null)
-                    _buildValidationBubble(_validationMessage!),
-                ],
-              ),
+                ),
+                // 검색 결과
+                Expanded(child: _buildSearchResult(searchState)),
+              ],
             ),
-            // 검색 결과
-            Expanded(child: _buildSearchResult(searchState)),
+            if (_validationMessage != null)
+              CompositedTransformFollower(
+                link: _validationBubbleLink,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(12, 6),
+                showWhenUnlinked: false,
+                child: IgnorePointer(
+                  child: _buildValidationBubble(_validationMessage!),
+                ),
+              ),
           ],
         ),
       ),
@@ -162,33 +193,58 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
       onVerticalDragCancel: () {
         setState(() => _isDraggingSheet = false);
       },
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            width: 36,
-            height: 5,
-            decoration: BoxDecoration(
-              color: AppTheme.outline_variant_color,
-              borderRadius: BorderRadius.circular(2.5),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('취소'),
+      child: SizedBox(
+        key: const ValueKey('add-friend-modal-header'),
+        height: _headerHeight,
+        child: Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            Positioned(
+              top: 8,
+              child: Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: AppTheme.outline_variant_color,
+                  borderRadius: BorderRadius.circular(2.5),
                 ),
-                Text('친구 추가', style: AppTheme.heading_small),
-                const SizedBox(width: 48),
-              ],
+              ),
             ),
-          ),
-        ],
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 8,
+              height: 44,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: CupertinoButton(
+                      minimumSize: const Size(48, 44),
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        '취소',
+                        style: AppTheme.body_medium.copyWith(
+                          color: AppTheme.primary_color,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '친구 추가',
+                    key: const ValueKey('add-friend-modal-title'),
+                    style: AppTheme.body_large.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -203,70 +259,23 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
           ? (state.error as ApiException).message
           : '사용자를 찾을 수 없습니다.';
 
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              CupertinoIcons.person_badge_minus,
-              size: 48,
-              color: AppTheme.outline_variant_color,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+      return _buildCenteredResultMessage(
+        icon: CupertinoIcons.person_badge_minus,
+        message: message,
       );
     }
 
     if (!state.hasSearched) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              CupertinoIcons.search,
-              size: 48,
-              color: AppTheme.outline_variant_color,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '친구의 이메일 또는 전화번호를\n입력해주세요',
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+      return _buildCenteredResultMessage(
+        icon: CupertinoIcons.search,
+        message: '친구의 이메일 또는 전화번호를\n입력해주세요',
       );
     }
 
     if (state.user == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              CupertinoIcons.person_badge_minus,
-              size: 48,
-              color: AppTheme.outline_variant_color,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '사용자를 찾을 수 없습니다',
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-            ),
-          ],
-        ),
+      return _buildCenteredResultMessage(
+        icon: CupertinoIcons.person_badge_minus,
+        message: '사용자를 찾을 수 없습니다',
       );
     }
 
@@ -274,6 +283,37 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: _buildUserCard(user),
+    );
+  }
+
+  Widget _buildCenteredResultMessage({
+    required IconData icon,
+    required String message,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 48, color: AppTheme.outline_variant_color),
+                  const SizedBox(height: 16),
+                  Text(
+                    message,
+                    style: AppTheme.body_medium.copyWith(
+                      color: AppTheme.on_surface_variant_color,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -410,38 +450,37 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
   }
 
   Widget _buildValidationBubble(String message) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6, left: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Transform.translate(
-            offset: const Offset(10, 5),
-            child: Transform.rotate(
-              angle: 0.785398,
-              child: Container(
-                width: 10,
-                height: 10,
-                color: CupertinoColors.systemRed,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
+    return Column(
+      key: const ValueKey('add-friend-validation-bubble'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Transform.translate(
+          offset: const Offset(10, 5),
+          child: Transform.rotate(
+            angle: 0.785398,
+            child: Container(
+              width: 10,
+              height: 10,
               color: CupertinoColors.systemRed,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              message,
-              style: AppTheme.body_small.copyWith(
-                color: CupertinoColors.white,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ),
-        ],
-      ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemRed,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            message,
+            style: AppTheme.body_small.copyWith(
+              color: CupertinoColors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

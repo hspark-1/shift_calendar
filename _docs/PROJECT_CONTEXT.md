@@ -266,6 +266,38 @@ CalendarPage
   - `test/features/calendar/data/models/event_api_model_test.dart`: 일정 날짜별 매핑의 자정
     배타적 종료 처리와 일정 ID 중복 제거·시작 시각 정렬을 검증한다.
 
+### 친구 추가 검색 흐름
+
+```
+FriendListPage
+  → AddFriendModal
+  → SearchUserNotifier.searchUser()
+  → FriendService.searchUser()
+  → GET /api/v1/users/search?query=...
+```
+
+- 친구 추가 모달의 검색창과 검색 버튼은 하나의 `TapRegion`으로 묶는다. 검색창 밖의 모달 영역을
+  터치하면 검색 `FocusNode`를 해제해 가상 키보드를 닫고, 검색창이나 검색 버튼 내부 터치는 기존
+  입력·검색 동작을 유지한다.
+- 상단 헤더 높이는 `AddFriendModal`의 `_headerHeight` 단일 상수로 관리하며, 드래그 핸들을 포함해
+  66px을 사용한다. 취소 액션은 `body_medium` 14px/w600, 중앙 제목은 `body_large` 16px/w700을
+  적용하고 44px 최소 터치 영역을 유지한다. 제목은 왼쪽 액션 너비와 무관하게 시트 정중앙에 배치한다.
+- 로컬 입력 검증 말풍선은 검색 행을 `CompositedTransformTarget`으로 삼고 모달 최상위 `Stack`의
+  `CompositedTransformFollower`로 그린다. 말풍선은 검색/결과 `Column`의 높이에 포함되지 않으므로
+  표시 전후에 검색 전·오류·결과 없음 안내와 검색 결과 카드의 위치가 바뀌지 않는다.
+- 시트 높이는 사용자가 선택한 높이와 `화면 높이 - 키보드 높이 - 상단 8% 여백` 중 작은 값으로
+  제한한다. `MediaQuery.viewInsets.bottom`이 제공하는 키보드 전환 프레임은 추가 보간 없이 직접
+  반영해 키보드가 닫히는 동안 시트가 최대 높이로 팽창했다가 기본 높이로 축소되지 않게 한다.
+- 검색 전·오류·결과 없음 안내는 가용 결과 영역 안에서 중앙 정렬하되, 큰 텍스트나 큰 키보드로
+  콘텐츠 높이가 영역을 넘으면 내부 스크롤을 허용해 `RenderFlex` 오버플로를 방지한다.
+- 파일 역할/의존성/사용 예:
+  - `lib/features/friend/presentation/widgets/add_friend_modal.dart`: 이메일/전화번호 입력 검증과
+    정규화, 단일 사용자 검색 결과, 친구 요청 액션, 드래그 가능한 시트와 키보드 포커스/높이 대응을
+    담당한다. `FriendListPage`가 `showCupertinoModalPopup`으로 표시한다.
+  - `test/features/friend/presentation/widgets/add_friend_modal_test.dart`: 큰 키보드·확대 텍스트에서
+    안내 영역이 넘치지 않는지, 검색창 밖 터치로 포커스가 해제되는지, 키보드 닫힘 중 시트 목표
+    높이가 기본 높이를 초과하지 않는지 검증한다.
+
 ### 친구 캘린더 조회 흐름
 
 ```

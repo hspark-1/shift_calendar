@@ -2,6 +2,42 @@
 
 ## 2026-07-16
 
+- [TODO] (CHORE) 친구 추가 모달 개선 작업 커밋 및 푸시
+  - 목적: 완료된 키보드/애니메이션/오버플로, 헤더 비율, 검증 말풍선 개선을 코드·테스트·문서와 함께 Git 이력으로 정리해 원격 `main`에 반영한다.
+  - 변경: 커밋 및 푸시 예정
+  - 영향범위: Git 이력과 원격 `main` 브랜치. 런타임 동작은 완료된 친구 추가 모달 변경과 동일하다.
+  - 파일: 친구 추가 모달 관련 코드·테스트·문서와 `_docs/WORKLOG.md`
+  - 테스트: 친구 추가 모달 위젯 테스트 5건 통과, 대상 `flutter analyze` 0건, `dart format` 및 `git diff --check` 통과. staged diff 검사 예정
+  - 롤백: 원격 반영 후 필요 시 생성 커밋을 `git revert`하고 푸시한다.
+  - 다음: 변경 범위 검토 후 기능 커밋을 생성한다.
+
+- [DONE] (FIX) 친구 추가 검증 말풍선 오버레이 전환
+  - 목적: 빨간 검증 말풍선 표시 시 검색 결과 안내 문구가 아래로 밀리지 않도록 말풍선을 검색 행 위에 오버레이로 그린다.
+  - 변경: 검증 말풍선을 검색 영역 `Column`의 일반 자식에서 제거했다. 검색 행에 `CompositedTransformTarget`을 두고 모달 최상위 `Stack`의 후순위 `CompositedTransformFollower`로 말풍선을 연결해 결과 영역 위에 그리며, `IgnorePointer`로 검색 결과 상호작용을 방해하지 않게 했다. 기존 합산 구조였던 헤더 높이는 `_headerHeight = 66` 단일 상수와 고정 `SizedBox`로 정리해 설정 위치를 명확히 했다. 현재 취소 14px/제목 16px 스타일과 44px 터치 영역은 유지했다.
+  - 영향범위: 친구 추가 모달의 로컬 입력 검증 말풍선 배치와 헤더 높이 상수화. Behavior change: 말풍선 표시 전후 검색 안내/결과 위치가 고정된다. 검색 API, 키보드, 시트 드래그 동작은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/widgets/add_friend_modal.dart`, `test/features/friend/presentation/widgets/add_friend_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: 검증 메시지 표시 전후 결과 안내 Y좌표가 동일하고 말풍선이 `CompositedTransformFollower`에 속하는 신규 테스트 1건과 기존 헤더/키보드/오버플로 테스트 4건 등 총 5건 통과. 대상 코드/테스트 `dart format` 통과, 대상 `flutter analyze` 0건, `git diff --check` 통과.
+  - 롤백: 말풍선을 검색 영역 `Column`의 일반 자식으로 되돌리고 헤더 단일 높이 상수와 관련 테스트·문서를 제거한다.
+  - 다음: 실제 iOS 기기에서 빈 값/잘못된 형식 말풍선이 검색 결과 안내 위에 표시되고 안내 위치가 유지되는지 확인한다.
+
+- [DONE] (FE) 친구 추가 모달 헤더 비율 축소
+  - 목적: 친구 추가 모달의 헤더 제목과 상하 여백을 검색 안내·입력 요소의 크기와 균형이 맞도록 축소한다.
+  - 변경: 기존 헤더의 16px 사방 여백과 20px `heading_small` 제목을 핸들 포함 66px 고정 높이, 16px `body_large` 타이포로 조정했다. 취소는 w600, 제목은 w700을 사용하고 44px 최소 터치 영역을 유지했다. `Stack`과 중앙 정렬을 사용해 취소 버튼 너비와 관계없이 제목이 시트 정중앙에 놓이도록 했다.
+  - 영향범위: 친구 추가 모달 상단 드래그 핸들 아래의 취소 액션, 제목 타이포, 헤더 높이. Behavior change: 헤더의 시각적 높이와 제목 크기가 축소된다. 검색/키보드/드래그/API 동작은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/widgets/add_friend_modal.dart`, `test/features/friend/presentation/widgets/add_friend_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: 1.1176배 텍스트에서 헤더 66px 높이와 16px 제목을 검증하는 신규 위젯 테스트 1건 및 기존 키보드/오버플로 회귀 테스트 3건 등 총 4건 통과. 대상 코드/테스트 `dart format` 통과, 대상 `flutter analyze` 0건, `git diff --check` 통과.
+  - 롤백: 헤더의 기존 16px 사방 여백과 `heading_small` 제목 스타일로 되돌리고 관련 테스트·문서를 제거한다.
+  - 다음: 실제 iOS 기기에서 축소된 헤더와 검색 설명/입력 영역의 비율, 취소 터치 영역과 제목 정중앙 배치를 확인한다.
+
+- [DONE] (FIX) 친구 추가 모달 키보드 해제·검색 전환 버벅임·세로 오버플로 수정
+  - 목적: 친구 추가 모달에서 키보드 외부 터치 시 포커스를 해제하고, 검색 후 전환 애니메이션의 버벅임 원인과 3.4px 세로 오버플로를 확인해 안정적으로 수정한다.
+  - 변경: 검색창과 검색 버튼을 `TapRegion`으로 묶어 외부 터치 시 검색 `FocusNode`를 해제했다. 시트 높이를 `min(사용자 선택 높이, 화면-키보드-상단 여백)`으로 제한하고 키보드가 표시되는 프레임에는 별도 220ms 보간을 제거했다. 기존 구현은 키보드 `viewInsets`가 닫힘 애니메이션 중 감소할수록 시트를 남은 공간 전체(테스트에서 676.48px)로 확장한 뒤 기본 높이(573.92px)로 다시 축소하고, `AnimatedPadding`과 `AnimatedContainer`가 이미 애니메이션 중인 inset을 재보간해 검색 직후 버벅임을 만들었다. 검색 전·오류·결과 없음 안내는 가용 높이보다 커질 때 스크롤되도록 변경해 확대 텍스트에서 발생한 RenderFlex 오버플로를 제거했다. DebugMCP는 Flutter 테스트 대신 잘못된 npm 디버그 구성으로 종료되어 중단점을 잡지 못했고 즉시 세션과 중단점을 정리한 뒤 위젯 렌더 테스트의 실제 높이/예외로 원인을 검증했다.
+  - 영향범위: 친구 추가 모달의 포커스/키보드 처리, 검색 상태 전환 시트 높이, 좁은 결과 영역의 안내 표시. 친구 검색 API/DB 계약과 친구 요청 상태는 변경하지 않는다. Behavior change: 검색창 밖 터치로 키보드가 닫히며 키보드 닫힘 중 시트가 기본 높이 이상으로 튀지 않는다.
+  - 파일: `lib/features/friend/presentation/widgets/add_friend_modal.dart`, `test/features/friend/presentation/widgets/add_friend_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: 큰 키보드·1.1176배 텍스트 오버플로 방지, 외부 터치 포커스 해제, 키보드 닫힘 중 기본 높이 상한 등 신규 위젯 테스트 3건 통과. 대상 코드/테스트 `dart format` 통과, 대상 `flutter analyze` 0건, `git diff --check` 통과.
+  - 롤백: `TapRegion`, 시트 높이 상한/키보드 직접 반영, 스크롤 가능한 안내 레이아웃과 신규 테스트·문서 기록을 함께 제거하고 기존 이중 애니메이션 계산으로 되돌린다.
+  - 다음: 실제 iOS 기기에서 키보드 외부 터치, 검색 버튼/엔터 검색 직후 시트 이동, 큰 텍스트 접근성 설정의 안내 스크롤을 확인한다.
+
 - [DONE] (CHORE) 캘린더 공용화·공휴일 캐시 변경사항 커밋 및 푸시
   - 목적: 완료된 메인·친구 캘린더 공용 위젯 리팩토링과 공휴일 로컬 캐시 변경을 검증된 문서·테스트와 함께 Git 이력으로 정리해 원격 저장소에 반영한다.
   - 변경: 기존 미푸시 공휴일명 위치 수정 커밋 `b3dd26a fix: location holiday name`을 보존했다. 캘린더 공용 위젯 추출, 이벤트 날짜 매핑 공통화, 공휴일 영속 캐시와 친구 캘린더 표시, 테스트·문서를 `2391888 refactor(calendar): share views and persist holidays`로 생성하고 두 기능 커밋을 `origin/main`에 푸시했다. 이 완료 기록은 후속 문서 커밋으로 원격에 반영한다.
