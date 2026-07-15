@@ -2,14 +2,14 @@
 
 ## 2026-07-16
 
-- [TODO] (CHORE) 캘린더 공용화·공휴일 캐시 변경사항 커밋 및 푸시
+- [DONE] (CHORE) 캘린더 공용화·공휴일 캐시 변경사항 커밋 및 푸시
   - 목적: 완료된 메인·친구 캘린더 공용 위젯 리팩토링과 공휴일 로컬 캐시 변경을 검증된 문서·테스트와 함께 Git 이력으로 정리해 원격 저장소에 반영한다.
-  - 변경: 예정 — 현재 변경 범위와 검증 상태를 재확인하고 하나의 기능 커밋으로 생성한 뒤 `origin/main`에 푸시한다.
+  - 변경: 기존 미푸시 공휴일명 위치 수정 커밋 `b3dd26a fix: location holiday name`을 보존했다. 캘린더 공용 위젯 추출, 이벤트 날짜 매핑 공통화, 공휴일 영속 캐시와 친구 캘린더 표시, 테스트·문서를 `2391888 refactor(calendar): share views and persist holidays`로 생성하고 두 기능 커밋을 `origin/main`에 푸시했다. 이 완료 기록은 후속 문서 커밋으로 원격에 반영한다.
   - 영향범위: Git 이력과 원격 `main` 브랜치. 런타임 동작은 완료된 캘린더 변경과 동일하다.
-  - 파일: 현재 캘린더 공용화·공휴일 캐시 관련 코드, 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
-  - 테스트: 예정 — 변경 대상 테스트, 정적 분석, 포맷 및 staged diff 검사 결과 확인
+  - 파일: 캘린더 공용화·공휴일 캐시 관련 코드와 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 이벤트 날짜 매핑 2건, 공휴일 저장·복원 1건, 메인 캘린더 6건, 친구 캘린더 4건으로 총 13건 통과. 변경 대상 11개 Dart 파일 `flutter analyze` 0건, `dart format --set-exit-if-changed`, `git diff --check`, `git diff --cached --check` 통과.
   - 롤백: 원격 반영 후 필요 시 생성 커밋을 `git revert`하고 푸시한다.
-  - 다음: 검증, 커밋, 푸시 후 DONE으로 갱신
+  - 다음: 실제 기기에서 공용 월 렌더링과 앱 재실행 후 공휴일 캐시 복원을 확인한다.
 
 - [DONE] (FE) 공휴일 API 로컬 캐시와 전체 캘린더 공유
   - 목적: 앱에서 조회한 공휴일 API 데이터를 로컬에 보존하고 메인·친구 일정 조회 캘린더가 동일한 공휴일 데이터와 표시 규칙을 사용하도록 한다.
