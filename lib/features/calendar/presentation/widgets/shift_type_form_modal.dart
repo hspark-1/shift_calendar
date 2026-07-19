@@ -34,6 +34,8 @@ class ShiftTypeFormModal extends StatefulWidget {
 class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   late TextEditingController _codeController;
   late TextEditingController _nameController;
+  late FocusNode _code_focus_node;
+  late FocusNode _name_focus_node;
 
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
@@ -45,6 +47,8 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
     final shiftType = widget.shiftType;
     _codeController = TextEditingController(text: shiftType?.code ?? '');
     _nameController = TextEditingController(text: shiftType?.name ?? '');
+    _code_focus_node = FocusNode();
+    _name_focus_node = FocusNode();
 
     if (shiftType != null) {
       if (shiftType.color != null) {
@@ -67,13 +71,19 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
     }
 
     _codeController.addListener(_handleCodeChanged);
+    _code_focus_node.addListener(_handleCodeFocusChanged);
+    _name_focus_node.addListener(_handleNameFocusChanged);
   }
 
   @override
   void dispose() {
     _codeController.removeListener(_handleCodeChanged);
+    _code_focus_node.removeListener(_handleCodeFocusChanged);
+    _name_focus_node.removeListener(_handleNameFocusChanged);
     _codeController.dispose();
     _nameController.dispose();
+    _code_focus_node.dispose();
+    _name_focus_node.dispose();
     super.dispose();
   }
 
@@ -91,6 +101,42 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  /// 텍스트 필드가 처음 포커스를 받을 때 기존 입력의 끝으로 커서를 이동
+  void _handleCodeFocusChanged() {
+    _moveCursorToEnd(_codeController, _code_focus_node);
+  }
+
+  void _handleNameFocusChanged() {
+    _moveCursorToEnd(_nameController, _name_focus_node);
+  }
+
+  void _moveCursorToEnd(
+    TextEditingController controller,
+    FocusNode focus_node,
+  ) {
+    if (!focus_node.hasFocus) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !focus_node.hasFocus) return;
+
+      controller.selection = TextSelection.collapsed(
+        offset: controller.text.length,
+      );
+    });
+  }
+
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  void _handleCodeSubmitted(String _) {
+    _name_focus_node.requestFocus();
+  }
+
+  Future<void> _handleNameSubmitted(String _) async {
+    await _selectTime(true);
   }
 
   /// 현재 템플릿의 다른 근무 타입과 코드가 중복되는지 확인
@@ -140,6 +186,8 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
 
   /// 시간 선택
   Future<void> _selectTime(bool isStartTime) async {
+    _dismissKeyboard();
+
     final initial_time = isStartTime ? _startTime : _endTime;
     final selected_time = await showTimePickerSheet(
       context: context,
@@ -163,6 +211,10 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
         _endTime = time;
       }
     });
+
+    if (isStartTime && mounted) {
+      await _selectTime(false);
+    }
   }
 
   /// 시간 제거
@@ -200,6 +252,8 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
 
   /// 저장
   void _save() {
+    _dismissKeyboard();
+
     final error = _validate();
     if (error != null) {
       showCupertinoDialog(
@@ -301,48 +355,53 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
           ),
         ),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(16, _scaled(28), 16, bottomPadding),
-          children: [
-            _buildPreviewSection(),
-            SizedBox(height: _scaled(28)),
-            _buildIdentityCard(),
-            SizedBox(height: _scaled(24)),
-            Padding(
-              padding: EdgeInsets.only(left: _scaled(16), bottom: _scaled(8)),
-              child: Text(
-                '근무 시간',
-                style: _scaledTextStyle(AppTheme.body_large).copyWith(
-                  color: AppTheme.on_surface_variant_color.withValues(
-                    alpha: 0.62,
+      child: GestureDetector(
+        key: const Key('shift_type_keyboard_dismiss_area'),
+        behavior: HitTestBehavior.translucent,
+        onTap: _dismissKeyboard,
+        child: SafeArea(
+          bottom: false,
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(16, _scaled(28), 16, bottomPadding),
+            children: [
+              _buildPreviewSection(),
+              SizedBox(height: _scaled(28)),
+              _buildIdentityCard(),
+              SizedBox(height: _scaled(24)),
+              Padding(
+                padding: EdgeInsets.only(left: _scaled(16), bottom: _scaled(8)),
+                child: Text(
+                  '근무 시간',
+                  style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                    color: AppTheme.on_surface_variant_color.withValues(
+                      alpha: 0.62,
+                    ),
+                    fontWeight: FontWeight.w500,
                   ),
-                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-            _buildTimeCard(),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                _scaled(28),
-                _scaled(24),
-                _scaled(28),
-                0,
-              ),
-              child: Text(
-                '시간을 입력하지 않으면 휴가, 오프 등 시간이 없는 타입으로 설정됩니다.',
-                style: _scaledTextStyle(AppTheme.body_medium).copyWith(
-                  color: AppTheme.on_surface_variant_color.withValues(
-                    alpha: 0.62,
-                  ),
-                  height: 1.65,
+              _buildTimeCard(),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  _scaled(28),
+                  _scaled(24),
+                  _scaled(28),
+                  0,
                 ),
-                textAlign: TextAlign.center,
+                child: Text(
+                  '시간을 입력하지 않으면 휴가, 오프 등 시간이 없는 타입으로 설정됩니다.',
+                  style: _scaledTextStyle(AppTheme.body_medium).copyWith(
+                    color: AppTheme.on_surface_variant_color.withValues(
+                      alpha: 0.62,
+                    ),
+                    height: 1.65,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -462,6 +521,9 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                   placeholder: '최대 3자',
                   maxLength: 3,
                   textCapitalization: TextCapitalization.characters,
+                  focus_node: _code_focus_node,
+                  text_input_action: TextInputAction.done,
+                  onSubmitted: _handleCodeSubmitted,
                 ),
               ),
               const Divider(
@@ -473,6 +535,9 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
                 label: '이름',
                 controller: _nameController,
                 placeholder: '근무 이름',
+                focus_node: _name_focus_node,
+                text_input_action: TextInputAction.done,
+                onSubmitted: _handleNameSubmitted,
               ),
             ],
           ),
@@ -502,6 +567,9 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
     required String label,
     required TextEditingController controller,
     required String placeholder,
+    required FocusNode focus_node,
+    required TextInputAction text_input_action,
+    required ValueChanged<String> onSubmitted,
     int? maxLength,
     TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
@@ -524,8 +592,11 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
             child: CupertinoTextField(
               key: Key('shift_type_${label == '코드' ? 'code' : 'name'}_field'),
               controller: controller,
+              focusNode: focus_node,
               placeholder: placeholder,
               maxLength: maxLength,
+              textInputAction: text_input_action,
+              onSubmitted: onSubmitted,
               textAlign: TextAlign.right,
               textCapitalization: textCapitalization,
               style: _scaledTextStyle(AppTheme.body_large).copyWith(

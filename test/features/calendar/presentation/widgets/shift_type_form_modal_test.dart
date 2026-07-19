@@ -142,6 +142,78 @@ void main() {
     );
   });
 
+  testWidgets('코드부터 종료 시간까지 입력 포커스를 순서대로 이동한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    final code_field = tester.widget<CupertinoTextField>(
+      find.byKey(const Key('shift_type_code_field')),
+    );
+    final name_field = tester.widget<CupertinoTextField>(
+      find.byKey(const Key('shift_type_name_field')),
+    );
+    code_field.controller?.selection = const TextSelection.collapsed(offset: 0);
+    name_field.controller?.selection = const TextSelection.collapsed(offset: 0);
+
+    await tester.tap(find.byKey(const Key('shift_type_code_field')));
+    await tester.pump();
+
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(code_field.controller?.selection.baseOffset, 'D'.length);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(code_field.focusNode?.hasFocus, isFalse);
+    expect(name_field.focusNode?.hasFocus, isTrue);
+    expect(name_field.controller?.selection.baseOffset, '데이'.length);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(name_field.focusNode?.hasFocus, isFalse);
+    expect(find.byType(TimePickerSheet), findsOneWidget);
+    expect(find.text('시작시간 선택'), findsOneWidget);
+
+    await tester.tap(find.text('선택한 시간 적용'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimePickerSheet), findsOneWidget);
+    expect(find.text('시작시간 선택'), findsNothing);
+    expect(find.text('종료시간 선택'), findsOneWidget);
+
+    await tester.tap(find.text('선택한 시간 적용'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimePickerSheet), findsNothing);
+    expect(code_field.focusNode?.hasFocus, isFalse);
+    expect(name_field.focusNode?.hasFocus, isFalse);
+  });
+
+  testWidgets('코드와 이름 밖 화면을 터치하면 텍스트 포커스를 해제한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    final code_field = tester.widget<CupertinoTextField>(
+      find.byKey(const Key('shift_type_code_field')),
+    );
+
+    await tester.tap(find.byKey(const Key('shift_type_code_field')));
+    await tester.pump();
+    expect(code_field.focusNode?.hasFocus, isTrue);
+
+    await tester.tap(find.byKey(const Key('shift_type_code_preview')));
+    await tester.pump();
+
+    expect(code_field.focusNode?.hasFocus, isFalse);
+  });
+
   testWidgets('다른 근무 타입의 코드를 입력하면 사용 불가를 즉시 표시한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -314,8 +386,14 @@ void main() {
     await tester.tap(find.text('선택한 시간 적용'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TimePickerSheet), findsNothing);
+    expect(find.byType(TimePickerSheet), findsOneWidget);
+    expect(find.text('종료시간 선택'), findsOneWidget);
     expect(find.text('06:30'), findsOneWidget);
+
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimePickerSheet), findsNothing);
   });
 
   testWidgets('색상 변경은 기존 액션 시트 대신 전체 화면 선택 페이지를 연다', (tester) async {
