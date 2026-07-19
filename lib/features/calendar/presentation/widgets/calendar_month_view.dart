@@ -292,7 +292,9 @@ class CalendarMonthView extends StatelessWidget {
               width: is_selected ? selection_box_size : 0,
               height: is_selected ? selection_box_size : 0,
               decoration: BoxDecoration(
-                color: is_selected ? AppTheme.surface_color : null,
+                color: is_selected
+                    ? AppTheme.primary_color.withValues(alpha: 0.08)
+                    : null,
                 borderRadius: BorderRadius.circular(AppTheme.radius_md),
                 border: is_selected
                     ? Border.all(color: AppTheme.primary_dark_color, width: 2)

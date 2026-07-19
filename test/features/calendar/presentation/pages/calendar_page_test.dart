@@ -596,7 +596,10 @@ void main() {
         saturday_selection_widget.decoration! as BoxDecoration;
     final saturday_selection_border =
         saturday_selection_decoration.border! as Border;
-    expect(saturday_selection_decoration.color, AppTheme.surface_color);
+    expect(
+      saturday_selection_decoration.color,
+      AppTheme.primary_color.withValues(alpha: 0.08),
+    );
     expect(saturday_selection_border.top.color, AppTheme.primary_dark_color);
     expect(saturday_selection_border.top.width, 2);
 
