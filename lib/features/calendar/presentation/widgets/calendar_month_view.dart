@@ -333,7 +333,9 @@ class _CalendarDayBadge extends StatelessWidget {
           child: Text(
             badge.text,
             style: TextStyle(
-              color: CupertinoColors.white.withValues(alpha: opacity),
+              color: AppTheme.readableForegroundColor(
+                badge.color,
+              ).withValues(alpha: opacity),
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),

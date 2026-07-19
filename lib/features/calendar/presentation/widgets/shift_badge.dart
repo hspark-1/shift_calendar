@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -24,10 +26,12 @@ class ShiftBadge extends ConsumerWidget {
     final label = shiftInfo?.name ?? shift_type;
 
     if (show_label) {
+      final background_color = color.withValues(alpha: 0.2);
+
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.2),
+          color: background_color,
           borderRadius: BorderRadius.circular(AppTheme.chip_radius),
           border: Border.all(color: color, width: 1),
         ),
@@ -43,7 +47,10 @@ class ShiftBadge extends ConsumerWidget {
             Text(
               label,
               style: TextStyle(
-                color: color,
+                color: AppTheme.readableForegroundColor(
+                  background_color,
+                  preferred_color: color,
+                ),
                 fontWeight: FontWeight.w600,
                 fontSize: size * 0.7,
               ),

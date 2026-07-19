@@ -462,7 +462,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
               child: Text(
                 previewCode.isEmpty ? '-' : previewCode,
                 style: AppTheme.heading_large.copyWith(
-                  color: AppTheme.surface_color,
+                  color: AppTheme.readableForegroundColor(_selectedColor),
                   fontSize: _scaled(28),
                   fontWeight: FontWeight.w500,
                   height: 1,

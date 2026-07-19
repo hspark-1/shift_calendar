@@ -120,6 +120,48 @@ class AppTheme {
     );
   }
 
+  /// 배경과 최소 대비를 만족하는 전경색을 반환한다.
+  ///
+  /// 선호 색상이 충분히 읽히면 그대로 유지하고, 그렇지 않으면 공용 밝은색/어두운색 중
+  /// 실제 배경과 대비가 더 높은 색을 선택한다.
+  static Color readableForegroundColor(
+    Color background_color, {
+    Color? preferred_color,
+    Color canvas_color = surface_color,
+    Color light_color = surface_color,
+    Color dark_color = on_surface_color,
+    double minimum_contrast_ratio = 4.5,
+  }) {
+    final opaque_background = Color.alphaBlend(background_color, canvas_color);
+
+    if (preferred_color != null) {
+      final opaque_preferred = Color.alphaBlend(
+        preferred_color,
+        opaque_background,
+      );
+      if (_contrastRatio(opaque_preferred, opaque_background) >=
+          minimum_contrast_ratio) {
+        return preferred_color;
+      }
+    }
+
+    final light_contrast = _contrastRatio(light_color, opaque_background);
+    final dark_contrast = _contrastRatio(dark_color, opaque_background);
+    return dark_contrast >= light_contrast ? dark_color : light_color;
+  }
+
+  static double _contrastRatio(Color first_color, Color second_color) {
+    final first_luminance = first_color.computeLuminance();
+    final second_luminance = second_color.computeLuminance();
+    final lighter_luminance = first_luminance >= second_luminance
+        ? first_luminance
+        : second_luminance;
+    final darker_luminance = first_luminance < second_luminance
+        ? first_luminance
+        : second_luminance;
+    return (lighter_luminance + 0.05) / (darker_luminance + 0.05);
+  }
+
   /// Cupertino 테마 데이터
   static CupertinoThemeData get lightTheme {
     return const CupertinoThemeData(

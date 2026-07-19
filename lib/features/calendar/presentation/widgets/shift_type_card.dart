@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/shift_type_api_model.dart';
@@ -17,6 +19,8 @@ class ShiftTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final badge_color = shiftType.colorValue ?? CupertinoColors.systemGrey;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -43,7 +47,7 @@ class ShiftTypeCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: shiftType.colorValue ?? CupertinoColors.systemGrey,
+                color: badge_color,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
@@ -61,7 +65,7 @@ class ShiftTypeCard extends StatelessWidget {
                   child: Text(
                     shiftType.code,
                     style: AppTheme.body_large.copyWith(
-                      color: AppTheme.surface_color,
+                      color: AppTheme.readableForegroundColor(badge_color),
                       fontWeight: FontWeight.w700,
                     ),
                   ),

@@ -28,6 +28,9 @@ class ShiftTypeButton extends ConsumerWidget {
     if (shiftInfo == null) return const SizedBox.shrink();
 
     final color = shiftInfo.color;
+    final background_color = is_selected
+        ? color.withValues(alpha: 0.2)
+        : AppTheme.surface_color;
 
     return GestureDetector(
       onTap: onTap,
@@ -35,9 +38,7 @@ class ShiftTypeButton extends ConsumerWidget {
         width: 64,
         height: 64,
         decoration: BoxDecoration(
-          color: is_selected
-              ? color.withValues(alpha: 0.2)
-              : AppTheme.surface_color,
+          color: background_color,
           shape: BoxShape.circle,
           border: Border.all(
             color: is_selected ? color : AppTheme.outline_variant_color,
@@ -52,7 +53,12 @@ class ShiftTypeButton extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: is_selected ? FontWeight.bold : FontWeight.w500,
-                color: is_selected ? color : AppTheme.on_surface_color,
+                color: AppTheme.readableForegroundColor(
+                  background_color,
+                  preferred_color: is_selected
+                      ? color
+                      : AppTheme.on_surface_color,
+                ),
               ),
             ),
           ],
@@ -248,6 +254,13 @@ class _ShiftTypeCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = shift_info.color;
+    final background_color = is_selected
+        ? color.withValues(alpha: 0.16)
+        : AppTheme.surface_color;
+    final code_color = AppTheme.readableForegroundColor(
+      background_color,
+      preferred_color: color,
+    );
 
     return Semantics(
       button: true,
@@ -265,9 +278,7 @@ class _ShiftTypeCircleButton extends StatelessWidget {
           height: size,
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: is_selected
-                ? color.withValues(alpha: 0.16)
-                : AppTheme.surface_color,
+            color: background_color,
             shape: BoxShape.circle,
             border: Border.all(
               color: is_selected ? color : color.withValues(alpha: 0.48),
@@ -286,7 +297,7 @@ class _ShiftTypeCircleButton extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: color,
+                      color: code_color,
                       letterSpacing: 0,
                     ),
                   ),

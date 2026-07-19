@@ -36,6 +36,20 @@ ShiftTypeApiModel buildEveningShiftType() {
   );
 }
 
+ShiftTypeApiModel buildPaleShiftType() {
+  return ShiftTypeApiModel(
+    shiftTypeId: 'shift-type-pale',
+    code: 'P',
+    name: '옅은 근무',
+    color: const Color(0xFFF5F7FA).toARGB32(),
+    sortOrder: 2,
+    startTime: '09:00:00',
+    endTime: '18:00:00',
+    crossesMidnight: false,
+    durationMinutes: 540,
+  );
+}
+
 ShiftTypeApiModel buildIntensityShiftType() {
   return ShiftTypeApiModel(
     shiftTypeId: 'shift-type-intensity',
@@ -186,6 +200,32 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('옅은 근무 색상에서도 미리보기 코드에 어두운 대비색을 사용한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final pale_shift_type = buildPaleShiftType();
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: ShiftTypeFormModal(
+          shiftType: pale_shift_type,
+          existingTypes: [pale_shift_type],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final preview_code = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const Key('shift_type_code_preview')),
+        matching: find.text('P'),
+      ),
+    );
+
+    expect(preview_code.style?.color, AppTheme.on_surface_color);
   });
 
   testWidgets('코드부터 종료 시간까지 입력 포커스를 순서대로 이동한다', (tester) async {

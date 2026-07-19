@@ -2,16 +2,20 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shift_calendar/core/theme/app_theme.dart';
 import 'package:shift_calendar/features/calendar/domain/entities/shift_type_info.dart';
 import 'package:shift_calendar/features/calendar/presentation/widgets/shift_type_button.dart';
 
-List<ShiftTypeInfo> buildShiftTypes(int count) {
+List<ShiftTypeInfo> buildShiftTypes(
+  int count, {
+  Color color = const Color(0xFF0061A4),
+}) {
   return List.generate(count, (index) {
     final number = index + 1;
     return ShiftTypeInfo(
       code: 'T$number',
       name: '근무 $number',
-      color: const Color(0xFF0061A4),
+      color: color,
       sort_order: index,
     );
   });
@@ -19,6 +23,7 @@ List<ShiftTypeInfo> buildShiftTypes(int count) {
 
 Widget buildTestApp({
   required int count,
+  Color color = const Color(0xFF0061A4),
   ValueChanged<String>? onShiftSelected,
 }) {
   return CupertinoApp(
@@ -29,7 +34,7 @@ Widget buildTestApp({
           width: 320,
           height: 128,
           child: ShiftTypeSelectionGrid(
-            shift_types: buildShiftTypes(count),
+            shift_types: buildShiftTypes(count, color: color),
             selected_shift: count > 0 ? 'T1' : null,
             onShiftSelected: onShiftSelected ?? (_) {},
           ),
@@ -84,5 +89,15 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('shift_type_T10')));
     expect(selected_code, 'T10');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('옅은 근무 색상은 코드 글자에 어두운 대비색을 사용한다', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(count: 1, color: const Color(0xFFF5F7FA)),
+    );
+    await tester.pumpAndSettle();
+
+    final code_text = tester.widget<Text>(find.text('T1'));
+    expect(code_text.style?.color, AppTheme.on_surface_color);
   });
 }
