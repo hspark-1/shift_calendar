@@ -4,12 +4,11 @@ import 'package:flutter/foundation.dart';
 class ApiConstants {
   ApiConstants._();
 
-  /// 기본 API URL (개발 환경)
-  // static const String base_url_dev = 'http://localhost:3000/api';
-  static const String base_url_dev = 'http://172.30.1.49:3000/api/v1';
+  /// 기본 API URL (개발/Stage 환경)
+  static const String base_url_dev = 'https://stage-api.shiftmate.co.kr/api/v1';
 
-  /// 기본 API URL (운영 환경)
-  static const String base_url_prod = 'https://shiftmate.co.kr/api/v1';
+  /// 기본 API URL (운영/Center 환경)
+  static const String base_url_prod = 'https://api.shiftmate.co.kr/api/v1';
 
   /// 현재 사용 중인 base URL
   /// Debug 모드에서는 개발 환경, Release 모드에서는 운영 환경 사용
