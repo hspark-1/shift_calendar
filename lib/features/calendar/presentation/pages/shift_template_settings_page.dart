@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_exception.dart';
@@ -114,22 +116,18 @@ class _ShiftTemplateSettingsPageState
     );
 
     if (result != null && mounted) {
-      showCupertinoDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) =>
-            const CupertinoAlertDialog(content: CupertinoActivityIndicator()),
-      );
-
-      final success = await ref
+      final updated_shift_type = await ref
           .read(shiftTemplateSettingsProvider.notifier)
           .updateShiftType(shiftType.shiftTypeId, result);
 
       if (mounted) {
-        Navigator.pop(context); // 로딩 다이얼로그 닫기
-        if (success) {
-          // 근무 타입 목록 새로고침
-          ref.invalidate(shiftTypesProvider);
+        if (updated_shift_type != null) {
+          ref
+              .read(shiftTypeDisplayUpdatesProvider.notifier)
+              .applyUpdate(
+                previous_type: shiftType,
+                updated_type: updated_shift_type,
+              );
         } else {
           final errorState = ref.read(shiftTemplateSettingsProvider);
           _showErrorDialog(_getErrorMessage(errorState.error));

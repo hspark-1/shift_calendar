@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import '../../../../core/utils/color_parser.dart';
 
 /// API 응답의 근무표 정보 모델
@@ -38,6 +40,27 @@ class WorkShiftApiModel {
       note: json['note'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+
+  WorkShiftApiModel copyWithShiftType({
+    required String shift_type_code,
+    required String shift_type_name,
+    required int? shift_type_color,
+    required String? start_time,
+    required String? end_time,
+  }) {
+    return WorkShiftApiModel(
+      workShiftId: workShiftId,
+      workDate: workDate,
+      shiftTypeCode: shift_type_code,
+      shiftTypeName: shift_type_name,
+      shiftTypeColor: shift_type_color,
+      startTime: start_time,
+      endTime: end_time,
+      note: note,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

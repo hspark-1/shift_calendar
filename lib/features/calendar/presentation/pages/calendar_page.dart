@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/korean_holidays.dart';
 import '../../../auth/presentation/pages/settings_page.dart';
@@ -62,8 +61,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   // 근무 추가 모드 시작 시 초기 스케줄 상태 저장 (변경사항 추적용)
   Map<DateTime, String?>? _initial_schedules;
-  CalendarFormat? _calendar_format_before_shift_add;
-  bool? _expanded_view_before_shift_add;
 
   // 로딩 상태
   bool _isLoading = false;
@@ -78,9 +75,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   // 확장 모드 시 행 높이
   double get _calendarRowHeight {
-    if (_is_shift_add_mode) {
-      return 60.0;
-    }
     if (_is_expanded_view) {
       return _isShortScreen ? 52.0 : 56.0;
     }
@@ -202,6 +196,27 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 선택된 날짜의 서버 근무표 반환
   WorkShiftApiModel? _getWorkShiftForDay(DateTime day) {
     return _workShifts[_normalizeDate(day)];
+  }
+
+  void _applyShiftTypeDisplayUpdate(ShiftTypeDisplayUpdate update) {
+    final affected_work_shifts = _workShifts.entries
+        .where((entry) => entry.value.shiftTypeCode == update.previous_code)
+        .toList();
+    if (affected_work_shifts.isEmpty || !mounted) return;
+
+    final updated_type = update.updated_type;
+    setState(() {
+      for (final entry in affected_work_shifts) {
+        _workShifts[entry.key] = entry.value.copyWithShiftType(
+          shift_type_code: updated_type.code,
+          shift_type_name: updated_type.name,
+          shift_type_color: updated_type.color,
+          start_time: updated_type.startTime,
+          end_time: updated_type.endTime,
+        );
+        _schedules[entry.key] = updated_type.code;
+      }
+    });
   }
 
   Color _getWorkShiftColor(WorkShiftApiModel workShift) {
@@ -333,6 +348,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(shiftTypeDisplayUpdatesProvider, (previous, next) {
+      for (final entry in next.entries) {
+        if (previous?[entry.key] == entry.value) continue;
+        _applyShiftTypeDisplayUpdate(entry.value);
+      }
+    });
+
     return CupertinoPageScaffold(
       resizeToAvoidBottomInset: false,
       navigationBar: CupertinoNavigationBar(
@@ -362,7 +384,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                     _buildCalendar(),
                     const SizedBox(height: AppTheme.spacing_xs),
                     // 선택된 날짜 정보 및 일정 목록
-                    Flexible(child: _buildSelectedDayInfo()),
+                    Expanded(child: _buildSelectedDayInfo()),
                   ],
                 ),
               ),
@@ -468,20 +490,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     setState(() {
       // 초기 상태 저장 (깊은 복사)
       _initial_schedules = Map.from(_schedules);
-      _calendar_format_before_shift_add = _calendar_format;
-      _expanded_view_before_shift_add = _is_expanded_view;
-      _calendar_format = CalendarFormat.month;
-      _is_expanded_view = true;
       _is_shift_add_mode = true;
     });
-  }
-
-  void _restoreCalendarViewAfterShiftAdd() {
-    _calendar_format =
-        _calendar_format_before_shift_add ?? CalendarFormat.month;
-    _is_expanded_view = _expanded_view_before_shift_add ?? true;
-    _calendar_format_before_shift_add = null;
-    _expanded_view_before_shift_add = null;
   }
 
   /// 날짜를 YYYY-MM-DD 형식으로 변환
@@ -578,7 +588,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       setState(() {
         _is_shift_add_mode = false;
         _initial_schedules = null;
-        _restoreCalendarViewAfterShiftAdd();
       });
       return;
     }
@@ -605,7 +614,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         setState(() {
           _is_shift_add_mode = false;
           _initial_schedules = null;
-          _restoreCalendarViewAfterShiftAdd();
           for (final workShift in response.data.workShifts) {
             final normalizedDate = _normalizeDate(workShift.workDate);
             _workShifts[normalizedDate] = workShift;
@@ -648,7 +656,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       }
       _is_shift_add_mode = false;
       _initial_schedules = null;
-      _restoreCalendarViewAfterShiftAdd();
     });
   }
 
@@ -880,7 +887,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             row_height: _calendarRowHeight,
             date_color_builder: _getCalendarDateColor,
             day_badge_builder: _getDayBadge,
-            show_day_badge: _is_expanded_view || _is_shift_add_mode,
+            show_day_badge: _is_expanded_view,
             holiday_predicate: _isHoliday,
             available_calendar_formats: const {
               CalendarFormat.month: '월',
@@ -979,6 +986,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final dayEvents = _events[normalizedDate] ?? [];
 
     return CalendarScheduleCard(
+      key: const ValueKey('calendar-schedule-card'),
       selected_date: selectedDate,
       work_shift: workShift,
       events: dayEvents,
@@ -1028,63 +1036,69 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 근무 설정 모드 overlay
   Widget _buildShiftAddOverlay() {
-    final dateFormat = DateFormat('yyyy.MM.dd', 'ko_KR');
     final selectedDate = _selected_day ?? DateTime.now();
     final currentShift = _getScheduleForDay(selectedDate);
-    final shiftTypesAsync = ref.watch(shiftTypesProvider);
+    final shiftTypesAsync = ref.watch(effectiveShiftTypesProvider);
+    final holiday_name = _isHoliday(selectedDate)
+        ? KoreanHolidays.getHolidayName(selectedDate) ?? '공휴일'
+        : null;
 
     return Container(
+      key: const ValueKey('shift-add-card'),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: AppTheme.cardDecoration(
         color: AppTheme.surface_container_low_color,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+      child: ClipRRect(
+        borderRadius: AppTheme.card_border_radius,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    dateFormat.format(selectedDate),
-                    style: AppTheme.heading_small.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildShiftAddCompleteButton(),
-              ],
+            CalendarScheduleHeader(
+              selected_date: selectedDate,
+              holiday_name: holiday_name,
+              trailing: _buildShiftAddCompleteButton(),
             ),
-            const SizedBox(height: 10),
             Expanded(
-              child: shiftTypesAsync.when(
-                data: (shiftTypes) {
-                  if (shiftTypes.isEmpty) {
-                    return _buildShiftTypeEmptyState();
-                  }
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: shiftTypesAsync.when(
+                        data: (shiftTypes) {
+                          if (shiftTypes.isEmpty) {
+                            return _buildShiftTypeEmptyState();
+                          }
 
-                  final sortedShiftTypes = [...shiftTypes]
-                    ..sort((a, b) => a.sort_order.compareTo(b.sort_order));
+                          final sortedShiftTypes = [...shiftTypes]
+                            ..sort(
+                              (a, b) => a.sort_order.compareTo(b.sort_order),
+                            );
 
-                  return ShiftTypeSelectionGrid(
-                    shift_types: sortedShiftTypes,
-                    selected_shift: currentShift,
-                    onShiftSelected: _onShiftSelected,
-                  );
-                },
-                loading: () =>
-                    const Center(child: CupertinoActivityIndicator()),
-                error: (error, stackTrace) => _buildShiftTypeErrorState(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '버튼을 누르면 다음 날로 자동 이동합니다',
-              textAlign: TextAlign.center,
-              style: AppTheme.body_small.copyWith(
-                color: AppTheme.outline_color,
+                          return ShiftTypeSelectionGrid(
+                            shift_types: sortedShiftTypes,
+                            selected_shift: currentShift,
+                            onShiftSelected: _onShiftSelected,
+                          );
+                        },
+                        loading: () =>
+                            const Center(child: CupertinoActivityIndicator()),
+                        error: (error, stackTrace) =>
+                            _buildShiftTypeErrorState(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '버튼을 누르면 다음 날로 자동 이동합니다',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.body_small.copyWith(
+                        color: AppTheme.outline_color,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

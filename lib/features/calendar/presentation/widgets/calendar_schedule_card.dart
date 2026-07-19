@@ -41,7 +41,7 @@ class CalendarScheduleCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _CalendarScheduleHeader(
+            CalendarScheduleHeader(
               selected_date: selected_date,
               holiday_name: holiday_name,
               total_count: total_count,
@@ -69,66 +69,86 @@ class CalendarScheduleCard extends StatelessWidget {
   }
 }
 
-class _CalendarScheduleHeader extends StatelessWidget {
-  const _CalendarScheduleHeader({
+class CalendarScheduleHeader extends StatelessWidget {
+  const CalendarScheduleHeader({
+    super.key,
     required this.selected_date,
-    required this.holiday_name,
-    required this.total_count,
+    this.holiday_name,
+    this.total_count,
+    this.trailing,
   });
 
   final DateTime selected_date;
   final String? holiday_name;
-  final int total_count;
+  final int? total_count;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const ValueKey('selected-day-header'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
         ),
       ),
-      child: Row(
-        key: const ValueKey('selected-day-header-content'),
-        children: [
-          Expanded(
-            child: Row(
-              key: const ValueKey('selected-day-title-content'),
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  DateFormat('yyyy.MM.dd', 'ko_KR').format(selected_date),
-                  style: AppTheme.heading_small,
-                ),
-                if (holiday_name != null) ...[
-                  const SizedBox(width: AppTheme.spacing_sm),
-                  Flexible(
-                    child: Text(
-                      holiday_name!,
-                      key: const ValueKey('selected-day-holiday-name'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTheme.body_small.copyWith(
-                        color: AppTheme.accent_red_color,
-                        fontWeight: FontWeight.w500,
-                      ),
+      child: SizedBox(
+        height: 36,
+        child: Row(
+          key: const ValueKey('selected-day-header-content'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 28,
+                child: Row(
+                  key: const ValueKey('selected-day-title-content'),
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      DateFormat('yyyy.MM.dd', 'ko_KR').format(selected_date),
+                      style: AppTheme.heading_small,
                     ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (total_count > 0) ...[
-            const SizedBox(width: AppTheme.spacing_sm),
-            Text(
-              '$total_count개의 일정',
-              style: AppTheme.body_small.copyWith(
-                color: AppTheme.on_surface_variant_color,
+                    if (holiday_name != null) ...[
+                      const SizedBox(width: AppTheme.spacing_sm),
+                      Flexible(
+                        child: Text(
+                          holiday_name!,
+                          key: const ValueKey('selected-day-holiday-name'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.body_small.copyWith(
+                            color: AppTheme.accent_red_color,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
+            if (total_count != null && total_count! > 0) ...[
+              const SizedBox(width: AppTheme.spacing_sm),
+              SizedBox(
+                height: 28,
+                child: Center(
+                  child: Text(
+                    '$total_count개의 일정',
+                    style: AppTheme.body_small.copyWith(
+                      color: AppTheme.on_surface_variant_color,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (trailing != null) ...[
+              const SizedBox(width: AppTheme.spacing_sm),
+              trailing!,
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

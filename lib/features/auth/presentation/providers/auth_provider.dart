@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -69,6 +71,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   void _invalidateAccountScopedProviders() {
     _ref.invalidate(shiftTypesProvider);
+    _ref.invalidate(shiftTypeDisplayUpdatesProvider);
+    _ref.invalidate(effectiveShiftTypesProvider);
     _ref.invalidate(shiftTypesMapProvider);
     _ref.invalidate(shiftTypeOrderProvider);
     _ref.invalidate(shiftTemplateSettingsProvider);

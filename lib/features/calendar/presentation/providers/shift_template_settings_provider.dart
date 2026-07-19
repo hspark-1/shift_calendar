@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/shift_type_api_model.dart';
@@ -46,9 +48,9 @@ class ShiftTemplateSettingsNotifier
   ShiftTemplateSettingsNotifier({
     required ShiftTemplateService templateService,
     required ShiftTypeService shiftTypeService,
-  })  : _templateService = templateService,
-        _shiftTypeService = shiftTypeService,
-        super(ShiftTemplateSettingsState(shiftTypes: []));
+  }) : _templateService = templateService,
+       _shiftTypeService = shiftTypeService,
+       super(ShiftTemplateSettingsState(shiftTypes: []));
 
   /// 초기 데이터 로드
   Future<void> loadData() async {
@@ -68,10 +70,7 @@ class ShiftTemplateSettingsNotifier
         is_loading: false,
       );
     } catch (e) {
-      state = state.copyWith(
-        is_loading: false,
-        error: e,
-      );
+      state = state.copyWith(is_loading: false, error: e);
     }
   }
 
@@ -86,10 +85,7 @@ class ShiftTemplateSettingsNotifier
       );
       return true;
     } catch (e) {
-      state = state.copyWith(
-        is_loading: false,
-        error: e,
-      );
+      state = state.copyWith(is_loading: false, error: e);
       return false;
     }
   }
@@ -100,26 +96,19 @@ class ShiftTemplateSettingsNotifier
     try {
       final response = await _shiftTypeService.createShiftType(request);
       final updatedTypes = [...state.shiftTypes, response.data];
-      state = state.copyWith(
-        shiftTypes: updatedTypes,
-        is_loading: false,
-      );
+      state = state.copyWith(shiftTypes: updatedTypes, is_loading: false);
       return true;
     } catch (e) {
-      state = state.copyWith(
-        is_loading: false,
-        error: e,
-      );
+      state = state.copyWith(is_loading: false, error: e);
       return false;
     }
   }
 
   /// 근무 타입 수정
-  Future<bool> updateShiftType(
+  Future<ShiftTypeApiModel?> updateShiftType(
     String shiftTypeId,
     UpdateShiftTypeRequest request,
   ) async {
-    state = state.copyWith(is_loading: true, error: null);
     try {
       final response = await _shiftTypeService.updateShiftType(
         shiftTypeId,
@@ -131,17 +120,15 @@ class ShiftTemplateSettingsNotifier
         }
         return type;
       }).toList();
-      state = state.copyWith(
+      state = ShiftTemplateSettingsState(
+        templateId: state.templateId,
+        templateName: state.templateName,
         shiftTypes: updatedTypes,
-        is_loading: false,
       );
-      return true;
+      return response.data;
     } catch (e) {
-      state = state.copyWith(
-        is_loading: false,
-        error: e,
-      );
-      return false;
+      state = state.copyWith(error: e);
+      return null;
     }
   }
 
@@ -153,16 +140,10 @@ class ShiftTemplateSettingsNotifier
       final updatedTypes = state.shiftTypes
           .where((type) => type.shiftTypeId != shiftTypeId)
           .toList();
-      state = state.copyWith(
-        shiftTypes: updatedTypes,
-        is_loading: false,
-      );
+      state = state.copyWith(shiftTypes: updatedTypes, is_loading: false);
       return true;
     } catch (e) {
-      state = state.copyWith(
-        is_loading: false,
-        error: e,
-      );
+      state = state.copyWith(is_loading: false, error: e);
       return false;
     }
   }
@@ -170,13 +151,14 @@ class ShiftTemplateSettingsNotifier
 
 /// 템플릿 설정 Provider
 final shiftTemplateSettingsProvider =
-    StateNotifierProvider<ShiftTemplateSettingsNotifier,
-        ShiftTemplateSettingsState>((ref) {
-  final templateService = ref.watch(shiftTemplateServiceProvider);
-  final shiftTypeService = ref.watch(shiftTypeServiceProvider);
-  return ShiftTemplateSettingsNotifier(
-    templateService: templateService,
-    shiftTypeService: shiftTypeService,
-  );
-});
-
+    StateNotifierProvider<
+      ShiftTemplateSettingsNotifier,
+      ShiftTemplateSettingsState
+    >((ref) {
+      final templateService = ref.watch(shiftTemplateServiceProvider);
+      final shiftTypeService = ref.watch(shiftTypeServiceProvider);
+      return ShiftTemplateSettingsNotifier(
+        templateService: templateService,
+        shiftTypeService: shiftTypeService,
+      );
+    });

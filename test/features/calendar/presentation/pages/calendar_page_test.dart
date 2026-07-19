@@ -6,8 +6,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shift_calendar/core/theme/app_theme.dart';
+import 'package:shift_calendar/core/utils/korean_holidays.dart';
 import 'package:shift_calendar/features/calendar/data/models/event_api_model.dart';
+import 'package:shift_calendar/features/calendar/data/models/shift_type_api_model.dart';
 import 'package:shift_calendar/features/calendar/data/models/work_shift_api_model.dart';
 import 'package:shift_calendar/features/calendar/data/services/calendar_service.dart';
 import 'package:shift_calendar/features/calendar/domain/entities/shift_type_info.dart';
@@ -22,12 +25,14 @@ class _FakeCalendarService extends CalendarService {
   _FakeCalendarService({this.work_shifts = const []}) : super(Dio());
 
   final List<WorkShiftApiModel> work_shifts;
+  int request_count = 0;
 
   @override
   Future<CalendarRangeResponse> getCalendarRange({
     required DateTime startDate,
     required DateTime endDate,
   }) async {
+    request_count += 1;
     return CalendarRangeResponse(
       success: true,
       data: CalendarRangeData(workShifts: work_shifts, events: const []),
@@ -152,6 +157,79 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final screen_height in [740.0, 800.0]) {
+    testWidgets(
+      '${screen_height.toInt()}px 화면은 근무 설정 진입 전후 달력과 하단 카드 크기를 유지한다',
+      (tester) async {
+        await tester.binding.setSurfaceSize(Size(390, screen_height));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              calendarServiceProvider.overrideWithValue(_FakeCalendarService()),
+              notificationProvider.overrideWith(
+                (ref) => _FakeNotificationNotifier(),
+              ),
+              shiftTypesProvider.overrideWith(
+                (ref) async => const [
+                  ShiftTypeInfo(
+                    code: 'D',
+                    name: '데이',
+                    color: Color(0xFF0061A4),
+                    sort_order: 0,
+                  ),
+                ],
+              ),
+            ],
+            child: CupertinoApp(
+              home: MediaQuery(
+                data: MediaQueryData(size: Size(390, screen_height)),
+                child: const CalendarPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        for (var wait_count = 0; wait_count < 50; wait_count++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+
+        final calendar_finder = find.byKey(const ValueKey('main-calendar'));
+        if (screen_height < 750) {
+          await tester.drag(calendar_finder, const Offset(0, -100));
+          await tester.pumpAndSettle();
+        } else {
+          tester
+              .widget<TableCalendar>(calendar_finder)
+              .onFormatChanged
+              ?.call(CalendarFormat.twoWeeks);
+          await tester.pumpAndSettle();
+        }
+
+        final schedule_card = find.byKey(
+          const ValueKey('calendar-schedule-card'),
+        );
+        final calendar_before = tester.widget<TableCalendar>(calendar_finder);
+        final schedule_card_size = tester.getSize(schedule_card);
+
+        await tester.tap(find.byIcon(CupertinoIcons.add));
+        await tester.pumpAndSettle();
+
+        final shift_add_card = find.byKey(const ValueKey('shift-add-card'));
+        final calendar_after = tester.widget<TableCalendar>(calendar_finder);
+
+        expect(shift_add_card, findsOneWidget);
+        expect(calendar_after.calendarFormat, calendar_before.calendarFormat);
+        expect(calendar_after.rowHeight, calendar_before.rowHeight);
+        expect(tester.getSize(shift_add_card), schedule_card_size);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('선택일 날짜와 일정 수를 같은 헤더 행에 배치한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 750));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -205,6 +283,157 @@ void main() {
       tester.getCenter(find.text(selected_date)).dy,
       closeTo(tester.getCenter(find.text('1개의 일정')).dy, 0.1),
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('근무 타입 수정 응답으로 이미 로드된 메인 캘린더 표시만 갱신한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 750));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final initial_type = ShiftTypeApiModel(
+      shiftTypeId: 'shift-type-day',
+      code: 'D',
+      name: '데이',
+      color: 0xFF0061A4,
+      sortOrder: 0,
+      startTime: '07:00:00',
+      endTime: '15:00:00',
+      crossesMidnight: false,
+      durationMinutes: 480,
+    );
+    final updated_type = ShiftTypeApiModel(
+      shiftTypeId: initial_type.shiftTypeId,
+      code: 'M',
+      name: '모닝',
+      color: 0xFFE53935,
+      sortOrder: 0,
+      startTime: '08:00:00',
+      endTime: '16:00:00',
+      crossesMidnight: false,
+      durationMinutes: 480,
+    );
+    final calendar_service = _FakeCalendarService(
+      work_shifts: [
+        WorkShiftApiModel(
+          workShiftId: 'work-shift-sync-test',
+          workDate: DateTime(now.year, now.month, now.day),
+          shiftTypeCode: initial_type.code,
+          shiftTypeName: initial_type.name,
+          shiftTypeColor: initial_type.color,
+          startTime: initial_type.startTime,
+          endTime: initial_type.endTime,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        calendarServiceProvider.overrideWithValue(calendar_service),
+        notificationProvider.overrideWith((ref) => _FakeNotificationNotifier()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const CupertinoApp(home: CalendarPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    for (var wait_count = 0; wait_count < 50; wait_count++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.text('데이'), findsOneWidget);
+    expect(find.text('07:00 ~ 15:00'), findsOneWidget);
+    expect(calendar_service.request_count, 1);
+
+    container
+        .read(shiftTypeDisplayUpdatesProvider.notifier)
+        .applyUpdate(previous_type: initial_type, updated_type: updated_type);
+    await tester.pump();
+
+    expect(find.text('데이'), findsNothing);
+    expect(find.text('모닝'), findsOneWidget);
+    expect(find.text('08:00 ~ 16:00'), findsOneWidget);
+    expect(calendar_service.request_count, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('일정과 근무 설정은 같은 선택일 헤더 위치와 공휴일명을 사용한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 750));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    SharedPreferences.setMockInitialValues({});
+    KoreanHolidays.resetForTesting();
+    addTearDown(() {
+      KoreanHolidays.resetForTesting();
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    final now = DateTime.now();
+    final selected_date = DateTime(now.year, now.month, now.day);
+    KoreanHolidays.setHolidayFetcherForTesting((year, month) async {
+      return {selected_date: '테스트 공휴일'};
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          calendarServiceProvider.overrideWithValue(_FakeCalendarService()),
+          notificationProvider.overrideWith(
+            (ref) => _FakeNotificationNotifier(),
+          ),
+          shiftTypesProvider.overrideWith(
+            (ref) async => const [
+              ShiftTypeInfo(
+                code: 'D',
+                name: '데이',
+                color: Color(0xFF0061A4),
+                sort_order: 0,
+              ),
+            ],
+          ),
+        ],
+        child: const CupertinoApp(home: CalendarPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    for (var wait_count = 0; wait_count < 50; wait_count++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    final formatted_date =
+        '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final header = find.byKey(const ValueKey('selected-day-header'));
+    final date_text = find.text(formatted_date);
+    final holiday_name = find.byKey(
+      const ValueKey('selected-day-holiday-name'),
+    );
+
+    expect(header, findsOneWidget);
+    expect(holiday_name, findsOneWidget);
+    final schedule_header_rect = tester.getRect(header);
+    final schedule_date_rect = tester.getRect(date_text);
+
+    await tester.tap(find.byIcon(CupertinoIcons.add));
+    await tester.pumpAndSettle();
+
+    expect(header, findsOneWidget);
+    expect(holiday_name, findsOneWidget);
+    expect(tester.getRect(header), schedule_header_rect);
+    expect(tester.getRect(date_text), schedule_date_rect);
+
+    final header_container = tester.widget<Container>(header);
+    final header_decoration = header_container.decoration! as BoxDecoration;
+    final header_border = header_decoration.border! as Border;
+    expect(header_border.bottom.width, 0.5);
+    expect(header_border.bottom.color, AppTheme.outline_variant_color);
     expect(tester.takeException(), isNull);
   });
 

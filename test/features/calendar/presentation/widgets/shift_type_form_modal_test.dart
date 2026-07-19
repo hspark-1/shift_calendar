@@ -1,0 +1,391 @@
+// ignore_for_file: non_constant_identifier_names
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shift_calendar/core/theme/app_theme.dart';
+import 'package:shift_calendar/features/calendar/data/models/shift_type_api_model.dart';
+import 'package:shift_calendar/features/calendar/presentation/widgets/shift_color_picker_page.dart';
+import 'package:shift_calendar/features/calendar/presentation/widgets/shift_type_form_modal.dart';
+import 'package:shift_calendar/features/calendar/presentation/widgets/time_picker_sheet.dart';
+
+ShiftTypeApiModel buildShiftType() {
+  return ShiftTypeApiModel(
+    shiftTypeId: 'shift-type-day',
+    code: 'D',
+    name: '데이',
+    color: const Color(0xFFFF9500).toARGB32(),
+    sortOrder: 0,
+    startTime: '06:30:00',
+    endTime: '15:00:00',
+    crossesMidnight: false,
+    durationMinutes: 510,
+  );
+}
+
+ShiftTypeApiModel buildEveningShiftType() {
+  return ShiftTypeApiModel(
+    shiftTypeId: 'shift-type-evening',
+    code: 'E',
+    name: '이브닝',
+    color: const Color(0xFF4355B8).toARGB32(),
+    sortOrder: 1,
+    startTime: '14:30:00',
+    endTime: '23:00:00',
+    crossesMidnight: false,
+    durationMinutes: 510,
+  );
+}
+
+Widget buildTestApp() {
+  return CupertinoApp(
+    theme: AppTheme.lightTheme,
+    home: ShiftTypeFormModal(
+      shiftType: buildShiftType(),
+      existingTypes: [buildShiftType()],
+    ),
+  );
+}
+
+Widget buildResultTestApp({
+  required ValueChanged<UpdateShiftTypeRequest?> on_result,
+}) {
+  return CupertinoApp(
+    theme: AppTheme.lightTheme,
+    home: CupertinoPageScaffold(
+      child: Builder(
+        builder: (context) => Center(
+          child: CupertinoButton(
+            onPressed: () async {
+              final result = await Navigator.of(context)
+                  .push<UpdateShiftTypeRequest>(
+                    CupertinoPageRoute(
+                      builder: (context) => ShiftTypeFormModal(
+                        shiftType: buildShiftType(),
+                        existingTypes: [buildShiftType()],
+                      ),
+                    ),
+                  );
+              on_result(result);
+            },
+            child: const Text('편집 열기'),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+void main() {
+  testWidgets('친구 설정 화면과 같은 컴팩트 카드 레이아웃으로 편집값을 표시한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('근무 타입 편집'), findsOneWidget);
+    expect(find.byKey(const Key('shift_type_back_button')), findsOneWidget);
+    expect(find.text('완료'), findsOneWidget);
+    expect(find.text('취소'), findsNothing);
+    expect(find.text('저장'), findsNothing);
+    expect(find.text('색상 변경'), findsOneWidget);
+    expect(find.text('근무 시간'), findsOneWidget);
+    expect(find.text('시작 시간'), findsOneWidget);
+    expect(find.text('종료 시간'), findsOneWidget);
+    expect(find.text('06:30'), findsOneWidget);
+    expect(find.text('15:00'), findsOneWidget);
+
+    final preview_size = tester.getSize(
+      find.byKey(const Key('shift_type_code_preview')),
+    );
+    expect(preview_size.width, closeTo(76.8, 0.01));
+    expect(preview_size.height, closeTo(76.8, 0.01));
+    expect(
+      tester.getSize(find.byKey(const Key('shift_type_start_time_row'))).height,
+      closeTo(44.8, 0.01),
+    );
+
+    final navigation_title = tester.widget<Text>(find.text('근무 타입 편집'));
+    final section_title = tester.widget<Text>(find.text('근무 시간'));
+    expect(navigation_title.style?.fontSize, AppTheme.heading_small.fontSize);
+    expect(section_title.style?.fontSize, 12.8);
+
+    expect(find.byKey(const Key('shift_type_identity_card')), findsOneWidget);
+    expect(find.byKey(const Key('shift_type_time_card')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('코드 입력을 3자로 제한하고 대문자 미리보기에 즉시 반영한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('shift_type_code_field')),
+      'offx',
+    );
+    await tester.pump();
+
+    final code_field = tester.widget<CupertinoTextField>(
+      find.byKey(const Key('shift_type_code_field')),
+    );
+
+    expect(code_field.controller?.text, 'OFF');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('shift_type_code_preview')),
+        matching: find.text('OFF'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('다른 근무 타입의 코드를 입력하면 사용 불가를 즉시 표시한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: ShiftTypeFormModal(
+          shiftType: buildShiftType(),
+          existingTypes: [buildShiftType(), buildEveningShiftType()],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<Container>(find.byKey(const Key('shift_type_code_row')))
+          .foregroundDecoration,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('shift_type_complete_button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+
+    await tester.enterText(find.byKey(const Key('shift_type_code_field')), 'e');
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsOneWidget,
+    );
+    expect(find.text('이미 사용 중인 코드입니다.'), findsOneWidget);
+    final code_row = tester.widget<Container>(
+      find.byKey(const Key('shift_type_code_row')),
+    );
+    final error_decoration = code_row.foregroundDecoration as BoxDecoration;
+    final error_border = error_decoration.border as Border;
+    expect(error_border.top.color, AppTheme.accent_red_color);
+    expect(error_border.top.width, closeTo(1.6, 0.01));
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            find.byKey(const Key('shift_type_code_field')),
+          )
+          .style
+          ?.color,
+      AppTheme.on_surface_color,
+    );
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('shift_type_complete_button')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.enterText(find.byKey(const Key('shift_type_code_field')), 'n');
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<Container>(find.byKey(const Key('shift_type_code_row')))
+          .foregroundDecoration,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('shift_type_complete_button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('시간 삭제 액션은 누른 시간만 비운다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(CupertinoIcons.xmark_circle_fill), findsNWidgets(2));
+
+    final clear_icon_right = tester
+        .getRect(find.byIcon(CupertinoIcons.xmark_circle_fill).first)
+        .right;
+    final code_editable = find.descendant(
+      of: find.byKey(const Key('shift_type_code_field')),
+      matching: find.byType(EditableText),
+    );
+    final name_editable = find.descendant(
+      of: find.byKey(const Key('shift_type_name_field')),
+      matching: find.byType(EditableText),
+    );
+    expect(
+      tester.getRect(code_editable).right,
+      closeTo(clear_icon_right, 0.01),
+    );
+    expect(
+      tester.getRect(name_editable).right,
+      closeTo(clear_icon_right, 0.01),
+    );
+
+    await tester.tap(find.byKey(const Key('shift_type_start_time_clear')));
+    await tester.pump();
+
+    expect(find.text('06:30'), findsNothing);
+    expect(find.text('15:00'), findsOneWidget);
+    expect(find.text('시간 선택'), findsOneWidget);
+    expect(find.byKey(const Key('shift_type_start_time_clear')), findsNothing);
+    expect(find.byKey(const Key('shift_type_end_time_clear')), findsOneWidget);
+    expect(find.byType(CupertinoDatePicker), findsNothing);
+    expect(
+      tester
+          .getRect(find.byKey(const Key('shift_type_start_time_value')))
+          .right,
+      closeTo(clear_icon_right, 0.01),
+    );
+
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('시작시간과 종료시간을 모두 입력하거나 모두 비워주세요.'), findsOneWidget);
+
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shift_type_end_time_clear')));
+    await tester.pump();
+
+    expect(find.text('15:00'), findsNothing);
+    expect(find.text('시간 선택'), findsNWidgets(2));
+    expect(
+      tester.getRect(find.byKey(const Key('shift_type_end_time_value'))).right,
+      closeTo(clear_icon_right, 0.01),
+    );
+  });
+
+  testWidgets('개인 일정과 같은 공용 시간 선택 시트를 사용한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('shift_type_start_time_row')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimePickerSheet), findsOneWidget);
+    expect(find.text('시작시간 선택'), findsOneWidget);
+    expect(find.text('오전 06:30'), findsOneWidget);
+    expect(find.text('지금'), findsOneWidget);
+    expect(find.text('선택한 시간 적용'), findsOneWidget);
+
+    await tester.tap(find.text('선택한 시간 적용'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TimePickerSheet), findsNothing);
+    expect(find.text('06:30'), findsOneWidget);
+  });
+
+  testWidgets('색상 변경은 기존 액션 시트 대신 전체 화면 선택 페이지를 연다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('shift_type_color_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ShiftColorPickerPage), findsOneWidget);
+    expect(find.byType(CupertinoActionSheet), findsNothing);
+
+    await tester.tap(find.byKey(const Key('shift_color_preset_2')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('shift_color_complete_button')));
+    await tester.pumpAndSettle();
+
+    final preview = tester.widget<Container>(
+      find.byKey(const Key('shift_type_code_preview')),
+    );
+    final decoration = preview.decoration as BoxDecoration;
+    expect(decoration.color?.toARGB32(), const Color(0xFF4355B8).toARGB32());
+  });
+
+  testWidgets('헤더 완료는 기존 수정 요청 계약을 그대로 반환한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    UpdateShiftTypeRequest? saved_request;
+    await tester.pumpWidget(
+      buildResultTestApp(on_result: (result) => saved_request = result),
+    );
+
+    await tester.tap(find.text('편집 열기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+
+    expect(saved_request, isNotNull);
+    expect(saved_request?.code, 'D');
+    expect(saved_request?.name, '데이');
+    expect(saved_request?.color, const Color(0xFFFF9500).toARGB32());
+    expect(saved_request?.startTime, '06:30:00');
+    expect(saved_request?.endTime, '15:00:00');
+  });
+
+  testWidgets('좌측 화살표는 편집 결과를 반환하지 않는다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    var result_received = false;
+    UpdateShiftTypeRequest? saved_request;
+    await tester.pumpWidget(
+      buildResultTestApp(
+        on_result: (result) {
+          result_received = true;
+          saved_request = result;
+        },
+      ),
+    );
+
+    await tester.tap(find.text('편집 열기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shift_type_back_button')));
+    await tester.pumpAndSettle();
+
+    expect(result_received, isTrue);
+    expect(saved_request, isNull);
+  });
+}

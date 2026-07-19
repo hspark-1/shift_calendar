@@ -1,0 +1,485 @@
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
+
+import 'package:flutter/cupertino.dart';
+
+import '../../../../core/theme/app_theme.dart';
+import 'shift_custom_color_picker_page.dart';
+
+const double _body_scale = 0.8;
+
+double _scaled(double value) => value * _body_scale;
+
+TextStyle _scaledTextStyle(TextStyle style) {
+  return style.copyWith(fontSize: (style.fontSize ?? 14) * _body_scale);
+}
+
+class ShiftColorPickerPage extends StatefulWidget {
+  final Color initial_color;
+
+  const ShiftColorPickerPage({super.key, required this.initial_color});
+
+  @override
+  State<ShiftColorPickerPage> createState() => _ShiftColorPickerPageState();
+}
+
+class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
+  static const List<_ShiftColorPreset> _presets = [
+    _ShiftColorPreset(color: Color(0xFFFF9500), name: '데이 오렌지'),
+    _ShiftColorPreset(color: Color(0xFFE85F80), name: '이브닝 핑크'),
+    _ShiftColorPreset(color: Color(0xFF4355B8), name: '나이트 인디고'),
+    _ShiftColorPreset(color: Color(0xFF448F53), name: '오프 그린'),
+    _ShiftColorPreset(color: Color(0xFF00B4D8), name: '스카이 블루'),
+    _ShiftColorPreset(color: Color(0xFF9B51E0), name: '로얄 퍼플'),
+    _ShiftColorPreset(color: Color(0xFFF2994A), name: '호박색'),
+    _ShiftColorPreset(color: Color(0xFF27AE60), name: '에메랄드'),
+    _ShiftColorPreset(color: Color(0xFFEB5757), name: '코랄 레드'),
+    _ShiftColorPreset(color: Color(0xFF2D9CDB), name: '오션 블루'),
+    _ShiftColorPreset(color: Color(0xFFF2C94C), name: '골드'),
+    _ShiftColorPreset(color: Color(0xFF333333), name: '차콜'),
+  ];
+
+  late Color _base_color;
+  late String _color_name;
+  double _brightness = 1;
+
+  Color get _selected_color {
+    final base_hsv = HSVColor.fromColor(_base_color);
+    final adjusted_value = (base_hsv.value * _brightness).clamp(0.0, 1.0);
+    return base_hsv.withValue(adjusted_value).toColor().withValues(alpha: 1);
+  }
+
+  String get _hex_value {
+    final argb = _selected_color.toARGB32().toRadixString(16).padLeft(8, '0');
+    return '#${argb.substring(2).toUpperCase()}';
+  }
+
+  int? get _selected_preset_index {
+    if (_brightness != 1) return null;
+
+    final selected_value = _base_color.toARGB32();
+    final index = _presets.indexWhere(
+      (preset) => preset.color.toARGB32() == selected_value,
+    );
+    return index < 0 ? null : index;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _base_color = widget.initial_color.withValues(alpha: 1);
+    _color_name = _presetNameForColor(_base_color) ?? '커스텀 색상';
+  }
+
+  String? _presetNameForColor(Color color) {
+    final color_value = color.toARGB32();
+    for (final preset in _presets) {
+      if (preset.color.toARGB32() == color_value) {
+        return preset.name;
+      }
+    }
+    return null;
+  }
+
+  void _selectPreset(int index) {
+    final preset = _presets[index];
+    setState(() {
+      _base_color = preset.color;
+      _color_name = preset.name;
+      _brightness = 1;
+    });
+  }
+
+  Future<void> _openCustomColorPicker() async {
+    final custom_color = await Navigator.of(context).push<Color>(
+      CupertinoPageRoute(
+        builder: (context) =>
+            ShiftCustomColorPickerPage(initial_color: _selected_color),
+      ),
+    );
+
+    if (custom_color == null || !mounted) return;
+
+    setState(() {
+      _base_color = custom_color.withValues(alpha: 1);
+      _color_name = '커스텀 색상';
+      _brightness = 1;
+    });
+  }
+
+  void _completeSelection() {
+    Navigator.of(context).pop(_selected_color);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom_safe_area = MediaQuery.paddingOf(context).bottom;
+
+    return CupertinoPageScaffold(
+      backgroundColor: AppTheme.background_color,
+      navigationBar: CupertinoNavigationBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: AppTheme.background_color,
+        border: const Border(
+          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 1),
+        ),
+        leading: CupertinoButton(
+          key: const Key('shift_color_back_button'),
+          minimumSize: const Size(44, 44),
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(
+            CupertinoIcons.chevron_back,
+            color: AppTheme.primary_dark_color,
+            size: 26,
+          ),
+        ),
+        middle: Text(
+          '색상 선택',
+          style: AppTheme.heading_small.copyWith(
+            color: AppTheme.on_surface_color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        trailing: CupertinoButton(
+          key: const Key('shift_color_complete_button'),
+          minimumSize: const Size(44, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          onPressed: _completeSelection,
+          child: Text(
+            '적용',
+            style: AppTheme.body_large.copyWith(
+              color: AppTheme.primary_color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            _scaled(32),
+            16,
+            bottom_safe_area + _scaled(40),
+          ),
+          children: [
+            _buildPreview(),
+            SizedBox(height: _scaled(40)),
+            _buildPresetSection(),
+            SizedBox(height: _scaled(32)),
+            _buildCustomColorButton(),
+            SizedBox(height: _scaled(24)),
+            _buildBrightnessCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreview() {
+    return Column(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              key: const Key('shift_color_preview'),
+              duration: const Duration(milliseconds: 180),
+              width: _scaled(96),
+              height: _scaled(96),
+              decoration: BoxDecoration(
+                color: _selected_color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.outline_variant_color,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: CupertinoColors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              right: _scaled(-4),
+              bottom: _scaled(-4),
+              child: Container(
+                width: _scaled(32),
+                height: _scaled(32),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface_color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.outline_variant_color,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: CupertinoColors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  CupertinoIcons.pencil,
+                  size: _scaled(18),
+                  color: AppTheme.on_surface_variant_color,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: _scaled(18)),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.symmetric(
+            horizontal: _scaled(12),
+            vertical: _scaled(5),
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.surface_container_low_color,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: AppTheme.outline_variant_color.withValues(alpha: 0.45),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _hex_value,
+            key: const Key('shift_color_hex_label'),
+            style: _scaledTextStyle(AppTheme.body_medium).copyWith(
+              fontFamily: 'Inter',
+              color: AppTheme.on_surface_variant_color,
+              fontWeight: FontWeight.w600,
+              letterSpacing: _scaled(1.4),
+            ),
+          ),
+        ),
+        SizedBox(height: _scaled(8)),
+        SizedBox(
+          key: const Key('shift_color_name_slot'),
+          height: _scaled(24),
+          child: Center(
+            child: Text(
+              _color_name,
+              key: const Key('shift_color_name_label'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                color: AppTheme.primary_dark_color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPresetSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '프리셋 색상',
+              style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                color: AppTheme.on_surface_variant_color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              '12개 선택 가능',
+              style: _scaledTextStyle(AppTheme.body_small).copyWith(
+                color: AppTheme.outline_color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: _scaled(16)),
+        Container(
+          key: const Key('shift_color_preset_card'),
+          padding: EdgeInsets.all(_scaled(24)),
+          decoration: AppTheme.cardDecoration(
+            radius: _scaled(AppTheme.card_radius),
+          ),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisExtent: 44,
+              mainAxisSpacing: _scaled(24),
+              crossAxisSpacing: _scaled(16),
+            ),
+            itemCount: _presets.length,
+            itemBuilder: (context, index) {
+              final preset = _presets[index];
+              final is_selected = _selected_preset_index == index;
+              final check_color = preset.color.computeLuminance() > 0.58
+                  ? AppTheme.on_surface_color
+                  : AppTheme.surface_color;
+
+              return Semantics(
+                button: true,
+                selected: is_selected,
+                label: preset.name,
+                child: GestureDetector(
+                  key: Key('shift_color_preset_$index'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _selectPreset(index),
+                  child: Center(
+                    child: AnimatedContainer(
+                      key: Key('shift_color_swatch_$index'),
+                      duration: const Duration(milliseconds: 140),
+                      width: _scaled(52),
+                      height: _scaled(52),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: preset.color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: is_selected
+                              ? AppTheme.primary_dark_color
+                              : CupertinoColors.black.withValues(alpha: 0.06),
+                          width: is_selected ? 3 : 1,
+                        ),
+                      ),
+                      child: is_selected
+                          ? Icon(
+                              CupertinoIcons.check_mark,
+                              color: check_color,
+                              size: _scaled(22),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCustomColorButton() {
+    return Container(
+      decoration: AppTheme.cardDecoration(
+        radius: _scaled(AppTheme.card_radius),
+      ),
+      child: CupertinoButton(
+        key: const Key('shift_color_custom_button'),
+        minimumSize: const Size(double.infinity, 44),
+        padding: EdgeInsets.symmetric(horizontal: _scaled(16)),
+        borderRadius: BorderRadius.circular(_scaled(AppTheme.card_radius)),
+        onPressed: _openCustomColorPicker,
+        child: Row(
+          children: [
+            Icon(
+              CupertinoIcons.paintbrush,
+              size: _scaled(24),
+              color: AppTheme.on_surface_variant_color,
+            ),
+            SizedBox(width: _scaled(12)),
+            Expanded(
+              child: Text(
+                '커스텀 색상 선택',
+                style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                  color: AppTheme.on_surface_color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: _scaled(18),
+              color: AppTheme.outline_color,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBrightnessCard() {
+    final brightness_percentage = (_brightness * 100).round();
+
+    return Container(
+      key: const Key('shift_color_brightness_card'),
+      padding: EdgeInsets.fromLTRB(
+        _scaled(16),
+        _scaled(16),
+        _scaled(16),
+        _scaled(14),
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.surface_color,
+        borderRadius: BorderRadius.circular(_scaled(AppTheme.card_radius)),
+        border: Border.all(
+          color: AppTheme.outline_variant_color.withValues(alpha: 0.55),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'BRIGHTNESS',
+                style: _scaledTextStyle(AppTheme.body_small).copyWith(
+                  color: AppTheme.outline_color,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: _scaled(0.6),
+                ),
+              ),
+              Text(
+                '$brightness_percentage%',
+                key: const Key('shift_color_brightness_label'),
+                style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                  color: AppTheme.on_surface_color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: _scaled(8)),
+          SizedBox(
+            height: _scaled(44),
+            child: Transform.scale(
+              scale: _body_scale,
+              child: CupertinoSlider(
+                key: const Key('shift_color_brightness_slider'),
+                value: _brightness,
+                min: 0,
+                max: 1,
+                activeColor: AppTheme.primary_color,
+                onChanged: (value) {
+                  setState(() {
+                    _brightness = value;
+                  });
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShiftColorPreset {
+  final Color color;
+  final String name;
+
+  const _ShiftColorPreset({required this.color, required this.name});
+}
