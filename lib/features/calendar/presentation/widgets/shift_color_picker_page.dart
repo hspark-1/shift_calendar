@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import 'shift_custom_color_picker_page.dart';
 
 const double _body_scale = 0.8;
+const double _cupertino_slider_track_inset = 22;
 
 double _scaled(double value) => value * _body_scale;
 
@@ -40,12 +41,14 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
 
   late Color _base_color;
   late String _color_name;
-  double _brightness = 1;
+  double _color_intensity = 1;
 
   Color get _selected_color {
-    final base_hsv = HSVColor.fromColor(_base_color);
-    final adjusted_value = (base_hsv.value * _brightness).clamp(0.0, 1.0);
-    return base_hsv.withValue(adjusted_value).toColor().withValues(alpha: 1);
+    return Color.lerp(
+      AppTheme.surface_color,
+      _base_color,
+      _color_intensity,
+    )!.withValues(alpha: 1);
   }
 
   String get _hex_value {
@@ -54,7 +57,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
   }
 
   int? get _selected_preset_index {
-    if (_brightness != 1) return null;
+    if (_color_intensity != 1) return null;
 
     final selected_value = _base_color.toARGB32();
     final index = _presets.indexWhere(
@@ -85,7 +88,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
     setState(() {
       _base_color = preset.color;
       _color_name = preset.name;
-      _brightness = 1;
+      _color_intensity = 1;
     });
   }
 
@@ -102,12 +105,32 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
     setState(() {
       _base_color = custom_color.withValues(alpha: 1);
       _color_name = '커스텀 색상';
-      _brightness = 1;
+      _color_intensity = 1;
     });
   }
 
   void _completeSelection() {
     Navigator.of(context).pop(_selected_color);
+  }
+
+  void _setColorIntensity(double value) {
+    final next_intensity = value.clamp(0.0, 1.0);
+    if (next_intensity == _color_intensity) return;
+
+    setState(() {
+      _color_intensity = next_intensity;
+    });
+  }
+
+  void _updateColorIntensityFromPosition(
+    Offset local_position,
+    double slider_width,
+  ) {
+    final track_width = slider_width - (_cupertino_slider_track_inset * 2);
+    if (track_width <= 0) return;
+
+    final track_position = local_position.dx - _cupertino_slider_track_inset;
+    _setColorIntensity(track_position / track_width);
   }
 
   @override
@@ -167,10 +190,10 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
             _buildPreview(),
             SizedBox(height: _scaled(40)),
             _buildPresetSection(),
-            SizedBox(height: _scaled(32)),
-            _buildCustomColorButton(),
             SizedBox(height: _scaled(24)),
-            _buildBrightnessCard(),
+            _buildColorIntensityCard(),
+            SizedBox(height: _scaled(24)),
+            _buildCustomColorButton(),
           ],
         ),
       ),
@@ -178,106 +201,109 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
   }
 
   Widget _buildPreview() {
-    return Column(
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedContainer(
-              key: const Key('shift_color_preview'),
-              duration: const Duration(milliseconds: 180),
-              width: _scaled(96),
-              height: _scaled(96),
-              decoration: BoxDecoration(
-                color: _selected_color,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppTheme.outline_variant_color,
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: CupertinoColors.black.withValues(alpha: 0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+    return Container(
+      key: const Key('shift_color_preview_card'),
+      padding: EdgeInsets.all(_scaled(20)),
+      decoration: AppTheme.cardDecoration(
+        radius: _scaled(AppTheme.card_radius),
+      ),
+      child: Row(
+        key: const Key('shift_color_preview_section'),
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          AnimatedContainer(
+            key: const Key('shift_color_preview'),
+            duration: const Duration(milliseconds: 180),
+            width: _scaled(96),
+            height: _scaled(96),
+            decoration: BoxDecoration(
+              color: _selected_color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.outline_variant_color,
+                width: 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: CupertinoColors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            Positioned(
-              right: _scaled(-4),
-              bottom: _scaled(-4),
-              child: Container(
-                width: _scaled(32),
-                height: _scaled(32),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface_color,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppTheme.outline_variant_color,
-                    width: 1,
+          ),
+          SizedBox(width: _scaled(16)),
+          Container(
+            key: const Key('shift_color_preview_divider'),
+            width: 1,
+            height: _scaled(56),
+            color: AppTheme.outline_variant_color,
+          ),
+          SizedBox(width: _scaled(16)),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '선택한 색상',
+                  key: const Key('shift_color_selected_label'),
+                  style: _scaledTextStyle(AppTheme.body_small).copyWith(
+                    color: AppTheme.on_surface_variant_color,
+                    fontWeight: FontWeight.w600,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CupertinoColors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
+                ),
+                SizedBox(height: _scaled(4)),
+                SizedBox(
+                  key: const Key('shift_color_name_slot'),
+                  height: _scaled(24),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _color_name,
+                      key: const Key('shift_color_name_label'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                        color: AppTheme.primary_dark_color,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-                child: Icon(
-                  CupertinoIcons.pencil,
-                  size: _scaled(18),
-                  color: AppTheme.on_surface_variant_color,
+                SizedBox(height: _scaled(6)),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: _scaled(12),
+                    vertical: _scaled(5),
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface_container_low_color,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: AppTheme.outline_variant_color.withValues(
+                        alpha: 0.45,
+                      ),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    _hex_value,
+                    key: const Key('shift_color_hex_label'),
+                    style: _scaledTextStyle(AppTheme.body_medium).copyWith(
+                      fontFamily: 'Inter',
+                      color: AppTheme.on_surface_variant_color,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: _scaled(1.4),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: _scaled(18)),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: EdgeInsets.symmetric(
-            horizontal: _scaled(12),
-            vertical: _scaled(5),
-          ),
-          decoration: BoxDecoration(
-            color: AppTheme.surface_container_low_color,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: AppTheme.outline_variant_color.withValues(alpha: 0.45),
-              width: 1,
+              ],
             ),
           ),
-          child: Text(
-            _hex_value,
-            key: const Key('shift_color_hex_label'),
-            style: _scaledTextStyle(AppTheme.body_medium).copyWith(
-              fontFamily: 'Inter',
-              color: AppTheme.on_surface_variant_color,
-              fontWeight: FontWeight.w600,
-              letterSpacing: _scaled(1.4),
-            ),
-          ),
-        ),
-        SizedBox(height: _scaled(8)),
-        SizedBox(
-          key: const Key('shift_color_name_slot'),
-          height: _scaled(24),
-          child: Center(
-            child: Text(
-              _color_name,
-              key: const Key('shift_color_name_label'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _scaledTextStyle(AppTheme.body_large).copyWith(
-                color: AppTheme.primary_dark_color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -285,24 +311,12 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '프리셋 색상',
-              style: _scaledTextStyle(AppTheme.body_large).copyWith(
-                color: AppTheme.on_surface_variant_color,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              '12개 선택 가능',
-              style: _scaledTextStyle(AppTheme.body_small).copyWith(
-                color: AppTheme.outline_color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        Text(
+          '프리셋 색상',
+          style: _scaledTextStyle(AppTheme.body_large).copyWith(
+            color: AppTheme.on_surface_variant_color,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         SizedBox(height: _scaled(16)),
         Container(
@@ -410,68 +424,152 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
     );
   }
 
-  Widget _buildBrightnessCard() {
-    final brightness_percentage = (_brightness * 100).round();
+  Widget _buildColorIntensityCard() {
+    final intensity_percentage = (_color_intensity * 100).round();
 
     return Container(
-      key: const Key('shift_color_brightness_card'),
+      key: const Key('shift_color_intensity_card'),
       padding: EdgeInsets.fromLTRB(
         _scaled(16),
         _scaled(16),
         _scaled(16),
         _scaled(14),
       ),
-      decoration: BoxDecoration(
-        color: AppTheme.surface_color,
-        borderRadius: BorderRadius.circular(_scaled(AppTheme.card_radius)),
-        border: Border.all(
-          color: AppTheme.outline_variant_color.withValues(alpha: 0.55),
-          width: 1,
-        ),
+      decoration: AppTheme.cardDecoration(
+        radius: _scaled(AppTheme.card_radius),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'BRIGHTNESS',
-                style: _scaledTextStyle(AppTheme.body_small).copyWith(
-                  color: AppTheme.outline_color,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: _scaled(0.6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '색상 농도',
+                      style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                        color: AppTheme.on_surface_color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: _scaled(2)),
+                    Text(
+                      '불투명하게 색을 옅게 조절해요',
+                      style: _scaledTextStyle(AppTheme.body_small).copyWith(
+                        color: AppTheme.on_surface_variant_color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                '$brightness_percentage%',
-                key: const Key('shift_color_brightness_label'),
-                style: _scaledTextStyle(AppTheme.body_large).copyWith(
-                  color: AppTheme.on_surface_color,
-                  fontWeight: FontWeight.w600,
+              SizedBox(width: _scaled(12)),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: _scaled(10),
+                  vertical: _scaled(5),
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface_container_low_color,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: AppTheme.outline_variant_color,
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  '$intensity_percentage%',
+                  key: const Key('shift_color_intensity_label'),
+                  style: _scaledTextStyle(AppTheme.body_medium).copyWith(
+                    color: AppTheme.primary_dark_color,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: _scaled(8)),
-          SizedBox(
-            height: _scaled(44),
-            child: Transform.scale(
-              scale: _body_scale,
-              child: CupertinoSlider(
-                key: const Key('shift_color_brightness_slider'),
-                value: _brightness,
-                min: 0,
-                max: 1,
-                activeColor: AppTheme.primary_color,
-                onChanged: (value) {
-                  setState(() {
-                    _brightness = value;
-                  });
-                },
+          SizedBox(height: _scaled(12)),
+          Row(
+            children: [
+              _buildIntensityEndpoint(
+                key: const Key('shift_color_intensity_light_endpoint'),
+                color: AppTheme.surface_color,
+                semantics_label: '가장 옅은 색상',
               ),
-            ),
+              SizedBox(width: _scaled(8)),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return GestureDetector(
+                      key: const Key('shift_color_intensity_gesture_area'),
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (details) {
+                        _updateColorIntensityFromPosition(
+                          details.localPosition,
+                          constraints.maxWidth,
+                        );
+                      },
+                      onHorizontalDragStart: (details) {
+                        _updateColorIntensityFromPosition(
+                          details.localPosition,
+                          constraints.maxWidth,
+                        );
+                      },
+                      onHorizontalDragUpdate: (details) {
+                        _updateColorIntensityFromPosition(
+                          details.localPosition,
+                          constraints.maxWidth,
+                        );
+                      },
+                      child: SizedBox(
+                        height: 44,
+                        child: IgnorePointer(
+                          child: CupertinoSlider(
+                            key: const Key('shift_color_intensity_slider'),
+                            value: _color_intensity,
+                            min: 0,
+                            max: 1,
+                            activeColor: AppTheme.primary_color,
+                            onChanged: _setColorIntensity,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              SizedBox(width: _scaled(8)),
+              _buildIntensityEndpoint(
+                key: const Key('shift_color_intensity_original_endpoint'),
+                color: _base_color,
+                semantics_label: '원본 색상',
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildIntensityEndpoint({
+    required Key key,
+    required Color color,
+    required String semantics_label,
+  }) {
+    return Semantics(
+      label: semantics_label,
+      child: AnimatedContainer(
+        key: key,
+        duration: const Duration(milliseconds: 140),
+        width: _scaled(28),
+        height: _scaled(28),
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppTheme.outline_variant_color, width: 1),
+        ),
       ),
     );
   }

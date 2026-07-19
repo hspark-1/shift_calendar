@@ -64,12 +64,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('색상 선택'), findsOneWidget);
+    expect(find.text('선택한 색상'), findsOneWidget);
     expect(find.text('#FF9500'), findsOneWidget);
     expect(find.text('데이 오렌지'), findsOneWidget);
     expect(find.text('프리셋 색상'), findsOneWidget);
-    expect(find.text('12개 선택 가능'), findsOneWidget);
+    expect(find.text('12개 선택 가능'), findsNothing);
+    expect(find.text('색상 농도'), findsOneWidget);
+    expect(find.text('불투명하게 색을 옅게 조절해요'), findsOneWidget);
     expect(find.text('커스텀 색상 선택'), findsOneWidget);
-    expect(find.text('BRIGHTNESS'), findsOneWidget);
+    expect(find.text('SATURATION'), findsNothing);
+    expect(find.text('BRIGHTNESS'), findsNothing);
     expect(find.text('100%'), findsOneWidget);
     expect(find.text('적용'), findsOneWidget);
     expect(find.byKey(const Key('shift_color_back_button')), findsOneWidget);
@@ -78,13 +82,40 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(CupertinoIcons.xmark), findsNothing);
+    expect(find.byIcon(CupertinoIcons.pencil), findsNothing);
     expect(find.text('선택 완료'), findsNothing);
 
-    final preview_size = tester.getSize(
+    final preview_rect = tester.getRect(
       find.byKey(const Key('shift_color_preview')),
     );
-    expect(preview_size.width, closeTo(76.8, 0.01));
-    expect(preview_size.height, closeTo(76.8, 0.01));
+    final divider_rect = tester.getRect(
+      find.byKey(const Key('shift_color_preview_divider')),
+    );
+    final hex_rect = tester.getRect(
+      find.byKey(const Key('shift_color_hex_label')),
+    );
+    final name_rect = tester.getRect(
+      find.byKey(const Key('shift_color_name_label')),
+    );
+    expect(preview_rect.width, closeTo(76.8, 0.01));
+    expect(preview_rect.height, closeTo(76.8, 0.01));
+    expect(preview_rect.right, lessThan(divider_rect.left));
+    expect(divider_rect.right, lessThan(name_rect.left));
+    expect(divider_rect.right, lessThan(hex_rect.left));
+    expect(name_rect.bottom, lessThan(hex_rect.top));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('shift_color_preview_card')),
+        matching: find.byKey(const Key('shift_color_preview')),
+      ),
+      findsOneWidget,
+    );
+    final preview_card = tester.widget<Container>(
+      find.byKey(const Key('shift_color_preview_card')),
+    );
+    final preview_card_decoration = preview_card.decoration! as BoxDecoration;
+    expect(preview_card_decoration.color, AppTheme.surface_color);
+    expect(preview_card_decoration.border, isNotNull);
 
     final swatch_size = tester.getSize(
       find.byKey(const Key('shift_color_swatch_0')),
@@ -108,10 +139,21 @@ void main() {
     for (var index = 0; index < 12; index++) {
       expect(find.byKey(Key('shift_color_preset_$index')), findsOneWidget);
     }
+    final preset_rect = tester.getRect(
+      find.byKey(const Key('shift_color_preset_card')),
+    );
+    final intensity_rect = tester.getRect(
+      find.byKey(const Key('shift_color_intensity_card')),
+    );
+    final custom_rect = tester.getRect(
+      find.byKey(const Key('shift_color_custom_button')),
+    );
+    expect(preset_rect.bottom, lessThan(intensity_rect.top));
+    expect(intensity_rect.bottom, lessThan(custom_rect.top));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('프리셋과 밝기를 선택 색상에 반영한다', (tester) async {
+  testWidgets('프리셋과 불투명 색상 농도를 선택 색상에 반영한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -125,14 +167,72 @@ void main() {
     expect(find.text('나이트 인디고'), findsOneWidget);
 
     final slider = tester.widget<CupertinoSlider>(
-      find.byKey(const Key('shift_color_brightness_slider')),
+      find.byKey(const Key('shift_color_intensity_slider')),
     );
     slider.onChanged?.call(0.5);
     await tester.pump();
 
     expect(find.text('50%'), findsOneWidget);
-    expect(find.text('#4355B8'), findsNothing);
+    expect(find.text('#A1AADC'), findsOneWidget);
     expect(find.text('나이트 인디고'), findsOneWidget);
+    final preview = tester.widget<AnimatedContainer>(
+      find.byKey(const Key('shift_color_preview')),
+    );
+    final preview_decoration = preview.decoration! as BoxDecoration;
+    expect(
+      preview_decoration.color?.toARGB32(),
+      const Color(0xFFA1AADC).toARGB32(),
+    );
+    expect(preview_decoration.color?.a, 1);
+  });
+
+  testWidgets('농도 트랙 터치와 원하는 위치에서 시작한 드래그를 지원한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildPickerApp());
+    await tester.pumpAndSettle();
+
+    final gesture_area = find.byKey(
+      const Key('shift_color_intensity_gesture_area'),
+    );
+    final gesture_rect = tester.getRect(gesture_area);
+    const track_inset = 22.0;
+    final track_width = gesture_rect.width - (track_inset * 2);
+    final track_center_y = gesture_rect.center.dy;
+
+    await tester.tapAt(
+      Offset(
+        gesture_rect.left + track_inset + (track_width * 0.5),
+        track_center_y,
+      ),
+    );
+    await tester.pump();
+    expect(find.text('50%'), findsOneWidget);
+
+    await tester.drag(gesture_area, Offset(-(track_width * 0.25), 0));
+    await tester.pump();
+    final intensity_label = tester.widget<Text>(
+      find.byKey(const Key('shift_color_intensity_label')),
+    );
+    expect(intensity_label.data, '25%');
+
+    final drag = await tester.startGesture(
+      Offset(
+        gesture_rect.left + track_inset + (track_width * 0.25),
+        track_center_y,
+      ),
+    );
+    await drag.moveTo(
+      Offset(
+        gesture_rect.left + track_inset + (track_width * 0.75),
+        track_center_y,
+      ),
+    );
+    await drag.up();
+    await tester.pump();
+
+    expect(find.text('75%'), findsOneWidget);
   });
 
   testWidgets('모든 프리셋 선택에서 하단 섹션 위치가 유지된다', (tester) async {
@@ -153,11 +253,11 @@ void main() {
     final initial_preset_top = tester
         .getRect(find.byKey(const Key('shift_color_preset_card')))
         .top;
+    final initial_intensity_top = tester
+        .getRect(find.byKey(const Key('shift_color_intensity_card')))
+        .top;
     final initial_custom_top = tester
         .getRect(find.byKey(const Key('shift_color_custom_button')))
-        .top;
-    final initial_brightness_top = tester
-        .getRect(find.byKey(const Key('shift_color_brightness_card')))
         .top;
     expect(initial_name_slot_height, closeTo(19.2, 0.01));
 
@@ -181,16 +281,14 @@ void main() {
         reason: '프리셋 $index 선택 후 프리셋 카드 위치',
       );
       expect(
+        tester.getRect(find.byKey(const Key('shift_color_intensity_card'))).top,
+        closeTo(initial_intensity_top, 0.01),
+        reason: '프리셋 $index 선택 후 농도 카드 위치',
+      );
+      expect(
         tester.getRect(find.byKey(const Key('shift_color_custom_button'))).top,
         closeTo(initial_custom_top, 0.01),
         reason: '프리셋 $index 선택 후 커스텀 버튼 위치',
-      );
-      expect(
-        tester
-            .getRect(find.byKey(const Key('shift_color_brightness_card')))
-            .top,
-        closeTo(initial_brightness_top, 0.01),
-        reason: '프리셋 $index 선택 후 밝기 카드 위치',
       );
     }
   });

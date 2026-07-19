@@ -282,6 +282,7 @@ class _ShiftCustomColorPickerPageState
       child: SafeArea(
         bottom: false,
         child: ListView(
+          physics: const NeverScrollableScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.fromLTRB(
             16,

@@ -104,9 +104,18 @@ void main() {
       findsOneWidget,
     );
 
+    final list_view = tester.widget<ListView>(find.byType(ListView));
+    expect(list_view.physics, isA<NeverScrollableScrollPhysics>());
+    final preview_top_before_drag = tester.getTopLeft(
+      find.byKey(const Key('shift_custom_color_preview')),
+    );
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pumpAndSettle();
 
+    expect(
+      tester.getTopLeft(find.byKey(const Key('shift_custom_color_preview'))),
+      preview_top_before_drag,
+    );
     expect(find.text('최근 사용한 색상'), findsOneWidget);
     expect(
       find.byKey(const Key('shift_custom_color_recent_5')),
