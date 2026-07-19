@@ -1,5 +1,241 @@
 # 작업 로그
 
+## 2026-07-19
+
+- [DONE] (CHORE) 완료된 변경사항 작업별 커밋 및 푸시
+  - 목적: 현재 작업 트리의 완료된 iOS 빌드 설정, API URL, 캘린더/근무 타입, 친구 설정 변경을 검증 가능한 작업 단위로 정리해 원격 `main`에 반영한다.
+  - 변경: iOS Profile 설정을 `40f9761 fix(ios): add profile build configuration`, Stage/Center API URL을 `9c5758a chore(api): update stage and production endpoints`, 근무 타입 편집·색상·시간 선택·수정 응답 동기화와 하단 카드 정렬을 `441c2ed feat(calendar): refine shift type editing workflow`, 친구 설정 저장 후 복귀·목록 새로고침을 `484fdc0 fix(friend): refresh settings after save`로 분리했다. 프로젝트 컨텍스트·ADR·작업 로그는 후속 문서 커밋으로 정리해 다섯 커밋을 `origin/main`에 푸시한다.
+  - 영향범위: 완료된 변경의 Git 이력과 원격 `main`. 문서·ADR·테스트와 충돌하는 `calendar_month_view.dart`의 선택 배경 tint 변경은 커밋하지 않고 기존 작업 트리에 그대로 보존했다.
+  - 파일: 현재 완료된 변경 파일과 `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: iOS 프로젝트 파일 `plutil -lint` 통과 및 Profile CocoaPods/Generated/Secrets include 연결 확인. API 상수 분석은 error/warning 0건이며 프로젝트 snake_case 규칙에 따른 기존 naming info 25건만 확인했다. 캘린더·근무 타입 대상 15개 파일 분석 0건과 관련 테스트 37건, 친구 대상 4개 파일 분석 0건과 관련 테스트 6건 등 총 43건 통과. 대상 `dart format`, 각 커밋의 `git diff --cached --check` 통과.
+  - 롤백: 원격 반영 후 필요 시 작업별 커밋을 역순으로 `git revert`하고 푸시한다.
+  - 다음: 후속 문서 커밋 생성 후 `origin/main` 푸시와 원격 동기화 상태 확인
+
+- [DONE] (FE) 근무 시간 개별 삭제
+  - 목적: 근무 타입 폼의 시작·종료 시간 X 버튼이 사용자가 누른 시간만 삭제하도록 변경한다.
+  - 변경: `_clearTime()`이 시작/종료 대상을 받아 해당 `TimeOfDay`만 null로 변경하도록 수정하고 각 행의 X 버튼에서 자신의 대상을 전달했다. 시작 시간 삭제 후 종료 시간이 유지되고, 종료 시간 삭제 후 시작 시간이 유지되는 개별 동작을 테스트로 고정했다. 한쪽만 남은 중간 편집 상태는 허용하지만 완료 시 기존 시간 쌍 검증으로 저장을 막는 정책을 ADR-0009에 기록했다.
+  - 영향범위: 근무 타입 추가·편집 화면의 시간 삭제 UX와 관련 정책 문서. Behavior change: 한 X 버튼이 두 시간을 동시에 지우지 않고 해당 행의 시간만 지운다. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 근무 타입 폼 위젯 테스트 8건 통과. 시작 시간만 삭제 후 종료 시간 유지, 한쪽만 남은 상태의 완료 차단, 종료 시간 개별 삭제와 빈 시간 정렬을 검증했다. 대상 코드/테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 삭제 액션을 시작·종료 동시 초기화 방식으로 복원한다.
+  - 다음: 실제 기기에서 각 X 버튼의 터치 대상과 개별 삭제 후 재선택 흐름을 확인한다.
+
+- [DONE] (FE) 근무 타입 시간 선택 모달 공용화
+  - 목적: 근무 타입 추가·편집의 시작/종료 시간 선택 화면을 개인 일정 추가에서 사용하는 공용 시간 선택 하단 시트와 통일한다.
+  - 변경: 근무 타입 폼 내부의 자체 300px `CupertinoDatePicker` 팝업을 제거하고 개인 일정과 같은 `showTimePickerSheet()`를 호출하도록 변경했다. 폼의 기존 `TimeOfDay`를 공용 시트의 `Duration` 초기값으로 전달하고 적용 결과를 다시 `TimeOfDay`로 변환해 표시 및 `HH:mm:ss` 저장 계약을 유지했다. 관련 회귀 테스트에서 문서 계약과 다르게 한쪽 시간만 비우던 기존 오류를 재현해, 어느 삭제 액션이든 시작·종료 시간을 함께 비우도록 바로잡았다.
+  - 영향범위: 근무 타입 추가·편집 화면의 시작/종료 시간 선택 UX와 시간 삭제 일관성, 관련 위젯 테스트. Behavior change: 시간 선택 화면이 개인 일정과 동일한 선택 요약·`지금`·취소/적용 UI로 통일된다. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 근무 타입 폼 8건과 공용 시간 선택 시트 2건 등 관련 위젯 테스트 10건 통과. 공용 `TimePickerSheet` 진입, 기존 06:30 초기값, 적용 후 폼 표시, 시간 동시 삭제와 기존 저장 계약을 검증했다. 대상 3개 파일 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 공용 시트 호출을 제거하고 근무 타입 폼 내부 시간 피커 팝업을 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 근무 타입의 시작·종료 시간 시트 높이, `지금` 선택과 하단 안전영역을 확인한다.
+
+- [DONE] (FE) 친구 설정 저장 후 이전 화면 데이터 새로고침
+  - 목적: 친구 설정 저장 후 친구 캘린더로 복귀할 때 서버의 최신 친구 목록을 다시 조회하고, 같은 화면에서 설정을 재진입해도 갱신값을 사용한다.
+  - 변경: 친구 상세 route 결과를 `FriendDetailResult.saved`와 `deleted`로 구분했다. 저장 성공으로 친구 캘린더에 복귀하면 `friendListProvider.loadFriends()`가 `GET /api/v1/friends`를 다시 호출하고, 응답 목록에서 같은 `user_id`의 `FriendModel`을 찾아 현재 화면의 로컬 친구 모델을 교체한다. 이후 설정 화면은 이 최신 모델로 진입한다. 삭제 성공은 기존처럼 친구 캘린더까지 닫아 친구 목록으로 복귀하고, 저장하지 않은 일반 뒤로가기는 새로고침하지 않는다.
+  - 영향범위: 친구 상세 저장/삭제 결과 반환, 친구 캘린더의 복귀 후 친구 목록 API 조회와 설정 재진입 데이터. 친구 캘린더 일정 조회 API와 DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/friend_detail_page.dart`, `lib/features/friend/presentation/pages/friend_calendar_page.dart`, `test/features/friend/presentation/pages/friend_detail_page_test.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 저장 성공 시 `saved` 반환 테스트 1건과 복귀 후 친구 목록 GET 호출·최신 `can_view` 재진입 테스트 1건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format`, `git diff --check` 통과.
+  - 롤백: `FriendDetailResult`와 `_refreshFriend()`를 제거하고 상세 route 결과를 기존 삭제 여부 `bool`로 복원한 뒤, 저장 성공은 결과 없이 pop하도록 되돌리고 관련 테스트·문서 기록을 제거한다.
+  - 다음: 실제 계정에서 공유 설정을 저장한 후 네트워크 탭으로 친구 목록 GET 재호출을 확인하고, 설정 화면 재진입 시 저장값이 유지되는지 확인한다.
+
+- [DONE] (FE) 친구 설정 저장 성공 후 이전 화면 이동
+  - 목적: 친구 상세 화면에서 변경한 레벨/캘린더 공유 설정의 저장이 성공하면 사용자를 이전 화면으로 자동 이동시킨다.
+  - 변경: `FriendDetailPage._saveSettings()`가 `friendListProvider`의 설정 변경 성공 응답을 받으면 현재 상세 route를 즉시 pop하도록 변경했다. 실패 시에는 상세 화면을 유지하고 로딩 상태를 해제한 뒤 기존 오류 다이얼로그를 표시한다. 가짜 `FriendService`로 캘린더 공유 토글의 요청값과 성공 후 이전 화면 복귀를 검증하는 위젯 테스트를 추가했다.
+  - 영향범위: 친구 상세 화면의 설정 저장 완료 내비게이션. Behavior change: 저장 성공 후 상세 화면에 머무르지 않고 이전 친구 캘린더 화면으로 자동 복귀한다. 저장 API, Provider 로컬 상태 갱신, 실패 UX와 DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/friend_detail_page.dart`, `test/features/friend/presentation/pages/friend_detail_page_test.dart`(신규), `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 신규 위젯 테스트 1건 통과, 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format`, `git diff --check` 통과. 친구 기능 전체 테스트에서는 9건 통과 후 작업 시작 전부터 현재 작업 트리에 존재한 선택 배경 primary 8% tint와 기존 surface 기대값 불일치 1건이 실패했으며, 이번 저장 내비게이션 범위 밖이라 수정하지 않았다.
+  - 롤백: 저장 성공 분기의 `Navigator.pop()`을 제거하고 성공 시 `_saved_level`·`_saved_can_view`만 갱신하는 기존 화면 유지 흐름으로 복원한 뒤 신규 테스트와 관련 문서 기록을 제거한다.
+  - 다음: 실제 기기에서 레벨 또는 공유 토글을 변경해 저장한 뒤 친구 캘린더로 복귀하는지, 네트워크 실패 시 상세 화면과 변경값이 유지되는지 확인한다.
+
+- [DONE] (FIX) 근무 타입 수정 응답 기반 화면 동기화
+  - 목적: 근무 타입 수정 저장 중 설정 화면의 전체 새로고침성 로딩을 제거하고, 수정 API 응답값으로 설정 목록과 메인 캘린더 표시를 즉시 최신화한다.
+  - 변경: 수정 저장 시 `ShiftTemplateSettingsNotifier`가 공용 `is_loading`을 켜지 않고 `ShiftTypeApiModel?` 응답을 반환하도록 변경했으며, 설정 페이지의 로딩 다이얼로그와 성공 후 `shiftTypesProvider` 무효화를 제거했다. 성공 응답은 설정 목록의 해당 항목을 직접 교체하고 `shiftTypeDisplayUpdatesProvider`에 수정 전 코드와 함께 발행한다. `effectiveShiftTypesProvider`는 기존 GET 캐시 위에 이 응답을 합성해 근무 입력 버튼을 최신화한다. 메인 `CalendarPage`는 표시 업데이트를 구독해 수정 전 코드가 같은 `_workShifts`와 `_schedules`의 코드·이름·색상·시간만 응답값으로 교체한다. 로그인/로그아웃 시 표시 업데이트도 무효화한다. 원인은 영속 로컬 저장소가 아니라 설정 route 아래에서 유지되는 `CalendarPage`의 `_workShifts`/`_loadedMonths` 메모리 스냅샷과 수정 응답 전달 부재로 확인했다. 설계 결정은 ADR-0008에 기록했다.
+  - 영향범위: 근무 타입 수정 요청 중 UI 상태, 설정 목록과 근무 입력 목록, 메인 캘린더의 이미 로드된 근무표 표시 데이터, 계정 전환 시 Provider 무효화. 생성/삭제와 DB/API 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`, `lib/features/calendar/presentation/providers/shift_template_settings_provider.dart`, `lib/features/calendar/presentation/providers/shift_types_provider.dart`, `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/calendar/data/models/work_shift_api_model.dart`, `lib/features/auth/presentation/providers/auth_provider.dart`, `test/features/calendar/presentation/providers/shift_template_settings_provider_test.dart`(신규), `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: VM·Chrome에서 Provider 테스트 각 2건과 메인 캘린더 동기화 테스트 각 1건 통과. 수정 요청 중 `is_loading=false`, PUT 응답 객체의 설정 목록 반영, GET 캐시 위 응답 합성, 캘린더 range 추가 호출 없이 기존 선택일 이름·시간 교체를 검증했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 통과. 전체 캘린더 테스트의 기존 월 보기 색상 기대값 1건과 근무 타입 폼의 기존 시간 동시 삭제 기대값 1건은 현재 작업 트리 코드와 불일치해 실패하며 이번 동기화 변경 범위에서는 수정하지 않았다.
+  - 롤백: `shiftTypeDisplayUpdatesProvider`/`effectiveShiftTypesProvider`, 캘린더 표시 패치와 `copyWithShiftType()`을 제거하고, 수정 메서드를 `Future<bool>` 및 공용 `is_loading`/로딩 다이얼로그/`shiftTypesProvider` 무효화 흐름으로 복원한다. ADR-0008과 관련 컨텍스트·테스트를 제거한다.
+  - 다음: 실제 계정으로 코드·이름·색상·시간을 수정해 설정 목록과 메인 캘린더가 추가 GET 없이 즉시 같아지는지 확인한다. 앱 재실행 후 `/calendar/range` 자체가 이전 메타데이터를 반환하면 서버 조회 join/스냅샷 정책을 점검한다.
+
+- [DONE] (FE) 근무 타입 중복 코드 표시를 영역 테두리로 변경
+  - 목적: 중복 코드 입력 시 코드 글자색을 바꾸는 대신 코드 입력 영역의 빨간 테두리로 오류 위치를 더 명확하게 표현한다.
+  - 변경: 중복 상태에서 `CupertinoTextField`의 코드 글자색을 accent red로 바꾸던 분기를 제거해 기본 본문 색상을 유지했다. 대신 코드 입력 행에 1.6px accent red foreground 테두리를 표시하고 카드 상단 모서리 반경을 동일하게 적용했다. 고유 코드로 변경하면 테두리는 즉시 제거되며 기존 인라인 안내와 `완료` 비활성화는 유지한다.
+  - 영향범위: 근무 타입 코드 중복 상태의 시각 표현. 중복 판정, 완료 비활성화, API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: VM 및 Chrome 브라우저에서 전용 위젯 테스트 각 7건 통과(중복 시 1.6px accent red 코드 행 테두리, 기본 코드 글자색 유지, 고유 코드 변경 시 테두리 제거 포함). 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format`, `git diff --check` 통과.
+  - 롤백: 코드 입력 영역의 오류 테두리를 제거하고 중복 코드 입력값의 accent red 글자색 표시를 복원한다.
+  - 다음: 실제 브라우저와 iOS/Android 기기에서 코드 행의 빨간 테두리가 카드 outline 및 구분선과 자연스럽게 겹치는지 확인한다.
+
+- [DONE] (FE) 근무 타입 코드 중복 즉시 표시
+  - 목적: 근무 타입 추가/편집 화면에서 코드를 입력하는 동안 현재 템플릿의 기존 코드와 즉시 비교해 사용 불가능 여부를 저장 전에 알린다.
+  - 변경: 코드 입력 리스너가 기존 대문자 정규화와 함께 화면을 즉시 갱신하도록 하고, `existingTypes`를 대소문자·앞뒤 공백 정규화 후 비교하는 공용 중복 판정을 추가했다. 편집 중인 타입은 `shiftTypeId`로 제외한다. 중복 코드는 인라인 안내와 후속 작업에서 반영한 코드 입력 영역 테두리를 accent red로 표시하고 `완료`를 비활성화하며, 고유 코드로 바꾸면 즉시 안내·테두리를 제거하고 완료 액션을 복구한다. 저장 시점의 기존 중복 검증과 서버 오류 처리는 유지했다.
+  - 영향범위: 근무 타입 코드 입력 검증 UI와 완료 액션. 현재 화면 진입 시 로드된 코드 목록을 사용하는 로컬 사전 검증이며 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: VM 및 Chrome 브라우저에서 전용 위젯 테스트 각 7건 통과(다른 타입의 소문자 코드 입력 시 즉시 중복 표시·완료 비활성화, 고유 코드 변경 시 즉시 복구 포함). 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format`, `git diff --check` 통과. 전체 프로젝트 `flutter analyze --no-fatal-infos`는 이번 대상 밖 기존 경고·정보 126건으로 종료 코드 1이며 이번 변경 파일의 진단은 없다.
+  - 롤백: 입력 리스너의 즉시 중복 상태 표시와 관련 테스트·문서를 제거하고 기존 완료 시점 검증만 유지한다.
+  - 다음: 실제 브라우저와 iOS/Android 기기에서 키보드 입력 중 안내 문구 표시 및 레이아웃 이동을 확인한다.
+
+- [DONE] (FIX) 일부 프리셋 선택 시 색상 화면 세로 이동
+  - 목적: 호박색·에메랄드·골드·차콜 선택 시 프리셋 영역부터 하단 콘텐츠가 조금씩 아래로 이동하는 원인을 확인하고 레이아웃을 고정한다.
+  - 변경: 색상명만 고정 높이 없이 intrinsic line box를 사용하고 있었고, 테마에 지정된 `Plus Jakarta Sans` 폰트 파일이 프로젝트에 번들되지 않아 iOS 한글 fallback의 font run 구성에 따라 공백 없는 호박색·에메랄드·골드·차콜과 공백이 있는 이름의 높이가 달라질 수 있는 구조를 원인으로 확인했다. 색상명을 디자인 기준 24px, 0.8 본문 배율에서 19.2px인 고정 슬롯 안에 한 줄로 배치해 이름에 관계없이 프리셋 이하의 위치를 고정했다. 현재 코드의 우측 `적용` 문구에 맞춰 관련 테스트·컨텍스트의 이전 `완료` 표현도 최신화했다.
+  - 영향범위: 근무 타입 색상 선택 화면의 선택 색상 미리보기와 하단 섹션 세로 위치. 색상 값·밝기·적용 반환 및 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 12개 모든 프리셋 선택 후 19.2px 색상명 슬롯 높이, 스크롤 오프셋, 프리셋·커스텀·밝기 섹션 Y 좌표 불변성과 기존 색상 선택 동작을 포함한 관련 위젯 테스트 19건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 색상명 슬롯 고정 높이와 좌표 회귀 테스트를 제거해 기존 콘텐츠 기반 높이로 복원한다.
+  - 다음: 실제 iPhone에서 12개 프리셋을 순회하며 스크롤 위치가 고정되는지 확인한다.
+
+- [DONE] (FE) 근무 타입 폼 우측 콘텐츠 정렬
+  - 목적: 코드·이름 입력값과 아이콘이 없는 시간 선택 텍스트의 오른쪽 끝을 시간 삭제용 `CupertinoIcons.xmark_circle_fill`의 오른쪽 끝과 같은 세로선에 맞춘다.
+  - 변경: 삭제 버튼의 36px 슬롯·18px 아이콘·12px 외부 여백으로 계산되는 21px 시각 inset을 공용 상수로 정의하고, 코드·이름 입력 오른쪽 padding과 빈 시간 텍스트 뒤 여백에 동일하게 적용했다. 현재 `xmark_circle_fill` 아이콘은 유지하고 관련 문서·테스트의 이전 아이콘명을 최신화했다.
+  - 영향범위: 근무 타입 추가·편집 화면 카드의 우측 정렬. 입력·시간 삭제·저장 동작과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 코드·이름 `EditableText`, 두 시간 선택 텍스트, 삭제 아이콘의 우측 좌표가 0.01px 허용 오차 안에서 일치하는지 포함한 전용 위젯 테스트 6건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 공용 우측 inset을 제거하고 입력 padding 16px, 시간 선택 뒤 여백 12px로 복원한다.
+  - 다음: 실제 iOS 기기에서 문자 glyph와 원형 삭제 아이콘의 시각적 오른쪽 정렬을 확인한다.
+
+- [DONE] (FE) 근무 시간 삭제 아이콘 강조
+  - 목적: 근무 타입 편집 화면의 시작·종료 시간 삭제 X 아이콘을 더 굵게 표시해 식별성을 높인다.
+  - 변경: 기존 `CupertinoIcons.xmark`를 같은 18px 크기와 accent red 색상의 `CupertinoIcons.clear_thick`으로 교체하고 아이콘 회귀 테스트를 추가했다.
+  - 영향범위: 근무 타입 추가·편집 화면의 시간 삭제 아이콘 외형. 시간 동시 삭제 동작과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 굵은 아이콘 렌더링과 기존 시간 동시 삭제 동작을 포함한 전용 위젯 테스트 6건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 시간 삭제 아이콘을 `CupertinoIcons.xmark`로 되돌린다.
+  - 다음: 실제 iOS 기기에서 18px 아이콘의 선명도와 터치 영역을 확인한다.
+
+- [DONE] (FE) 근무 타입 편집 계열 화면 헤더 통일
+  - 목적: 근무 타입 편집, 색상 선택, 커스텀 색상 선택 화면의 상단 내비게이션을 동일한 좌측 화살표·중앙 제목·우측 완료 조합으로 통일한다.
+  - 변경: 커스텀 색상 선택 화면의 헤더 치수와 스타일을 기준으로 근무 타입 편집의 `취소`/primary pill `저장`을 좌측 화살표/우측 `완료`로 변경했다. 색상 선택의 좌측 화살표/X 헤더와 하단 `선택 완료` 영역은 좌측 화살표/우측 `완료` 헤더로 통합하고, 제거한 하단 영역만큼 본문 하단 안전 여백을 반영했다. 세 화면의 제목 색상, 화살표와 완료 타이포·색상·터치 영역을 동일하게 맞췄으며 기존 입력 검증과 결과 반환 계약은 유지했다.
+  - 영향범위: 세 화면의 상단 헤더와 색상 선택 화면의 완료 액션 위치. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, 관련 위젯 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 세 화면의 헤더 구성, 뒤로가기 폐기, 완료 결과 반환, 기존 입력·색상 동기화를 포함한 관련 위젯 테스트 18건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 두 화면의 헤더와 색상 선택 완료 액션을 기존 취소/저장 및 뒤로가기/X/하단 버튼 구성으로 복원한다.
+  - 다음: 실제 iOS 기기에서 세 화면의 제목과 좌우 액션 정렬을 확인한다.
+
+- [DONE] (FE) 최근 커스텀 색상 로컬 저장
+  - 목적: 커스텀 색상 화면의 고정 샘플 목록을 실제 기기에서 사용자가 완료한 최근 색상 기록으로 전환한다.
+  - 변경: `SharedPreferences`의 `shift_custom_recent_colors_v1` 문자열 목록에 완료 색상을 6자리 RGB HEX로 저장한다. 최신 색상을 앞에 두고 기존 중복을 제거해 최대 6개만 유지하며, 화면 진입 시 유효한 값만 복원하고 잘못된 값·중복·초과 항목은 정규화한다. 기록이 없으면 빈 상태를 표시하고 뒤로가기로 폐기한 색상은 저장하지 않는다.
+  - 영향범위: 커스텀 색상 선택 화면의 최근 사용 색상 목록과 로컬 저장소. 색상 선택·반환 및 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`, 관련 위젯 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 로컬 빈 상태·복원·최신순 저장·중복 제거·6개 상한·잘못된 값 제외와 기존 색상 동기화·반환을 포함한 관련 위젯 테스트 17건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 최근 색상 저장 키와 로드/저장 로직을 제거하고 기존 고정 6색 목록을 복원한다.
+  - 다음: 실제 기기에서 앱 재실행 후 최근 색상 순서와 유지 여부를 확인한다.
+
+- [DONE] (FE) 커스텀 색상 휠·RGB 좌우 배치
+  - 목적: 첨부 표시의 의도를 휠 확대가 아니라 색상 휠 왼쪽·RGB 슬라이더 오른쪽의 가로 배치로 정확히 반영한다.
+  - 변경: 색상 휠 카드와 별도 RGB 카드를 하나의 카드로 합쳤다. 반응형 가로 레이아웃에서 390px 화면 기준 약 172px·최대 176px 휠을 왼쪽에, Red/Green/Blue 라벨·값·슬라이더를 오른쪽 열에 배치했다. 우측 열 가독성을 위해 RGB 본문 타이포와 행 간격을 컴팩트하게 조정하고 슬라이더 가로 1.0/세로 0.8 배율을 유지했다. HEX 입력과 외부 여백은 유지했다.
+  - 영향범위: 커스텀 색상 선택 화면의 휠·RGB 카드 레이아웃. 색상 계산·입력·반환 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 휠 오른쪽 좌표가 RGB 왼쪽 좌표보다 작은지와 두 컨트롤이 같은 카드에 포함되는지 검증했다. 기존 색상 동기화·반환을 포함한 커스텀 색상·상위 색상 선택·근무 타입 폼 위젯 테스트 15건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 통합 가로 카드를 제거하고 휠 카드와 하단 RGB 카드를 세로로 복원한다.
+  - 다음: 실제 iPhone에서 우측 슬라이더 라벨·값·트랙 가독성을 확인한다.
+
+- [DONE] (FE) 커스텀 색상 휠·RGB 컨트롤 폭 조정
+  - 목적: 커스텀 색상 화면의 색상 휠 주변 좌우 빈 공간과 RGB 슬라이더 트랙이 짧게 보이는 문제를 첨부 표시 기준으로 개선한다.
+  - 변경: 카드·HEX·화면 외부 여백은 유지하면서 색상 휠을 224→280px로 확대했다. RGB 슬라이더의 transform은 기존 가로·세로 0.8에서 가로 1.0/세로 0.8로 분리해 트랙이 카드 가용 폭을 사용하면서 기존 세로 밀도는 유지하게 했다.
+  - 영향범위: 커스텀 색상 선택 화면의 색상 휠과 RGB 슬라이더 시각 크기. 색상 계산·입력·반환 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 휠 280px와 슬라이더 가로 1.0/세로 0.8 배율 회귀 검증을 포함해 커스텀 색상·상위 색상 선택·근무 타입 폼 위젯 테스트 15건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 휠 최대 크기를 224px로, RGB 슬라이더 transform을 가로·세로 0.8로 되돌린다.
+  - 다음: 실제 iPhone에서 휠 카드 여백과 RGB 트랙 길이를 확인한다.
+
+- [DONE] (FE) 커스텀 색상 선택 화면 전면 적용
+  - 목적: 근무 타입 색상 선택의 단순 색조·채도 하단 시트를 폐기하고 제공된 커스텀 색상 선택 시안을 실제 동작하는 전체 화면으로 적용한다.
+  - 변경: 선택 색상 미리보기·HEX 표시/6자리 입력, 실제 HSV 좌표를 계산하는 드래그 가능 색상 휠, RGB 0~255 슬라이더, 6개 최근 색상 단축 선택, 뒤로가기/완료 내비게이션을 갖춘 전체 화면을 추가했다. 모든 입력은 미리보기·HEX·RGB·휠 마커에 즉시 동기화된다. 기존 색조·채도 하단 시트를 제거하고 색상 선택 페이지가 새 화면을 push하도록 연결했으며 앱 설정 화면과 같은 0.8 본문 밀도와 44px 최소 터치 영역을 유지했다.
+  - 영향범위: 근무 타입 편집 → 색상 선택 → 커스텀 색상 선택 흐름의 UI와 색상 입력 방식. 최종 색상 반환 및 근무 타입 API 계약은 유지한다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`(신규), `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, 관련 위젯 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 커스텀 색상 화면 5건, 상위 색상 선택 5건, 근무 타입 폼 5건 등 위젯 테스트 15건 통과. 색상 휠·HEX·RGB·최근 색상 동기화, 완료/뒤로가기 반환과 상위 화면 연동을 검증했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 신규 커스텀 색상 페이지와 연결·테스트·문서를 제거하고 기존 색조·채도 하단 시트를 복원한다.
+  - 다음: 실제 iOS 기기에서 색상 휠 드래그, 키보드, 작은 화면 스크롤과 색 대비를 확인한다.
+
+- [DONE] (FE) 근무 타입 편집·색상 선택 화면 밀도 재조정
+  - 목적: 근무 타입 편집 화면의 요소가 크게 보이는 문제를 해결하고 색상 선택 화면도 앱의 다른 설정 화면과 같은 시각적 밀도로 맞춘다.
+  - 변경: 앱 설정 화면의 기존 `_settings_scale = 0.8`을 기준으로 두 화면의 본문 배율을 0.8로 통일하고 상단 내비게이션 바는 공통 크기로 유지했다. 근무 타입 편집은 미리보기 96→76.8px, 입력·시간 행 56→44.8px, 본문 기본 글자 16→12.8px로 줄이고 카드 반경·아이콘·간격·안내 문구도 함께 축소했다. 색상 선택은 기존 0.75에서 0.8로 보정해 미리보기 76.8px, 프리셋 원 41.6px, 완료 버튼 44.8px, 커스텀 미리보기 54.4px로 맞췄으며 주요 터치 영역은 최소 44px을 유지했다.
+  - 영향범위: 근무 타입 추가·편집 화면과 색상 선택 화면의 시각적 크기·간격. 입력, 검증, 색상·시간 선택 및 API 요청 반환 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, 관련 위젯 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 앱 설정 화면 배율·행 높이 대조 완료. 상단 헤더 유지와 두 화면의 80% 본문 치수 회귀 검증을 포함한 위젯 테스트 10건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 본문 배율과 축소 치수·테스트·문서를 제거해 직전 화면 크기로 복원한다.
+  - 다음: 실제 iOS 기기에서 타이포 가독성, 카드 밀도, 터치 영역을 확인한다.
+
+- [DONE] (FE) 색상 선택 화면 본문 75% 축소
+  - 목적: 상단 헤더를 제외한 색상 선택 화면 본문 요소가 지나치게 크게 보이는 문제를 해결한다.
+  - 변경: 본문 전용 0.75 배율을 적용해 미리보기를 96→72px, 프리셋 원을 52→39px, 하단 완료 버튼을 56→42px, 커스텀 미리보기를 68→51px로 축소했다. 본문 텍스트·간격·카드·슬라이더와 커스텀 색상 시트에도 같은 비율을 적용하고 상단 헤더 치수는 유지했다. 프리셋 행과 커스텀 버튼은 최소 44px 터치 영역을 유지했다.
+  - 영향범위: 근무 타입 색상 선택 화면과 커스텀 색상 시트의 시각적 밀도. 색상 선택·반환 동작은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 상단 헤더와 본문 치수 회귀 검증을 포함한 색상 선택 페이지 5건과 근무 타입 폼 5건 등 위젯 테스트 10건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 본문 배율 상수와 축소 치수·테스트·문서를 제거해 기존 크기로 복원한다.
+  - 다음: 실제 iOS 기기에서 축소 후 터치 영역과 가독성을 확인한다.
+
+- [DONE] (FE) 근무 타입 색상 선택 화면 전면 교체
+  - 목적: 근무 타입 편집의 기존 `CupertinoActionSheet` 색상 목록을 폐기하고 제공된 Shift Harmony 색상 선택 시안을 전체 화면으로 적용한다.
+  - 변경: 선택 색상 96px 미리보기·HEX·색상명, 4x3 프리셋 12개, 커스텀 색조/채도 시트, 원본 색상을 보존하는 밝기 0~100% 조절, 하단 고정 `선택 완료` 버튼을 제공하는 전체 화면 페이지를 추가했다. 근무 타입 폼의 색상 변경은 이 페이지를 push하며 `선택 완료` 결과만 반영하고 뒤로가기/X는 변경을 폐기한다. 기존 `CupertinoActionSheet` 색상 목록은 제거했다.
+  - 영향범위: 근무 타입 추가·편집 화면의 색상 선택 UX와 최종 색상 값. Behavior change: 색상 선택이 액션 시트에서 독립 페이지로 바뀌고 프리셋·커스텀·밝기 조절을 지원한다. 근무 타입 API DTO와 DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 선택 페이지 5건과 근무 타입 폼 5건 등 위젯 테스트 10건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 새 색상 선택 페이지와 연결·테스트·문서를 제거하고 기존 `CupertinoActionSheet` 구현을 복원한다.
+  - 다음: 실제 iOS 기기에서 프리셋/커스텀/밝기 조절과 작은 화면 스크롤을 확인한다.
+
+- [DONE] (FE) 근무 코드 최대 길이 3자로 확장
+  - 목적: 근무 타입 코드에 최대 3자까지 입력할 수 있도록 허용한다.
+  - 변경: 근무 타입 폼의 코드 입력 `maxLength`와 안내를 2자에서 3자로 변경하고, `offx` 입력이 `OFF`로 제한·대문자화되어 원형 미리보기에 반영되는 테스트로 갱신했다.
+  - 영향범위: 근무 타입 추가·편집 화면의 코드 입력 및 원형 미리보기. Behavior change: 기존 최대 2자 대신 최대 3자까지 입력할 수 있다. API DTO와 DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 전용 위젯 테스트 4건 통과, 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 코드 입력 제한·안내·테스트·문서를 최대 2자로 되돌린다.
+  - 다음: 실제 기기에서 3자 코드의 원형 미리보기 가독성을 확인한다.
+
+- [DONE] (FE) 근무 타입 추가·편집 화면 디자인 개편
+  - 목적: 근무 타입 설정 화면을 제공된 Shift Harmony 시안에 맞추고, 친구 설정 화면의 컴팩트한 상단 내비게이션·중앙 미리보기·카드형 설정 그룹 레이아웃과 통일한다.
+  - 변경: 친구 설정 화면과 같은 outline 카드·컴팩트 내비게이션을 사용하고, 시안 기준 96px 원형 코드 미리보기, 색상 변경 pill, 코드/이름 입력 카드, 시작/종료 시간 카드, 취소/primary pill 저장 액션으로 재구성했다. 코드는 최대 2자와 대문자로 제한하고 입력 즉시 미리보기에 반영한다. 기존 색상/시간 선택, 시간 동시 삭제·검증, 추가/수정 요청 반환 동작은 유지했다.
+  - 영향범위: 근무 패턴 설정에서 진입하는 근무 타입 추가·편집 페이지 UI. Behavior change: 코드 입력이 시안 기준 최대 2자로 제한되고 원형 미리보기가 실시간 갱신된다. API 요청 DTO, Provider, DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 전용 위젯 테스트 4건(컴팩트 카드/96px 미리보기, 2자 대문자 동기화, 시간 동시 삭제, 수정 요청 계약) 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 근무 타입 폼의 새 레이아웃과 관련 테스트·문서 기록을 제거하고 기존 `CupertinoListSection` 기반 화면으로 복원한다.
+  - 다음: 실제 iOS 기기에서 키보드, 색상/시간 선택 시트, 작은 화면 스크롤을 확인한다.
+
+- [DONE] (CHORE) Stage/Center API 기본 URL 변경
+  - 목적: Flutter 디버그 빌드는 Stage API, 릴리스 빌드는 Center 운영 API에 연결한다.
+  - 변경: `ApiConstants.base_url_dev`를 `https://stage-api.shiftmate.co.kr/api/v1`, `base_url_prod`를 `https://api.shiftmate.co.kr/api/v1`로 변경했다. 기존 `kDebugMode` 분기와 `ApiClient.createDio()`의 `BaseOptions.baseUrl` 연결은 유지하고, 프로젝트 컨텍스트의 빌드 모드별 API URL 정책도 같은 값으로 갱신했다.
+  - 영향범위: 디버그·릴리스 모드의 모든 Dio API 요청 대상. Behavior change: 디버그 빌드는 개발/Stage API, 릴리스 빌드는 운영/Center API로 요청한다. API 엔드포인트, 인증, DTO, DB 구조는 변경하지 않는다.
+  - 파일: `lib/core/constants/api_constants.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format` 0개 변경, `flutter analyze --no-fatal-infos lib/core/constants/api_constants.dart` exit 0 및 error/warning 0건, 새 URL 문자열과 `ApiClient.createDio()` 연결 직접 대조, `git diff --check` 통과. 프로젝트 snake_case 규칙과 Flutter 기본 lint가 충돌하는 기존 naming info 25건은 확인했으며 이번 URL 변경 범위에서는 유지했다.
+  - 롤백: `base_url_dev`를 `http://172.30.1.49:3000/api/v1`, `base_url_prod`를 `https://www.shiftmate.co.kr/api/v1`로 되돌리고 프로젝트 컨텍스트의 URL 정책을 함께 복원한다.
+  - 다음: 실제 Debug/Release 빌드에서 각 도메인의 TLS 및 API 응답을 확인한다.
+
+- [DONE] (FIX) 선택일 일정·근무 설정 헤더 통일
+  - 목적: 일정 리스트와 근무 설정 카드의 선택 날짜 헤더가 같은 위치·간격·타이포·공휴일 표시를 사용하도록 맞춘다.
+  - 변경: 일정 카드의 기존 전용 헤더를 trailing 위젯을 받을 수 있는 공용 `CalendarScheduleHeader`로 전환했다. 일정 카드와 근무 설정 카드가 모두 16px 수평·12px 수직 padding, 36px 콘텐츠 슬롯, 같은 날짜/공휴일 타이포와 0.5px 하단 구분선을 사용한다. 근무 설정의 완료 버튼은 같은 헤더 trailing에 두고, 근무 설정에도 `KoreanHolidays`의 선택일 공휴일명을 전달한다. 근무 타입 그리드와 안내 문구의 12px padding은 헤더 아래 본문으로 한정했다.
+  - 영향범위: 메인 캘린더 하단 일정 카드와 근무 설정 카드의 헤더 UI. Behavior change: `+` 버튼 전후 선택 날짜의 좌표와 헤더 크기가 유지되고, 근무 설정 헤더에도 공휴일명과 구분선이 표시된다. 근무 선택·저장 API 및 DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`, `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 신규 헤더 위치·공휴일 테스트 단독 실행 통과, 변경 코드/테스트 대상 `flutter analyze` 0건, `dart format` 및 `git diff --check` 통과. 캘린더 페이지 전체 테스트에서는 신규 테스트와 기존 크기·자동 이동 등 8건이 통과했고, 작업 시작 전부터 존재한 사용자 변경인 선택 배경 primary 8% tint와 기존 surface 기대값 불일치 1건은 범위 밖 변경을 보존해 그대로 남겼다.
+  - 롤백: 공용 헤더 적용과 관련 테스트·문서 변경을 제거하고 기존 개별 헤더 구현으로 되돌린다.
+  - 다음: 실제 기기에서 일정 카드와 근무 설정 카드의 날짜·공휴일·구분선·완료 버튼 정렬을 확인한다.
+
+- [DONE] (FIX) iOS `Pods_Runner` 프레임워크 링크 오류 해결
+  - 목적: iPhone 앱 빌드에서 `Framework 'Pods_Runner' not found`와 `Linker command failed with exit code 1`이 발생하는 원인을 재현하고 정상 빌드 상태로 복구한다.
+  - 변경: Xcode workspace 빌드 로그와 생성된 framework 경로를 대조해 `Pods_Runner.framework` 자체는 정상 생성되지만, 이전 Flutter 빌드가 남긴 `Generated.xcconfig`의 고정 `CONFIGURATION_BUILD_DIR` 때문에 Runner와 Pods 산출물 경로가 달라지는 것을 확인했다. `flutter clean` → `flutter pub get` → `pod install --deployment`으로 생성 설정과 workspace를 재동기화했다. 별도로 CocoaPods가 경고한 Profile base configuration 누락은 `ios/Flutter/Profile.xcconfig`를 추가하고 Runner/Profile이 이를 사용하도록 연결해 해소했다. Xcode는 `Runner.xcworkspace`를 열고, 동일 오류 재발 시 생성 설정을 재동기화하는 규칙을 프로젝트 컨텍스트에 기록했다.
+  - 영향범위: iOS Runner의 CocoaPods 의존성 링크, Debug/Profile 로컬 iPhone 빌드와 빌드 운영 문서. Flutter 화면/API/DB 동작은 변경하지 않는다.
+  - 파일: `ios/Flutter/Profile.xcconfig`, `ios/Runner.xcodeproj/project.pbxproj`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: CocoaPods 1.16.2에서 `pod install --deployment` 성공 및 base configuration 경고 제거, `Podfile.lock`/`Pods/Manifest.lock` 일치 확인. Xcode 16.2의 `Runner.xcworkspace`에서 Debug 및 Profile iPhone generic 대상 무서명 빌드가 모두 성공해 `Pods_Runner` 링크 오류 제거를 확인했다. `flutter analyze --no-fatal-warnings --no-fatal-infos`는 error 0건으로 통과했으며 이번 범위 밖 기존 warning/info 126건을 확인했다. `git diff --check` 통과.
+  - 롤백: Runner/Profile base configuration을 `Flutter/Release.xcconfig`로 되돌리고 `ios/Flutter/Profile.xcconfig` 및 iOS 빌드 문서 기록을 제거한다. 로컬 생성 설정은 다시 `flutter clean`, `flutter pub get`, `pod install --deployment` 순서로 복원한다.
+  - 다음: Xcode에서 `ios/Runner.xcworkspace`를 열어 실제 연결 iPhone에 서명·설치하고 앱 실행을 확인한다.
+
+- [DONE] (FIX) 일정 카드와 근무 설정 카드 크기 일치
+  - 목적: 메인 캘린더에서 `+` 버튼 전후 달력의 표시 형식과 높이를 유지해 선택일 일정 카드와 근무 설정 카드가 같은 외부 크기를 사용하도록 한다.
+  - 변경: 근무 설정 전용 60px 행 높이와 월/확장 보기 강제 전환·복원 상태를 제거했다. 근무 설정은 진입 전 월/2주/주 형식과 확장 52/56px 또는 compact 48px 행 높이를 유지하며, compact 상태에서는 기존 marker로 근무를 표시한다. 하단 슬롯을 loose `Flexible`에서 tight `Expanded`로 바꿔 일정 카드와 근무 설정 카드가 동일한 외부 크기를 사용하도록 했다. 두 카드에 회귀 테스트용 key를 추가하고 390x740 compact 및 390x800 2주 보기에서 형식·행 높이·카드 크기를 비교하는 테스트를 추가했다.
+  - 영향범위: 메인 캘린더의 근무 설정 진입/종료 시 달력 형식·행 높이와 하단 카드 크기. Behavior change: 일정이 적거나 없어도 선택일 일정 카드가 남은 하단 영역을 채우며, 근무 설정 진입 시 월/60px 확장 보기로 강제 전환하지 않는다. 근무 선택·저장 API와 데이터 구조는 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/pages/calendar_page.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 변경 전 신규 테스트는 740px에서 행 높이 52→60, 800px에서 56→60 차이로 실패해 원인을 재현했다. 변경 후 신규 크기 회귀 테스트 2건과 근무 타입 그리드 테스트 2건이 통과했고, 대상 코드/테스트 `flutter analyze` 0건을 확인했다. 캘린더 페이지 전체 테스트는 이번 변경 관련 테스트를 포함해 7건 통과했으며, 작업 시작 전부터 존재한 사용자 변경인 선택 배경색 primary 8% tint와 기존 surface 기대값 불일치 1건은 범위 밖 변경을 보존하기 위해 수정하지 않았다.
+  - 롤백: 하단 슬롯을 `Flexible`로 되돌리고 근무 설정 진입 시 월/확장 보기, 60px 행 높이와 종료 시 복원 상태를 다시 적용한 뒤 관련 테스트·문서와 ADR-0007을 제거한다.
+  - 다음: 실제 750px 전후 기기에서 일정 없음/다수 상태와 compact/월/2주/주 상태의 `+` 전후 카드 크기 및 marker 가독성을 확인한다.
+
+- [DONE] (CHORE) 릴리스 API 기본 URL 변경
+  - 목적: Flutter 릴리스 빌드의 모든 API 요청 대상을 운영 도메인 `https://www.shiftmate.co.kr`로 변경한다.
+  - 변경: `ApiConstants.base_url_prod`를 `https://www.shiftmate.co.kr`로 변경했다. 기존 `kDebugMode` 분기와 Dio `BaseOptions.baseUrl` 연결은 유지하고, 빌드 모드별 API URL 정책을 프로젝트 컨텍스트에 기록했다.
+  - 영향범위: 릴리스 모드의 모든 Dio API 요청 대상. Behavior change: 릴리스 요청은 기존 `https://shiftmate.co.kr/api/v1` 대신 `https://www.shiftmate.co.kr`에 상대 엔드포인트를 결합한다. 디버그 모드의 개발 API 주소는 변경하지 않는다.
+  - 파일: `lib/core/constants/api_constants.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: `dart format --set-exit-if-changed` 통과. 변경 파일 대상 `flutter analyze --no-fatal-infos`는 error/warning 0건으로 통과했고 프로젝트 snake_case 규칙과 Flutter 기본 lint가 충돌하는 기존 naming info 25건만 확인했다. 운영 상수값과 `ApiClient.createDio()` 연결을 직접 대조했으며 `git diff --check`도 통과했다.
+  - 롤백: `base_url_prod`를 기존 `https://shiftmate.co.kr/api/v1`로 되돌리고 관련 문서 기록을 제거한다.
+  - 다음: 실제 릴리스 빌드에서 운영 도메인의 API 라우팅과 TLS 연결을 확인한다.
+
 ## 2026-07-16
 
 - [DONE] (CHORE) 친구 추가 모달 개선 작업 커밋 및 푸시

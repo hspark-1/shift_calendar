@@ -81,23 +81,26 @@
     표시하며, 선택 시 해당 타입 색상의 tint와 굵은 outline을 사용한다.
     버튼을 누르면 `_schedules`에 선택 근무를 임시 저장한 뒤 다음 날로 자동 이동한다.
     날짜 헤더/완료 버튼, 버튼 그리드, 안내 문구는 하나의
-    `surface_container_low_color` 카드 영역 안에 둔다. 근무 추가 모드에서는
-    진입 전 `CalendarFormat`과 확장 상태를 저장한 뒤 `CalendarFormat.month`와 확장 보기를
-    활성화해 60px 날짜 셀 아래에 근무 코드를 표시한다. 입력 중에는 수직 드래그 확장/축소를
-    잠그고, 완료/취소 시 진입 전 달력 형식과 확장 상태를 복구한다. 근무 추가 모드 자체는 2주
-    보기로 전환하지 않지만 화면 높이가 750px 미만이면 전역 반응형 규칙에 따라 2주 보기를 유지한다.
+    `surface_container_low_color` 카드 영역 안에 둔다. 선택일 일정 카드와 근무 설정 카드는
+    같은 `Expanded` 하단 슬롯을 사용해 `+` 버튼 전후 외부 크기를 유지한다. 근무 추가 모드 진입은
+    현재 `CalendarFormat`과 확장/compact 상태를 변경하지 않으며, 행 높이도 기존 확장 52/56px 또는
+    compact 48px을 유지한다. 확장 상태에서는 날짜 셀 아래 근무 코드 배지를 사용하고, compact
+    상태에서는 기존 작은 marker를 사용한다. 입력 중에는 수직 드래그 확장/축소를 잠근다.
+    화면 높이가 750px 미만이면 전역 반응형 규칙에 따라 2주 보기를 계속 유지한다.
     다음 날 자동 이동은 `_selected_day`와 `_focused_day`를 함께 갱신해 월/2주 보기의 표시 페이지가
     선택일을 따라가게 하며, 캘린더·공휴일 데이터 추가 조회는 월 경계를 넘을 때만 실행한다.
-    근무 설정 카드 내부는 12px padding을 사용한다.
+    근무 설정 카드의 헤더 아래 본문은 12px padding을 사용한다.
   - `lib/features/calendar/presentation/widgets/calendar_month_view.dart`: 메인·친구 캘린더가
     함께 사용하는 월 헤더와 `TableCalendar` 표시 위젯. 공통 2000~2050 범위, 한국어 요일,
     반응형 형식/행 높이 입력, 날짜 의미 색상, 근무 코드 배지, 오늘 밑줄, 선택 surface·2px
     outline을 한 곳에서 렌더링한다. 각 페이지는 조회 상태와 날짜별 색상/배지 데이터,
     날짜·페이지 선택 콜백, 메인 전용 compact marker만 주입한다.
   - `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`: 메인·친구 캘린더가
-    함께 사용하는 선택일 일정 카드. 날짜/공휴일/일정 수 헤더, 근무·개인 일정 행, 빈 상태를
-    제공한다. 메인은 근무 삭제 wrapper와 개인 일정 추가 footer를 주입하고, 친구 캘린더는
-    기본 읽기 전용 근무 행을 사용한다.
+    함께 사용하는 선택일 일정 카드. `CalendarScheduleHeader`는 일정 카드와 메인 근무 설정 카드가
+    같은 16px 수평·12px 수직 padding, 36px 콘텐츠 슬롯, 날짜/공휴일 타이포와 0.5px 하단 구분선을
+    사용하게 하며, 일정 수 또는 완료 버튼을 trailing으로 배치한다. 일정 카드는 이 헤더와
+    근무·개인 일정 행, 빈 상태를 제공한다. 메인은 근무 삭제 wrapper와 개인 일정 추가 footer를
+    주입하고, 친구 캘린더는 기본 읽기 전용 근무 행을 사용한다.
   - `lib/features/calendar/presentation/widgets/shift_type_button.dart`: 근무 타입 선택 버튼 위젯.
     기존 `ShiftTypeButtonGroup`은 근무 추가 페이지/시트에서 Provider 기반 원형 버튼을 표시하고,
     `ShiftTypeSelectionGrid`는 메인 캘린더가 전달한 정렬된 `ShiftTypeInfo` 목록을 실제 너비와
@@ -112,8 +115,9 @@
     일 단위 날짜를 선택하는 공용 하단 시트. 연도/월 선택 시트와 같은 핸들, 선택값 요약 카드,
     빠른 `오늘` 액션, surface 기반 피커 카드, 취소/적용 버튼을 제공한다. 호출 화면이 최소/최대
     날짜를 전달하며, 결과는 시간이 제거된 로컬 `DateTime`으로 반환한다.
-  - `lib/features/calendar/presentation/widgets/time_picker_sheet.dart`: 개인 일정의 시작시간/종료시간처럼
-    시·분 단위 시간을 선택하는 공용 하단 시트. 선택 시간을 오전/오후 형식으로 요약하고,
+  - `lib/features/calendar/presentation/widgets/time_picker_sheet.dart`: 개인 일정과 근무 타입의
+    시작시간/종료시간처럼 시·분 단위 시간을 선택하는 공용 하단 시트. 선택 시간을 오전/오후
+    형식으로 요약하고,
     `지금` 빠른 선택, 24시간 시·분 휠, 취소/적용 버튼을 날짜 선택 시트와 같은 구조로 제공한다.
     결과는 0~23시와 0~59분으로 정규화된 `Duration`으로 반환한다.
   - `test/features/calendar/presentation/widgets/year_month_picker_sheet_test.dart`:
@@ -125,7 +129,12 @@
   - `test/features/calendar/presentation/pages/calendar_page_test.dart`: 캘린더/알림 서비스를 가짜 구현으로
     대체하고 390x740 크기에서는 2주 보기가 고정되는지, 390x750 경계 크기에서는 기존 월 보기가
     유지되는지 검증한다. 2주 보기의 두 번째 토요일에서 근무를 입력하면 선택일·focused day·표시
-    페이지가 다음 일요일로 함께 이동하는 회귀도 확인한다. 또한 선택된 토요일/일요일의 의미 색상과
+    페이지가 다음 일요일로 함께 이동하는 회귀도 확인한다. 390x740 compact 보기와 390x800 2주
+    보기에서는 근무 설정 진입 전후 달력 형식·행 높이와 하단 카드 크기가 같은지도 검증한다.
+    일정 카드와 근무 설정 카드의 헤더 좌표·크기·구분선 및 공휴일명이 같은지도 검증한다.
+    근무 타입 수정 표시 업데이트를 발행하면 캘린더 range API를 다시 호출하지 않고 이미 로드된
+    선택일 근무의 이름·색상·시간이 PUT 응답값으로 교체되는지도 검증한다.
+    또한 선택된 토요일/일요일의 의미 색상과
     surface 배경·2px primary dark outline, 날짜·근무 배지 셀의 레이아웃 예외, 확장/compact 보기의
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지 검증한다.
   - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 메인 하단 내비게이션.
@@ -150,9 +159,76 @@
     삭제 버튼은 `CupertinoIcons.trash`와 outline 색상으로 표현한다. 카드는
     `ShiftTemplateSettingsPage`에서 편집/삭제 액션을 주입받아 사용한다.
   - `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`: 근무 타입 추가/편집 화면.
+    `../design/shift_type-setting/code.html` 시안과 친구 설정 화면의 컴팩트한 구조를 기준으로
+    좌측 화살표/중앙 제목/우측 `완료` 내비게이션, 원형 코드 미리보기, 색상 변경 pill,
+    코드·이름 카드와 근무 시간 카드를 표시한다. 앱 설정 화면의 `_settings_scale = 0.8`과
+    같은 본문 배율을 사용해 상단 내비게이션 바는 공통 치수를 유지하고, 미리보기는 76.8px,
+    코드·이름 및 시간 행은 44.8px, 본문 기본 글자는 12.8px로 표시한다. 카드 반경·아이콘·
+    내부 간격·안내 문구도 같은 비율로 축소한다. 코드는 최대 3자와 대문자로 제한하고 입력값을
+    원형 미리보기에 즉시 반영한다. 코드 입력 중에는 호출 화면이 전달한 현재 템플릿의
+    `existingTypes`와 대소문자 구분 없이 비교하되 편집 중인 타입 자체는 제외한다. 중복이면
+    코드 입력 글자색은 기본 본문 색상으로 유지하고 코드 입력 행의 영역 테두리와
+    `이미 사용 중인 코드입니다.` 안내를 accent red로 표시한다. 이때 `완료`를 비활성화하며,
+    입력값이 고유해지면 테두리·안내를 제거하고 즉시 정상 상태로 복구한다. 이 검사는 로컬 사전 검증이고
+    최종 저장 시 기존 검증과 서버 `DUPLICATE_CODE` 처리는 유지한다.
+    색상 변경은 `ShiftColorPickerPage`를 전체 화면으로 열고,
+    사용자가 `선택 완료`로 반환한 색상만 폼 상태에 반영한다. 시작·종료 시간 동시 유무 검증,
+    `CreateShiftTypeRequest`/`UpdateShiftTypeRequest` 반환 계약은 유지한다. 설정된 시간 옆 삭제
+    액션은 18px `CupertinoIcons.xmark_circle_fill`과 accent red를 사용하며 누른 행의 시간만 비운다.
+    한쪽 시간만 남은 중간 편집 상태는 허용하지만 완료 시에는 기존 동시 유무 검증으로 저장을 막는다.
+    삭제 버튼의 36px 슬롯·18px 아이콘·12px 외부 여백에서 계산한
+    21px 우측 시각 inset을 코드·이름 입력과 아이콘 없는 시간 선택 텍스트에도 적용해 모든 우측
+    콘텐츠의 끝을 같은 세로선에 맞춘다.
     `CupertinoPageRoute`로 진입하며, 본문은 `SafeArea(bottom: false)`와 내부 bottom padding을
-    함께 사용해 안내 문구가 홈 인디케이터/화면 끝에 붙어 잘려 보이지 않게 한다. 시간 선택
-    팝업은 하단 안전영역만큼 컨테이너 높이와 spacer를 늘려 피커 휠이 화면 하단에 겹치지 않게 한다.
+    함께 사용해 안내 문구가 홈 인디케이터/화면 끝에 붙어 잘려 보이지 않게 한다. 시작·종료 시간은
+    개인 일정과 같은 공용 `TimePickerSheet`를 열며, 기존 `TimeOfDay` 폼 상태와 시트의 `Duration`
+    결과를 변환해 `HH:mm:ss` API 요청 계약을 유지한다.
+  - `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`: 근무 타입 색상 선택 화면.
+    `../design/shift-color-pick/code.html` 시안을 Cupertino 구조로 구현한다. 상단 내비게이션 바는
+    커스텀 색상 선택 화면과 동일한 좌측 화살표/중앙 제목/우측 `적용` 조합을 사용하고,
+    앱 설정·근무 타입 편집 화면과 같은 `_body_scale = 0.8`을 적용해 76.8px 선택 색상 미리보기,
+    41.6px 프리셋 원과 축소된 HEX·색상명·카드·간격·슬라이더를 표시한다. 프리셋은 12개이며
+    커스텀 색상 버튼은
+    `ShiftCustomColorPickerPage`를 전체 화면으로 연다. 프리셋 행과 커스텀 버튼은 최소 44px
+    터치 영역을 유지한다. 프리셋 또는 커스텀 색상을 화면 내부 상태로만 편집하고, 좌측 화살표는
+    값을 반환하지 않으며 우측 `적용`만 불투명 `Color`를 호출 화면으로 반환한다. 색상명은
+    디자인 기준 24px, 본문 배율 적용 후 19.2px 고정 슬롯 안에 한 줄로 렌더링해 이름별 폰트
+    fallback line metrics가 달라도 프리셋·커스텀·밝기 섹션의 Y 좌표가 바뀌지 않게 한다.
+    밝기는 선택한 기본 색상의 HSV value에 0~1 배율로 적용해 100%에서 원본 색상을 유지한다.
+  - `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`: 커스텀 근무 색상
+    선택 전체 화면. `../design/custom-color-pick/code.html` 시안을 Cupertino 구조와 0.8 본문
+    밀도로 구현한다. 선택 색상 미리보기·HEX 표시/6자리 입력, `CustomPainter`의 sweep/radial
+    gradient 색상 휠, Red/Green/Blue 0~255 슬라이더, 최대 6개 최근 색상 단축 선택을 제공한다.
+    휠과 RGB 컨트롤은 같은 카드의 반응형 `Row`에서 휠을 왼쪽, RGB를 오른쪽에 배치한다.
+    390px 화면에서 휠은 약 172px이며 최대 176px이고, RGB 슬라이더는 세로만 0.8 배율로 축소해
+    우측 열의 가로 폭을 유지한다. HEX 입력과 화면·카드 외부 여백은 기존 위치를 유지한다.
+    색상 휠 좌표는 중심 거리와 각도를 HSV 채도·색조로 변환하고, 모든 입력은 단일
+    불투명 `Color` 상태를 통해 미리보기·HEX·RGB·휠 마커에 즉시 동기화한다. `ShiftColorPickerPage`
+    가 `CupertinoPageRoute`로 열며, 뒤로가기는 값을 반환하거나 최근 기록을 저장하지 않고 `적용`만
+    선택 색상을 반환한다. 완료 색상은 기존 `shared_preferences` 의존성을 사용해
+    `shift_custom_recent_colors_v1` 문자열 목록에 6자리 RGB HEX로 저장한다. 최신 색상을 맨 앞에
+    두고 중복은 기존 위치에서 제거하며 최대 6개만 유지한다. 진입 시 유효한 값만 복원하고
+    중복·잘못된 값·초과 항목은 정규화하며, 기록이 없으면 빈 상태를 표시한다.
+  - `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`: 근무 타입 편집 화면의
+    좌측 화살표/우측 완료 헤더와 본문 80% 치수, 컴팩트 카드 구조와 76.8px 미리보기,
+    3자 대문자 코드 동기화, 편집 대상 자체를 제외한 대소문자 무관 코드 중복 시 기본 글자색 유지와
+    코드 입력 행의 accent red 테두리 즉시 표시·해제, 완료 비활성화,
+    코드·이름·시간 선택·삭제 아이콘의 우측 좌표 일치, 시간 동시 삭제,
+    완료 시 기존 수정 요청 반환과 뒤로가기 폐기 계약,
+    기존 액션 시트 대신 전체 화면 색상 선택 페이지로 진입하고 선택값을 반영하는 흐름을 검증한다.
+  - `test/features/calendar/presentation/providers/shift_template_settings_provider_test.dart`:
+    근무 타입 수정 요청이 진행되는 동안 설정 상태를 공용 로딩으로 전환하지 않는지, 서버 PUT 응답
+    모델을 설정 목록에 그대로 반영하는지, 같은 응답을 기존 `shiftTypesProvider` GET 캐시 위에
+    합성해 근무 입력용 표시 목록을 갱신하는지 검증한다. 가짜 템플릿/근무 타입 서비스를 주입해
+    실제 네트워크 없이 Provider 상태 전이를 재현한다.
+  - `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`: 색상 선택 화면의
+    좌측 화살표/우측 적용 헤더와 본문 80% 치수, 12개 프리셋·커스텀·밝기 구조, 모든 프리셋의
+    색상명 슬롯 높이·스크롤 오프셋·프리셋/커스텀/밝기 섹션 Y 좌표 불변, 프리셋/밝기 상태 반영,
+    적용 시 선택 색상 반환과 뒤로가기 폐기, 전체 화면 커스텀 색상 적용을 검증한다.
+  - `test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart`: 커스텀 색상
+    화면의 80% 치수와 스크롤 구조, 같은 카드 안의 휠 왼쪽·RGB 오른쪽 좌표 관계와 RGB
+    슬라이더의 가로 1.0/세로 0.8 배율, HEX·RGB·색상 휠·최근 색상 간 동기화, 완료 색상
+    반환과 뒤로가기 폐기, 로컬 최근 색상의 빈 상태·복원·최신순 저장·중복 제거·6개 상한을 검증한다.
   - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
     시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션,
     정적 토글, 별도 로그아웃 버튼을 Cupertino 커스텀 위젯으로 구현한다. 설정 화면 내부에는
@@ -192,6 +268,14 @@ API Server
 DioException → handleApiError() → ApiException → UI (CupertinoAlertDialog)
 ```
 
+### API 기본 URL 정책
+
+- `ApiConstants.base_url`은 `kDebugMode`를 기준으로 빌드 모드별 주소를 선택한다.
+- 디버그 빌드(개발/Stage): `https://stage-api.shiftmate.co.kr/api/v1`
+- 릴리스 빌드(운영/Center): `https://api.shiftmate.co.kr/api/v1`
+- `ApiClient.createDio()`가 선택된 값을 Dio `BaseOptions.baseUrl`에 적용하고,
+  각 서비스는 `ApiConstants`의 상대 엔드포인트를 결합해 요청한다.
+
 ### 메인 캘린더 조회/표시 흐름
 
 ```
@@ -204,19 +288,32 @@ CalendarPage
 ```
 
 - 메인 캘린더의 저장된 근무표 표시는 서버가 반환한 `WorkShiftApiModel`을 기준으로 한다.
+- 근무 타입 수정 흐름은 `ShiftTypeFormModal → PUT /shift-types/:id
+  → UpdateShiftTypeResponse.data → ShiftTemplateSettingsState +
+  shiftTypeDisplayUpdatesProvider → CalendarPage` 순서다. 수정 요청 중 설정 화면의 공용
+  `is_loading`이나 별도 로딩 다이얼로그를 사용하지 않고, 서버 응답 모델로 목록의 해당 항목만 교체한다.
 - 메인 달력은 근무 코드 배지를 기본 노출하고, compact 보기에서는 기존 색상 점을 표시한다.
   화면 높이 750px 미만에서는 2주 보기로 고정하며, 750px 이상에서는 기존 월/2주/주 형식 전환을
   유지한다. 좌우 기간 이동 동작은 두 경우 모두 유지한다.
 - `work_shifts` 응답의 `shift_type_code`, `shift_type_name`, `shift_type_color`,
   `start_time`, `end_time`은 저장된 근무표 표시용 스냅샷이다.
-- `shiftTypesProvider`는 현재 계정의 근무 타입 설정 조회 및 근무 입력 원형 버튼 표시용으로만 사용한다.
-- 저장된 근무표를 화면에 그릴 때는 `shiftTypesProvider`의 코드별 캐시로 색상/이름/시간을 재해석하지 않는다.
+- `shiftTypesProvider`는 현재 계정의 근무 타입 설정 조회 및 근무 입력 원형 버튼 표시용이다.
+  `effectiveShiftTypesProvider`는 GET 결과 위에 같은 세션의 수정 PUT 응답만 합성해 추가 GET 없이
+  근무 입력 버튼을 최신화한다.
+- 저장된 근무표를 처음 화면에 그릴 때는 `shiftTypesProvider`의 코드별 캐시로 색상/이름/시간을
+  재해석하지 않는다. 다만 화면이 유지된 상태에서 근무 타입 수정 응답이 도착하면
+  `CalendarPage`가 수정 전 코드와 일치하는 메모리 `_workShifts`/`_schedules` 항목의
+  코드·이름·색상·시간만 응답값으로 교체한다.
+- 이 stale 표시는 `SharedPreferences`나 보안 저장소의 영속 로컬 데이터가 원인이 아니다.
+  설정 route 아래에 계속 살아 있는 `CalendarPage`의 `_workShifts`와 이미 조회한 월을 표시하는
+  `_loadedMonths` 메모리 캐시가 수정 응답을 전달받지 못한 것이 원인이다.
 - 메인 캘린더 근무 추가 모드는 서버 저장 전 `_schedules`에 임시 선택값을 쌓는다.
   진입 시 기존 `CalendarFormat`/확장 상태를 저장하고 월 확장 보기를 활성화하며, 입력 중에는
   확장/축소 드래그를 잠근다. 완료/취소 시 기존 달력 형식과 확장 상태를 복구한다.
   선택일의 원형 버튼에서 근무 타입을 누르면 다음 날로 자동 이동하고, 근무 설정 카드 내부 `완료` 버튼을
   눌렀을 때 변경된 항목만 `WorkShiftService.batchUpsertWorkShifts()`로 저장한다.
-- 로그인/로그아웃으로 계정이 바뀌면 근무 타입, 근무 템플릿 설정, 친구, 알림 Provider 캐시를 무효화한다.
+- 로그인/로그아웃으로 계정이 바뀌면 근무 타입, 수정 응답 표시 업데이트, 근무 템플릿 설정,
+  친구, 알림 Provider 캐시를 무효화한다.
 
 ### 개인 일정 생성/표시 흐름
 
@@ -229,9 +326,9 @@ CalendarPage
   → 선택 날짜 일정 목록에 즉시 반영
 ```
 
-- 메인 캘린더 선택일 카드는 일정 수에 맞춰 높이가 줄어들고, 일정이 가용 높이를 넘을 때만 목록을
-  내부 스크롤한다. `일정 추가하기...`는 목록 바로 다음의 구분선 없는 primary 인셋 액션으로 표시하며
-  개인 일정 추가 모달을 띄운다.
+- 메인 캘린더 선택일 카드는 달력 아래 남은 `Expanded` 하단 슬롯을 채운다. 일정이 가용 높이를
+  넘을 때만 목록을 내부 스크롤한다. `일정 추가하기...`는 카드 하단의 구분선 없는 primary 인셋
+  액션으로 표시하며 개인 일정 추가 모달을 띄운다.
 - 선택일 카드의 공휴일명은 날짜 아래에 별도 줄을 만들지 않고 날짜 오른쪽 하단에 한 줄 accent red
   라벨로 표시한다. 공휴일명이 길면 말줄임해 오른쪽 일정 수를 유지하며, 공휴일 유무와 관계없이
   날짜·일정 수 헤더 높이는 동일하게 유지한다.
@@ -330,12 +427,16 @@ FriendListPage
   사용한다. 친구 일정은 읽기 전용이므로 일정 추가와 스와이프 삭제 액션은 제공하지 않는다.
   카드 아래에는 시스템 하단 안전영역과 최소 16px 여백을 적용해 화면 바닥 및 홈 인디케이터와
   맞닿지 않게 한다.
-- `FriendDetailPage`에서 친구 삭제가 성공하면 `Navigator.pop(true)`로 삭제 결과를
-  `FriendCalendarPage`에 반환하고, `FriendCalendarPage`가 자기 자신을 닫아 친구 리스트로
-  복귀한다.
-- `FriendDetailPage`의 친구 레벨/캘린더 공유 토글은 화면 안에서 먼저 변경하고, 상단 `Save`를
+- `FriendDetailPage`는 완료 결과를 `FriendDetailResult.saved`와
+  `FriendDetailResult.deleted`로 구분해 `FriendCalendarPage`에 반환한다. 삭제 성공이면
+  `FriendCalendarPage`가 자기 자신을 닫아 친구 리스트로 복귀한다.
+- `FriendDetailPage`의 친구 레벨/캘린더 공유 토글은 화면 안에서 먼저 변경하고, 상단 `저장`을
   눌렀을 때 기존 `PUT /api/v1/friends/:friend_user_id/settings` API로 `friend_level`과
-  `can_view`를 함께 저장한다. 저장 전 뒤로가기는 변경값을 폐기한다.
+  `can_view`를 함께 저장한다. 저장에 성공하면 이전 친구 캘린더 화면으로 자동 복귀하며,
+  `FriendCalendarPage`는 `GET /api/v1/friends`로 친구 목록을 새로고침한 뒤 같은 `user_id`의
+  최신 `FriendModel`을 현재 화면에 반영한다. 따라서 설정 화면 재진입 시 최신 레벨과 공유값을
+  사용한다. 실패하면 상세 화면을 유지하고 오류 다이얼로그를 표시한다. 저장 전 뒤로가기는
+  변경값을 폐기하며 새로고침하지 않는다.
 - 친구 설정 화면은 컴팩트 레이아웃을 기본으로 하며, 프로필 사진 위 편집 아이콘은 표시하지 않는다.
   친구 레벨은 개인 일정 추가 모달의 공개 레벨 선택과 같은 0~5 탭/드래그 트랙으로 조정한다.
 - 친구 캘린더 응답은 기존 `CalendarRangeResponse` 형식(`work_shifts`, `events`)을 재사용한다.
@@ -351,6 +452,14 @@ FriendListPage
     `CalendarScheduleCard`, `YearMonthPickerSheet`를 사용한다. 메인과 동일한 이벤트 날짜 매핑을
     사용하므로 종일 일정의 배타적 종료일을 중복 표시하지 않는다. 진입·월 이동·오늘 복귀 때
     `KoreanHolidays`의 월별 공용 캐시를 요청해 메인과 같은 공휴일 색상과 이름을 표시한다.
+    설정 저장 결과를 받으면 `friendListProvider`의 친구 목록을 서버에서 다시 조회하고 현재
+    `user_id`의 로컬 친구 모델을 교체한다.
+  - `lib/features/friend/presentation/pages/friend_detail_page.dart`: 친구별 `friend_level`과
+    `can_view`를 편집하고 `friendListProvider`를 통해 저장한다. 저장 성공 시 이전 화면으로
+    `FriendDetailResult.saved`를 반환하고, 삭제 성공 시 `deleted`를 반환한다. 실패 시 현재
+    입력값을 유지한 채 오류를 표시한다.
+  - `test/features/friend/presentation/pages/friend_detail_page_test.dart`: 가짜 `FriendService`로
+    캘린더 공유 설정 저장 요청값, 성공 후 이전 화면 복귀와 `saved` 결과 반환을 검증한다.
   - `test/features/friend/presentation/pages/friend_calendar_page_test.dart`: 가짜 `FriendService`로
     명시적 `MediaQuery` 높이 740px에서 2주 보기 고정, 750px에서 월 보기 유지 여부를 검증한다.
     390x800 월 보기에서는 중복 프로필 제거, 선택된 토요일/일요일·공휴일의 의미 색상과 공휴일명,
@@ -358,7 +467,8 @@ FriendListPage
     primary dark outline 사각형 선택 표시, 근무 시간 포맷,
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지, 달력과 선택일 일정 카드 사이 및 카드 하단의
     최소 16px 여백, 3개월 뒤에서 오늘로 복귀할 때 빌드 중 setState 예외가 없는지와 연/월 이동
-    시트 노출을 검증한다.
+    시트 노출을 검증한다. 설정 저장 후 친구 목록 GET을 다시 호출하고 서버 응답의 최신 `can_view`로
+    설정 화면에 재진입하는지도 검증한다.
 
 ### 친구 요청 알림 응답 흐름
 
@@ -391,6 +501,23 @@ NotificationPage
 - 알림 목록은 `SafeArea(bottom: false)`와 목록 끝 footer 여백을 함께 사용해 마지막 카드가
   홈 인디케이터/화면 끝에서 잘린 것처럼 보이지 않게 한다. 추가 페이지가 남아 있거나 로딩 중이면
   footer 문구 대신 하단 여백만 표시하고, 마지막 페이지에서만 완료 문구를 표시한다.
+
+### iOS 로컬 빌드 규칙
+
+- CocoaPods 의존성이 있는 iOS 앱은 Xcode에서 `ios/Runner.xcworkspace`를 연다.
+  `Runner.xcodeproj`만 열면 Pods target이 빌드 그래프에 포함되지 않아
+  `Framework 'Pods_Runner' not found`가 발생할 수 있다.
+- Flutter CLI와 Xcode를 번갈아 사용한 뒤 같은 링크 오류가 발생하면 프로젝트 루트에서
+  `flutter clean`, `flutter pub get`을 순서대로 실행하고 `ios/`에서
+  `pod install --deployment`을 실행해 `Generated.xcconfig`와 Pods workspace를 다시 맞춘다.
+- Debug/Profile/Release Runner 구성은 각각 동일한 이름의 Flutter xcconfig를 사용하며,
+  각 파일은 해당 `Pods-Runner.<configuration>.xcconfig`, `Generated.xcconfig`,
+  로컬 `Secrets.xcconfig`를 포함한다.
+- 파일 역할/의존성/사용 예:
+  - `ios/Flutter/Profile.xcconfig`: Profile 빌드의 CocoaPods 검색 경로와 Flutter 생성 설정,
+    로컬 secret 설정을 연결한다. `Runner.xcodeproj`의 Runner/Profile base configuration에서
+    참조하며 `xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner
+    -configuration Profile ...` 실행 시 사용한다.
 
 # 사용하는 DB Schema
 
