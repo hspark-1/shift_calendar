@@ -17,14 +17,24 @@ const List<String> _default_recent_colors = [
   'BA1A1A',
 ];
 
-Widget buildPickerApp({Color initial_color = const Color(0xFFFF9500)}) {
+Widget buildPickerApp({
+  Color initial_color = const Color(0xFFFF9500),
+  Color? initial_base_color,
+  int initial_color_intensity = 100,
+}) {
   return CupertinoApp(
     theme: AppTheme.lightTheme,
-    home: ShiftColorPickerPage(initial_color: initial_color),
+    home: ShiftColorPickerPage(
+      initial_color: initial_color,
+      initial_base_color: initial_base_color,
+      initial_color_intensity: initial_color_intensity,
+    ),
   );
 }
 
-Widget buildPickerResultApp({required ValueChanged<Color?> on_result}) {
+Widget buildPickerResultApp({
+  required ValueChanged<ShiftColorSelection?> on_result,
+}) {
   return CupertinoApp(
     theme: AppTheme.lightTheme,
     home: CupertinoPageScaffold(
@@ -32,13 +42,14 @@ Widget buildPickerResultApp({required ValueChanged<Color?> on_result}) {
         builder: (context) => Center(
           child: CupertinoButton(
             onPressed: () async {
-              final result = await Navigator.of(context).push<Color>(
-                CupertinoPageRoute(
-                  builder: (context) => const ShiftColorPickerPage(
-                    initial_color: Color(0xFFFF9500),
-                  ),
-                ),
-              );
+              final result = await Navigator.of(context)
+                  .push<ShiftColorSelection>(
+                    CupertinoPageRoute(
+                      builder: (context) => const ShiftColorPickerPage(
+                        initial_color: Color(0xFFFF9500),
+                      ),
+                    ),
+                  );
               on_result(result);
             },
             child: const Text('색상 열기'),
@@ -54,6 +65,23 @@ void main() {
     SharedPreferences.setMockInitialValues({
       _recent_colors_storage_key: _default_recent_colors,
     });
+  });
+
+  test('서버와 같은 고정 흰색 혼합 규칙으로 0·50·100퍼센트를 계산한다', () {
+    const base_color = Color(0xFF4355B8);
+
+    expect(
+      calculateShiftColor(base_color, 0).toARGB32(),
+      const Color(0xFFFFFFFF).toARGB32(),
+    );
+    expect(
+      calculateShiftColor(base_color, 50).toARGB32(),
+      const Color(0xFFA1AADC).toARGB32(),
+    );
+    expect(
+      calculateShiftColor(base_color, 100).toARGB32(),
+      base_color.toARGB32(),
+    );
   });
 
   testWidgets('시안 구조와 초기 프리셋 색상을 표시한다', (tester) async {
@@ -186,6 +214,38 @@ void main() {
     expect(preview_decoration.color?.a, 1);
   });
 
+  testWidgets('저장된 기준 색상과 농도를 초기 상태로 복원한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      buildPickerApp(
+        initial_color: const Color(0xFFA1AADC),
+        initial_base_color: const Color(0xFF4355B8),
+        initial_color_intensity: 50,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text('#A1AADC'), findsOneWidget);
+    expect(find.text('나이트 인디고'), findsOneWidget);
+
+    final slider = tester.widget<CupertinoSlider>(
+      find.byKey(const Key('shift_color_intensity_slider')),
+    );
+    expect(slider.value, 0.5);
+
+    final preview = tester.widget<AnimatedContainer>(
+      find.byKey(const Key('shift_color_preview')),
+    );
+    final preview_decoration = preview.decoration! as BoxDecoration;
+    expect(
+      preview_decoration.color?.toARGB32(),
+      const Color(0xFFA1AADC).toARGB32(),
+    );
+  });
+
   testWidgets('농도 트랙 터치와 원하는 위치에서 시작한 드래그를 지원한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -297,7 +357,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    Color? selected_color;
+    ShiftColorSelection? selected_color;
     await tester.pumpWidget(
       buildPickerResultApp(on_result: (result) => selected_color = result),
     );
@@ -309,7 +369,9 @@ void main() {
     await tester.tap(find.byKey(const Key('shift_color_complete_button')));
     await tester.pumpAndSettle();
 
-    expect(selected_color?.toARGB32(), const Color(0xFF27AE60).toARGB32());
+    expect(selected_color?.final_color, const Color(0xFF27AE60).toARGB32());
+    expect(selected_color?.base_color, const Color(0xFF27AE60).toARGB32());
+    expect(selected_color?.color_intensity, 100);
   });
 
   testWidgets('좌측 화살표는 변경한 색상을 반환하지 않는다', (tester) async {
@@ -317,7 +379,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     var result_received = false;
-    Color? selected_color;
+    ShiftColorSelection? selected_color;
     await tester.pumpWidget(
       buildPickerResultApp(
         on_result: (result) {

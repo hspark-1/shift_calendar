@@ -40,6 +40,9 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   Color _selectedColor = AppTheme.primary_color;
+  Color _selectedBaseColor = AppTheme.primary_color;
+  int _selectedColorIntensity = 100;
+  bool _didChangeColor = false;
 
   @override
   void initState() {
@@ -51,8 +54,18 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
     _name_focus_node = FocusNode();
 
     if (shiftType != null) {
+      final base_color = shiftType.baseColorValue;
+      _selectedColorIntensity = shiftType.colorIntensity.clamp(0, 100).toInt();
+      if (base_color != null) {
+        _selectedBaseColor = base_color.withValues(alpha: 1);
+      }
       if (shiftType.color != null) {
         _selectedColor = Color(shiftType.color!);
+      } else if (base_color != null) {
+        _selectedColor = calculateShiftColor(
+          _selectedBaseColor,
+          _selectedColorIntensity,
+        );
       }
       if (shiftType.startTime != null) {
         final parts = shiftType.startTime!.split(':');
@@ -170,17 +183,26 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
 
   /// 색상 선택
   Future<void> _selectColor() async {
-    final selected_color = await Navigator.of(context).push<Color>(
-      CupertinoPageRoute(
-        builder: (context) =>
-            ShiftColorPickerPage(initial_color: _selectedColor),
-      ),
-    );
+    _dismissKeyboard();
+
+    final selected_color = await Navigator.of(context)
+        .push<ShiftColorSelection>(
+          CupertinoPageRoute(
+            builder: (context) => ShiftColorPickerPage(
+              initial_color: _selectedColor,
+              initial_base_color: _selectedBaseColor,
+              initial_color_intensity: _selectedColorIntensity,
+            ),
+          ),
+        );
 
     if (selected_color == null || !mounted) return;
 
     setState(() {
-      _selectedColor = selected_color;
+      _selectedColor = Color(selected_color.final_color);
+      _selectedBaseColor = Color(selected_color.base_color);
+      _selectedColorIntensity = selected_color.color_intensity;
+      _didChangeColor = true;
     });
   }
 
@@ -274,7 +296,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
 
     final code = _codeController.text.trim().toUpperCase();
     final name = _nameController.text.trim();
-    final color = _selectedColor.toARGB32();
+    final base_color = _selectedBaseColor.toARGB32();
     final startTime = _startTime != null
         ? _timeOfDayToTimeString(_startTime!)
         : null;
@@ -287,7 +309,8 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
         CreateShiftTypeRequest(
           code: code,
           name: name,
-          color: color,
+          baseColor: base_color,
+          colorIntensity: _selectedColorIntensity,
           startTime: startTime,
           endTime: endTime,
         ),
@@ -299,7 +322,8 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
         UpdateShiftTypeRequest(
           code: code,
           name: name,
-          color: color,
+          baseColor: _didChangeColor ? base_color : null,
+          colorIntensity: _didChangeColor ? _selectedColorIntensity : null,
           startTime: startTime,
           endTime: endTime,
         ),

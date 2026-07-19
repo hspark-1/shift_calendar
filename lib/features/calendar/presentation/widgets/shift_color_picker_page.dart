@@ -14,10 +14,48 @@ TextStyle _scaledTextStyle(TextStyle style) {
   return style.copyWith(fontSize: (style.fontSize ?? 14) * _body_scale);
 }
 
+class ShiftColorSelection {
+  final int final_color;
+  final int base_color;
+  final int color_intensity;
+
+  const ShiftColorSelection({
+    required this.final_color,
+    required this.base_color,
+    required this.color_intensity,
+  });
+}
+
+int _mixColorChannel(int channel, int color_intensity) {
+  return (255 + (channel - 255) * color_intensity / 100).round();
+}
+
+Color calculateShiftColor(Color base_color, int color_intensity) {
+  final normalized_intensity = color_intensity.clamp(0, 100).toInt();
+  final argb = base_color.toARGB32();
+  final red = (argb >> 16) & 0xff;
+  final green = (argb >> 8) & 0xff;
+  final blue = argb & 0xff;
+
+  return Color.fromARGB(
+    255,
+    _mixColorChannel(red, normalized_intensity),
+    _mixColorChannel(green, normalized_intensity),
+    _mixColorChannel(blue, normalized_intensity),
+  );
+}
+
 class ShiftColorPickerPage extends StatefulWidget {
   final Color initial_color;
+  final Color? initial_base_color;
+  final int initial_color_intensity;
 
-  const ShiftColorPickerPage({super.key, required this.initial_color});
+  const ShiftColorPickerPage({
+    super.key,
+    required this.initial_color,
+    this.initial_base_color,
+    this.initial_color_intensity = 100,
+  });
 
   @override
   State<ShiftColorPickerPage> createState() => _ShiftColorPickerPageState();
@@ -41,14 +79,10 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
 
   late Color _base_color;
   late String _color_name;
-  double _color_intensity = 1;
+  late int _color_intensity;
 
   Color get _selected_color {
-    return Color.lerp(
-      AppTheme.surface_color,
-      _base_color,
-      _color_intensity,
-    )!.withValues(alpha: 1);
+    return calculateShiftColor(_base_color, _color_intensity);
   }
 
   String get _hex_value {
@@ -57,7 +91,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
   }
 
   int? get _selected_preset_index {
-    if (_color_intensity != 1) return null;
+    if (_color_intensity != 100) return null;
 
     final selected_value = _base_color.toARGB32();
     final index = _presets.indexWhere(
@@ -69,7 +103,9 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
   @override
   void initState() {
     super.initState();
-    _base_color = widget.initial_color.withValues(alpha: 1);
+    _base_color = (widget.initial_base_color ?? widget.initial_color)
+        .withValues(alpha: 1);
+    _color_intensity = widget.initial_color_intensity.clamp(0, 100).toInt();
     _color_name = _presetNameForColor(_base_color) ?? '커스텀 색상';
   }
 
@@ -88,7 +124,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
     setState(() {
       _base_color = preset.color;
       _color_name = preset.name;
-      _color_intensity = 1;
+      _color_intensity = 100;
     });
   }
 
@@ -105,16 +141,22 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
     setState(() {
       _base_color = custom_color.withValues(alpha: 1);
       _color_name = '커스텀 색상';
-      _color_intensity = 1;
+      _color_intensity = 100;
     });
   }
 
   void _completeSelection() {
-    Navigator.of(context).pop(_selected_color);
+    Navigator.of(context).pop(
+      ShiftColorSelection(
+        final_color: _selected_color.toARGB32(),
+        base_color: _base_color.toARGB32(),
+        color_intensity: _color_intensity,
+      ),
+    );
   }
 
   void _setColorIntensity(double value) {
-    final next_intensity = value.clamp(0.0, 1.0);
+    final next_intensity = (value.clamp(0.0, 1.0) * 100).round();
     if (next_intensity == _color_intensity) return;
 
     setState(() {
@@ -425,7 +467,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
   }
 
   Widget _buildColorIntensityCard() {
-    final intensity_percentage = (_color_intensity * 100).round();
+    final intensity_percentage = _color_intensity;
 
     return Container(
       key: const Key('shift_color_intensity_card'),
@@ -528,9 +570,10 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
                         child: IgnorePointer(
                           child: CupertinoSlider(
                             key: const Key('shift_color_intensity_slider'),
-                            value: _color_intensity,
+                            value: _color_intensity / 100,
                             min: 0,
                             max: 1,
+                            divisions: 100,
                             activeColor: AppTheme.primary_color,
                             onChanged: _setColorIntensity,
                           ),

@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 
 import '../../../../core/utils/color_parser.dart';
@@ -8,6 +10,8 @@ class ShiftTypeApiModel {
   final String code;
   final String name;
   final int? color;
+  final int? baseColor;
+  final int colorIntensity;
   final int? sortOrder;
   final String? startTime; // "06:30:00" 형식
   final String? endTime; // "15:00:00" 형식
@@ -19,19 +23,33 @@ class ShiftTypeApiModel {
     required this.code,
     required this.name,
     this.color,
+    int? baseColor,
+    this.colorIntensity = 100,
     this.sortOrder,
     this.startTime,
     this.endTime,
     required this.crossesMidnight,
     required this.durationMinutes,
-  });
+  }) : baseColor = baseColor ?? color;
 
   factory ShiftTypeApiModel.fromJson(Map<String, dynamic> json) {
+    final color = parseApiColorValue(json['color']);
+    final base_color = parseApiColorValue(json['base_color']) ?? color;
+    final raw_color_intensity = json['color_intensity'];
+    final color_intensity =
+        raw_color_intensity is int &&
+            raw_color_intensity >= 0 &&
+            raw_color_intensity <= 100
+        ? raw_color_intensity
+        : 100;
+
     return ShiftTypeApiModel(
       shiftTypeId: json['shift_type_id'] as String,
       code: json['code'] as String,
       name: json['name'] as String,
-      color: parseApiColorValue(json['color']),
+      color: color,
+      baseColor: base_color,
+      colorIntensity: color_intensity,
       sortOrder: json['sort_order'] as int?,
       startTime: json['start_time'] as String?,
       endTime: json['end_time'] as String?,
@@ -55,6 +73,12 @@ class ShiftTypeApiModel {
   Color? get colorValue {
     if (color == null) return null;
     return Color(color!);
+  }
+
+  /// 농도 적용 전 기준 색상을 Color 객체로 변환
+  Color? get baseColorValue {
+    if (baseColor == null) return null;
+    return Color(baseColor!);
   }
 }
 
@@ -111,6 +135,8 @@ class CreateShiftTypeRequest {
   final String code;
   final String name;
   final int? color;
+  final int? baseColor;
+  final int? colorIntensity;
   final String? startTime; // "HH:mm:ss" 형식
   final String? endTime; // "HH:mm:ss" 형식
   final int? sortOrder;
@@ -119,6 +145,8 @@ class CreateShiftTypeRequest {
     required this.code,
     required this.name,
     this.color,
+    this.baseColor,
+    this.colorIntensity,
     this.startTime,
     this.endTime,
     this.sortOrder,
@@ -126,7 +154,12 @@ class CreateShiftTypeRequest {
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{'code': code, 'name': name};
-    if (color != null) json['color'] = formatApiColorValue(color!);
+    _writeColorFields(
+      json,
+      color: color,
+      base_color: baseColor,
+      color_intensity: colorIntensity,
+    );
     if (startTime != null) json['start_time'] = startTime;
     if (endTime != null) json['end_time'] = endTime;
     if (sortOrder != null) json['sort_order'] = sortOrder;
@@ -154,6 +187,8 @@ class UpdateShiftTypeRequest {
   final String? code;
   final String? name;
   final int? color;
+  final int? baseColor;
+  final int? colorIntensity;
   final String? startTime; // "HH:mm:ss" 형식 또는 null
   final String? endTime; // "HH:mm:ss" 형식 또는 null
   final int? sortOrder;
@@ -162,6 +197,8 @@ class UpdateShiftTypeRequest {
     this.code,
     this.name,
     this.color,
+    this.baseColor,
+    this.colorIntensity,
     this.startTime,
     this.endTime,
     this.sortOrder,
@@ -171,7 +208,12 @@ class UpdateShiftTypeRequest {
     final json = <String, dynamic>{};
     if (code != null) json['code'] = code;
     if (name != null) json['name'] = name;
-    if (color != null) json['color'] = formatApiColorValue(color!);
+    _writeColorFields(
+      json,
+      color: color,
+      base_color: baseColor,
+      color_intensity: colorIntensity,
+    );
     // 시간 필드: Partial update이지만 시간은 특별 처리
     // - 둘 다 null이면 스케줄 삭제를 위해 명시적으로 null 전송
     // - 둘 다 값이 있으면 스케줄 업데이트/생성
@@ -181,6 +223,44 @@ class UpdateShiftTypeRequest {
     json['end_time'] = endTime;
     if (sortOrder != null) json['sort_order'] = sortOrder;
     return json;
+  }
+}
+
+void _writeColorFields(
+  Map<String, dynamic> json, {
+  required int? color,
+  required int? base_color,
+  required int? color_intensity,
+}) {
+  final has_base_color = base_color != null;
+  final has_color_intensity = color_intensity != null;
+
+  if (has_base_color != has_color_intensity) {
+    throw ArgumentError('baseColor와 colorIntensity는 함께 전달해야 합니다.');
+  }
+
+  if (color_intensity != null &&
+      (color_intensity < 0 || color_intensity > 100)) {
+    throw RangeError.range(color_intensity, 0, 100, 'colorIntensity');
+  }
+
+  if (has_base_color) {
+    final alpha = (base_color >> 24) & 0xff;
+    if (alpha != 0xff) {
+      throw ArgumentError.value(
+        base_color,
+        'baseColor',
+        '불투명 #FFRRGGBB 색상이어야 합니다.',
+      );
+    }
+
+    json['base_color'] = formatApiColorValue(base_color);
+    json['color_intensity'] = color_intensity!;
+    return;
+  }
+
+  if (color != null) {
+    json['color'] = formatApiColorValue(color);
   }
 }
 

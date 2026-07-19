@@ -36,6 +36,22 @@ ShiftTypeApiModel buildEveningShiftType() {
   );
 }
 
+ShiftTypeApiModel buildIntensityShiftType() {
+  return ShiftTypeApiModel(
+    shiftTypeId: 'shift-type-intensity',
+    code: 'N',
+    name: '나이트',
+    color: const Color(0xFFA1AADC).toARGB32(),
+    baseColor: const Color(0xFF4355B8).toARGB32(),
+    colorIntensity: 50,
+    sortOrder: 3,
+    startTime: '22:30:00',
+    endTime: '07:00:00',
+    crossesMidnight: true,
+    durationMinutes: 510,
+  );
+}
+
 Widget buildTestApp() {
   return CupertinoApp(
     theme: AppTheme.lightTheme,
@@ -48,7 +64,10 @@ Widget buildTestApp() {
 
 Widget buildResultTestApp({
   required ValueChanged<UpdateShiftTypeRequest?> on_result,
+  ShiftTypeApiModel? shift_type,
 }) {
+  final target_shift_type = shift_type ?? buildShiftType();
+
   return CupertinoApp(
     theme: AppTheme.lightTheme,
     home: CupertinoPageScaffold(
@@ -60,14 +79,41 @@ Widget buildResultTestApp({
                   .push<UpdateShiftTypeRequest>(
                     CupertinoPageRoute(
                       builder: (context) => ShiftTypeFormModal(
-                        shiftType: buildShiftType(),
-                        existingTypes: [buildShiftType()],
+                        shiftType: target_shift_type,
+                        existingTypes: [target_shift_type],
                       ),
                     ),
                   );
               on_result(result);
             },
             child: const Text('편집 열기'),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget buildCreateResultTestApp({
+  required ValueChanged<CreateShiftTypeRequest?> on_result,
+}) {
+  return CupertinoApp(
+    theme: AppTheme.lightTheme,
+    home: CupertinoPageScaffold(
+      child: Builder(
+        builder: (context) => Center(
+          child: CupertinoButton(
+            onPressed: () async {
+              final result = await Navigator.of(context)
+                  .push<CreateShiftTypeRequest>(
+                    CupertinoPageRoute(
+                      builder: (context) =>
+                          const ShiftTypeFormModal(existingTypes: []),
+                    ),
+                  );
+              on_result(result);
+            },
+            child: const Text('추가 열기'),
           ),
         ),
       ),
@@ -421,7 +467,42 @@ void main() {
     expect(decoration.color?.toARGB32(), const Color(0xFF4355B8).toARGB32());
   });
 
-  testWidgets('헤더 완료는 기존 수정 요청 계약을 그대로 반환한다', (tester) async {
+  testWidgets('저장된 기준 색상과 농도를 선택 화면에서 복원해 수정 요청으로 반환한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    UpdateShiftTypeRequest? saved_request;
+    await tester.pumpWidget(
+      buildResultTestApp(
+        shift_type: buildIntensityShiftType(),
+        on_result: (result) => saved_request = result,
+      ),
+    );
+
+    await tester.tap(find.text('편집 열기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shift_type_color_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text('#A1AADC'), findsOneWidget);
+    expect(find.text('나이트 인디고'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('shift_color_complete_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+
+    expect(saved_request, isNotNull);
+    expect(saved_request?.color, isNull);
+    expect(saved_request?.baseColor, const Color(0xFF4355B8).toARGB32());
+    expect(saved_request?.colorIntensity, 50);
+    expect(saved_request?.toJson()['base_color'], '#FF4355B8');
+    expect(saved_request?.toJson()['color_intensity'], 50);
+    expect(saved_request?.toJson().containsKey('color'), isFalse);
+  });
+
+  testWidgets('색상을 변경하지 않은 편집은 색상 필드를 요청에서 생략한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -438,9 +519,42 @@ void main() {
     expect(saved_request, isNotNull);
     expect(saved_request?.code, 'D');
     expect(saved_request?.name, '데이');
-    expect(saved_request?.color, const Color(0xFFFF9500).toARGB32());
+    expect(saved_request?.color, isNull);
+    expect(saved_request?.baseColor, isNull);
+    expect(saved_request?.colorIntensity, isNull);
+    expect(saved_request?.toJson().containsKey('color'), isFalse);
+    expect(saved_request?.toJson().containsKey('base_color'), isFalse);
+    expect(saved_request?.toJson().containsKey('color_intensity'), isFalse);
     expect(saved_request?.startTime, '06:30:00');
     expect(saved_request?.endTime, '15:00:00');
+  });
+
+  testWidgets('추가 화면은 기본 기준 색상과 100퍼센트 농도를 요청한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    CreateShiftTypeRequest? saved_request;
+    await tester.pumpWidget(
+      buildCreateResultTestApp(on_result: (result) => saved_request = result),
+    );
+
+    await tester.tap(find.text('추가 열기'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('shift_type_code_field')), 'D');
+    await tester.enterText(
+      find.byKey(const Key('shift_type_name_field')),
+      '데이',
+    );
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+
+    expect(saved_request, isNotNull);
+    expect(saved_request?.color, isNull);
+    expect(saved_request?.baseColor, AppTheme.primary_color.toARGB32());
+    expect(saved_request?.colorIntensity, 100);
+    expect(saved_request?.toJson()['base_color'], '#FF0061A4');
+    expect(saved_request?.toJson()['color_intensity'], 100);
+    expect(saved_request?.toJson().containsKey('color'), isFalse);
   });
 
   testWidgets('좌측 화살표는 편집 결과를 반환하지 않는다', (tester) async {
