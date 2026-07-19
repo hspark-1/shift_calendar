@@ -30,14 +30,60 @@ class _FakeFriendService extends FriendService {
   }
 }
 
+class _RefreshingFriendService extends _FakeFriendService {
+  _RefreshingFriendService(super.response, this.refreshed_friend);
+
+  final FriendModel refreshed_friend;
+  int get_friends_call_count = 0;
+
+  @override
+  Future<UpdateFriendSettingsResponse> updateFriendSettings({
+    required String friendUserId,
+    int? friendLevel,
+    bool? canView,
+  }) async {
+    return UpdateFriendSettingsResponse(
+      success: true,
+      data: FriendSettingsData(
+        ownerUserId: 'owner-1',
+        friendUserId: friendUserId,
+        friendLevel: friendLevel ?? refreshed_friend.friendLevel,
+        canView: canView ?? refreshed_friend.canView,
+        updatedAt: DateTime(2026, 7, 19),
+      ),
+      message: '설정이 변경되었습니다.',
+    );
+  }
+
+  @override
+  Future<FriendsResponse> getFriends({int page = 1, int limit = 20}) async {
+    get_friends_call_count++;
+    return FriendsResponse(
+      success: true,
+      data: FriendsData(
+        friends: [refreshed_friend],
+        pagination: PaginationInfo(
+          page: page,
+          limit: limit,
+          total: 1,
+          totalPages: 1,
+        ),
+      ),
+    );
+  }
+}
+
 Widget _buildTestApp({
   required double screen_height,
   required CalendarRangeResponse response,
   required FriendModel friend,
+  FriendService? service,
 }) {
   return ProviderScope(
     overrides: [
-      friendServiceProvider.overrideWithValue(_FakeFriendService(response)),
+      friendServiceProvider.overrideWithValue(
+        service ?? _FakeFriendService(response),
+      ),
     ],
     child: CupertinoApp(
       home: MediaQuery(
@@ -68,6 +114,69 @@ void main() {
   });
 
   tearDown(KoreanHolidays.resetForTesting);
+
+  testWidgets('설정 저장 후 친구 목록을 새로고침하고 최신 설정으로 재진입한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final response = CalendarRangeResponse(
+      success: true,
+      data: CalendarRangeData(workShifts: const [], events: const []),
+    );
+    final friend = FriendModel(
+      userId: 'friend-refresh',
+      name: '새로고침 친구',
+      email: 'refresh@example.com',
+      friendLevel: 0,
+      canView: true,
+      createdAt: now,
+    );
+    final refreshed_friend = FriendModel(
+      userId: friend.userId,
+      name: friend.name,
+      email: friend.email,
+      friendLevel: friend.friendLevel,
+      canView: false,
+      createdAt: friend.createdAt,
+    );
+    final service = _RefreshingFriendService(response, refreshed_friend);
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        screen_height: 800,
+        response: response,
+        friend: friend,
+        service: service,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(CupertinoIcons.gear));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+      isTrue,
+    );
+
+    await tester.tap(find.byType(CupertinoSwitch));
+    await tester.pump();
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    expect(service.get_friends_call_count, 1);
+    expect(find.byKey(const ValueKey('friend-calendar')), findsOneWidget);
+
+    await tester.tap(find.byIcon(CupertinoIcons.gear));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('750px 미만 친구 캘린더는 2주 보기로 고정한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 740));

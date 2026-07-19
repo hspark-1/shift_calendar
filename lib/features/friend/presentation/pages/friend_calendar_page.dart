@@ -15,6 +15,7 @@ import '../../../calendar/presentation/widgets/calendar_schedule_card.dart';
 import '../../../calendar/presentation/widgets/year_month_picker_sheet.dart';
 import '../../data/models/friend_model.dart';
 import '../../data/services/friend_service.dart';
+import '../providers/friend_provider.dart';
 import 'friend_detail_page.dart';
 
 /// 친구 캘린더 조회 페이지
@@ -28,6 +29,7 @@ class FriendCalendarPage extends ConsumerStatefulWidget {
 }
 
 class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
+  late FriendModel _friend;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   bool _isLoading = false;
@@ -48,6 +50,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   @override
   void initState() {
     super.initState();
+    _friend = widget.friend;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCalendarData(_focusedDay);
       _loadHolidays(_focusedDay);
@@ -99,7 +102,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
       final response = await ref
           .read(friendServiceProvider)
           .getFriendCalendarRange(
-            friendUserId: widget.friend.userId,
+            friendUserId: _friend.userId,
             startDate: range.startDate,
             endDate: range.endDate,
           );
@@ -197,16 +200,34 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   }
 
   Future<void> _navigateToSettings() async {
-    final wasDeleted = await Navigator.of(context).push<bool>(
-      CupertinoPageRoute<bool>(
-        builder: (context) => FriendDetailPage(friend: widget.friend),
+    final result = await Navigator.of(context).push<FriendDetailResult>(
+      CupertinoPageRoute<FriendDetailResult>(
+        builder: (context) => FriendDetailPage(friend: _friend),
       ),
     );
-    if (!mounted || wasDeleted != true) return;
+    if (!mounted || result == null) return;
 
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
+    if (result == FriendDetailResult.deleted) {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+      return;
+    }
+
+    await _refreshFriend();
+  }
+
+  Future<void> _refreshFriend() async {
+    await ref.read(friendListProvider.notifier).loadFriends();
+    if (!mounted) return;
+
+    final friends = ref.read(friendListProvider).friends;
+    for (final friend in friends) {
+      if (friend.userId == _friend.userId) {
+        setState(() => _friend = friend);
+        return;
+      }
     }
   }
 
@@ -231,7 +252,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.friend.name),
+        middle: Text(_friend.name),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: _navigateToSettings,

@@ -7,6 +7,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../data/models/friend_model.dart';
 import '../providers/friend_provider.dart';
 
+enum FriendDetailResult { saved, deleted }
+
 /// 친구 상세 페이지
 class FriendDetailPage extends ConsumerStatefulWidget {
   final FriendModel friend;
@@ -67,7 +69,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
           child: _is_updating
               ? const CupertinoActivityIndicator(radius: 9)
               : Text(
-                  'Save',
+                  '저장',
                   style: AppTheme.body_medium.copyWith(
                     color: _hasChanges()
                         ? AppTheme.primary_dark_color
@@ -456,17 +458,13 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
 
     if (!mounted) return;
 
-    setState(() {
-      _is_updating = false;
-      if (success) {
-        _saved_level = _selected_level;
-        _saved_can_view = _can_view;
-      }
-    });
-
-    if (!success) {
-      _showError('설정 변경에 실패했습니다.');
+    if (success) {
+      Navigator.of(context).pop(FriendDetailResult.saved);
+      return;
     }
+
+    setState(() => _is_updating = false);
+    _showError('설정 변경에 실패했습니다.');
   }
 
   Future<void> _deleteFriend() async {
@@ -481,7 +479,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
     setState(() => _is_updating = false);
 
     if (success) {
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(FriendDetailResult.deleted);
     } else {
       _showError('친구 삭제에 실패했습니다.');
     }
