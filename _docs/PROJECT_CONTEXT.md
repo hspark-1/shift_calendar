@@ -44,6 +44,9 @@
     `cardDecoration()` helper를 제공한다. 페이지/위젯은 배경, 카드, outline, 텍스트 색을
     직접 하드코딩하지 않고 이 토큰을 우선 사용한다. `surface_container_highest_color`
     (`#E0E3E5`)는 비활성/최대치 도달 버튼 배경처럼 더 높은 surface 상태에 사용한다.
+    `readableForegroundColor()`는 실제 배경과 선호 전경색의 WCAG 대비율을 계산해 4.5:1을
+    만족하면 선호색을 유지하고, 부족하면 `on_surface_color`와 `surface_color` 중 대비가 높은
+    색을 반환한다. 옅은 사용자 정의 근무 색상 위의 코드처럼 동적 배경의 텍스트에 사용한다.
   - `lib/core/utils/korean_holidays.dart`: 한국천문연구원 특일 정보 API의 요청 월 앞뒤 1개월
     공휴일을 조회하는 앱 공용 데이터 원천이다. 날짜·이름과 조회 완료 월을 메모리에 병합하고
     `SharedPreferences`의 `korean_holidays_cache_v1` JSON에 저장한다. `main.dart`는 앱 시작 시
@@ -63,7 +66,7 @@
     위로 드래그하면 기존 48px compact 점 표시로 접을 수 있으나 750px 미만의 2주 형식은 유지된다.
     날짜 셀은 행 높이를 다시 수동 계산하지 않고 `TableCalendar`가 전달한 실제 가용 높이를 채우며,
     2px 외부 여백을 제외한 영역에 날짜와 근무 배지를 배치해 작은 화면에서도 넘치지 않게 한다.
-    선택일은 흰색 surface 배경과 2px primary dark outline 사각형, 굵은 날짜 텍스트로 표시하며
+    선택일은 8% primary tint 배경과 2px primary dark outline 사각형, 굵은 날짜 텍스트로 표시하며
     별도 원은 그리지 않는다. 선택 여부가 날짜 의미 색상을 덮어쓰지 않으므로 토요일은 primary blue,
     일요일과 공휴일은 accent red를 선택 후에도 유지한다.
     선택 배경은 날짜 콘텐츠와 분리해 셀 전체 너비를 채우지 않는다. compact 점 보기에서는
@@ -92,9 +95,10 @@
     근무 설정 카드의 헤더 아래 본문은 12px padding을 사용한다.
   - `lib/features/calendar/presentation/widgets/calendar_month_view.dart`: 메인·친구 캘린더가
     함께 사용하는 월 헤더와 `TableCalendar` 표시 위젯. 공통 2000~2050 범위, 한국어 요일,
-    반응형 형식/행 높이 입력, 날짜 의미 색상, 근무 코드 배지, 오늘 밑줄, 선택 surface·2px
+    반응형 형식/행 높이 입력, 날짜 의미 색상, 근무 코드 배지, 오늘 밑줄, 선택 primary tint·2px
     outline을 한 곳에서 렌더링한다. 각 페이지는 조회 상태와 날짜별 색상/배지 데이터,
-    날짜·페이지 선택 콜백, 메인 전용 compact marker만 주입한다.
+    날짜·페이지 선택 콜백, 메인 전용 compact marker만 주입한다. 근무 코드 배지는 저장된 근무
+    색상을 배경으로 유지하고 코드 글자는 해당 배경과 대비되는 공용 전경색을 사용한다.
   - `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`: 메인·친구 캘린더가
     함께 사용하는 선택일 일정 카드. `CalendarScheduleHeader`는 일정 카드와 메인 근무 설정 카드가
     같은 16px 수평·12px 수직 padding, 36px 콘텐츠 슬롯, 날짜/공휴일 타이포와 0.5px 하단 구분선을
@@ -105,7 +109,8 @@
     기존 `ShiftTypeButtonGroup`은 근무 추가 페이지/시트에서 Provider 기반 원형 버튼을 표시하고,
     `ShiftTypeSelectionGrid`는 메인 캘린더가 전달한 정렬된 `ShiftTypeInfo` 목록을 실제 너비와
     높이에 맞춰 최대 5열로 배치한다. 메인 그리드는 코드/이름, 선택 상태, 접근성 label을
-    제공하며 선택 콜백으로 코드만 반환한다.
+    제공하며 선택 콜백으로 코드만 반환한다. 근무 색상을 코드 선호색으로 사용하되 버튼 배경과
+    4.5:1 대비가 부족한 옅은 색은 공용 어두운 전경색으로 대체한다.
   - `lib/features/calendar/presentation/widgets/year_month_picker_sheet.dart`: 메인 캘린더와 근무 추가
     화면이 함께 사용하는 연도/월 선택 하단 시트. 현재 선택값 요약, `이번 달` 빠른 이동,
     연도·월 휠, 취소/이동 액션을 Shift Harmony surface/primary 토큰으로 표시한다.
@@ -135,13 +140,15 @@
     근무 타입 수정 표시 업데이트를 발행하면 캘린더 range API를 다시 호출하지 않고 이미 로드된
     선택일 근무의 이름·색상·시간이 PUT 응답값으로 교체되는지도 검증한다.
     또한 선택된 토요일/일요일의 의미 색상과
-    surface 배경·2px primary dark outline, 날짜·근무 배지 셀의 레이아웃 예외, 확장/compact 보기의
+    8% primary tint 배경·2px primary dark outline, 날짜·근무 배지 셀의 레이아웃 예외,
+    확장/compact 보기의
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지 검증한다.
   - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 메인 하단 내비게이션.
     친구, 오늘, 알림 이동 액션과 미읽음 알림 배지를 표시하며 기본적으로 상단 outline을 그린다.
   - `test/features/calendar/presentation/widgets/shift_type_button_test.dart`:
     `ShiftTypeSelectionGrid`가 320x128 영역에서 타입 1~10개를 스크롤/오버플로우 없이 표시하는지,
-    10개를 5개씩 2행으로 배치하는지, 선택 코드를 콜백으로 전달하는지 검증한다.
+    10개를 5개씩 2행으로 배치하는지, 선택 코드를 콜백으로 전달하는지, 옅은 근무 색상에서
+    코드 글자가 공용 어두운 전경색으로 보정되는지 검증한다.
   - `lib/features/calendar/presentation/pages/shift_template_settings_page.dart`: 근무 패턴 설정 화면.
     `../design/stitch_shift_schedule_planner (4)/code.html` 시안의 중앙 `근무 패턴 설정`
     헤더, 근무 타입 수 배지, 카드형 근무 타입 목록, 하단 `근무 타입 추가` 버튼을
@@ -157,7 +164,8 @@
   - `lib/features/calendar/presentation/widgets/shift_type_card.dart`: 근무 타입 목록 카드.
     원형 색상 배지 안에 코드, 오른쪽 본문에 이름과 시간 또는 `시간 없음`을 표시하고,
     삭제 버튼은 `CupertinoIcons.trash`와 outline 색상으로 표현한다. 카드는
-    `ShiftTemplateSettingsPage`에서 편집/삭제 액션을 주입받아 사용한다.
+    `ShiftTemplateSettingsPage`에서 편집/삭제 액션을 주입받아 사용한다. 원형 배지의 코드는
+    저장된 근무 색상 명도에 따라 어두운색 또는 흰색을 선택해 낮은 농도에서도 읽을 수 있게 한다.
   - `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`: 근무 타입 추가/편집 화면.
     `../design/shift_type-setting/code.html` 시안과 친구 설정 화면의 컴팩트한 구조를 기준으로
     좌측 화살표/중앙 제목/우측 `완료` 내비게이션, 원형 코드 미리보기, 색상 변경 pill,
@@ -172,13 +180,23 @@
     입력값이 고유해지면 테두리·안내를 제거하고 즉시 정상 상태로 복구한다. 이 검사는 로컬 사전 검증이고
     최종 저장 시 기존 검증과 서버 `DUPLICATE_CODE` 처리는 유지한다.
     색상 변경은 `ShiftColorPickerPage`를 전체 화면으로 열고,
-    사용자가 `선택 완료`로 반환한 색상만 폼 상태에 반영한다. 시작·종료 시간 동시 유무 검증,
-    `CreateShiftTypeRequest`/`UpdateShiftTypeRequest` 반환 계약은 유지한다. 설정된 시간 옆 삭제
+    사용자가 `적용`으로 반환한 최종 색상·기준 색상·정수 농도를 폼 상태에 함께 반영한다.
+    편집 진입 시 `ShiftTypeApiModel.baseColor`와 `colorIntensity`를 선택 화면 초기값으로 전달해
+    저장된 농도를 복원한다. 생성 요청은 `base_color`·`color_intensity`를 항상 함께 보내고,
+    편집에서 색상을 적용하지 않았다면 두 필드를 모두 생략해 기존 서버 값을 유지한다.
+    시작·종료 시간 동시 유무 검증과 시간 요청 계약은 유지한다. 설정된 시간 옆 삭제
     액션은 18px `CupertinoIcons.xmark_circle_fill`과 accent red를 사용하며 누른 행의 시간만 비운다.
     한쪽 시간만 남은 중간 편집 상태는 허용하지만 완료 시에는 기존 동시 유무 검증으로 저장을 막는다.
     삭제 버튼의 36px 슬롯·18px 아이콘·12px 외부 여백에서 계산한
     21px 우측 시각 inset을 코드·이름 입력과 아이콘 없는 시간 선택 텍스트에도 적용해 모든 우측
     콘텐츠의 끝을 같은 세로선에 맞춘다.
+    원형 코드 미리보기의 글자색은 선택 근무 색상과의 대비율로 정해, 색상 농도를 낮춰 배경이
+    surface에 가까워져도 코드가 함께 옅어져 보이지 않게 한다.
+    코드·이름 입력은 각각 전용 `FocusNode`를 사용하며 처음 포커스를 받을 때 기존 텍스트의
+    끝으로 커서를 이동한다. 키보드의 완료 액션은 코드→이름→시작 시간 순으로 이동하고,
+    시작 시간 시트에서 `선택한 시간 적용`을 누르면 종료 시간 시트를 연다. 종료 시간 적용 후에는
+    텍스트 포커스를 남기지 않는다. 시간 시트 취소 시에는 다음 단계로 자동 이동하지 않는다.
+    폼 본문 바깥을 터치하거나 스크롤하면 현재 텍스트 포커스를 해제해 키보드를 닫는다.
     `CupertinoPageRoute`로 진입하며, 본문은 `SafeArea(bottom: false)`와 내부 bottom padding을
     함께 사용해 안내 문구가 홈 인디케이터/화면 끝에 붙어 잘려 보이지 않게 한다. 시작·종료 시간은
     개인 일정과 같은 공용 `TimePickerSheet`를 열며, 기존 `TimeOfDay` 폼 상태와 시트의 `Duration`
@@ -187,21 +205,32 @@
     `../design/shift-color-pick/code.html` 시안을 Cupertino 구조로 구현한다. 상단 내비게이션 바는
     커스텀 색상 선택 화면과 동일한 좌측 화살표/중앙 제목/우측 `적용` 조합을 사용하고,
     앱 설정·근무 타입 편집 화면과 같은 `_body_scale = 0.8`을 적용해 76.8px 선택 색상 미리보기,
-    41.6px 프리셋 원과 축소된 HEX·색상명·카드·간격·슬라이더를 표시한다. 프리셋은 12개이며
-    커스텀 색상 버튼은
+    41.6px 프리셋 원과 축소된 HEX·색상명·카드·간격·슬라이더를 표시한다. 본문은 12개 프리셋,
+    색상 농도 카드, 커스텀 색상 버튼 순서로 구성하며 프리셋 제목 옆 별도 개수 안내는 표시하지
+    않는다. 커스텀 색상 버튼은
     `ShiftCustomColorPickerPage`를 전체 화면으로 연다. 프리셋 행과 커스텀 버튼은 최소 44px
     터치 영역을 유지한다. 프리셋 또는 커스텀 색상을 화면 내부 상태로만 편집하고, 좌측 화살표는
-    값을 반환하지 않으며 우측 `적용`만 불투명 `Color`를 호출 화면으로 반환한다. 색상명은
+    값을 반환하지 않으며 우측 `적용`만 `ShiftColorSelection`의 최종 색상·기준 색상·정수 농도를
+    호출 화면으로 반환한다. 상단 미리보기는
+    공용 surface·outline·radius 카드 안에서 별도 편집 배지 없이 선택 색상 원을 왼쪽에 두고,
+    세로 구분선 오른쪽 정보 열에 `선택한 색상` 안내·색상명·HEX pill을 배치한다. 색상명은
     디자인 기준 24px, 본문 배율 적용 후 19.2px 고정 슬롯 안에 한 줄로 렌더링해 이름별 폰트
-    fallback line metrics가 달라도 프리셋·커스텀·밝기 섹션의 Y 좌표가 바뀌지 않게 한다.
-    밝기는 선택한 기본 색상의 HSV value에 0~1 배율로 적용해 100%에서 원본 색상을 유지한다.
+    fallback line metrics가 달라도 프리셋·농도·커스텀 섹션의 Y 좌표가 바뀌지 않게 한다.
+    색상 농도는 서버 계약의 고정 흰색 `#FFFFFFFF`와 선택한 기준 색상을 정수 0~100 퍼센트로
+    혼합하고 alpha를 항상 1로 고정한다. 각 RGB 채널을 서버와 같은 식으로 반올림해 테마 변경과
+    무관하게 최종 색상을 일치시킨다. 0%는 불투명 흰색, 100%는 불투명 원본 색이며 중간값은
+    배경이 비치지 않는 옅은 색이다. 농도 카드는 한글 제목·설명, 퍼센트 pill, 양끝 색상 미리보기와 전체 너비
+    `CupertinoSlider`를 제공한다. 슬라이더 핸들을 기존처럼 드래그할 수 있고, 트랙의 임의 위치를
+    탭하거나 핸들이 없는 위치에서 바로 가로 드래그를 시작해도 해당 농도로 이동한다.
   - `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`: 커스텀 근무 색상
     선택 전체 화면. `../design/custom-color-pick/code.html` 시안을 Cupertino 구조와 0.8 본문
     밀도로 구현한다. 선택 색상 미리보기·HEX 표시/6자리 입력, `CustomPainter`의 sweep/radial
     gradient 색상 휠, Red/Green/Blue 0~255 슬라이더, 최대 6개 최근 색상 단축 선택을 제공한다.
     휠과 RGB 컨트롤은 같은 카드의 반응형 `Row`에서 휠을 왼쪽, RGB를 오른쪽에 배치한다.
     390px 화면에서 휠은 약 172px이며 최대 176px이고, RGB 슬라이더는 세로만 0.8 배율로 축소해
-    우측 열의 가로 폭을 유지한다. HEX 입력과 화면·카드 외부 여백은 기존 위치를 유지한다.
+    우측 열의 가로 폭을 유지한다. 본문 `ListView`에는 `NeverScrollableScrollPhysics`를 적용해
+    사용자 세로 드래그에도 최초 위치를 유지한다. HEX 입력과 화면·카드 외부 여백은 기존 위치를
+    유지한다.
     색상 휠 좌표는 중심 거리와 각도를 HSV 채도·색조로 변환하고, 모든 입력은 단일
     불투명 `Color` 상태를 통해 미리보기·HEX·RGB·휠 마커에 즉시 동기화한다. `ShiftColorPickerPage`
     가 `CupertinoPageRoute`로 열며, 뒤로가기는 값을 반환하거나 최근 기록을 저장하지 않고 `적용`만
@@ -213,20 +242,27 @@
     좌측 화살표/우측 완료 헤더와 본문 80% 치수, 컴팩트 카드 구조와 76.8px 미리보기,
     3자 대문자 코드 동기화, 편집 대상 자체를 제외한 대소문자 무관 코드 중복 시 기본 글자색 유지와
     코드 입력 행의 accent red 테두리 즉시 표시·해제, 완료 비활성화,
-    코드·이름·시간 선택·삭제 아이콘의 우측 좌표 일치, 시간 동시 삭제,
-    완료 시 기존 수정 요청 반환과 뒤로가기 폐기 계약,
-    기존 액션 시트 대신 전체 화면 색상 선택 페이지로 진입하고 선택값을 반영하는 흐름을 검증한다.
+    코드·이름·시간 선택·삭제 아이콘의 우측 좌표 일치, 시간 개별 삭제,
+    코드→이름→시작 시간→종료 시간 포커스 이동, 최초 포커스의 커서 끝 이동, 본문 터치 키보드 닫기,
+    옅은 근무 색상 미리보기의 어두운 코드 전경색, 저장된 기준 색상·50% 농도 복원,
+    색상 적용 후 메타데이터 수정 요청, 색상 무변경 편집의 필드 생략, 생성 요청의 기본
+    기준 색상·100% 농도와 뒤로가기 폐기 계약, 기존 액션 시트 대신 전체 화면 색상 선택 페이지로
+    진입하고 선택값을 반영하는 흐름을 검증한다.
   - `test/features/calendar/presentation/providers/shift_template_settings_provider_test.dart`:
     근무 타입 수정 요청이 진행되는 동안 설정 상태를 공용 로딩으로 전환하지 않는지, 서버 PUT 응답
     모델을 설정 목록에 그대로 반영하는지, 같은 응답을 기존 `shiftTypesProvider` GET 캐시 위에
     합성해 근무 입력용 표시 목록을 갱신하는지 검증한다. 가짜 템플릿/근무 타입 서비스를 주입해
     실제 네트워크 없이 Provider 상태 전이를 재현한다.
   - `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`: 색상 선택 화면의
-    좌측 화살표/우측 적용 헤더와 본문 80% 치수, 12개 프리셋·커스텀·밝기 구조, 모든 프리셋의
-    색상명 슬롯 높이·스크롤 오프셋·프리셋/커스텀/밝기 섹션 Y 좌표 불변, 프리셋/밝기 상태 반영,
-    적용 시 선택 색상 반환과 뒤로가기 폐기, 전체 화면 커스텀 색상 적용을 검증한다.
+    좌측 화살표/우측 적용 헤더와 본문 80% 치수, surface 카드 안의 선택 원→구분선→색상명/HEX
+    좌우 좌표·정보 세로 순서와 편집 아이콘 미노출, 프리셋→색상 농도→커스텀 순서와 프리셋
+    개수 문구 미노출, 모든 프리셋의
+    색상명 슬롯 높이·스크롤 오프셋·각 섹션 Y 좌표 불변,
+    고정 흰색 혼합의 0·50·100% 계산, 저장된 기준 색상·농도 초기 복원,
+    농도 트랙 탭·임의 위치 드래그 이동, 적용 시 최종 색상·기준 색상·농도 반환과
+    뒤로가기 폐기, 전체 화면 커스텀 색상 적용을 검증한다.
   - `test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart`: 커스텀 색상
-    화면의 80% 치수와 스크롤 구조, 같은 카드 안의 휠 왼쪽·RGB 오른쪽 좌표 관계와 RGB
+    화면의 80% 치수와 사용자 세로 드래그 차단, 같은 카드 안의 휠 왼쪽·RGB 오른쪽 좌표 관계와 RGB
     슬라이더의 가로 1.0/세로 0.8 배율, HEX·RGB·색상 휠·최근 색상 간 동기화, 완료 색상
     반환과 뒤로가기 폐기, 로컬 최근 색상의 빈 상태·복원·최신순 저장·중복 제거·6개 상한을 검증한다.
   - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
@@ -346,7 +382,10 @@ CalendarPage
 - 공개 판단은 서버 책임이다. 내 일정을 친구가 볼 때 서버는 `friend_level_settings.owner_user_id = 내 user_id`,
   `friend_level_settings.friend_user_id = 조회자 user_id`, `can_view=true`,
   `friend_level >= events.visibility_level` 조건을 적용한다.
-- API 서버 요청 문서는 `_docs/EVENT_API_GUIDE.md`에 둔다.
+- API 서버 요청 문서는 기능별 가이드에 둔다.
+  - 개인 일정 생성: `_docs/EVENT_API_GUIDE.md`
+  - 근무 타입 기준 색상·농도 영속화 계획:
+    `_docs/SHIFT_TYPE_COLOR_METADATA_API_GUIDE.md`
 - 파일 역할/의존성/사용 예:
   - `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`:
     개인 일정 입력 모달. `CalendarPage`에서 `showCupertinoModalPopup`으로 호출하고
@@ -360,6 +399,11 @@ CalendarPage
     종료일의 선후 관계를 자동 보정하며, 시간은 기존 `Duration` 상태와 저장 검증 흐름을 유지한다.
   - `_docs/EVENT_API_GUIDE.md`: 개인 일정 생성 API, 입력 필수/선택값,
     공개 레벨 규칙, 서버 DDL 확인 요청을 정리한 서버 구현 문서다.
+  - `_docs/SHIFT_TYPE_COLOR_METADATA_API_GUIDE.md`: 근무 타입 색상 설정의 기준 색상과
+    농도를 재진입 시 복원하기 위한 API 계약, Express 변경 지점, PostgreSQL
+    expand/backfill/enforce migration, 배포·검증·롤백 순서를 정리한 구현 전 계획 문서다.
+    현재 서버 저장소의 모델·route·controller·service와 migration 운영 규칙에 의존하며,
+    서버·Flutter 구현 및 실제 DB 적용 전 계약 검토에 사용한다.
   - `test/features/calendar/data/models/event_api_model_test.dart`: 일정 날짜별 매핑의 자정
     배타적 종료 처리와 일정 ID 중복 제거·시작 시각 정렬을 검증한다.
 
@@ -416,7 +460,7 @@ FriendListPage
   `CupertinoNavigationBar`가 빌드 중 상태를 변경하지 않게 하며, `onPageChanged` 상태 반영은
   다음 프레임에서 처리한다.
 - 친구 달력은 메인 달력과 같은 화면 높이 규칙을 사용해 750px 미만에서는 2주 보기와 52px 행으로
-  고정하고, 750px 이상에서는 월 보기와 56px 행을 사용한다. 근무 코드 배지, 흰색 surface 배경과
+  고정하고, 750px 이상에서는 월 보기와 56px 행을 사용한다. 근무 코드 배지, 8% primary tint 배경과
   2px primary dark outline 선택 사각형, 오늘 밑줄을 사용하며 일요일은 accent red, 토요일은
   primary blue로 표시한다. `KoreanHolidays` 공용 캐시의 공휴일도 accent red로 표시하고 선택일
   카드 날짜 오른쪽에 공휴일명을 표시하며, 선택 후에도 해당 날짜 의미 색상을 유지한다. 달력 내부에는
@@ -463,7 +507,7 @@ FriendListPage
   - `test/features/friend/presentation/pages/friend_calendar_page_test.dart`: 가짜 `FriendService`로
     명시적 `MediaQuery` 높이 740px에서 2주 보기 고정, 750px에서 월 보기 유지 여부를 검증한다.
     390x800 월 보기에서는 중복 프로필 제거, 선택된 토요일/일요일·공휴일의 의미 색상과 공휴일명,
-    surface 배경·2px
+    8% primary tint 배경·2px
     primary dark outline 사각형 선택 표시, 근무 시간 포맷,
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지, 달력과 선택일 일정 카드 사이 및 카드 하단의
     최소 16px 여백, 3개월 뒤에서 오늘로 복귀할 때 빌드 중 setState 예외가 없는지와 연/월 이동
@@ -776,14 +820,23 @@ COMMENT ON TABLE shift_type_schedules IS '버전별 근무 시간표 스냅샷(�
 
 ### 근무 타입 색상 파싱 규칙
 
-- DB 문서상 `shift_types.color`는 Flutter `Color` 정수값(`0xAARRGGBB`) 기준이다.
+- 이 문서에 포함된 초기 DDL 예시는 `shift_types.color int`이지만, 현재 Express 서버의
+  `migrations/final_schema.sql`과 Sequelize 모델은 `color text`를 사용한다.
+  실행 코드와 migration 계획은 서버의 `#AARRGGBB` text 계약을 기준으로 하며,
+  구현 완료 시 이 DDL 예시와 `schema.drawio`를 실제 적용 스키마로 동기화해야 한다.
 - 실제 API 응답은 정수 또는 문자열(`#AARRGGBB`, `#RRGGBB`, `0xAARRGGBB`, 10진수 문자열)로 들어올 수 있다.
 - 클라이언트는 `lib/core/utils/color_parser.dart`의 `parseApiColorValue()`로 응답 색상을 정규화한다.
-- 서버의 근무 타입 생성/수정 validation은 `color` 요청값을 `#AARRGGBB` 문자열로 요구한다.
-  `CreateShiftTypeRequest`와 `UpdateShiftTypeRequest`는 `formatApiColorValue()`를 사용해
-  Flutter `Color` 정수값을 요청용 문자열로 변환한 뒤 전송한다.
+- `ShiftTypeApiModel`은 `base_color`를 파싱하고 없으면 최종 `color`로 fallback하며,
+  `color_intensity`가 없거나 계약 범위를 벗어나면 100으로 복원한다.
+- 신규 생성/색상 변경 요청은 `base_color`와 정수 `color_intensity`를 항상 함께 보내며
+  최종 `color`는 서버 계산에 맡겨 생략한다. 두 메타데이터 중 하나만 있거나 농도가
+  `0..100` 밖이면 직렬화 전에 차단한다. 구버전 호출부가 `color`만 전달하는 직렬화 계약은 유지한다.
 - 사용 예: `ShiftTypeApiModel.color`, `WorkShiftApiModel.shiftTypeColor` 파싱 시 `parseApiColorValue()`를,
-  근무 타입 생성/수정 요청 직렬화 시 `formatApiColorValue()`를 공통 사용한다.
+  근무 타입 생성/수정 요청의 기준 색상 직렬화 시 `formatApiColorValue()`를 공통 사용한다.
+- 최종 `color`만으로는 농도 적용 전 기준 색상과 농도를 유일하게 복원할 수 없으므로
+  Flutter 설정 화면은 서버의 nullable `base_color`와 `0..100` 정수 `color_intensity`를
+  별도 상태로 사용한다. 세부 API·migration·호환성 정책은
+  `_docs/SHIFT_TYPE_COLOR_METADATA_API_GUIDE.md`를 따른다.
 
 -- =========================================================
 -- 7) EVENTS (개인 일정)

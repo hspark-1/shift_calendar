@@ -1,6 +1,116 @@
 # 작업 로그
 
+## 2026-07-20
+
+- [DONE] (CHORE) 완료된 근무 타입·캘린더 변경 작업별 커밋 및 푸시
+  - 목적: 현재 작업 트리의 완료된 색상 선택 UX, 입력 포커스, 색상 메타데이터, 글자 대비와 선택일 배경 변경을 검증 가능한 작업 단위로 정리해 원격 `main`에 반영한다.
+  - 변경: 색상 선택 화면 UX를 `1993c94`, 폼 입력 포커스 흐름을 `b9f6fda`, 기준 색상·농도 영속화를 `453d2e9`, 낮은 농도 글자 대비를 `874ea35`, 캘린더 선택일 배경 tint와 회귀 테스트를 `3e72781`로 분리했다. 프로젝트 컨텍스트·ADR-0010~0012·색상 메타데이터 API 가이드·작업 로그는 후속 문서 커밋으로 정리해 `origin/main`에 푸시한다.
+  - 영향범위: 완료된 Flutter 변경의 Git 이력과 원격 `main`. 개인 LAN 주소를 사용하는 개발 API 기본값은 공유 환경 영향 때문에 커밋 대상에서 제외하고 작업 트리에 보존한다.
+  - 파일: 현재 완료된 변경 파일과 `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 관련 코드·테스트 15개 파일 `dart format` 변경 0건, `flutter analyze --no-fatal-infos` 0건, 색상 파싱·색상 선택·커스텀 색상·근무 타입 버튼/폼·메인 캘린더 위젯 테스트 55건 통과. 각 작업 커밋과 최종 문서의 `git diff --check`를 확인했다.
+  - 롤백: 원격 반영 후 필요 시 작업별 커밋을 역순으로 `git revert`하고 푸시한다.
+  - 다음: 실제 서버 migration 적용 환경에서 기준 색상·농도 API 왕복과 실제 기기의 포커스·색상 대비·선택일 tint를 확인한다.
+
+- [DONE] (STYLE) 캘린더 선택일 배경 primary tint 적용
+  - 목적: 페이지 배경과 흰색 선택 배경의 차이가 작아 outline에만 의존하던 선택 상태를 더 분명하게 표시한다.
+  - 변경: 공용 `CalendarMonthView`의 선택 사각형 배경을 흰색 surface에서 `primary_color` 8% tint로 변경했다. 기존 2px primary dark outline, 날짜 의미 색상, 선택 박스 크기·오프셋·애니메이션은 유지하고 메인 캘린더 회귀 테스트 기대값을 현재 계약에 맞췄다. 설계 변경은 ADR-0012에 기록했다.
+  - 영향범위: 메인·친구 캘린더의 선택일 배경. Behavior change: 선택일이 흰색이 아닌 옅은 primary 배경으로 표시된다. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/calendar_month_view.dart`, `test/features/calendar/presentation/pages/calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 메인 캘린더 위젯 테스트 10건 통과. 선택된 토요일의 8% primary tint, 2px primary dark outline과 날짜 의미 색상 유지를 검증했다.
+  - 롤백: 선택 사각형 배경을 `AppTheme.surface_color`로 되돌리고 테스트·컨텍스트·ADR-0012 기록을 제거한다.
+  - 다음: 실제 기기에서 메인·친구 캘린더의 선택 tint와 날짜 의미 색상 대비를 확인한다.
+
+- [DONE] (FE) 근무 타입 기준 색상·농도 화면/API 연동
+  - 목적: 서버의 신규 `base_color`, `color_intensity` 계약을 Flutter 근무 타입 설정 화면에 적용해 저장 후 재진입 시 기준 색상과 농도를 정확히 복원한다.
+  - 변경: `ShiftTypeApiModel`에 기준 색상과 정수 농도를 추가하고 레거시 응답은 `base_color=color`, 농도 100으로 fallback한다. 생성·수정 요청은 두 필드의 동시 존재, 0~100 범위와 불투명 `FF` 알파를 직렬화 전에 검증하며 신규 요청에서는 최종 `color`를 생략한다. 색상 선택 화면은 고정 흰색과 RGB 채널을 서버 식으로 반올림하고 `ShiftColorSelection`으로 최종 색상·기준 색상·농도를 반환한다. 폼은 저장된 메타데이터로 50% 등 기존 상태를 복원하며 생성에는 메타데이터를 항상 포함하고, 편집에서 색상을 적용하지 않았으면 관련 필드를 모두 생략한다.
+  - 영향범위: 근무 타입 API 모델·생성/수정 요청, 색상 선택 결과와 편집 화면 초기 상태, 관련 모델·위젯 테스트. Behavior change: 색상 농도는 테마 surface가 아닌 고정 흰색 기준의 1% 단위 정수로 계산되고 저장 후 재진입 시 복원된다. 기존 캘린더 `shift_type_color` 표시는 유지한다.
+  - 파일: `lib/features/calendar/data/models/shift_type_api_model.dart`, `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/core/utils/color_parser_test.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/SHIFT_TYPE_COLOR_METADATA_API_GUIDE.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 파싱/직렬화, 선택·커스텀 선택, 폼, 설정 Provider, 근무 버튼 관련 테스트 47건 통과. 고정 흰색 0·50·100% 계산, 레거시/null fallback, 메타데이터 쌍·범위·알파 검증, 50% 재진입 복원, 생성 요청, 색상 변경/무변경 수정 요청을 검증했다. 관련 구현·테스트·Provider·설정 페이지 11개 파일 `flutter analyze --no-fatal-infos` 0건, `dart format`과 `git diff --check` 통과. 실제 Express model/route/controller/service와 두 migration 파일에 신규 계약이 구현된 것도 대조했으나, 서버 2026-07-20 WORKLOG상 연결 DB에는 아직 컬럼이 없어 실제 API 왕복은 수행하지 않았다.
+  - 롤백: 신규 메타데이터 필드와 선택 결과 객체·복원 흐름을 제거하고 최종 `color` 단독 요청/반환 방식으로 되돌린다.
+  - 다음: 실제 신규 서버와 DB migration 적용 환경에서 50% 저장 → GET 재조회 → 편집 재진입 왕복을 확인한다.
+
 ## 2026-07-19
+
+- [DONE] (PLAN) 근무 타입 색상 메타데이터 API·DB 마이그레이션 계획 수립
+  - 목적: 색상 농도 적용 후 설정 화면에 다시 진입했을 때 기준 색상과 농도를 복원할 수 있도록 현재 Flutter·Express·PostgreSQL 계약을 근거로 서버 API 변경 및 DB 마이그레이션 계획을 확정한다.
+  - 변경: Flutter의 색상 선택 반환·요청 모델과 Express 서버의 model/route/controller/service, 실제 `shift_types.color text`, 수동 migration 정책을 확인했다. 기존 최종 `color`는 하위 호환용으로 유지하고 nullable `base_color text`, 기본값 100의 `color_intensity smallint`를 추가하는 API 계약을 정했다. 신규 요청은 기준 색상·정수 농도로 최종 색상을 서버 계산하며 구버전 `color` 단독 요청과 레거시 행은 100%로 해석한다. 운영 계획은 데이터 감사·백업 → nullable 컬럼 확장 → 서버 dual-read/dual-write → backfill·범위/형식 제약 → Flutter 배포 순으로 분리하고 검증·롤백 SQL까지 문서화했다.
+  - 영향범위: 문서만 변경. 서버·Flutter 실행 코드와 실제 DB는 변경하지 않는다. Behavior plan: 구현 후 설정 재진입 시 기준 색상과 농도를 복원하며 기존 캘린더 API는 최종 `shift_type_color`만 유지한다.
+  - 파일: `_docs/SHIFT_TYPE_COLOR_METADATA_API_GUIDE.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: Flutter 필수 문서·AGENTS.md·`schema.drawio`·`visibility_flow.drawio`, 실제 Express 서버의 필수 문서·Sequelize 모델·route·controller·service·migration·package script를 대조했다. 신규 가이드의 코드 fence 28개가 짝수임을 확인했고 `git diff --check`를 통과했다. 문서 계획 작업이므로 Flutter/서버 실행 테스트와 실제 SQL 실행은 하지 않았다.
+  - 롤백: 위 계획 문서와 문서 연결·ADR·작업 로그 항목을 제거한다.
+  - 다음: 서버 저장소에서 Phase 0 데이터 감사 결과를 확인한 뒤 두 단계 migration과 dual-read/dual-write API를 구현하고, 계약 검증 후 Flutter 값 객체·요청·재진입 복원을 구현한다.
+
+- [DONE] (FIX) 낮은 근무 색상 농도의 글자 대비 보정
+  - 목적: 근무 타입 색상 농도를 낮췄을 때 근무 코드 글자까지 옅어져 읽기 어려운 원인을 제거한다.
+  - 변경: 농도 값이 alpha가 아니라 `surface_color`와의 불투명 혼합으로 저장되는 반면, 표시 위젯은 흰색 또는 옅어진 근무 색상 자체를 글자색으로 사용해 대비가 사라지는 원인을 확인했다. `AppTheme.readableForegroundColor()`를 추가해 실제 배경과 선호 전경색이 4.5:1 대비를 만족하면 유지하고, 부족하면 공용 어두운색/밝은색 중 대비가 높은 색을 선택한다. 이를 근무 타입 폼 미리보기, 설정 목록 배지, 기존/메인 근무 선택 버튼, 라벨 배지, 캘린더 코드 배지에 적용했다.
+  - 영향범위: 근무 타입 미리보기·설정 목록·근무 선택 버튼·캘린더 배지의 전경색. Behavior change: 밝거나 낮은 농도의 근무 색상에서는 코드 글자가 어두운색으로 표시될 수 있다. 저장 색상 및 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/core/theme/app_theme.dart`, `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `lib/features/calendar/presentation/widgets/shift_type_card.dart`, `lib/features/calendar/presentation/widgets/shift_type_button.dart`, `lib/features/calendar/presentation/widgets/shift_badge.dart`, `lib/features/calendar/presentation/widgets/calendar_month_view.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `test/features/calendar/presentation/widgets/shift_type_button_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 선택 7건, 근무 타입 폼 11건, 근무 선택 버튼 3건 등 관련 위젯 테스트 21건 통과. 옅은 `#F5F7FA` 배경의 폼 미리보기와 선택 버튼 코드가 `on_surface_color`를 사용하는지 검증했다. 대상 10개 코드·테스트 파일 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과. 이후 선택 배경 primary 8% tint의 캘린더 기대값도 별도 작업에서 현재 계약에 맞춰 수정했다.
+  - 롤백: `readableForegroundColor()`와 각 근무 코드 전경색 호출을 제거하고 폼·목록·캘린더는 흰색, 선택 버튼은 근무 색상을 직접 사용하는 방식으로 복원한다.
+  - 다음: 실제 기기에서 밝은 프리셋과 0%·25%·50% 농도의 코드 대비를 확인한다.
+
+- [DONE] (FE) 근무 타입 입력 포커스 흐름 개선
+  - 목적: 근무 타입 설정에서 코드 → 이름 → 시작 시간 → 종료 시간 순서로 입력을 이어가고, 텍스트 선택 시 커서를 끝으로 이동하며 화면 터치로 키보드를 닫을 수 있게 한다.
+  - 변경: 코드·이름에 전용 `FocusNode`를 연결하고 처음 포커스를 얻은 프레임 뒤 기존 텍스트 끝으로 커서를 이동하도록 했다. 키보드 완료 액션은 코드에서 이름, 이름에서 시작 시간 시트로 연결했으며 시작 시간의 `선택한 시간 적용` 후 종료 시간 시트를 자동으로 연다. 종료 시간 적용 또는 시트 취소 뒤에는 텍스트 포커스를 남기지 않는다. 본문 전체에 키보드 해제 터치 영역을 추가하고 시간·색상 선택 및 저장 진입 전에도 포커스를 명시적으로 해제했다.
+  - 영향범위: 근무 타입 추가·편집 화면의 텍스트 포커스, 시간 선택 전환, 키보드 닫기 UX. Behavior change: 시작 시간을 적용하면 폼으로 즉시 돌아오지 않고 종료 시간 선택이 이어진다. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 근무 타입 폼 위젯 테스트 10건과 공용 시간 선택 시트 테스트 2건 등 총 12건 통과. 코드·이름의 최초 포커스 커서 끝 이동, 키보드 완료 액션, 시작 시간 적용 후 종료 시간 자동 진입, 종료 시간 적용 후 포커스 해제, 본문 터치 키보드 닫기와 기존 저장·삭제·색상 선택 회귀를 검증했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과. 프로젝트 전체 분석은 이번 변경 파일 밖의 기존 미사용 import·생성 코드 ignore 경고와 네이밍/deprecation info를 포함한 114건 때문에 종료 코드 1이며, 관련 없는 코드는 수정하지 않았다.
+  - 롤백: 전용 `FocusNode`, 순차 제출 콜백, 시작 시간 적용 후 종료 시간 호출과 본문 포커스 해제 영역을 제거하고 시간 선택을 각 행에서 독립적으로 여는 방식으로 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 키보드 완료 액션 라벨, 커서 위치, 시작→종료 시간 시트 전환 애니메이션을 확인한다.
+
+- [DONE] (FE) 선택 색상 좌우 배치 카드 재디자인
+  - 목적: 선택 색상 원과 오른쪽 정보의 좌우 배치를 유지하면서 상단 미리보기를 앱 카드 디자인에 맞게 다시 구성한다.
+  - 변경: 상단 미리보기를 공용 `AppTheme.cardDecoration` 기반 surface 카드로 감싸고, 왼쪽에 76.8px 선택 색상 원을 배치했다. 중앙에는 세로 구분선을 추가했으며 오른쪽 정보 열은 `선택한 색상` 안내, 색상명, HEX pill 순서로 재구성해 정보 계층과 가독성을 높였다. 기존 연필 편집 배지는 노출하지 않는다.
+  - 영향범위: 근무 타입 색상 선택 화면 상단 미리보기 카드의 표면·간격·정보 계층. 색상 선택·농도 조절·적용 반환과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 선택 위젯 테스트 7건과 근무 타입 편집 연동 테스트 8건 등 총 15건 통과. 390x844 화면에서 surface 카드 토큰, 선택 원→구분선→정보 열의 좌우 좌표, 색상명→HEX의 세로 순서, 연필 아이콘 미노출과 기존 색상·농도 동기화를 검증했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: surface 카드와 세로 구분선을 제거하고 선택 색상 원과 오른쪽 정보만 있는 직전 `Row` 구조로 복원한다.
+  - 다음: 실제 iPhone에서 카드 좌우 균형, 긴 커스텀 색상명의 ellipsis와 HEX pill 가독성을 확인한다.
+
+- [DONE] (FE) 선택 색상 미리보기 가로 정보 배치
+  - 목적: 선택 색상 미리보기의 편집 배지를 제거하고 색상 원 왼쪽·HEX/색상명 오른쪽의 가로 구조로 변경한다.
+  - 변경: 편집 배지가 제거된 뒤 남아 있던 빈 `Stack`과 기존 세로 `Column`을 하나의 중앙 정렬 `Row`로 교체했다. 76.8px 선택 색상 원을 왼쪽에 두고, 오른쪽 `Column`에 `선택한 색상` 안내, HEX pill, 19.2px 고정 색상명 슬롯을 왼쪽 정렬로 배치했다.
+  - 영향범위: 근무 타입 색상 선택 화면 상단 미리보기 레이아웃. 색상 선택·농도 조절·적용 반환과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 선택 7건과 근무 타입 편집 연동 8건 등 위젯 테스트 15건 통과. 390x844 화면에서 선택 색상 원의 오른쪽 좌표가 HEX와 색상명의 왼쪽 좌표보다 작은지, 연필 아이콘 미노출, 기존 크기·색상 동기화·농도 제스처·섹션 위치·적용/뒤로가기/커스텀 연동을 검증했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 가로 `Row`와 안내 문구를 제거하고 선택 원·HEX·색상명을 세로 `Column` 중앙 정렬 구조로 복원한다.
+  - 다음: 실제 iPhone에서 선택 원과 오른쪽 정보 열의 세로 중심, 긴 커스텀 색상명 ellipsis를 확인한다.
+
+- [DONE] (FE) 색상 농도 슬라이더 드래그·트랙 터치 이동 지원
+  - 목적: 색상 농도를 슬라이더 핸들 드래그뿐 아니라 트랙의 원하는 위치를 터치하거나 트랙에서 바로 드래그해 조절할 수 있게 한다.
+  - 변경: 기본 `CupertinoSlider`가 핸들 주변 포인터만 hit test하는 구현임을 Flutter SDK 코드에서 확인했다. 슬라이더 전체 44px 영역을 불투명 `GestureDetector`로 감싸고 Cupertino 트랙의 좌우 inset을 반영해 로컬 X 좌표를 0~1 농도로 변환했다. 내부 슬라이더는 `IgnorePointer`로 중복 제스처 경쟁을 막고 활성 시각을 유지하며, 핸들 드래그·트랙 탭·핸들이 없는 임의 위치에서 시작한 가로 드래그를 모두 같은 `_setColorIntensity()` 경로로 갱신한다.
+  - 영향범위: 근무 타입 색상 선택 화면의 농도 슬라이더 제스처. 색상 혼합·적용 반환과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 선택 7건과 근무 타입 편집 연동 8건 등 위젯 테스트 15건 통과. 실제 포인터로 트랙 중앙 탭 후 50%, 핸들을 드래그한 후 25%, 트랙 25% 위치에서 시작해 75% 위치까지 드래그 후 75%가 되는지 검증했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: `_cupertino_slider_track_inset`, 위치 기반 농도 갱신 메서드와 트랙 `GestureDetector`를 제거하고 기본 `CupertinoSlider.onChanged`만 사용하는 구조로 복원한다.
+  - 다음: 실제 iPhone에서 핸들 드래그, 트랙 탭, 트랙 시작 드래그와 세로 화면 스크롤 간 제스처 충돌이 없는지 확인한다.
+
+- [DONE] (FE) 불투명 색상 농도 조절 및 색상 선택 화면 재구성
+  - 목적: 채도 조절을 배경이 비치지 않는 색상 농도 조절로 교체하고, 화면 정보 순서와 조절 카드 디자인을 개선한다.
+  - 변경: HSV 채도 계산을 제거하고 `AppTheme.surface_color`와 기본 색상을 `Color.lerp()`로 혼합한 뒤 alpha를 1로 고정하는 `_color_intensity` 상태로 교체했다. 본문은 프리셋→색상 농도→커스텀 색상 순서로 재배치하고 `12개 선택 가능` 문구를 제거했다. 농도 카드는 기존 영문 라벨·축소 슬라이더 대신 한글 제목/설명, 퍼센트 pill, 옅은색·원본색 endpoint와 44px 높이 슬라이더를 사용하는 컴팩트 카드로 재구성했다.
+  - 영향범위: 근무 타입 색상 선택 화면의 색상 보정 방식, 섹션 순서, 농도 조절 카드와 프리셋 안내 문구. Behavior change: 농도 0%는 불투명 surface 색, 100%는 불투명 원본 색이며 중간값도 배경이 비치지 않는 옅은 색이다. 색상 적용 반환 및 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 선택 6건과 근무 타입 편집 연동 8건 등 위젯 테스트 14건 통과. 390x844 화면에서 프리셋→농도→커스텀 Y 순서, 개수 문구 미노출, 농도 50%의 불투명 `#A1AADC`, 모든 프리셋 선택 후 섹션 위치 불변과 기존 적용/뒤로가기/커스텀 연동을 검증했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: `_color_intensity` surface 혼합과 새 농도 카드·순서를 제거하고 직전 HSV 채도 상태, SATURATION 카드, 프리셋→커스텀→채도 순서와 관련 테스트·컨텍스트로 복원한다.
+  - 다음: 실제 iPhone에서 농도 카드의 설명/퍼센트/endpoint 정렬과 0%·50%·100% 색상 가독성을 확인한다.
+
+- [DONE] (FE) 근무 색상 밝기 조절을 채도 조절로 변경
+  - 목적: 근무 타입 색상 선택 화면의 밝기 조절을 채도 조절로 교체한다.
+  - 변경: `_brightness`와 HSV `value` 배율 계산을 `_saturation`과 HSV `saturation` 배율 계산으로 교체했다. 조절 카드의 `BRIGHTNESS` 문구와 관련 키를 `SATURATION` 기준으로 변경하고, 프리셋·커스텀 색상 선택 시 채도를 100%로 초기화한다. 인디고 색상에서 50% 조절 시 밝기를 유지한 `#7E87B8`이 되는 회귀 테스트를 추가했다.
+  - 영향범위: 프리셋·커스텀 근무 색상의 보정 방식과 조절 카드 UI. Behavior change: 0~100% 슬라이더가 밝기가 아니라 원본 대비 채도를 조절하며, 0%는 같은 밝기의 무채색이고 100%는 원본 색상이다. 색상 선택·적용 반환 및 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 색상 선택 6건과 근무 타입 편집 연동 8건 등 위젯 테스트 14건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 채도 상태·HSV saturation 계산·SATURATION 카드와 관련 테스트를 기존 밝기 상태·HSV value 계산·BRIGHTNESS 카드로 복원하고 프로젝트 컨텍스트를 되돌린다.
+  - 다음: 실제 기기에서 0%·50%·100% 채도 변화와 적용 후 근무 타입 미리보기 색상을 확인한다.
+
+- [DONE] (FE) 커스텀 색상 선택 화면 세로 스크롤 차단
+  - 목적: `_ShiftCustomColorPickerPageState`의 본문이 사용자 드래그로 세로 스크롤되지 않게 한다.
+  - 변경: 본문 `ListView`에 `NeverScrollableScrollPhysics`를 적용해 기존 레이아웃과 콘텐츠 구성을 유지하면서 사용자 세로 드래그에 의한 이동만 차단했다. 위젯 테스트에 스크롤 물리 설정과 드래그 전후 미리보기 좌표 불변 검증을 추가했다.
+  - 영향범위: 커스텀 근무 색상 선택 화면의 세로 스크롤 입력. 색상 선택·최근 색상·적용 동작과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`, `test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 커스텀 색상 선택 7건과 상위 색상 선택 연동 6건 등 위젯 테스트 13건 통과. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format` 및 `git diff --check` 통과.
+  - 롤백: 본문 `ListView`의 `NeverScrollableScrollPhysics`와 드래그 좌표 회귀 검증을 제거하고 프로젝트 컨텍스트의 세로 스크롤 차단 설명을 되돌린다.
+  - 다음: 실제 기기에서 세로 드래그 중 색상 휠·RGB 슬라이더 조작이 안정적으로 유지되는지 확인한다.
 
 - [DONE] (CHORE) 완료된 변경사항 작업별 커밋 및 푸시
   - 목적: 현재 작업 트리의 완료된 iOS 빌드 설정, API URL, 캘린더/근무 타입, 친구 설정 변경을 검증 가능한 작업 단위로 정리해 원격 `main`에 반영한다.
