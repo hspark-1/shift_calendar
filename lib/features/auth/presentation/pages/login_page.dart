@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -188,103 +190,53 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Widget _buildKakaoLoginButton() {
-    return GestureDetector(
-      onTap: _is_loading ? null : _handleKakaoLogin,
-      child: Container(
-        width: double.infinity,
-        height: 54,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFEE500),
-          borderRadius: BorderRadius.circular(12),
+    return Semantics(
+      button: true,
+      enabled: !_is_loading,
+      label: '카카오 로그인',
+      child: GestureDetector(
+        onTap: _is_loading ? null : _handleKakaoLogin,
+        child: SizedBox(
+          key: const Key('kakao_login_button'),
+          width: double.infinity,
+          height: 54,
+          child: _is_loading
+              ? const Center(
+                  child: CupertinoActivityIndicator(color: Color(0xFF191919)),
+                )
+              : Image.asset(
+                  'assets/icons/kakao_login_img.png',
+                  fit: BoxFit.contain,
+                  excludeFromSemantics: true,
+                ),
         ),
-        child: _is_loading
-            ? const Center(
-                child: CupertinoActivityIndicator(color: Color(0xFF191919)),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // 카카오 아이콘
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF191919),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'K',
-                        style: TextStyle(
-                          color: Color(0xFFFEE500),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    '카카오 로그인',
-                    style: TextStyle(
-                      color: Color(0xFF191919),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
       ),
     );
   }
 
   Widget _buildNaverLoginButton() {
-    return GestureDetector(
-      onTap: _is_loading ? null : _handleNaverLogin,
-      child: Container(
-        width: double.infinity,
-        height: 54,
-        decoration: BoxDecoration(
-          color: const Color(0xFF03C75A),
-          borderRadius: BorderRadius.circular(12),
+    return Semantics(
+      button: true,
+      enabled: !_is_loading,
+      label: '네이버 로그인',
+      child: GestureDetector(
+        onTap: _is_loading ? null : _handleNaverLogin,
+        child: SizedBox(
+          key: const Key('naver_login_button'),
+          width: double.infinity,
+          height: 54,
+          child: _is_loading
+              ? const Center(
+                  child: CupertinoActivityIndicator(
+                    color: CupertinoColors.white,
+                  ),
+                )
+              : Image.asset(
+                  'assets/icons/naver_login_img.png',
+                  fit: BoxFit.contain,
+                  excludeFromSemantics: true,
+                ),
         ),
-        child: _is_loading
-            ? const Center(
-                child: CupertinoActivityIndicator(color: CupertinoColors.white),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // 네이버 아이콘 (N)
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: const BoxDecoration(
-                      color: CupertinoColors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'N',
-                        style: TextStyle(
-                          color: Color(0xFF03C75A),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    '네이버 로그인',
-                    style: TextStyle(
-                      color: CupertinoColors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
       ),
     );
   }

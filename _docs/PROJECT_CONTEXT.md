@@ -265,6 +265,22 @@
     화면의 80% 치수와 사용자 세로 드래그 차단, 같은 카드 안의 휠 왼쪽·RGB 오른쪽 좌표 관계와 RGB
     슬라이더의 가로 1.0/세로 0.8 배율, HEX·RGB·색상 휠·최근 색상 간 동기화, 완료 색상
     반환과 뒤로가기 폐기, 로컬 최근 색상의 빈 상태·복원·최신순 저장·중복 제거·6개 상한을 검증한다.
+  - `lib/features/auth/presentation/pages/login_page.dart`: 비인증 사용자의 로그인 화면.
+    `AuthNotifier`의 기존 카카오·네이버 로그인 콜백과 버튼 내부 로딩 표시를 유지하면서,
+    밝은 앱 배경에 맞는 600x90 한국어 소셜 로그인 완성형 이미지를 같은 54px 전체 너비
+    터치 영역에서 `BoxFit.contain`으로 표시한다. 이미지 비율을 왜곡하지 않으며 각 버튼에
+    접근성 버튼 레이블을 제공한다.
+  - `assets/icons/kakao_login_img.png`: 카카오 한국어 완성형 로그인 버튼 이미지(600x90).
+    배경 `#FEE500`과 공식 심볼·레이블 구성을 유지하며 `LoginPage`의 카카오 로그인 콜백에
+    연결된다.
+  - `assets/icons/naver_login_img.png`: 네이버 한국어 녹색 완성형 로그인 버튼 이미지(600x90).
+    배경은 네이버 공식 지정색 `#03A94D`, 로고와 레이블은 흰색이다. 원본 기준 N 로고
+    30x30px, 레이블 최대 높이 28px이며 390px 테스트 화면의 342px 버튼 너비에서 자연 비율로
+    축소해도 N 로고가 약 17.1px로 표시되어 완성형 최소 16px 규칙을 충족한다.
+  - `test/features/auth/presentation/pages/login_page_test.dart`: 두 공식 이미지의 에셋 경로,
+    `BoxFit.contain`, 동일한 342x54 터치 영역, 카카오·네이버 접근성 레이블을 검증한다.
+    에셋을 실제 디코딩해 두 이미지가 600x90인지와 빈 배경 영역 픽셀이 카카오 `#FEE500`,
+    네이버 `#03A94D`인지도 확인한다.
   - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
     시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션,
     정적 토글, 별도 로그아웃 버튼을 Cupertino 커스텀 위젯으로 구현한다. 설정 화면 내부에는

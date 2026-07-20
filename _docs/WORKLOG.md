@@ -1,6 +1,44 @@
 # 작업 로그
 
+## 2026-07-21
+
+- [DONE] (FE) 카카오·네이버 로그인 이미지 버튼 적용
+  - 목적: `assets/icons`에 준비된 600x90 카카오·네이버 완성형 이미지를 로그인 화면에서 실제 버튼으로 사용하고, 네이버 공식 BI 핵심 규격을 회귀 테스트로 고정한다.
+  - 변경: 존재하지 않는 `kakao_login_center.png`·`naver_login_center.png` 참조를 실제 `kakao_login_img.png`·`naver_login_img.png`로 교체했다. 카카오의 366x90 중앙형 이미지에 맞춘 219.6x54 전용 슬롯과 별도 배경 컨테이너를 제거하고, 두 600x90 완성형 이미지를 동일한 342x54 터치 영역에서 `BoxFit.contain`으로 표시한다. 기존 로그인 콜백, 공용 로딩 차단, 버튼 내부 로딩 표시, 접근성 레이블은 유지했다. 테스트는 에셋을 실제 디코딩해 600x90 크기와 카카오 `#FEE500`·네이버 `#03A94D` 배경 픽셀도 검증한다.
+  - 영향범위: 로그인 화면의 소셜 로그인 버튼 이미지와 내부 배치, 에셋 참조, 위젯 테스트, 프로젝트 문서. Behavior change: 두 버튼 모두 실제 wide 완성형 이미지의 왼쪽 심볼·레이블 배치를 사용한다. OAuth/API/DB 계약은 변경하지 않는다.
+  - 파일: `assets/icons/kakao_login_img.png`, `assets/icons/naver_login_img.png`, `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 로그인 위젯 테스트 2건에서 실제 에셋 로드, 두 이미지 경로와 `BoxFit.contain`, 342x54 터치 영역, 접근성 레이블, 600x90 규격, 브랜드 배경색을 검증해 통과했다. 대상 코드·테스트 `flutter analyze` 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: 두 버튼의 에셋 참조를 이전 구현으로 되돌리고 신규 이미지 규격·색상 테스트와 프로젝트 컨텍스트 기록을 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 다양한 화면 너비의 이미지 선명도, 좌우 여백, 로그인 탭과 로딩 전환을 최종 확인한다.
+
 ## 2026-07-20
+
+- [DONE] (FIX) 카카오 로그인 묶음 중앙 정렬 적용
+  - 목적: 카카오 공식 디자인 가이드에 따라 심볼·레이블 영역을 유지하면서 네이버 center 버튼과 같은 묶음 중앙 정렬을 적용한다.
+  - 변경: 카카오 공식 가이드의 가로 확장 규칙을 확인해 기존 `large_wide` 전체 이미지를 `large_narrow` 공식 원본으로 교체했다. 366x90 심볼·레이블 영역을 219.6x54로 비율 유지하고, `#FEE500`·12px radius의 342x54 전체 너비 컨테이너 정중앙에 배치했다. 컨테이너 좌우만 동일하게 확장하므로 네이버 center 버튼처럼 로고·레이블 묶음이 중앙에 오며, 공식 심볼·문구의 형태·자간·비율은 변경하지 않는다.
+  - 영향범위: 로그인 화면의 카카오 버튼 내부 심볼·레이블 가로 배치와 에셋 경로. Behavior change: 카카오 심볼이 기존 좌측 고정 위치에서 레이블과 함께 버튼 중앙 묶음으로 이동한다. 외곽 크기, 로그인 콜백, 로딩/접근성, OAuth/API/DB 계약은 변경하지 않는다.
+  - 파일: `assets/icons/kakao_login_center.png`, `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 공식 `large_narrow` 원본과 복사본의 SHA-256 일치 및 366x90 규격을 확인했다. 최초 테스트에서 비동기 이미지 고유 너비가 0으로 측정되는 문제를 확인해 공식 비율 기반 219.6x54 슬롯을 명시했다. 수정 후 위젯 테스트 1건에서 카카오 컨테이너 색·반경·342x54 크기, 콘텐츠 219.6x54 크기와 정확한 중앙 배치, 양쪽 에셋·접근성 회귀를 검증해 통과했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: 카카오 버튼을 기존 large wide 공식 이미지 표시로 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 카카오·네이버 묶음 중심과 공식 콘텐츠 크기를 최종 확인한다.
+
+- [DONE] (FIX) 소셜 로그인 레이블 정렬 통일
+  - 목적: 서로 다른 공식 버튼 정렬 변형을 사용해 카카오·네이버 로그인 레이블의 가로 위치가 어긋난 문제를 해결한다.
+  - 변경: 네이버 Light 한국어 green `wide` H56 에셋을 같은 규격의 `center` H56 에셋으로 교체했다. 에셋 이름을 `naver_login_center.png`로 명확히 하고 로그인 화면과 테스트 참조를 갱신했다. 네이버 로고와 레이블을 하나의 묶음으로 가운데 정렬해 같은 묶음 중심형인 카카오 버튼과 레이블 위치를 맞췄다.
+  - 영향범위: 로그인 화면의 네이버 버튼 내부 로고·레이블 가로 배치와 에셋 경로. Behavior change: 네이버 레이블이 기존 버튼 절대 중앙에서 로고와 함께 묶음 중앙 정렬되어 카카오 레이블과 같은 방향으로 이동한다. 버튼 외곽 크기, 로그인 콜백, 로딩/접근성, OAuth/API/DB 계약은 변경하지 않는다.
+  - 파일: `assets/icons/naver_login_center.png`, `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 공식 center 원본과 복사본의 SHA-256 일치 및 기존과 동일한 1472x224 규격을 확인했다. 로그인 화면 위젯 테스트 1건에서 신규 에셋 경로, `BoxFit.contain`, 342x54 버튼 영역과 접근성 레이블 회귀를 검증해 통과했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: 네이버 버튼을 기존 Light green wide H56 에셋으로 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 카카오·네이버 레이블의 광학적 정렬을 최종 확인한다.
+
+- [DONE] (FE) 카카오·네이버 공식 로그인 이미지 적용
+  - 목적: 제공된 카카오·네이버 로그인 디자인 리소스에서 현재 앱에 맞는 이미지를 선택해 로그인 버튼을 공식 이미지 기반으로 교체한다.
+  - 변경: 카카오 한국어 `large_wide`(600x90)와 네이버 Light 한국어 green wide H56(1472x224) 원본을 앱 에셋으로 복사했다. 로그인 화면의 임시 원형 K/N 아이콘과 직접 그린 브랜드 버튼을 제거하고, 54px 전체 너비 터치 영역 안에서 두 공식 이미지를 `BoxFit.contain`으로 왜곡 없이 표시한다. 기존 카카오·네이버 로그인 콜백과 버튼 내부 로딩 표시는 유지하고 각 버튼에 접근성 레이블을 추가했다.
+  - 영향범위: 비인증 사용자가 보는 로그인 화면의 카카오·네이버 버튼 UI와 신규 이미지 에셋. Behavior change: 직접 구성한 버튼 대신 공식 한국어 브랜드 이미지가 표시된다. OAuth 처리, 인증 상태 전환, API/DB 계약은 변경하지 않는다.
+  - 파일: `assets/icons/kakao_login.png`, `assets/icons/naver_login.png`, `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 원본과 복사본의 SHA-256 일치 및 600x90·1472x224 규격을 확인했다. 로그인 화면 위젯 테스트 1건에서 두 에셋 경로, `BoxFit.contain`, 342x54 버튼 영역과 접근성 레이블을 검증해 통과했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: 두 신규 에셋과 로그인 화면 이미지·접근성 적용, 전용 테스트·문서 기록을 제거하고 기존 직접 구성한 카카오·네이버 버튼을 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 다양한 화면 너비의 이미지 선명도와 로그인 탭·로딩 전환을 확인한다.
 
 - [DONE] (CHORE) 완료된 근무 타입·캘린더 변경 작업별 커밋 및 푸시
   - 목적: 현재 작업 트리의 완료된 색상 선택 UX, 입력 포커스, 색상 메타데이터, 글자 대비와 선택일 배경 변경을 검증 가능한 작업 단위로 정리해 원격 `main`에 반영한다.
