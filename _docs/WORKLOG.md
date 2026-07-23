@@ -1,5 +1,54 @@
 # 작업 로그
 
+## 2026-07-24
+
+- [DONE] (CHORE) 테스트용 그룹 캘린더와 VS Code 실행 설정 커밋·푸시
+  - 목적: 검증이 끝난 그룹 캘린더 미리보기와 `launch.json` 실행 복구 변경을 공유 가능한 파일 단위로 정리하고 원격 `main`에 반영한다.
+  - 변경: 더미 그룹 화면·친구 목록 진입·위젯 테스트를 `fd64b41`로, Flutter 도구 인자와 iOS 산출 경로가 수정된 VS Code 실행 설정을 `962bc9c`로 분리했다. `.vscode/` 전체 ignore 정책은 유지하면서 프로젝트 공용 `launch.json`과 Xcode 산출 경로 xcconfig만 명시적으로 추적했다. 그룹·실행 규칙과 작업 결과는 후속 문서 커밋으로 정리해 함께 푸시한다.
+  - 영향범위: 그룹 미리보기 화면·테스트, VS Code Flutter 실행 설정, 관련 프로젝트 문서와 Git 이력. 기존 `api_constants.dart`의 개인 LAN 주소 메모는 범위 밖 사용자 로컬 변경이므로 커밋하지 않고 작업 트리에 보존한다.
+  - 파일: `.vscode/launch.json`, `.vscode/xcode_build_location.xcconfig`, `lib/features/friend/presentation/pages/friend_list_page.dart`, `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 관련 Dart 파일 3개 `dart format` 변경 0건, 대상 `flutter analyze --no-fatal-infos` 0건, 그룹 미리보기 위젯 테스트 7건, `launch.json` JSON 검증, 각 커밋의 `git diff --cached --check`를 통과했다. 직전 실행 복구 작업에서 iPhone 15 Pro Max iOS 17.4 시뮬레이터의 Xcode build·앱 실행·Dart VM Service·Flutter DevTools 연결도 확인했다.
+  - 롤백: 원격 반영 후 필요 시 생성한 커밋을 `git revert`하고 푸시한다.
+  - 다음: 실제 그룹 API 계약이 확정되면 더미 데이터 생성기를 application/data 계층 조회로 교체하고, 실제 iPhone의 VM Service 연결 지연은 기기 권한·연결 상태와 함께 별도로 점검한다.
+
+- [DONE] (FIX) VS Code launch.json Flutter 앱 실행 복구
+  - 목적: `.vscode/launch.json`으로 Flutter 앱을 시작할 때 실행되지 않는 원인을 재현하고, 프로젝트의 실제 엔트리포인트·환경변수·기기 구성에 맞게 수정한다.
+  - 변경: Dart/Flutter 확장 3.138.0의 launch schema와 현재 구성을 대조해 `.env`의 `--dart-define-from-file`이 Flutter 도구 옵션이 아닌 `main()` 앱 인자 `args`에 들어가 있음을 확인하고 두 Debug/Release 구성 모두 `toolArgs`로 교체했다. `program=lib/main.dart`, `cwd=${workspaceFolder}`를 명시했다. 추가 재현에서 Xcode 전역 DerivedData 커스텀 경로 때문에 Flutter의 사전 `TARGET_BUILD_DIR` 조회값과 실제 `BUILD_DIR`이 달라져 빌드된 `Runner.app`을 찾지 못하는 원인을 확인했다. 전역 Xcode 설정은 변경하지 않고 launch 환경변수 `XCODE_XCCONFIG_FILE`과 신규 `.vscode/xcode_build_location.xcconfig`의 `SYMROOT=$(PROJECT_DIR)/../build/ios`로 이 프로젝트 실행만 일치시켰다.
+  - 영향범위: VS Code Flutter Debug/Release 실행의 엔트리포인트, compile-time define 전달, iOS 산출물 경로와 로컬 실행 문서. Behavior change: launch 구성으로 iOS 시뮬레이터를 실행하면 앱과 Dart VM Service/DevTools가 정상 연결된다. 앱 런타임 기능, API/DB 계약과 Xcode 전역 환경은 변경하지 않는다.
+  - 파일: `.vscode/launch.json`, `.vscode/xcode_build_location.xcconfig`(신규), `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: launch와 동일한 `XCODE_XCCONFIG_FILE`, `--dart-define-from-file=.env`, `lib/main.dart` 인자로 iPhone 15 Pro Max iOS 17.4 시뮬레이터 Debug 실행에 성공했다. Xcode build, 앱 동기화, Dart VM Service와 Flutter DevTools 연결을 확인한 뒤 정상 종료했다. 수정 전에는 같은 시뮬레이터에서 Xcode build 성공 후 `build/ios/iphonesimulator/Runner.app`을 찾지 못해 실패했고, 프로젝트 xcconfig 적용 후 해소됐다. `jq` JSON 검증, `flutter analyze --no-fatal-infos lib/main.dart` 0건, `git diff --check`를 통과했다. 실제 iPhone에서는 Xcode build·설치까지 성공했으나 VM Service 탐색이 60초를 넘겨 기기 연결 상태 이슈를 별도로 확인했다.
+  - 롤백: `toolArgs`를 기존 `args`로 되돌리고 `program`·`cwd`·`env`, `.vscode/xcode_build_location.xcconfig`와 관련 문서 기록을 제거한다.
+  - 다음: VS Code에서 이 프로젝트 폴더 자체를 workspace로 열고 상태 표시줄에서 실행할 iOS 기기 또는 시뮬레이터를 선택한 뒤 `shift_calendar (debug)`를 실행한다. 실제 iPhone의 VM Service 연결이 계속 지연되면 기기 잠금·신뢰·로컬 네트워크 및 Xcode 자동화 권한을 점검한다.
+
+## 2026-07-23
+
+- [DONE] (FE) 첨부 시안 기반 그룹 보기 main 디자인 재구성
+  - 목적: `design/group_view`의 `DESIGN.md`, `code.html`, `screen.png`를 기준으로 더미 그룹 보기 본문을 Shift Harmony 시안과 같은 정보 계층과 카드 구조로 정리한다.
+  - 변경: 기존 안내 카드와 히트맵을 제거하고 `그룹 멤버` 수·44px 겹침 아바타·추가 원, 28px 연월 제목, 이전/오늘/다음 액션, 흰색 surface/outline 셀 그리드로 본문 상단을 재구성했다. 모든 실제 월 주차와 날짜별 근무 인원은 유지하며 선택일에는 8% primary tint와 2px outline, 오늘에는 solid primary 원을 적용했다. 선택일 상세의 외곽 큰 카드를 제거하고 날짜/집계 독립 헤더 아래에 흰색 사람별 행을 배치했다. 각 행은 4px 근무색 바, tint 아바타, solid 코드 배지와 가로 스크롤 일정 영역을 사용하며 근무 시간이 첫 칩이고 개인 일정이 뒤따른다. 상단 앱 내비게이션과 친구 화면 진입 흐름은 유지했다.
+  - 영향범위: 더미 그룹 캘린더 main 영역의 레이아웃·색상·간격·선택 상태와 관련 위젯 테스트·프로젝트 문서. Behavior change: 근무 인원은 붉은 히트맵이 아닌 outline 캘린더 셀의 보조 텍스트로 표시되고, 사람별 상세는 세로 정보 카드가 아닌 시안형 한 줄 카드와 가로 일정 스크롤을 사용한다. 더미 데이터의 4→0명 근무/하루 2~3개 일정, API/DB, 기존 내 캘린더·친구 캘린더는 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 그룹 미리보기 테스트 7건에서 4→0명 데이터, Shift Harmony 오렌지·핑크·인디고·outline 멤버색, 겹침 아바타·추가 원·오늘 버튼, surface/outline 캘린더 카드, 선택일 8% primary tint·2px outline, 첫 근무색 바, 근무 시간 선두 순서, 0명 휴무, 390x800 월/390x740 2주 렌더링과 친구 화면 진입을 검증해 통과했다. 대상 화면·테스트 `flutter analyze` 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: 시안 기반 본문 레이아웃과 관련 테스트·문서 기록을 제거하고 직전 히트맵/상세 카드 구조로 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 긴 이름·긴 개인 일정의 가로 스크롤 발견 가능성과 월별 5주/6주 높이에서 보이는 사람별 카드 수를 확인한다.
+
+- [DONE] (FE) 그룹 사람별 일정 목록에 근무 시간 우선 표시
+  - 목적: 그룹 선택일의 사람별 개인 일정 목록에서 해당 구성원의 설정된 근무 시간을 개인 일정과 같은 형식으로 가장 먼저 확인할 수 있게 한다.
+  - 변경: 사람별 헤더의 근무 시간 문자열을 일정 칩 목록으로 이동하고, 시계 아이콘과 근무 타입 색상을 사용한 첫 번째 칩으로 고정했다. 근무자는 `07:00–15:00 근무`, 휴무자는 달 아이콘과 `근무 없음`을 표시하며 개인 일정 `09:30 병원 예약` 등은 그 뒤에 이어진다. 개인 일정이 없는 경우에도 근무 시간 칩은 유지하고 기존 빈 일정 안내를 함께 표시한다.
+  - 영향범위: 더미 그룹 캘린더 선택일의 사람별 상세 카드와 위젯 테스트·프로젝트 문서. Behavior change: 근무 시간이 이름 아래 보조 문구가 아니라 개인 일정과 같은 칩 목록의 선두 항목으로 표시된다. 더미 생성 규칙, API/DB, 기존 내 캘린더·친구 캘린더는 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 그룹 미리보기 테스트 7건에서 `Wrap.children.first`가 근무 시간 칩인지, 근무일의 `07:00–15:00 근무`가 `09:30 병원 예약`보다 먼저 구성되는지, 0명 근무일에 `근무 없음`이 표시되는지와 기존 월/2주·오버플로·진입 회귀를 검증해 통과했다. 대상 코드·테스트 `flutter analyze` 0건, `dart format` 통과.
+  - 롤백: 근무 시간 선두 칩과 관련 테스트·문서 기록을 제거하고 기존 사람별 헤더 시간 표시 구조로 복원한다.
+  - 다음: 실제 그룹 API를 연결할 때 `shift_type_schedules.start_time`·`end_time` 응답을 동일한 선두 근무 시간 칩에 매핑한다.
+
+- [DONE] (FE) 더미 데이터 기반 그룹 캘린더 미리보기 화면
+  - 목적: 실제 그룹 API·DB 구현 전에 4명 그룹의 날짜별 근무 인원 분포와 개인 일정 상세를 실제 기기/위젯 테스트에서 검토할 수 있는 화면을 제공한다.
+  - 변경: 박현서·김민수·이지연·이동욱 4명의 고정 더미 데이터와 날짜 기반 결정적 생성기를 추가했다. 날짜마다 4→3→2→1→0명 근무를 반복하고 하루 전체 2개/3개 개인 일정을 구성원에게 분배한다. 월/2주 캘린더에는 5단계 근무 인원 히트맵과 접근성 요약을, 선택일 카드에는 사람별 `D`·`E`·`N`·`F`·`OFF` 근무/시간과 일정 칩을 표시한다. 친구 화면 상단 그룹 아이콘으로 미리보기에 진입하며 750px 미만 화면은 2주 보기로 고정한다.
+  - 영향범위: Flutter 친구 화면 내 미리보기 진입과 신규 그룹 캘린더 프레젠테이션 코드·위젯 테스트. Behavior change: 친구 화면 내비게이션 바에 그룹 미리보기 버튼이 추가된다. API/DB/기존 내 캘린더·단일 친구 캘린더 동작은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, `lib/features/friend/presentation/pages/friend_list_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 신규 테스트 6건에서 0~4명 근무 순환, 하루 2~3개 일정, 5단계 히트맵 색상, 0명 날짜 선택 상세, 390x740 2주 보기와 오버플로 부재, 친구 화면 진입을 검증해 통과했다. 대상 코드·테스트 `flutter analyze` 0건, `dart format`과 `git diff --check` 통과. 전체 `flutter analyze`는 이번 변경 밖의 기존 이슈 109건 때문에 실패하며, 기존 친구 캘린더 테스트 묶음은 과거 흰색 선택 배경 기대값 1건이 현재 8% primary tint 구현과 달라 실패하는 상태임을 확인했다.
+  - 롤백: 신규 화면·테스트·친구 목록 진입 액션을 제거하고 프로젝트 컨텍스트/작업 로그 기록을 복원한다.
+  - 다음: 실제 그룹 엔티티·공개 범위·API 계약이 확정되면 결정적 더미 생성기를 application/data 계층 조회 결과로 교체하고 그룹 생성·멤버 관리 흐름을 연결한다.
+
 ## 2026-07-21
 
 - [DONE] (FE) 카카오·네이버 로그인 이미지 버튼 적용

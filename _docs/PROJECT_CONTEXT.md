@@ -530,6 +530,48 @@ FriendListPage
     시트 노출을 검증한다. 설정 저장 후 친구 목록 GET을 다시 호출하고 서버 응답의 최신 `can_view`로
     설정 화면에 재진입하는지도 검증한다.
 
+### 더미 그룹 캘린더 미리보기
+
+```
+FriendListPage 그룹 아이콘
+  → GroupCalendarPreviewPage
+  → buildGroupPreviewDayData(date)
+  → 날짜별 근무 인원 그리드 + 선택일 구성원별 근무/개인 일정
+```
+
+- 실제 그룹 API·DB 구현 전 화면 검토를 위한 Flutter 전용 미리보기다. 서버 요청, 영속화,
+  `friend_level_settings` 공개 판단에는 연결하지 않으며 내 캘린더와 단일 친구 캘린더 동작도
+  변경하지 않는다.
+- 구성원은 박현서·김민수·이지연·이동욱 4명으로 고정한다. 날짜를 기준으로 결정적으로 생성한
+  데이터가 4명→3명→2명→1명→0명 근무를 5일 주기로 반복하고, 하루 전체 개인 일정은 2개와
+  3개를 번갈아 구성원에게 분배한다. 근무자는 `D`·`E`·`N`·`F` 코드와 근무 시간을,
+  비근무자는 `OFF`와 `근무 없음`을 표시한다.
+- 그룹 보기 main 영역은 `../design/group_view/DESIGN.md`, `code.html`, `screen.png` 시안을
+  기준으로 한다. 상단 본문에는 그룹 멤버 수와 Shift Harmony 분류색의 44px 겹침 아바타,
+  멤버 추가 원을 표시한다. 월 헤더는 큰 `yyyy.MM` 제목과 연/월 선택 chevron을 왼쪽에,
+  이전·오늘·다음 액션을 오른쪽에 배치한다.
+- 월/2주 캘린더는 흰색 surface, 12px radius, outline 테두리와 셀 구분선을 사용하는 7열
+  그리드다. 모든 날짜에 `N명 근무`를 표시하며 선택일은 8% primary tint와 2px primary dark
+  outline, 오늘은 선택되지 않았을 때 solid primary 원으로 구분한다. HTML 시안에서 설명을 위해
+  생략한 주차는 실제 Flutter 달력에서는 생략하지 않는다.
+- 날짜 선택 시 캘린더 아래의 독립 헤더에 날짜와 `근무 N명 · 개인 일정 N개`를 나란히 표시하고,
+  하단 목록에 4명의 근무/일정을 표시한다. 각 사람 카드는 흰색 surface와 outline, 4px 근무색
+  왼쪽 바, 근무색 tint 원형 아바타, solid 근무 코드 배지를 사용한다. 오른쪽 일정 영역은 가로
+  스크롤하며 설정된 근무 시간 칩을 맨 앞에 두고 개인 일정 칩을 뒤에 배치한다. 근무자는
+  `07:00–15:00` 형식, 휴무자는 `근무 없음`을 표시한다.
+  연/월 제목은 공용 `YearMonthPickerSheet`를 열며, 화면 높이 750px 미만에서는 2주 보기와
+  52px 행, 그 이상에서는 월 보기와 56px 행을 사용한다.
+- 파일 역할/의존성/사용 예:
+  - `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`: 고정 구성원,
+    결정적 날짜별 더미 데이터 생성기, 0~4명 outline 그리드 캘린더와 시안 기반 선택일 구성원
+    상세를 한 파일에서 제공한다. `FriendListPage`의 내비게이션 바 그룹 아이콘이 이 화면을 연다.
+    실제 그룹 계약이 마련되면 데이터 생성기를 application/data 계층의 조회 결과로 교체하고
+    화면 컴포넌트는 재사용할 수 있다.
+  - `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`: 5일 근무
+    인원 순환, 하루 2~3개 일정, 시안 분류색과 그룹 아바타·오늘 버튼·outline 캘린더 카드,
+    선택일 tint/outline과 근무색 바, 사람별 근무 시간 칩의 선두 순서, 월/2주 반응형 렌더링,
+    0명 날짜의 휴무 상세, 친구 목록 진입 경로와 390px 화면 오버플로 부재를 검증한다.
+
 ### 친구 요청 알림 응답 흐름
 
 ```
@@ -564,6 +606,13 @@ NotificationPage
 
 ### iOS 로컬 빌드 규칙
 
+- VS Code의 `.vscode/launch.json`은 `lib/main.dart`와 프로젝트 루트를 명시하고,
+  `.env`의 compile-time define은 앱 인자 `args`가 아니라 Flutter 도구 인자
+  `toolArgs`의 `--dart-define-from-file=.env`로 전달한다.
+- Xcode 전역 DerivedData 위치가 커스텀 경로여도 Flutter가 사전 조회한
+  `TARGET_BUILD_DIR`과 실제 `flutter run` 산출 경로가 달라지지 않도록, VS Code 실행은
+  `XCODE_XCCONFIG_FILE=.vscode/xcode_build_location.xcconfig`를 전달한다. 이 파일은
+  `SYMROOT`만 프로젝트의 `build/ios`로 한정하며 Xcode 전역 설정은 변경하지 않는다.
 - CocoaPods 의존성이 있는 iOS 앱은 Xcode에서 `ios/Runner.xcworkspace`를 연다.
   `Runner.xcodeproj`만 열면 Pods target이 빌드 그래프에 포함되지 않아
   `Framework 'Pods_Runner' not found`가 발생할 수 있다.
@@ -574,6 +623,13 @@ NotificationPage
   각 파일은 해당 `Pods-Runner.<configuration>.xcconfig`, `Generated.xcconfig`,
   로컬 `Secrets.xcconfig`를 포함한다.
 - 파일 역할/의존성/사용 예:
+  - `.vscode/launch.json`: VS Code/Cursor의 Flutter Debug·Release 실행 진입점.
+    Dart/Flutter 확장의 `toolArgs`로 `.env` define을 전달하고, iOS 실행 시
+    `XCODE_XCCONFIG_FILE`로 프로젝트 전용 산출 경로 설정을 연결한다.
+  - `.vscode/xcode_build_location.xcconfig`: VS Code에서 시작한 Xcode 빌드의
+    `SYMROOT`를 `build/ios`로 고정하는 실행 전용 설정. `launch.json`의 `env`가
+    이 파일을 가리키며, 전역 DerivedData가 커스텀 경로인 환경에서
+    `flutter run`이 `Runner.app`을 찾지 못하는 문제를 방지한다.
   - `ios/Flutter/Profile.xcconfig`: Profile 빌드의 CocoaPods 검색 경로와 Flutter 생성 설정,
     로컬 secret 설정을 연결한다. `Runner.xcodeproj`의 Runner/Profile base configuration에서
     참조하며 `xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner
