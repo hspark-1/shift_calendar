@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "shift_calendar (debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "flutterMode": "debug",
+      "env": {
+        "XCODE_XCCONFIG_FILE": "${workspaceFolder}/.vscode/xcode_build_location.xcconfig"
+      },
+      "toolArgs": [
+        "--dart-define-from-file=.env"
+      ]
+    },
+    {
+      "name": "shift_calendar (release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "flutterMode": "release",
+      "env": {
+        "XCODE_XCCONFIG_FILE": "${workspaceFolder}/.vscode/xcode_build_location.xcconfig"
+      },
+      "toolArgs": [
+        "--dart-define-from-file=.env"
+      ]
+    }
+  ]
+}

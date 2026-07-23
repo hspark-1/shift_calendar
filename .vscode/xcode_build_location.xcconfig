@@ -1,0 +1,1 @@
+SYMROOT = $(PROJECT_DIR)/../build/ios
