@@ -7,6 +7,7 @@ import '../providers/friend_provider.dart';
 import '../widgets/add_friend_modal.dart';
 import '../widgets/friend_list_item.dart';
 import 'friend_calendar_page.dart';
+import 'group_calendar_preview_page.dart';
 
 /// 친구 목록 페이지
 class FriendListPage extends ConsumerStatefulWidget {
@@ -34,10 +35,25 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
         middle: const Text('친구'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => _showAddFriendModal(context),
-          child: const Icon(CupertinoIcons.person_add),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              label: '그룹 보기 미리보기',
+              button: true,
+              child: CupertinoButton(
+                key: const ValueKey('group-calendar-preview-button'),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                onPressed: _navigateToGroupPreview,
+                child: const Icon(CupertinoIcons.person_2_fill),
+              ),
+            ),
+            CupertinoButton(
+              padding: const EdgeInsets.only(left: 6),
+              onPressed: () => _showAddFriendModal(context),
+              child: const Icon(CupertinoIcons.person_add),
+            ),
+          ],
         ),
       ),
       child: SafeArea(child: _buildContent(state)),
@@ -158,6 +174,14 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
     Navigator.of(context).push(
       CupertinoPageRoute<void>(
         builder: (context) => FriendCalendarPage(friend: friend),
+      ),
+    );
+  }
+
+  void _navigateToGroupPreview() {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (context) => const GroupCalendarPreviewPage(),
       ),
     );
   }
