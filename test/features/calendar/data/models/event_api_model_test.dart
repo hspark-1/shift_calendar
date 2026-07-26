@@ -1,7 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/features/calendar/data/models/event_api_model.dart';
+import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
 
 void main() {
   test('자정인 exclusive 종료일에는 종일 일정을 추가하지 않는다', () {

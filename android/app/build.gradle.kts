@@ -15,7 +15,7 @@ if (secretsFile.exists()) {
 }
 
 android {
-    namespace = "com.shiftcalendar.shift_calendar"
+    namespace = "com.hspark.shiftmate"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -30,7 +30,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.shiftcalendar.shift_calendar"
+        applicationId = "com.hspark.shiftmate"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -43,6 +43,16 @@ android {
             ?: project.findProperty("KAKAO_NATIVE_APP_KEY")?.toString()
             ?: ""
         manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakaoNativeAppKey
+
+        // 네이버 네이티브 SDK 설정
+        val naverClientId = secretsProperties.getProperty("NAVER_CLIENT_ID")
+            ?: project.findProperty("NAVER_CLIENT_ID")?.toString()
+            ?: ""
+        val naverClientSecret = secretsProperties.getProperty("NAVER_CLIENT_SECRET")
+            ?: project.findProperty("NAVER_CLIENT_SECRET")?.toString()
+            ?: ""
+        resValue("string", "naver_client_id", naverClientId)
+        resValue("string", "naver_client_secret", naverClientSecret)
     }
 
     buildTypes {

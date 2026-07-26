@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../calendar/presentation/pages/calendar_page.dart';
 import '../providers/auth_provider.dart';
@@ -66,9 +67,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _is_loading = true;
     });
 
-    final success = await ref
-        .read(authProvider.notifier)
-        .loginWithNaver(context);
+    final success = await ref.read(authProvider.notifier).loginWithNaver();
 
     if (!mounted) return;
 
@@ -175,7 +174,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ),
         const SizedBox(height: 24),
         // 앱 이름
-        const Text('Shift Calendar', style: AppTheme.heading_large),
+        const Text(AppConstants.app_name, style: AppTheme.heading_large),
         const SizedBox(height: 8),
         // 설명
         Text(

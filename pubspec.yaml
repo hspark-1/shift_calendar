@@ -1,4 +1,4 @@
-name: shift_calendar
+name: shift_mate
 description: "교대 근무 일정 관리 및 공유 앱"
 publish_to: "none"
 version: 1.0.0+1
@@ -23,9 +23,8 @@ dependencies:
   # 카카오 로그인
   kakao_flutter_sdk_user: ^1.9.5
 
-  # 네이버 로그인 (웹뷰 기반)
-  flutter_inappwebview: ^6.1.5
-  url_launcher: ^6.3.1
+  # 네이버 로그인 (네이티브 SDK)
+  naver_login_flutter: 3.0.4
 
   # 캘린더
   table_calendar: ^3.1.3

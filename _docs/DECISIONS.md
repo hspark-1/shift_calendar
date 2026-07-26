@@ -312,6 +312,72 @@
 - 추후 과제(언제 다시 평가)
   - 다크 테마를 도입할 때 8% tint의 실제 대비와 outline 조합을 재평가한다.
 
+## ADR-0013: 네이버 로그인은 네이티브 SDK의 앱 우선 인증을 사용
+
+- 배경(문제)
+  - 기존 구현은 앱 내부 `InAppWebView`에서 네이버 OAuth 페이지를 열고 custom callback URL의
+    fragment를 직접 파싱했다.
+  - 이 방식은 네이버 앱이 설치된 기기에서도 앱 내부 계정 입력 화면으로 진입할 수 있으며,
+    Flutter UI가 OAuth URL 생성·외부 앱 스킴 처리·Access Token 파싱까지 책임졌다.
+- 선택지(대안)
+  - A. 기존 WebView implicit OAuth와 수동 callback 파싱을 유지한다.
+  - B. 네이버 네이티브 SDK에서 네이버 앱만 허용하고 앱이 없으면 로그인할 수 없게 한다.
+  - C. 네이버 네이티브 SDK에서 네이버 앱을 우선하고, 앱이 없을 때만 SDK 브라우저로 fallback한다.
+- 결정(무엇을 선택)
+  - C를 선택한다.
+  - Flutter 3.38.5와 호환되고 iOS에서
+    `appPreferredWithInAppBrowserFallback`을 설정하는 `naver_login_flutter` 3.0.4를 고정한다.
+  - 네이티브 SDK가 발급한 Access Token만 기존 `POST /api/v1/auth/naver/token` 서버 교환
+    API에 전달하며 앱 JWT 저장 계약은 변경하지 않는다.
+- 근거(왜)
+  - 네이버 앱 설치 사용자는 앱의 기존 로그인 세션을 활용할 수 있고 앱 내부에서 계정 정보를
+    직접 입력하지 않는다.
+  - 네이버 앱 미설치 사용자도 로그인할 수 있어 앱 전용 방식보다 접근성이 높다.
+  - URL callback과 토큰 발급을 공식 네이티브 SDK에 맡겨 Flutter의 수동 OAuth 처리 범위를
+    제거한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - `flutter_inappwebview`, `url_launcher` 의존성과 WebView 로그인 위젯을 제거한다.
+  - iOS는 Bundle ID `com.hspark.shiftmate`와 전용 URL Scheme `com.hspark.shiftmate`,
+    Android는 패키지명 `com.hspark.shiftmate`를 네이버 개발자 센터와 일치시켜야 한다.
+  - Android/iOS 빌드 환경에 Naver Client ID와 Client Secret을 별도로 주입해야 한다.
+  - 사용자가 네이버 앱을 설치하지 않은 경우에는 네이버 SDK가 제공하는 브라우저 인증 화면이 열린다.
+- 추후 과제(언제 다시 평가)
+  - Flutter SDK를 3.44 이상으로 올릴 때 `naver_login_flutter` 최신 안정 버전으로 갱신하고
+    iOS 앱 우선 동작과 Android 로그인 결과 모델을 회귀 검증한다.
+  - 실제 iOS/Android 기기에서 네이버 앱 설치·미설치·사용자 취소 세 경로를 각각 확인한다.
+
+## ADR-0014: 출시 전 앱 브랜드와 플랫폼 식별자를 ShiftMate로 통일
+
+- 배경(문제)
+  - 사용자 노출 이름, Dart 패키지명, Android 애플리케이션 ID에 초기 프로젝트명인
+    `Shift Calendar`와 `shift_calendar`가 남아 있었고 iOS Bundle ID·OAuth 설정의
+    `com.hspark.shiftmate`와 일치하지 않았다.
+  - 앱은 Play Store와 Apple Developer에 등록하기 전인 로컬 개발 단계이므로 설치·배포
+    신원을 확정하기 전에 식별자를 정리할 수 있다.
+- 선택지(대안)
+  - A. 사용자에게 보이는 이름만 `ShiftMate`로 바꾸고 내부 패키지 식별자는 유지한다.
+  - B. 표시 이름, Dart 패키지, Android/iOS 식별자와 개발 도구 표시 이름을 모두 통일한다.
+  - C. 스토어 등록 이후에 식별자를 마이그레이션한다.
+- 결정(무엇을 선택)
+  - B를 선택한다.
+  - 브랜드·플랫폼 표시 이름은 `ShiftMate`, Dart 패키지는 `shift_mate`,
+    Android namespace/applicationId와 iOS Bundle ID는 `com.hspark.shiftmate`를 사용한다.
+  - 캘린더 기능을 설명하는 폴더·클래스·API 도메인 용어의 `calendar`는 유지한다.
+- 근거(왜)
+  - 출시 전에 Android와 iOS의 앱 신원, OAuth 플랫폼 등록값, 코드 내부 명칭을 맞추면
+    스토어 등록 후 변경할 수 없는 Android applicationId의 불일치를 방지할 수 있다.
+  - 기능 용어와 브랜드를 구분하면 캘린더 도메인 코드까지 불필요하게 이름을 바꾸지 않아도 된다.
+- 결과/영향(좋은 점/트레이드오프)
+  - Android의 기존 로컬 설치와 새 applicationId 앱은 서로 다른 앱으로 취급되므로 기존
+    로컬 앱 데이터는 자동 이전되지 않는다.
+  - 네이버·카카오 개발자 콘솔의 Android 패키지명은 `com.hspark.shiftmate`로 등록하고,
+    카카오는 같은 패키지명에 사용하는 빌드 서명 키 해시를 함께 등록해야 한다.
+  - Dart 패키지명 변경에 따라 절대 import와 테스트 참조를 함께 갱신해야 한다.
+- 추후 과제(언제 다시 평가)
+  - Play Store와 Apple Developer 등록 전에 최종 조직 도메인과 앱 식별자가
+    `com.hspark.shiftmate`인지 한 번 더 확인한다.
+  - 스토어 등록 후에는 Android applicationId를 변경하지 않는다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식

@@ -2,23 +2,31 @@
 
 ## 프로젝트 개요
 
-**Shift Calendar**는 교대 근무 일정 관리 및 공유를 위한 Flutter 모바일 애플리케이션입니다.
+**ShiftMate**는 교대 근무 일정 관리 및 공유를 위한 Flutter 모바일 애플리케이션입니다.
 
 ### 주요 기능
 
 - 교대 근무 일정 관리 (데이/이브닝/나이트 등)
 - 캘린더 기반 일정 조회 및 편집
 - 친구 간 일정 공유
-- 카카오 OAuth 로그인
+- 카카오·네이버 OAuth 로그인
 
 ### 기술 스택
 
 - **프레임워크**: Flutter (Cupertino 디자인)
 - **상태관리**: Flutter Riverpod 2.6.1
 - **네트워크**: Dio 5.7.0
-- **인증**: 카카오 Flutter SDK
+- **인증**: 카카오 Flutter SDK, 네이버 iOS/Android 네이티브 SDK
 - **로컬 저장소**: Flutter Secure Storage, Shared Preferences
 - **코드 생성**: Freezed, JSON Serializable, Riverpod Generator
+
+### 앱 브랜드 및 플랫폼 식별자
+
+- 사용자 노출 브랜드명과 Android/iOS 표시 이름은 `ShiftMate`를 사용한다.
+- Dart 패키지명은 `shift_mate`를 사용한다.
+- Android `namespace`와 `applicationId`, Kotlin 패키지는 `com.hspark.shiftmate`를 사용한다.
+- iOS Runner Bundle ID와 네이버 전용 URL Scheme은 `com.hspark.shiftmate`를 사용한다.
+- `calendar`는 캘린더 기능·도메인을 나타내는 명칭에만 사용하고 앱 브랜드 식별자로 사용하지 않는다.
 
 ### UI 디자인 시스템
 
@@ -143,8 +151,11 @@
     8% primary tint 배경·2px primary dark outline, 날짜·근무 배지 셀의 레이아웃 예외,
     확장/compact 보기의
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지 검증한다.
-  - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 메인 하단 내비게이션.
-    친구, 오늘, 알림 이동 액션과 미읽음 알림 배지를 표시하며 기본적으로 상단 outline을 그린다.
+  - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 공용 하단 footer.
+    기본 메인/근무 추가 구성에서는 친구·시간, 오늘, 알림 이동 액션과 미읽음 알림 배지를
+    표시한다. 화면이 `BottomActionBarItem` 목록을 주입하면 같은 surface·상단 outline·pill
+    스타일로 화면 전용 액션과 선택 상태를 표시하며, 친구 탭은 이 방식으로 친구 리스트와
+    그룹 방을 전환한다.
   - `test/features/calendar/presentation/widgets/shift_type_button_test.dart`:
     `ShiftTypeSelectionGrid`가 320x128 영역에서 타입 1~10개를 스크롤/오버플로우 없이 표시하는지,
     10개를 5개씩 2행으로 배치하는지, 선택 코드를 콜백으로 전달하는지, 옅은 근무 색상에서
@@ -281,6 +292,13 @@
     `BoxFit.contain`, 동일한 342x54 터치 영역, 카카오·네이버 접근성 레이블을 검증한다.
     에셋을 실제 디코딩해 두 이미지가 600x90인지와 빈 배경 영역 픽셀이 카카오 `#FEE500`,
     네이버 `#03A94D`인지도 확인한다.
+  - `lib/features/auth/data/services/naver_login_service.dart`: `naver_login_flutter`이 연결한
+    iOS/Android 네이버 네이티브 SDK를 호출하고 Access Token만 Repository에 반환한다.
+    iOS는 네이버 앱 설치 시 앱 인증을 우선하며 미설치 때만 SDK 인앱 브라우저로 fallback한다.
+    Android 로그인 결과에 토큰이 직접 포함되지 않는 경우 SDK의 현재 Access Token을 추가로
+    조회한다. `NaverLoginSdk` 경계를 통해 플랫폼 채널 없이 서비스 결과를 단위 테스트할 수 있다.
+  - `test/features/auth/data/services/naver_login_service_test.dart`: 로그인 결과 토큰 반환,
+    Android 토큰 추가 조회, 사용자 취소·네이티브 취소 오류 변환과 SDK 로그아웃 위임을 검증한다.
   - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
     시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션,
     정적 토글, 별도 로그아웃 버튼을 Cupertino 커스텀 위젯으로 구현한다. 설정 화면 내부에는
@@ -327,6 +345,74 @@ DioException → handleApiError() → ApiException → UI (CupertinoAlertDialog)
 - 릴리스 빌드(운영/Center): `https://api.shiftmate.co.kr/api/v1`
 - `ApiClient.createDio()`가 선택된 값을 Dio `BaseOptions.baseUrl`에 적용하고,
   각 서비스는 `ApiConstants`의 상대 엔드포인트를 결합해 요청한다.
+
+### 카카오 인증 및 프로필 저장 흐름
+
+```
+LoginPage
+  → Kakao Flutter SDK (카카오톡/카카오 계정 로그인)
+  → Kakao Access Token
+  → POST /api/v1/auth/kakao/token
+  → 신규 사용자: ProfileSetupPage
+  → POST /api/v1/auth/profile
+  → CalendarPage
+```
+
+- 현재 앱은 카카오 Flutter 네이티브 SDK가 인증과 Access Token 발급을 담당한다.
+  Stage API 주소를 카카오 웹 Redirect URI로 사용하지 않는다.
+- 네이티브 앱 콜백은 Android `AndroidManifest.xml`과 iOS `Info.plist`에서
+  `kakao${KAKAO_NATIVE_APP_KEY}://oauth` 스킴으로 연결한다.
+- 카카오 SDK는 `main.dart`에서 Native App Key로 초기화한다. 카카오 개발자 콘솔의 네이티브
+  플랫폼 설정은 Android 패키지명 `com.hspark.shiftmate`와 빌드 서명 키 해시,
+  iOS Bundle ID `com.hspark.shiftmate`를 사용한다. 카카오 로그인을 활성화하고
+  닉네임·프로필 이미지·이메일 동의항목을 설정한다.
+- `AuthRepositoryImpl.loginWithKakao()`는 SDK 토큰을
+  `AuthRemoteDataSource.loginWithKakaoToken()`에 전달하며, 서버 토큰 교환 요청 본문은
+  `{"access_token": "<Kakao Access Token>"}`이다.
+- Express 서버의 프로필 수정 계약은 `POST /api/v1/auth/profile`이다.
+  `AuthRemoteDataSource.updateProfile()`은 null이 아닌 `name`, `timezone`,
+  `profile_image_url`만 요청 본문에 포함한다.
+- 파일 역할/의존성/사용 예:
+  - `lib/features/auth/data/datasources/auth_remote_datasource.dart`: 카카오 SDK 로그인,
+    서버 토큰 교환, 프로필 조회·수정과 로그아웃 HTTP 요청을 담당한다.
+    신규 사용자 프로필 완료 시 `updateProfile()`이 POST 요청을 보낸다.
+  - `test/features/auth/data/datasources/auth_remote_datasource_test.dart`:
+    실제 네트워크 대신 Dio 인터셉터로 요청을 가로챈다. 네이버 SDK Access Token이
+    `POST /auth/naver/token`의 `access_token` 필드로 전달되는지와 프로필 수정의 POST 메서드,
+    `/auth/profile` 경로, null 필드 제외 본문 및 응답 파싱을 검증한다.
+
+### 네이버 네이티브 인증 흐름
+
+```
+LoginPage
+  → Naver iOS/Android Native SDK
+  → 네이버 앱 우선 인증(미설치 시 SDK 브라우저 fallback)
+  → Naver Access Token
+  → POST /api/v1/auth/naver/token
+  → 신규 사용자: ProfileSetupPage
+  → POST /api/v1/auth/profile
+  → CalendarPage
+```
+
+- 앱 내부 `InAppWebView`에서 네이버 ID/비밀번호를 직접 입력받거나 OAuth fragment를 파싱하지
+  않는다. `naver_login_flutter` 3.0.4가 공식 iOS/Android SDK를 연결하며, iOS 로그인 동작은
+  `appPreferredWithInAppBrowserFallback`이다.
+- `AuthRepositoryImpl.loginWithNaver()`는 SDK Access Token을
+  `AuthRemoteDataSource.loginWithNaverToken()`에 전달한다. 서버 요청 본문은
+  `{"access_token": "<Naver Access Token>"}`이며 앱 JWT 저장 방식은 카카오와 같다.
+- iOS Bundle ID는 `com.hspark.shiftmate`, 네이버 전용 URL Scheme과 `NidUrlScheme`은
+  모두 `com.hspark.shiftmate`로 일치시킨다. 네이버 개발자 센터의 iOS `URL Scheme`에도
+  `com.hspark.shiftmate`만 등록하며 `://naver/callback` 경로를 붙이지 않는다.
+- Android 네이버 개발자 센터에는 패키지명 `com.hspark.shiftmate`를 등록한다.
+  기존 WebView callback intent-filter는 사용하지 않으며, 공식 SDK가 인증 결과를 처리한다.
+- 네이티브 SDK 키는 소스에 직접 넣지 않는다.
+  - Android 로컬: gitignored `android/secrets.properties`에
+    `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 설정한다.
+  - iOS 로컬: gitignored `ios/Flutter/Secrets.xcconfig`에
+    `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 설정한다.
+  - CI/CD: 같은 이름의 Gradle project property/Xcode build setting을 주입한다.
+- 로그아웃은 서버 refresh token 폐기 시도 후 카카오·네이버 SDK 로컬 세션을 각각 정리하고,
+  소셜 SDK 오류 여부와 관계없이 앱 JWT를 삭제한다.
 
 ### 메인 캘린더 조회/표시 흐름
 
@@ -447,13 +533,16 @@ FriendListPage
   반영해 키보드가 닫히는 동안 시트가 최대 높이로 팽창했다가 기본 높이로 축소되지 않게 한다.
 - 검색 전·오류·결과 없음 안내는 가용 결과 영역 안에서 중앙 정렬하되, 큰 텍스트나 큰 키보드로
   콘텐츠 높이가 영역을 넘으면 내부 스크롤을 허용해 `RenderFlex` 오버플로를 방지한다.
+- 검색 성공 시 단일 사용자 카드는 고정 높이나 최소 높이를 사용하지 않는다. 프로필 행, 공용 간격,
+  친구 관계 상태 또는 친구 요청 버튼과 카드 내부 패딩의 실제 높이에 따라 세로 크기를 결정하고,
+  결과 영역보다 커지는 경우 바깥 `SingleChildScrollView`가 스크롤을 담당한다.
 - 파일 역할/의존성/사용 예:
   - `lib/features/friend/presentation/widgets/add_friend_modal.dart`: 이메일/전화번호 입력 검증과
     정규화, 단일 사용자 검색 결과, 친구 요청 액션, 드래그 가능한 시트와 키보드 포커스/높이 대응을
     담당한다. `FriendListPage`가 `showCupertinoModalPopup`으로 표시한다.
   - `test/features/friend/presentation/widgets/add_friend_modal_test.dart`: 큰 키보드·확대 텍스트에서
     안내 영역이 넘치지 않는지, 검색창 밖 터치로 포커스가 해제되는지, 키보드 닫힘 중 시트 목표
-    높이가 기본 높이를 초과하지 않는지 검증한다.
+    높이가 기본 높이를 초과하지 않는지와 검색 결과 카드가 내부 요소 높이로 축소되는지 검증한다.
 
 ### 친구 캘린더 조회 흐름
 
@@ -530,15 +619,24 @@ FriendListPage
     시트 노출을 검증한다. 설정 저장 후 친구 목록 GET을 다시 호출하고 서버 응답의 최신 `can_view`로
     설정 화면에 재진입하는지도 검증한다.
 
-### 더미 그룹 캘린더 미리보기
+### 친구·그룹 방 footer 및 더미 그룹 캘린더 미리보기
 
 ```
-FriendListPage 그룹 아이콘
+FriendListPage footer
+  → 친구 리스트 | 그룹 방 리스트
+  → 그룹 방 리스트의 `우리 병동` 미리보기 카드
   → GroupCalendarPreviewPage
   → buildGroupPreviewDayData(date)
   → 날짜별 근무 인원 그리드 + 선택일 구성원별 근무/개인 일정
 ```
 
+- 친구 탭은 메인 화면과 같은 `BottomActionBar`를 화면 하단에 고정하고 `친구 리스트`,
+  `그룹 방` 두 항목을 표시한다. 선택 항목은 8% primary tint, primary dark outline과
+  굵은 텍스트로 구분한다.
+- `친구 리스트`를 선택하면 기존 API 기반 친구 목록·새로고침·빈 상태·친구 추가 액션을
+  그대로 사용한다. `그룹 방`을 선택하면 내비게이션 제목을 `그룹 방`으로 바꾸고 친구 추가
+  액션을 숨긴 뒤, 현재 더미 데이터에 대응하는 `우리 병동` 카드와 4명 겹침 아바타를 표시한다.
+  친구 목록 상단의 기존 그룹 미리보기 아이콘은 footer/목록 경로로 대체한다.
 - 실제 그룹 API·DB 구현 전 화면 검토를 위한 Flutter 전용 미리보기다. 서버 요청, 영속화,
   `friend_level_settings` 공개 판단에는 연결하지 않으며 내 캘린더와 단일 친구 캘린더 동작도
   변경하지 않는다.
@@ -562,15 +660,20 @@ FriendListPage 그룹 아이콘
   연/월 제목은 공용 `YearMonthPickerSheet`를 열며, 화면 높이 750px 미만에서는 2주 보기와
   52px 행, 그 이상에서는 월 보기와 56px 행을 사용한다.
 - 파일 역할/의존성/사용 예:
+  - `lib/features/friend/presentation/pages/friend_list_page.dart`: `friendListProvider` 기반 기존
+    친구 목록과 더미 그룹 방 목록을 페이지 내부 상태로 전환한다. 공용 `BottomActionBar`에
+    `BottomActionBarItem` 두 개를 주입하고, `우리 병동` 카드를 누르면
+    `GroupCalendarPreviewPage`를 연다. 그룹 방 선택은 별도 API를 호출하지 않는다.
   - `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`: 고정 구성원,
     결정적 날짜별 더미 데이터 생성기, 0~4명 outline 그리드 캘린더와 시안 기반 선택일 구성원
-    상세를 한 파일에서 제공한다. `FriendListPage`의 내비게이션 바 그룹 아이콘이 이 화면을 연다.
+    상세를 한 파일에서 제공한다. `FriendListPage`의 그룹 방 목록 카드가 이 화면을 연다.
     실제 그룹 계약이 마련되면 데이터 생성기를 application/data 계층의 조회 결과로 교체하고
     화면 컴포넌트는 재사용할 수 있다.
   - `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`: 5일 근무
     인원 순환, 하루 2~3개 일정, 시안 분류색과 그룹 아바타·오늘 버튼·outline 캘린더 카드,
     선택일 tint/outline과 근무색 바, 사람별 근무 시간 칩의 선두 순서, 월/2주 반응형 렌더링,
-    0명 날짜의 휴무 상세, 친구 목록 진입 경로와 390px 화면 오버플로 부재를 검증한다.
+    0명 날짜의 휴무 상세, footer의 친구/그룹 방 양방향 전환, 그룹 방 목록 카드 진입 경로와
+    390px 화면 오버플로 부재를 검증한다.
 
 ### 친구 요청 알림 응답 흐름
 

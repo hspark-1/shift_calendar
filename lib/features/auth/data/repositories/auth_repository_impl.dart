@@ -1,4 +1,5 @@
-import 'package:flutter/cupertino.dart';
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/token_service.dart';
@@ -18,8 +19,8 @@ abstract class AuthRepository {
   /// 카카오 로그인 (SDK + 서버 인증)
   Future<AuthResponse> loginWithKakao();
 
-  /// 네이버 로그인 (웹뷰 + 서버 인증)
-  Future<AuthResponse> loginWithNaver(BuildContext context);
+  /// 네이버 로그인 (네이티브 SDK + 서버 인증)
+  Future<AuthResponse> loginWithNaver();
 
   /// 토큰 갱신
   Future<AuthToken> refreshToken();
@@ -50,8 +51,11 @@ class AuthRepositoryImpl implements AuthRepository {
   final TokenService _token_service;
   final NaverLoginService _naver_login_service;
 
-  AuthRepositoryImpl(this._remote_datasource, this._token_service)
-    : _naver_login_service = NaverLoginService();
+  AuthRepositoryImpl(
+    this._remote_datasource,
+    this._token_service, {
+    NaverLoginService? naver_login_service,
+  }) : _naver_login_service = naver_login_service ?? NaverLoginService();
 
   @override
   Future<AuthResponse> loginWithKakao() async {
@@ -74,9 +78,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<AuthResponse> loginWithNaver(BuildContext context) async {
-    // 1. 네이버 웹뷰 로그인
-    final naverAccessToken = await _naver_login_service.loginWithNaver(context);
+  Future<AuthResponse> loginWithNaver() async {
+    // 1. 네이버 네이티브 SDK 로그인
+    final naverAccessToken = await _naver_login_service.loginWithNaver();
 
     // 2. 서버 인증
     final authResponse = await _remote_datasource.loginWithNaverToken(
@@ -142,8 +146,19 @@ class AuthRepositoryImpl implements AuthRepository {
       // 서버 오류가 발생해도 로컬 토큰은 삭제
     }
 
-    // 카카오 로그아웃
-    await _remote_datasource.logoutKakao();
+    try {
+      // 카카오 SDK 로그아웃
+      await _remote_datasource.logoutKakao();
+    } catch (e) {
+      // 소셜 SDK 오류가 발생해도 로컬 토큰은 삭제
+    }
+
+    try {
+      // 네이버 SDK 로그아웃
+      await _naver_login_service.logout();
+    } catch (e) {
+      // 소셜 SDK 오류가 발생해도 로컬 토큰은 삭제
+    }
 
     // 저장된 토큰 삭제
     await _token_service.clearTokens();

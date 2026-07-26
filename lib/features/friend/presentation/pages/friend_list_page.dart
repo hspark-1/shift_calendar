@@ -1,13 +1,18 @@
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../calendar/presentation/widgets/bottom_action_bar.dart';
 import '../../data/models/friend_model.dart';
 import '../providers/friend_provider.dart';
 import '../widgets/add_friend_modal.dart';
 import '../widgets/friend_list_item.dart';
 import 'friend_calendar_page.dart';
 import 'group_calendar_preview_page.dart';
+
+enum _FriendListSection { friends, groupRooms }
 
 /// 친구 목록 페이지
 class FriendListPage extends ConsumerStatefulWidget {
@@ -18,6 +23,8 @@ class FriendListPage extends ConsumerStatefulWidget {
 }
 
 class _FriendListPageState extends ConsumerState<FriendListPage> {
+  _FriendListSection _selected_section = _FriendListSection.friends;
+
   @override
   void initState() {
     super.initState();
@@ -34,29 +41,52 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('친구'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Semantics(
-              label: '그룹 보기 미리보기',
-              button: true,
-              child: CupertinoButton(
-                key: const ValueKey('group-calendar-preview-button'),
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                onPressed: _navigateToGroupPreview,
-                child: const Icon(CupertinoIcons.person_2_fill),
-              ),
-            ),
-            CupertinoButton(
-              padding: const EdgeInsets.only(left: 6),
-              onPressed: () => _showAddFriendModal(context),
-              child: const Icon(CupertinoIcons.person_add),
-            ),
-          ],
+        middle: Text(
+          _selected_section == _FriendListSection.friends ? '친구' : '그룹 방',
         ),
+        trailing: _selected_section == _FriendListSection.friends
+            ? CupertinoButton(
+                key: const ValueKey('add-friend-button'),
+                padding: const EdgeInsets.only(left: 6),
+                onPressed: () => _showAddFriendModal(context),
+                child: const Icon(CupertinoIcons.person_add),
+              )
+            : null,
       ),
-      child: SafeArea(child: _buildContent(state)),
+      child: Column(
+        children: [
+          Expanded(
+            child: SafeArea(
+              bottom: false,
+              child: _selected_section == _FriendListSection.friends
+                  ? _buildContent(state)
+                  : _buildGroupRoomList(),
+            ),
+          ),
+          BottomActionBar(
+            items: [
+              BottomActionBarItem(
+                widget_key: const ValueKey('friend-list-footer-button'),
+                icon: _selected_section == _FriendListSection.friends
+                    ? CupertinoIcons.person_2_fill
+                    : CupertinoIcons.person_2,
+                label: '친구 리스트',
+                is_selected: _selected_section == _FriendListSection.friends,
+                onTap: () => _selectSection(_FriendListSection.friends),
+              ),
+              BottomActionBarItem(
+                widget_key: const ValueKey('group-room-footer-button'),
+                icon: _selected_section == _FriendListSection.groupRooms
+                    ? CupertinoIcons.square_stack_3d_up_fill
+                    : CupertinoIcons.square_stack_3d_up,
+                label: '그룹 방',
+                is_selected: _selected_section == _FriendListSection.groupRooms,
+                onTap: () => _selectSection(_FriendListSection.groupRooms),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -161,6 +191,148 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
           ),
       ],
     );
+  }
+
+  Widget _buildGroupRoomList() {
+    return CustomScrollView(
+      key: const ValueKey('group-room-list'),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverList.list(
+            children: [
+              Text(
+                '그룹 방',
+                style: AppTheme.heading_small.copyWith(
+                  color: AppTheme.on_surface_color,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Semantics(
+                button: true,
+                label: '우리 병동 그룹 캘린더 미리보기 열기',
+                child: GestureDetector(
+                  key: const ValueKey('group-room-preview-card'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _navigateToGroupPreview,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: AppTheme.cardDecoration(),
+                    child: Row(
+                      children: [
+                        _buildGroupRoomAvatars(),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      '우리 병동',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTheme.body_medium.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary_color.withValues(
+                                        alpha: 0.08,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.chip_radius,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '미리보기',
+                                      style: AppTheme.body_small.copyWith(
+                                        color: AppTheme.primary_dark_color,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                '${group_preview_members.length}명 · '
+                                '그룹 캘린더',
+                                style: AppTheme.body_small.copyWith(
+                                  color: AppTheme.on_surface_variant_color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          CupertinoIcons.chevron_forward,
+                          size: 16,
+                          color: AppTheme.outline_variant_color,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupRoomAvatars() {
+    const avatar_size = 34.0;
+    const avatar_overlap = 22.0;
+    final avatar_width =
+        avatar_size + ((group_preview_members.length - 1) * avatar_overlap);
+
+    return SizedBox(
+      key: const ValueKey('group-room-preview-avatars'),
+      width: avatar_width,
+      height: avatar_size,
+      child: Stack(
+        children: [
+          for (var index = 0; index < group_preview_members.length; index++)
+            Positioned(
+              left: index * avatar_overlap,
+              child: Container(
+                width: avatar_size,
+                height: avatar_size,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: group_preview_members[index].color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.surface_color, width: 2),
+                ),
+                child: Text(
+                  group_preview_members[index].initial,
+                  style: const TextStyle(
+                    color: AppTheme.surface_color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _selectSection(_FriendListSection section) {
+    if (_selected_section == section) return;
+    setState(() => _selected_section = section);
   }
 
   void _showAddFriendModal(BuildContext context) {

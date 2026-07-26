@@ -1,4 +1,4 @@
-package com.shiftcalendar.shift_calendar
+package com.hspark.shiftmate
 
 import io.flutter.embedding.android.FlutterActivity
 

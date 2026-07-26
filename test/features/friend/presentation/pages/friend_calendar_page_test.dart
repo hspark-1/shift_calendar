@@ -5,13 +5,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:shift_calendar/core/theme/app_theme.dart';
-import 'package:shift_calendar/core/utils/korean_holidays.dart';
-import 'package:shift_calendar/features/calendar/data/models/event_api_model.dart';
-import 'package:shift_calendar/features/calendar/data/models/work_shift_api_model.dart';
-import 'package:shift_calendar/features/friend/data/models/friend_model.dart';
-import 'package:shift_calendar/features/friend/data/services/friend_service.dart';
-import 'package:shift_calendar/features/friend/presentation/pages/friend_calendar_page.dart';
+import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/core/utils/korean_holidays.dart';
+import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
+import 'package:shift_mate/features/calendar/data/models/work_shift_api_model.dart';
+import 'package:shift_mate/features/friend/data/models/friend_model.dart';
+import 'package:shift_mate/features/friend/data/services/friend_service.dart';
+import 'package:shift_mate/features/friend/presentation/pages/friend_calendar_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -397,7 +397,10 @@ void main() {
     final selection_decoration = selection_widget.decoration! as BoxDecoration;
     expect(selection_decoration.shape, BoxShape.rectangle);
     final selection_border = selection_decoration.border! as Border;
-    expect(selection_decoration.color, AppTheme.surface_color);
+    expect(
+      selection_decoration.color,
+      AppTheme.primary_color.withValues(alpha: 0.08),
+    );
     expect(selection_border.top.color, AppTheme.primary_dark_color);
     expect(selection_border.top.width, 2);
 

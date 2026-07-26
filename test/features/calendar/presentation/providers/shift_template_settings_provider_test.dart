@@ -6,13 +6,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/features/calendar/data/models/shift_template_api_model.dart';
-import 'package:shift_calendar/features/calendar/data/models/shift_type_api_model.dart';
-import 'package:shift_calendar/features/calendar/data/services/shift_template_service.dart';
-import 'package:shift_calendar/features/calendar/data/services/shift_type_service.dart';
-import 'package:shift_calendar/features/calendar/domain/entities/shift_type_info.dart';
-import 'package:shift_calendar/features/calendar/presentation/providers/shift_template_settings_provider.dart';
-import 'package:shift_calendar/features/calendar/presentation/providers/shift_types_provider.dart';
+import 'package:shift_mate/features/calendar/data/models/shift_template_api_model.dart';
+import 'package:shift_mate/features/calendar/data/models/shift_type_api_model.dart';
+import 'package:shift_mate/features/calendar/data/services/shift_template_service.dart';
+import 'package:shift_mate/features/calendar/data/services/shift_type_service.dart';
+import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
+import 'package:shift_mate/features/calendar/presentation/providers/shift_template_settings_provider.dart';
+import 'package:shift_mate/features/calendar/presentation/providers/shift_types_provider.dart';
 
 ShiftTypeApiModel _buildShiftType({
   String code = 'D',

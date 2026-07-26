@@ -1,6 +1,6 @@
-# shift_calendar
+# ShiftMate
 
-A new Flutter project.
+교대 근무 일정 관리 및 친구 일정 공유를 위한 Flutter 애플리케이션입니다.
 
 ## Getting Started
 

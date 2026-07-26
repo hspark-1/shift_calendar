@@ -2,7 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/features/calendar/presentation/widgets/date_picker_sheet.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/date_picker_sheet.dart';
 
 void main() {
   testWidgets('초기 날짜를 보여주고 선택한 날짜를 반환한다', (tester) async {

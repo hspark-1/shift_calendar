@@ -4,9 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/features/friend/data/models/friend_model.dart';
-import 'package:shift_calendar/features/friend/data/services/friend_service.dart';
-import 'package:shift_calendar/features/friend/presentation/pages/friend_detail_page.dart';
+import 'package:shift_mate/features/friend/data/models/friend_model.dart';
+import 'package:shift_mate/features/friend/data/services/friend_service.dart';
+import 'package:shift_mate/features/friend/presentation/pages/friend_detail_page.dart';
 
 class _FakeFriendService extends FriendService {
   _FakeFriendService() : super(Dio());

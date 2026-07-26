@@ -1,5 +1,6 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' hide User;
 
@@ -152,7 +153,7 @@ class AuthRemoteDataSource {
         data['profile_image_url'] = profile_image_url;
       }
 
-      final response = await _dio.patch(ApiConstants.auth_profile, data: data);
+      final response = await _dio.post(ApiConstants.auth_profile, data: data);
 
       if (response.data['success'] == true) {
         return User.fromJson(response.data['data'] as Map<String, dynamic>);

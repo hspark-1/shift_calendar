@@ -1,5 +1,52 @@
 # 작업 로그
 
+## 2026-07-26
+
+- [DONE] (CHORE) 앱 브랜드·패키지 식별자를 ShiftMate로 통일
+  - 목적: 로컬 개발 단계에 남아 있는 초기 프로젝트 명칭과 Android 애플리케이션 식별자를 출시 전 `ShiftMate` 기준으로 일관되게 정리한다.
+  - 변경: 사용자 노출 이름을 `ShiftMate`, Dart 패키지를 `shift_mate`로 변경하고 `ShiftCalendarApp`을 `ShiftMateApp`으로 정리했다. 화면의 앱 이름은 `AppConstants.app_name` 단일 상수를 사용한다. Android 표시 이름·namespace·applicationId·Kotlin 패키지와 소스 경로를 `ShiftMate`/`com.hspark.shiftmate` 기준으로 이동했다. iOS `CFBundleDisplayName`과 `CFBundleName`을 `ShiftMate`로 변경하고 기존 `com.hspark.shiftmate` Bundle ID·OAuth 스킴은 유지했다. 전체 테스트의 Dart package import, VS Code 실행 구성, README와 현재 프로젝트 컨텍스트를 갱신하고 식별자 정책을 ADR-0014로 기록했다. 기본 Flutter counter 템플릿에 머물러 있던 루트 위젯 테스트는 실제 Riverpod 루트와 앱 제목·초기 브랜드명을 검증하도록 교체했다.
+  - 영향범위: 앱 표시 이름, Flutter 내부 패키지 참조, Android 설치 식별자 및 네이버·카카오 Android 플랫폼 등록값, Kotlin MainActivity 경로, iOS 메타데이터, 개발 실행 구성, 테스트·문서. Behavior change: Android 기존 로컬 설치와 새 앱은 서로 다른 애플리케이션으로 취급되어 로컬 데이터가 자동 이전되지 않는다. 서버 API와 DB 계약, 캘린더 기능 용어는 변경하지 않는다.
+  - 파일: `pubspec.yaml`, `lib/main.dart`, `lib/core/constants/app_constants.dart`, `lib/features/auth/presentation/pages/login_page.dart`, `android/app/build.gradle.kts`, `android/app/src/main/AndroidManifest.xml`, `android/app/src/main/kotlin/com/hspark/shiftmate/MainActivity.kt`, `ios/Runner/Info.plist`, `.vscode/launch.json`, `README.md`, `test/**/*.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 롤백: 이 작업에서 변경한 앱 명칭·패키지·플랫폼 식별자와 문서를 직전 값으로 함께 복원한다.
+  - 테스트: `flutter pub get` 성공 후 전체 95개 테스트가 통과했다. 최초 전체 테스트에서 발견한 기존 counter 템플릿 테스트 1건은 현재 앱 구조에 맞게 수정한 뒤 전용·전체 테스트를 모두 재통과했다. 변경 핵심 파일 대상 `flutter analyze --no-fatal-infos`는 warning/error 없이 통과했고, 프로젝트 전체 분석은 이번 변경 밖의 기존 warning/info 96건으로 종료 코드 1이며 package import 오류는 없다. Android debug APK와 iOS debug simulator 앱 빌드가 성공했다. 병합 Android manifest는 package `com.hspark.shiftmate`·label `ShiftMate`, 빌드된 iOS Info.plist는 Bundle ID `com.hspark.shiftmate`·DisplayName/BundleName `ShiftMate`, Dart package config는 `shift_mate`임을 확인했다. 소스·플랫폼 구성 legacy 명칭 검색 0건, `plutil`·`xmllint`·JSON 구문 검사와 `git diff --check`가 통과했다.
+  - 다음: 네이버·카카오 개발자 콘솔의 Android 패키지명을 `com.hspark.shiftmate`로 등록하고 카카오에는 현재 빌드 서명 키 해시를 함께 등록한다. 기존 applicationId의 로컬 Android 앱이 설치되어 있으면 필요에 따라 수동 제거한 뒤 실제 기기에서 카카오·네이버 로그인을 회귀 확인한다.
+
+- [DONE] (FE) 네이버 로그인 네이티브 SDK 전환
+  - 목적: 앱 내부 WebView에서 네이버 계정을 직접 입력받는 implicit OAuth 흐름을 제거하고, 네이버 앱이 설치된 경우 네이버 앱으로 우선 연결해 소셜 로그인을 이어간다.
+  - 변경: `flutter_inappwebview`·`url_launcher`와 306줄 WebView/implicit OAuth/callback fragment 파싱을 제거하고 Flutter 3.38.5 호환 `naver_login_flutter` 3.0.4를 연결했다. iOS는 네이버 앱 우선·SDK 인앱 브라우저 fallback으로 인증하며 Android도 공식 SDK 요청을 사용한다. SDK Access Token은 기존 `POST /api/v1/auth/naver/token`에 전달하고, Android 결과에 토큰이 직접 없으면 현재 SDK 토큰을 추가 조회한다. 로그인 API에서 `BuildContext` 의존성을 제거하고 로그아웃 시 네이버 SDK 세션도 정리한다. iOS `NidClientID`·`NidClientSecret`·`NidAppName`·`NidUrlScheme=com.hspark.shiftmate`, URL Scheme/앱 조회 스킴과 Android SDK meta-data/Gradle 비밀키 주입을 구성하고 기존 Android WebView callback intent-filter를 제거했다. 설계 결정은 ADR-0013에 기록했다.
+  - 영향범위: 네이버 로그인 진입·콜백·토큰 조회·로그아웃, iOS/Android 네이티브 인증 설정, 인증 의존성·테스트·문서. Behavior change: 네이버 앱 설치 시 앱으로 이동하며 미설치 때만 SDK 브라우저를 사용한다. 카카오 로그인과 서버 JWT 저장/API/DB 계약은 변경하지 않는다.
+  - 파일: `pubspec.yaml`, `pubspec.lock`, `ios/Podfile.lock`, `lib/core/constants/app_constants.dart`, `lib/features/auth/data/services/naver_login_service.dart`, `lib/features/auth/data/repositories/auth_repository_impl.dart`, `lib/features/auth/presentation/providers/auth_provider.dart`, `lib/features/auth/presentation/pages/login_page.dart`, `android/app/build.gradle.kts`, `android/app/src/main/AndroidManifest.xml`, `ios/Runner/Info.plist`, `ios/Flutter/Debug.xcconfig`, `ios/Flutter/Profile.xcconfig`, `ios/Flutter/Release.xcconfig`, `test/features/auth/data/datasources/auth_remote_datasource_test.dart`, `test/features/auth/data/services/naver_login_service_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 롤백: 네이티브 플러그인과 플랫폼 설정을 제거하고 기존 `NaverLoginService`의 WebView OAuth 흐름 및 관련 의존성을 복원한다.
+  - 테스트: 인증 테스트 9건 통과(네이버 서비스 5건, 네이버 토큰 교환 POST 1건, 프로필 POST 1건, 로그인 화면 2건). 변경 Dart 코드·테스트 5개 파일 대상 `flutter analyze --no-fatal-infos` 0건. `plutil`·`xmllint`와 `git diff --check` 통과. Android debug APK와 iOS debug simulator 앱 네이티브 빌드 성공. 전체 `flutter analyze --no-fatal-infos`는 이번 변경 밖의 기존 warning/info를 포함해 종료 코드 1이다.
+  - 다음: gitignored 로컬/CI 비밀키 파일에 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 주입한 뒤 실제 iOS/Android 기기에서 네이버 앱 설치·미설치·사용자 취소 경로와 Stage 서버 토큰 교환을 확인한다.
+
+- [DONE] (FIX) 프로필 저장 API 메서드를 서버 계약과 일치
+  - 목적: 신규 카카오 로그인 후 프로필 저장 시 Flutter가 지원되지 않는 `PATCH /api/v1/auth/profile`을 호출해 HTML 404 오류가 표시되는 문제를 해결한다.
+  - 변경: `AuthRemoteDataSource.updateProfile()`의 요청 메서드를 Express `authRoutes.ts`가 지원하는 POST로 변경했다. Dio 요청을 가로채 POST 메서드, `/auth/profile` 경로, null 필드가 제외된 본문과 응답 사용자 파싱을 검증하는 데이터소스 테스트를 추가했다. 프로젝트 컨텍스트에 카카오 Flutter SDK→Access Token→서버 토큰 교환과 신규 사용자 프로필 저장 흐름, Android/iOS 네이티브 앱 설정을 기록했다. 대상 분석에서 확인된 기존 미사용 `flutter/foundation.dart` import를 제거하고 프로젝트 `snake_case` 규칙의 lint 예외를 파일에 명시했다.
+  - 영향범위: 신규 사용자 프로필 설정 및 향후 같은 데이터소스를 사용하는 프로필 수정 요청과 인증 계약 문서. Behavior change: 프로필 저장이 `PATCH`가 아니라 서버가 지원하는 `POST /api/v1/auth/profile`을 사용한다. 카카오 Flutter SDK 로그인, `kakao${KAKAO_NATIVE_APP_KEY}://oauth` 네이티브 콜백, `POST /api/v1/auth/kakao/token` 토큰 교환과 DB 구조는 변경하지 않는다.
+  - 파일: `lib/features/auth/data/datasources/auth_remote_datasource.dart`, `test/features/auth/data/datasources/auth_remote_datasource_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 신규 데이터소스 테스트 1건과 기존 로그인 화면 테스트 2건 등 인증 테스트 3건 통과. 대상 `flutter analyze --no-fatal-infos` 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: `updateProfile()` 요청 메서드를 PATCH로 복원하고 신규 데이터소스 테스트와 인증 계약 문서 기록을 제거한다.
+  - 다음: Stage 실제 계정에서 신규 카카오 로그인 후 이름·타임존 저장이 완료되고 캘린더로 전환되는지 확인한다.
+
+- [DONE] (FE) 친구 탭 footer로 친구 리스트·그룹 방 리스트 전환
+  - 목적: 친구 리스트 탭에서 메인 화면과 같은 하단 footer를 사용해 친구 리스트와 그룹 방 리스트를 한 화면 안에서 전환해 볼 수 있게 한다.
+  - 변경: 공용 `BottomActionBar`가 화면별 `BottomActionBarItem` 목록과 선택 상태를 받을 수 있게 확장했다. `FriendListPage` 하단에는 `친구 리스트`·`그룹 방` footer를 고정하고, 친구 선택 시 기존 API 목록과 친구 추가 버튼을 유지하며 그룹 선택 시 `우리 병동` 더미 방 카드·4명 겹침 아바타를 표시한다. 기존 상단 그룹 미리보기 아이콘은 제거하고 그룹 방 카드를 통해 `GroupCalendarPreviewPage`로 진입하게 했다. 선택 footer는 8% primary tint와 primary dark outline으로 구분한다. 친구 전체 테스트에서 확인된 기존 흰색 선택 배경 기대값 1건은 ADR-0012와 현재 8% primary tint 구현에 맞게 수정했다.
+  - 영향범위: 친구 탭의 하단 내비게이션, 친구/그룹 방 목록 표시와 그룹 미리보기 진입 경로, 공용 footer의 화면별 항목 주입 기능, 관련 친구 위젯 테스트·문서. Behavior change: 그룹 미리보기는 내비게이션 바 아이콘이 아니라 footer의 `그룹 방` 목록 카드에서 진입한다. 친구·그룹 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`, `lib/features/friend/presentation/pages/friend_list_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `test/features/friend/presentation/pages/friend_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: 그룹 미리보기 전용 테스트 7건 통과. 친구 기능 전체 테스트 19건 통과. footer의 친구→그룹 방→친구 양방향 전환, 친구 추가 버튼 조건부 노출, 그룹 방 카드·아바타 표시와 그룹 캘린더 진입을 검증했다. 최초 전체 실행에서는 과거 테스트가 선택일의 흰색 배경을 기대해 1건 실패했으며, 확정 문서와 현재 구현의 8% primary tint 기대값으로 바로잡은 뒤 전체 통과했다. 변경 코드·테스트 대상 `flutter analyze --no-fatal-infos` 0건, `dart format`, `git diff --check` 통과. 전체 프로젝트 analyze는 이번 변경 파일 밖의 기존 진단 109건(미사용 import/요소, 생성 코드 중복 ignore, 프로젝트 snake_case와 Flutter lowerCamelCase lint 충돌 등)으로 종료 코드 1이며 변경 대상 파일에는 진단이 없다.
+  - 롤백: `BottomActionBarItem` 주입 기능과 친구 페이지 footer·그룹 방 목록을 제거하고 기존 친구 목록 단일 화면 및 상단 그룹 아이콘 진입을 복원한 뒤 테스트 기대값과 관련 문서 기록을 되돌린다.
+  - 다음: 실제 iOS/Android 기기에서 footer의 홈 인디케이터 여백, 긴 그룹명 카드 레이아웃과 선택 상태를 확인하고, 실제 그룹 API 계약이 확정되면 더미 `우리 병동` 카드 목록을 서버 데이터로 교체한다.
+
+- [DONE] (FIX) 친구 검색 결과 카드 높이를 내부 콘텐츠 기준으로 변경
+  - 목적: 검색한 사용자가 이미 친구일 때 상태 문구 아래에 남는 고정 최소 높이 여백을 제거하고, 프로필·간격·상태/액션 영역의 실제 높이에 맞춰 카드가 동적으로 결정되게 한다.
+  - 변경: 검색 결과 카드의 `BoxConstraints(minHeight: ...)`를 제거해 프로필 행, 28px 간격, 친구 관계 상태 또는 요청 버튼, 20px 카드 패딩의 실제 합산 높이로 카드가 결정되게 했다. 카드 식별 키와 이미 친구인 검색 상태를 주입하는 위젯 테스트를 추가해 세로 최소 제약이 0이고 렌더 높이가 기존 고정값보다 작으며 상태 문구 아래 여백이 제한되는지 검증했다. 프로젝트 컨텍스트와 친구 기능 설계 문서에도 콘텐츠 기반 높이 및 결과 영역 스크롤 책임을 기록했다.
+  - 영향범위: 친구 추가 모달의 단일 사용자 검색 결과 카드 높이와 관련 테스트·문서. Behavior change: 검색 결과 카드는 고정 최소 높이를 유지하지 않고 내부 콘텐츠 높이로 축소된다. 검색 API, 친구 상태 판정, 친구 요청 동작은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/widgets/add_friend_modal.dart`, `test/features/friend/presentation/widgets/add_friend_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: 친구 추가 모달 위젯 테스트 6건 통과. 신규 테스트의 최초 실행에서는 `width: double.infinity`가 생성한 가로 제약까지 `null`로 잘못 기대해 1건 실패했으나, 세로 `minHeight=0`·무한 `maxHeight`를 직접 검증하도록 바로잡은 뒤 통과했다. 대상 코드·테스트 `dart format`과 `flutter analyze` 0건 통과.
+  - 롤백: 검색 결과 카드에 기존 고정 `BoxConstraints(minHeight: ...)`를 복원하고 카드 식별 키, 신규 테스트와 관련 문서 기록을 되돌린다.
+  - 다음: 실제 iOS/Android 기기에서 이미 친구, 요청 대기, 요청 가능 세 상태의 카드 하단 여백과 큰 텍스트 설정의 스크롤을 확인한다.
+
 ## 2026-07-24
 
 - [DONE] (CHORE) 테스트용 그룹 캘린더와 VS Code 실행 설정 커밋·푸시
@@ -18,7 +65,7 @@
   - 파일: `.vscode/launch.json`, `.vscode/xcode_build_location.xcconfig`(신규), `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
   - 테스트: launch와 동일한 `XCODE_XCCONFIG_FILE`, `--dart-define-from-file=.env`, `lib/main.dart` 인자로 iPhone 15 Pro Max iOS 17.4 시뮬레이터 Debug 실행에 성공했다. Xcode build, 앱 동기화, Dart VM Service와 Flutter DevTools 연결을 확인한 뒤 정상 종료했다. 수정 전에는 같은 시뮬레이터에서 Xcode build 성공 후 `build/ios/iphonesimulator/Runner.app`을 찾지 못해 실패했고, 프로젝트 xcconfig 적용 후 해소됐다. `jq` JSON 검증, `flutter analyze --no-fatal-infos lib/main.dart` 0건, `git diff --check`를 통과했다. 실제 iPhone에서는 Xcode build·설치까지 성공했으나 VM Service 탐색이 60초를 넘겨 기기 연결 상태 이슈를 별도로 확인했다.
   - 롤백: `toolArgs`를 기존 `args`로 되돌리고 `program`·`cwd`·`env`, `.vscode/xcode_build_location.xcconfig`와 관련 문서 기록을 제거한다.
-  - 다음: VS Code에서 이 프로젝트 폴더 자체를 workspace로 열고 상태 표시줄에서 실행할 iOS 기기 또는 시뮬레이터를 선택한 뒤 `shift_calendar (debug)`를 실행한다. 실제 iPhone의 VM Service 연결이 계속 지연되면 기기 잠금·신뢰·로컬 네트워크 및 Xcode 자동화 권한을 점검한다.
+  - 다음: VS Code에서 이 프로젝트 폴더 자체를 workspace로 열고 상태 표시줄에서 실행할 iOS 기기 또는 시뮬레이터를 선택한 뒤 `ShiftMate (debug)`를 실행한다. 실제 iPhone의 VM Service 연결이 계속 지연되면 기기 잠금·신뢰·로컬 네트워크 및 Xcode 자동화 권한을 점검한다.
 
 ## 2026-07-23
 

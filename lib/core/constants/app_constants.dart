@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   /// 앱 이름
-  static const String app_name = 'Shift Calendar';
+  static const String app_name = 'ShiftMate';
 
   /// 앱 버전
   static const String app_version = '1.0.0';
@@ -14,18 +14,6 @@ class AppConstants {
     'KAKAO_NATIVE_APP_KEY',
     defaultValue: '',
   );
-
-  /// 네이버 Client ID (--dart-define으로 전달)
-  /// 실행: flutter run --dart-define=NAVER_CLIENT_ID=실제키값
-  static const String naver_client_id = String.fromEnvironment(
-    'NAVER_CLIENT_ID',
-    defaultValue: '',
-  );
-
-  /// 네이버 Redirect URI
-  /// 네이버 개발자 센터에 등록된 URL Scheme 사용
-  static const String naver_redirect_uri =
-      'com.hspark.shiftCalendar://naver/callback';
 
   /// 기본 타임존
   static const String default_timezone = 'Asia/Seoul';

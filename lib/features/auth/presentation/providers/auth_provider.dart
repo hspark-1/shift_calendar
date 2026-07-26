@@ -1,6 +1,5 @@
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
@@ -130,11 +129,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// 네이버 로그인
-  Future<bool> loginWithNaver(BuildContext context) async {
+  Future<bool> loginWithNaver() async {
     state = state.copyWith(is_loading: true, error: null);
 
     try {
-      final authResponse = await _repository.loginWithNaver(context);
+      final authResponse = await _repository.loginWithNaver();
 
       _invalidateAccountScopedProviders();
 

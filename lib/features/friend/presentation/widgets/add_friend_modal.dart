@@ -319,8 +319,8 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
 
   Widget _buildUserCard(SearchUserModel user) {
     return Container(
+      key: const ValueKey('add-friend-user-card'),
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 280),
       padding: const EdgeInsets.all(20),
       decoration: AppTheme.cardDecoration(),
       child: Column(

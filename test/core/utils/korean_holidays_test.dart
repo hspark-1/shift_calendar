@@ -2,7 +2,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shift_calendar/core/utils/korean_holidays.dart';
+import 'package:shift_mate/core/utils/korean_holidays.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

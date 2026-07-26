@@ -2,6 +2,6 @@
 #include "Generated.xcconfig"
 #include? "Secrets.xcconfig"
 
-// 카카오 Native App Key
+// 소셜 로그인 키
 // CI/CD에서는 환경변수로, 로컬에서는 Secrets.xcconfig로 설정
 KAKAO_NATIVE_APP_KEY=$(KAKAO_NATIVE_APP_KEY)

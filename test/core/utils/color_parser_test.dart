@@ -1,8 +1,8 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/core/utils/color_parser.dart';
-import 'package:shift_calendar/features/calendar/data/models/shift_type_api_model.dart';
+import 'package:shift_mate/core/utils/color_parser.dart';
+import 'package:shift_mate/features/calendar/data/models/shift_type_api_model.dart';
 
 void main() {
   group('parseApiColorValue', () {

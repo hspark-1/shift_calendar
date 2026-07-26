@@ -2,7 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/features/calendar/presentation/widgets/time_picker_sheet.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/time_picker_sheet.dart';
 
 void main() {
   testWidgets('초기 시간을 보여주고 선택한 시간을 반환한다', (tester) async {

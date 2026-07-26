@@ -34,17 +34,17 @@ void main() async {
   // 이전 실행에서 저장한 공휴일을 모든 캘린더가 즉시 사용할 수 있게 복원
   await KoreanHolidays.initialize();
 
-  runApp(const ProviderScope(child: ShiftCalendarApp()));
+  runApp(const ProviderScope(child: ShiftMateApp()));
 }
 
 /// 메인 앱 위젯
-class ShiftCalendarApp extends StatelessWidget {
-  const ShiftCalendarApp({super.key});
+class ShiftMateApp extends StatelessWidget {
+  const ShiftMateApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return CupertinoApp(
-      title: 'Shift Calendar',
+      title: AppConstants.app_name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const AuthWrapper(),
@@ -129,7 +129,7 @@ class _SplashScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            const Text('Shift Calendar', style: AppTheme.heading_medium),
+            const Text(AppConstants.app_name, style: AppTheme.heading_medium),
             const SizedBox(height: 40),
             const CupertinoActivityIndicator(),
           ],

@@ -2,11 +2,11 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/core/theme/app_theme.dart';
-import 'package:shift_calendar/features/calendar/data/models/shift_type_api_model.dart';
-import 'package:shift_calendar/features/calendar/presentation/widgets/shift_color_picker_page.dart';
-import 'package:shift_calendar/features/calendar/presentation/widgets/shift_type_form_modal.dart';
-import 'package:shift_calendar/features/calendar/presentation/widgets/time_picker_sheet.dart';
+import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/features/calendar/data/models/shift_type_api_model.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/shift_color_picker_page.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/shift_type_form_modal.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/time_picker_sheet.dart';
 
 ShiftTypeApiModel buildShiftType() {
   return ShiftTypeApiModel(

@@ -6,7 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/features/auth/presentation/pages/login_page.dart';
+import 'package:shift_mate/features/auth/presentation/pages/login_page.dart';
 
 Future<({int width, int height, List<int> sample_rgba})> readAssetPixel(
   String asset_path, {

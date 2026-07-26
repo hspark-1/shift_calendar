@@ -3,8 +3,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shift_calendar/core/theme/app_theme.dart';
-import 'package:shift_calendar/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart';
+import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart';
 
 const String _recent_colors_storage_key = 'shift_custom_recent_colors_v1';
 const List<String> _default_recent_colors = [

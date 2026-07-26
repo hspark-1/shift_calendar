@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "shift_calendar (debug)",
+      "name": "ShiftMate (debug)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "name": "shift_calendar (release)",
+      "name": "ShiftMate (release)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",

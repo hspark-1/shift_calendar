@@ -6,6 +6,7 @@ class ApiConstants {
 
   /// 기본 API URL (개발/Stage 환경)
   static const String base_url_dev = 'https://stage-api.shiftmate.co.kr/api/v1';
+  // static const String base_url_dev = 'http://172.30.1.36:3000/api/v1';
 
   /// 기본 API URL (운영/Center 환경)
   static const String base_url_prod = 'https://api.shiftmate.co.kr/api/v1';

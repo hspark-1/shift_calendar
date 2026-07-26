@@ -2,9 +2,9 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/core/theme/app_theme.dart';
-import 'package:shift_calendar/features/calendar/domain/entities/shift_type_info.dart';
-import 'package:shift_calendar/features/calendar/presentation/widgets/shift_type_button.dart';
+import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/shift_type_button.dart';
 
 List<ShiftTypeInfo> buildShiftTypes(
   int count, {

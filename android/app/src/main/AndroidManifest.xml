@@ -1,8 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="shift_calendar"
+        android:label="ShiftMate"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Naver Login -->
+        <meta-data
+            android:name="com.naver.sdk.clientId"
+            android:value="@string/naver_client_id" />
+        <meta-data
+            android:name="com.naver.sdk.clientSecret"
+            android:value="@string/naver_client_secret" />
+        <meta-data
+            android:name="com.naver.sdk.clientName"
+            android:value="ShiftMate" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -23,15 +33,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-            <!-- Naver Login -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="com.hspark.shiftCalendar"
-                    android:host="naver" />
             </intent-filter>
         </activity>
         <!-- Kakao Login -->

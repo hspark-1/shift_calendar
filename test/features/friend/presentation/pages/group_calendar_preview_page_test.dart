@@ -5,11 +5,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:shift_calendar/core/theme/app_theme.dart';
-import 'package:shift_calendar/features/friend/data/models/friend_model.dart';
-import 'package:shift_calendar/features/friend/data/services/friend_service.dart';
-import 'package:shift_calendar/features/friend/presentation/pages/friend_list_page.dart';
-import 'package:shift_calendar/features/friend/presentation/pages/group_calendar_preview_page.dart';
+import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/features/friend/data/models/friend_model.dart';
+import 'package:shift_mate/features/friend/data/services/friend_service.dart';
+import 'package:shift_mate/features/friend/presentation/pages/friend_list_page.dart';
+import 'package:shift_mate/features/friend/presentation/pages/group_calendar_preview_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class _FakeFriendService extends FriendService {
@@ -253,16 +253,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('친구 화면의 그룹 버튼으로 미리보기 화면에 진입한다', (tester) async {
+  testWidgets('친구 화면 footer에서 그룹 방 목록을 거쳐 미리보기 화면에 진입한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(_buildFriendListTestApp(screen_height: 800));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey('group-calendar-preview-button')),
+    expect(
+      find.byKey(const ValueKey('friend-list-footer-button')),
+      findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('group-room-footer-button')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('add-friend-button')), findsOneWidget);
+    expect(find.byKey(const ValueKey('group-room-list')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('group-room-footer-button')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('group-room-list')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('group-room-preview-card')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('group-room-preview-avatars')),
+      findsOneWidget,
+    );
+    expect(find.text('우리 병동'), findsOneWidget);
+    expect(find.text('4명 · 그룹 캘린더'), findsOneWidget);
+    expect(find.byKey(const ValueKey('add-friend-button')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('friend-list-footer-button')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('group-room-list')), findsNothing);
+    expect(find.byKey(const ValueKey('add-friend-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('group-room-footer-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('group-room-preview-card')));
     await tester.pumpAndSettle();
 
     expect(find.text('우리 병동 · 그룹 보기'), findsOneWidget);

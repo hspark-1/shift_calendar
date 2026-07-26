@@ -4,20 +4,35 @@ import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shift_calendar/core/theme/app_theme.dart';
-import 'package:shift_calendar/features/friend/data/services/friend_service.dart';
-import 'package:shift_calendar/features/friend/presentation/widgets/add_friend_modal.dart';
+import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/features/friend/data/models/friend_model.dart';
+import 'package:shift_mate/features/friend/data/services/friend_service.dart';
+import 'package:shift_mate/features/friend/presentation/providers/friend_provider.dart';
+import 'package:shift_mate/features/friend/presentation/widgets/add_friend_modal.dart';
 
 class _FakeFriendService extends FriendService {
   _FakeFriendService() : super(Dio());
 }
 
+class _TestSearchUserNotifier extends SearchUserNotifier {
+  _TestSearchUserNotifier(super.service);
+
+  void showUser(SearchUserModel user) {
+    state = SearchUserState(user: user, hasSearched: true);
+  }
+}
+
 Widget buildTestApp({
   required double keyboard_height,
   TextScaler text_scaler = TextScaler.noScaling,
+  SearchUserNotifier? search_user_notifier,
 }) {
   return ProviderScope(
-    overrides: [friendServiceProvider.overrideWithValue(_FakeFriendService())],
+    overrides: [
+      friendServiceProvider.overrideWithValue(_FakeFriendService()),
+      if (search_user_notifier != null)
+        searchUserProvider.overrideWith((ref) => search_user_notifier),
+    ],
     child: CupertinoApp(
       home: MediaQuery(
         data: MediaQueryData(
@@ -140,5 +155,41 @@ void main() {
 
     expect(target_height, isNotNull);
     expect(target_height!, lessThanOrEqualTo(initial_height));
+  });
+
+  testWidgets('검색 결과 카드는 고정 최소 높이 없이 내부 요소 높이에 맞춘다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final search_user_notifier = _TestSearchUserNotifier(_FakeFriendService());
+    await tester.pumpWidget(
+      buildTestApp(
+        keyboard_height: 0,
+        search_user_notifier: search_user_notifier,
+      ),
+    );
+    await tester.pump();
+
+    search_user_notifier.showUser(
+      SearchUserModel(
+        userId: 'friend-user-id',
+        name: '친구 사용자',
+        email: 'friend@example.com',
+        isFriend: true,
+        hasPendingRequest: false,
+      ),
+    );
+    await tester.pump();
+
+    final card = find.byKey(const ValueKey('add-friend-user-card'));
+    final card_widget = tester.widget<Container>(card);
+    final card_bottom = tester.getBottomRight(card).dy;
+    final status_bottom = tester.getBottomRight(find.text('이미 친구입니다')).dy;
+
+    expect(card_widget.constraints?.minHeight, 0);
+    expect(card_widget.constraints?.maxHeight, double.infinity);
+    expect(tester.getSize(card).height, lessThan(200));
+    expect(card_bottom - status_bottom, lessThan(50));
+    expect(tester.takeException(), isNull);
   });
 }
