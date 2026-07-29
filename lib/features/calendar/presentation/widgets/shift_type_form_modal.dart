@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/shift_type_api_model.dart';
 import 'shift_color_picker_page.dart';
@@ -14,6 +15,46 @@ double _scaled(double value) => value * _body_scale;
 
 TextStyle _scaledTextStyle(TextStyle style) {
   return style.copyWith(fontSize: (style.fontSize ?? 14) * _body_scale);
+}
+
+class _UpperCaseTextInputFormatter extends TextInputFormatter {
+  const _UpperCaseTextInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.composing.isValid && !newValue.composing.isCollapsed) {
+      return newValue;
+    }
+
+    final upper_case_text = newValue.text.toUpperCase();
+    if (upper_case_text == newValue.text) {
+      return newValue;
+    }
+
+    int normalizedOffset(int offset) {
+      if (offset < 0) {
+        return upper_case_text.length;
+      }
+      if (offset > upper_case_text.length) {
+        return upper_case_text.length;
+      }
+      return offset;
+    }
+
+    return newValue.copyWith(
+      text: upper_case_text,
+      selection: TextSelection(
+        baseOffset: normalizedOffset(newValue.selection.baseOffset),
+        extentOffset: normalizedOffset(newValue.selection.extentOffset),
+        affinity: newValue.selection.affinity,
+        isDirectional: newValue.selection.isDirectional,
+      ),
+      composing: TextRange.empty,
+    );
+  }
 }
 
 /// 근무 타입 추가/편집 모달
@@ -43,6 +84,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   Color _selectedBaseColor = AppTheme.primary_color;
   int _selectedColorIntensity = 100;
   bool _didChangeColor = false;
+  final ValueNotifier<bool> _show_duplicate_code = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -83,42 +125,40 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
       }
     }
 
-    _codeController.addListener(_handleCodeChanged);
     _code_focus_node.addListener(_handleCodeFocusChanged);
     _name_focus_node.addListener(_handleNameFocusChanged);
   }
 
   @override
   void dispose() {
-    _codeController.removeListener(_handleCodeChanged);
     _code_focus_node.removeListener(_handleCodeFocusChanged);
     _name_focus_node.removeListener(_handleNameFocusChanged);
     _codeController.dispose();
     _nameController.dispose();
     _code_focus_node.dispose();
     _name_focus_node.dispose();
+    _show_duplicate_code.dispose();
     super.dispose();
-  }
-
-  /// 코드 입력값을 대문자로 정규화하고 중복 표시를 즉시 갱신
-  void _handleCodeChanged() {
-    final normalized_code = _codeController.text.toUpperCase();
-    if (_codeController.text != normalized_code) {
-      _codeController.value = TextEditingValue(
-        text: normalized_code,
-        selection: TextSelection.collapsed(offset: normalized_code.length),
-      );
-      return;
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   /// 텍스트 필드가 처음 포커스를 받을 때 기존 입력의 끝으로 커서를 이동
   void _handleCodeFocusChanged() {
+    if (!_code_focus_node.hasFocus) {
+      _setDuplicateCodeVisibility(_hasDuplicateCode());
+    }
     _moveCursorToEnd(_codeController, _code_focus_node);
+  }
+
+  void _handleCodeChanged(String _) {
+    _setDuplicateCodeVisibility(false);
+  }
+
+  void _setDuplicateCodeVisibility(bool is_visible) {
+    if (!mounted || _show_duplicate_code.value == is_visible) {
+      return;
+    }
+
+    _show_duplicate_code.value = is_visible;
   }
 
   void _handleNameFocusChanged() {
@@ -334,7 +374,6 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.shiftType != null;
-    final has_duplicate_code = _hasDuplicateCode();
     final bottomPadding = MediaQuery.of(context).padding.bottom + _scaled(32);
 
     return CupertinoPageScaffold(
@@ -363,20 +402,25 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
             size: 26,
           ),
         ),
-        trailing: CupertinoButton(
-          key: const Key('shift_type_complete_button'),
-          minimumSize: const Size(44, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          onPressed: has_duplicate_code ? null : _save,
-          child: Text(
-            '완료',
-            style: AppTheme.body_large.copyWith(
-              color: has_duplicate_code
-                  ? AppTheme.outline_color
-                  : AppTheme.primary_color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+        trailing: ValueListenableBuilder<bool>(
+          valueListenable: _show_duplicate_code,
+          builder: (context, has_duplicate_code, child) {
+            return CupertinoButton(
+              key: const Key('shift_type_complete_button'),
+              minimumSize: const Size(44, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              onPressed: has_duplicate_code ? null : _save,
+              child: Text(
+                '완료',
+                style: AppTheme.body_large.copyWith(
+                  color: has_duplicate_code
+                      ? AppTheme.outline_color
+                      : AppTheme.primary_color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            );
+          },
         ),
       ),
       child: GestureDetector(
@@ -513,7 +557,16 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   }
 
   Widget _buildIdentityCard() {
-    final has_duplicate_code = _hasDuplicateCode();
+    final code_field = _buildTextFieldRow(
+      label: '코드',
+      controller: _codeController,
+      placeholder: '최대 3자',
+      maxLength: 3,
+      textCapitalization: TextCapitalization.characters,
+      focus_node: _code_focus_node,
+      text_input_action: TextInputAction.done,
+      onSubmitted: _handleCodeSubmitted,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,26 +581,39 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
             children: [
               Container(
                 key: const Key('shift_type_code_row'),
-                foregroundDecoration: has_duplicate_code
-                    ? BoxDecoration(
-                        border: Border.all(
-                          color: AppTheme.accent_red_color,
-                          width: _scaled(2),
+                child: Stack(
+                  children: [
+                    code_field,
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: _show_duplicate_code,
+                          builder: (context, has_duplicate_code, child) {
+                            return Container(
+                              key: Key(
+                                has_duplicate_code
+                                    ? 'shift_type_code_error_border'
+                                    : 'shift_type_code_error_border_hidden',
+                              ),
+                              decoration: has_duplicate_code
+                                  ? BoxDecoration(
+                                      border: Border.all(
+                                        color: AppTheme.accent_red_color,
+                                        width: _scaled(2),
+                                      ),
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(
+                                          _scaled(AppTheme.card_radius),
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                            );
+                          },
                         ),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(_scaled(AppTheme.card_radius)),
-                        ),
-                      )
-                    : null,
-                child: _buildTextFieldRow(
-                  label: '코드',
-                  controller: _codeController,
-                  placeholder: '최대 3자',
-                  maxLength: 3,
-                  textCapitalization: TextCapitalization.characters,
-                  focus_node: _code_focus_node,
-                  text_input_action: TextInputAction.done,
-                  onSubmitted: _handleCodeSubmitted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Divider(
@@ -566,23 +632,31 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
             ],
           ),
         ),
-        if (has_duplicate_code)
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              _scaled(16),
-              _scaled(8),
-              _scaled(16),
-              0,
-            ),
-            child: Text(
-              key: const Key('shift_type_code_duplicate_message'),
-              '이미 사용 중인 코드입니다.',
-              style: _scaledTextStyle(AppTheme.body_small).copyWith(
-                color: AppTheme.accent_red_color,
-                fontWeight: FontWeight.w600,
+        ValueListenableBuilder<bool>(
+          valueListenable: _show_duplicate_code,
+          builder: (context, has_duplicate_code, child) {
+            if (!has_duplicate_code) {
+              return const SizedBox.shrink();
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                _scaled(16),
+                _scaled(8),
+                _scaled(16),
+                0,
               ),
-            ),
-          ),
+              child: Text(
+                key: const Key('shift_type_code_duplicate_message'),
+                '이미 사용 중인 코드입니다.',
+                style: _scaledTextStyle(AppTheme.body_small).copyWith(
+                  color: AppTheme.accent_red_color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -621,6 +695,12 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
               maxLength: maxLength,
               textInputAction: text_input_action,
               onSubmitted: onSubmitted,
+              onChanged: controller == _codeController
+                  ? _handleCodeChanged
+                  : null,
+              inputFormatters: controller == _codeController
+                  ? const [_UpperCaseTextInputFormatter()]
+                  : null,
               textAlign: TextAlign.right,
               textCapitalization: textCapitalization,
               style: _scaledTextStyle(AppTheme.body_large).copyWith(

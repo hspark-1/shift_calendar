@@ -1,6 +1,35 @@
 # 작업 로그
 
+## 2026-07-29
+
+- [DONE] (CHORE) 근무 타입 코드 중복·키보드 수정 커밋 및 푸시
+  - 목적: 입력 완료 시점의 중복 표시와 중복 오류 후 첫 탭 키보드 복원 작업을 검증 가능한 Git 이력으로 정리해 원격 저장소에 반영한다.
+  - 변경: 코드 입력 중 컨트롤러 재할당과 즉시 중복 표시를 제거하고 대문자 변환을 `TextInputFormatter`로 이동한 변경, 입력 완료 후 중복 표시 정책, 중복 오류 상태에서 코드 필드 첫 탭 키보드 복원 구조를 하나의 수정 커밋으로 정리해 `origin/main`에 푸시한다. 구현 근거와 동작 계약은 PROJECT_CONTEXT 및 ADR-0015에 함께 기록했다.
+  - 영향범위: 근무 타입 추가·수정 폼의 대문자 정규화, 중복 표시 시점, 오류 상태 렌더링, 포커스·플랫폼 키보드 입력 연결과 관련 Git 이력. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 변경 코드·테스트 `dart format` 변경 0건, `flutter analyze --no-fatal-infos` 진단 0건, 전체 Flutter 테스트 98건 및 `git diff --check` 통과. 신규·수정 코드 접두어 입력 중 중복 미표시, 입력 완료 후 실제 중복 표시, 중복 표시 후 첫 탭 키보드 복원과 첫 수정 후 입력 연결 유지를 검증했다.
+  - 롤백: 원격 반영 후 필요 시 해당 커밋을 `git revert`하고 푸시한다.
+  - 다음: 실제 iOS/Android 기기에서 입력 완료 전후 중복 표시와 중복 오류 후 첫 탭 키보드 동작을 확인한다.
+
 ## 2026-07-26
+
+- [DONE] (FIX) 중복 코드 표시 후 코드 필드 첫 탭 키보드 복원
+  - 목적: 중복 코드 입력 완료 후 빨간 오류가 표시된 상태에서 코드 필드를 다시 탭하면 커서만 생기고 키보드는 두 번째 탭에서야 열리는 문제를 해결한다.
+  - 변경: 디버거로 포커스 획득 흐름을 확인한 결과, 오류 표시를 지우는 포커스 리스너가 `EditableText`의 플랫폼 입력 연결보다 먼저 실행되어 코드 입력 분기를 다시 빌드하는 것이 원인이었다. 포커스 획득 시에는 오류 상태를 변경하지 않고 실제 코드가 수정될 때만 오류를 숨기도록 변경했다. 중복 상태는 `ValueNotifier`로 국소 관리하고 코드 `CupertinoTextField`는 안정적인 자식으로 계속 마운트했으며, 빨간 테두리는 `Stack`의 `IgnorePointer` 오버레이로 분리해 오류 표시 변경이 입력 필드를 교체하지 않게 했다. 완료 버튼과 안내 문구는 동일 상태를 관찰해 기존 중복 차단 동작을 유지한다.
+  - 영향범위: 근무 타입 추가·수정 폼의 중복 오류 재편집 포커스, 플랫폼 키보드 입력 연결, 오류 테두리 렌더링. Behavior change: 중복 오류 상태에서 코드 필드를 다시 탭하면 기존 빨간 표시가 첫 실제 수정 전까지 유지되며, 키보드는 첫 탭부터 열린다. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 수정 전 `FocusNode.hasFocus=true`인데 `TestTextInput.isVisible=false`인 첫 탭 실패를 재현하고 디버거에서 포커스 리스너 실행 순서를 확인했다. 수정 후 중복 빨간 표시→키보드 숨김→코드 필드 첫 탭에서 포커스·키보드 활성화→첫 코드 수정 후에도 키보드 유지와 오류 제거를 검증했다. 근무 타입 폼 테스트 16건과 전체 테스트 98건이 통과했고, 변경 코드·테스트 `flutter analyze --no-fatal-infos`는 0건, `dart format`과 `git diff --check`도 통과했다. 전체 프로젝트 분석은 이번 변경 파일 밖의 기존 warning/info 96건으로 종료 코드 1이며 변경 대상 진단은 없다.
+  - 롤백: `ValueNotifier` 기반 중복 상태와 별도 오류 테두리 오버레이를 제거하고, 코드 입력 행을 중복 상태와 함께 다시 빌드하던 이전 구조 및 관련 테스트·문서를 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 중복 표시 후 키보드를 닫고 코드 필드를 한 번 탭해 키보드가 즉시 열리는지 확인한다.
+
+- [DONE] (FIX) 근무 패턴 코드 중복 검사를 입력 완료 시점으로 변경
+  - 목적: 기존 코드로 시작하는 신규/수정 코드 입력 중 조기에 중복 오류가 표시되고 입력 포커스가 해제되어 키보드가 닫히는 문제를 해결한다.
+  - 변경: `TextEditingController` 리스너가 소문자를 대문자로 다시 쓰며 재진입하고 커서 선택 변화에도 폼 전체를 재빌드하던 흐름을 제거했다. 대문자 변환은 입력 연결 안에서 동작하는 `TextInputFormatter`로 옮겼다. 코드 중복 UI는 입력 중 숨기고 키보드 완료·다른 필드 이동·본문 터치로 코드 포커스가 빠진 뒤에만 현재 전체 코드로 판정한다. 중복 표시 후 재편집할 때는 실제 코드가 변경되는 시점에 기존 안내를 숨기고 다음 입력 완료 때 재검사한다. 최종 저장 검증과 서버 `DUPLICATE_CODE` 처리는 유지했으며 정책은 ADR-0015에 기록했다.
+  - 영향범위: 근무 타입 추가·수정 폼의 대문자 정규화, 코드 중복 검증 표시 시점, 완료 버튼 상태와 키보드 입력 연결. Behavior change: 기존 코드와 같은 접두어를 입력하는 동안에는 중복 경고를 표시하지 않고, 코드 입력을 끝낸 뒤 전체 값이 실제로 같을 때만 경고와 완료 비활성화를 표시한다. API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`, `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 수정 전 회귀 테스트에서 `FocusNode.hasFocus=true`인데 `TestTextInput.isVisible=false`인 키보드 입력 연결 해제를 재현했다. 수정 후 신규 `D→DE`, 수정 `D→DE` 입력 중 중복 미표시·포커스/키보드 유지, 실제 중복 `E`의 입력 완료 후 표시와 조합 입력 중 컨트롤러 미재할당을 포함한 근무 타입 폼 테스트 16건 및 전체 테스트 98건이 통과했다. 대상 코드·테스트 `flutter analyze --no-fatal-infos` 0건과 `dart format`을 통과했다. 전체 분석은 이번 변경 파일 밖의 기존 warning/info 96건으로 종료 코드 1이며 변경 대상 진단은 없다.
+  - 롤백: `_UpperCaseTextInputFormatter`와 입력 완료 중복 표시 상태를 제거하고 코드 컨트롤러 리스너의 즉시 대문자 재할당·즉시 중복 판정 흐름 및 이전 테스트·문서를 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 신규·수정 코드에 `D→DE`처럼 입력하고 키보드 유지, 완료 후 중복 표시, 한글/영문 키보드 전환을 확인한다.
 
 - [DONE] (CHORE) 앱 브랜드·패키지 식별자를 ShiftMate로 통일
   - 목적: 로컬 개발 단계에 남아 있는 초기 프로젝트 명칭과 Android 애플리케이션 식별자를 출시 전 `ShiftMate` 기준으로 일관되게 정리한다.

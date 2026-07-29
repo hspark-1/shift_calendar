@@ -202,6 +202,50 @@ void main() {
     );
   });
 
+  testWidgets('조합 입력 중에는 값을 다시 쓰지 않고 입력 완료 후 대문자로 변환한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: const ShiftTypeFormModal(existingTypes: []),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final code_field_finder = find.byKey(const Key('shift_type_code_field'));
+    await tester.tap(code_field_finder);
+    await tester.pump();
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'd',
+        selection: TextSelection.collapsed(offset: 1),
+        composing: TextRange(start: 0, end: 1),
+      ),
+    );
+    await tester.pump();
+
+    var code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'd');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'd',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+
+    code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'D');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+  });
+
   testWidgets('옅은 근무 색상에서도 미리보기 코드에 어두운 대비색을 사용한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -300,7 +344,103 @@ void main() {
     expect(code_field.focusNode?.hasFocus, isFalse);
   });
 
-  testWidgets('다른 근무 타입의 코드를 입력하면 사용 불가를 즉시 표시한다', (tester) async {
+  testWidgets('신규 코드는 기존 코드 접두어를 입력하는 동안 중복 표시 없이 키보드를 유지한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: ShiftTypeFormModal(existingTypes: [buildShiftType()]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final code_field_finder = find.byKey(const Key('shift_type_code_field'));
+    final name_field_finder = find.byKey(const Key('shift_type_name_field'));
+
+    await tester.tap(code_field_finder);
+    await tester.enterText(code_field_finder, 'd');
+    await tester.pump();
+
+    var code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'D');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+
+    await tester.enterText(code_field_finder, 'de');
+    await tester.pump();
+
+    code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'DE');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    final name_field = tester.widget<CupertinoTextField>(name_field_finder);
+    expect(code_field.focusNode?.hasFocus, isFalse);
+    expect(name_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('수정 코드는 기존 코드 접두어를 입력하는 동안 중복 표시 없이 키보드를 유지한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: ShiftTypeFormModal(
+          shiftType: buildEveningShiftType(),
+          existingTypes: [buildShiftType(), buildEveningShiftType()],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final code_field_finder = find.byKey(const Key('shift_type_code_field'));
+
+    await tester.tap(code_field_finder);
+    await tester.enterText(code_field_finder, 'd');
+    await tester.pump();
+
+    var code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'D');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+
+    await tester.enterText(code_field_finder, 'de');
+    await tester.pump();
+
+    code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'DE');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('다른 근무 타입과 같은 코드는 입력 완료 후 사용 불가를 표시한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -319,12 +459,7 @@ void main() {
       find.byKey(const Key('shift_type_code_duplicate_message')),
       findsNothing,
     );
-    expect(
-      tester
-          .widget<Container>(find.byKey(const Key('shift_type_code_row')))
-          .foregroundDecoration,
-      isNull,
-    );
+    expect(find.byKey(const Key('shift_type_code_error_border')), findsNothing);
     expect(
       tester
           .widget<CupertinoButton>(
@@ -334,18 +469,48 @@ void main() {
       isNotNull,
     );
 
-    await tester.enterText(find.byKey(const Key('shift_type_code_field')), 'e');
+    final code_field_finder = find.byKey(const Key('shift_type_code_field'));
+    final name_field_finder = find.byKey(const Key('shift_type_name_field'));
+
+    await tester.tap(code_field_finder);
+    await tester.enterText(code_field_finder, 'e');
     await tester.pump();
 
+    var code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'E');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('shift_type_code_error_border')), findsNothing);
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('shift_type_complete_button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    final name_field = tester.widget<CupertinoTextField>(name_field_finder);
+    expect(code_field.focusNode?.hasFocus, isFalse);
+    expect(name_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
     expect(
       find.byKey(const Key('shift_type_code_duplicate_message')),
       findsOneWidget,
     );
     expect(find.text('이미 사용 중인 코드입니다.'), findsOneWidget);
-    final code_row = tester.widget<Container>(
-      find.byKey(const Key('shift_type_code_row')),
+    final code_error_border = tester.widget<Container>(
+      find.byKey(const Key('shift_type_code_error_border')),
     );
-    final error_decoration = code_row.foregroundDecoration as BoxDecoration;
+    final error_decoration = code_error_border.decoration as BoxDecoration;
     final error_border = error_decoration.border as Border;
     expect(error_border.top.color, AppTheme.accent_red_color);
     expect(error_border.top.width, closeTo(1.6, 0.01));
@@ -367,19 +532,38 @@ void main() {
       isNull,
     );
 
-    await tester.enterText(find.byKey(const Key('shift_type_code_field')), 'n');
+    tester.testTextInput.hide();
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isFalse);
+
+    await tester.tap(code_field_finder);
     await tester.pump();
 
+    code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const Key('shift_type_code_duplicate_message')),
+      findsOneWidget,
+    );
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'n',
+        selection: TextSelection.collapsed(offset: 1),
+      ),
+    );
+    await tester.pump();
+
+    code_field = tester.widget<CupertinoTextField>(code_field_finder);
+    expect(code_field.controller?.text, 'N');
+    expect(code_field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
     expect(
       find.byKey(const Key('shift_type_code_duplicate_message')),
       findsNothing,
     );
-    expect(
-      tester
-          .widget<Container>(find.byKey(const Key('shift_type_code_row')))
-          .foregroundDecoration,
-      isNull,
-    );
+    expect(find.byKey(const Key('shift_type_code_error_border')), findsNothing);
     expect(
       tester
           .widget<CupertinoButton>(
