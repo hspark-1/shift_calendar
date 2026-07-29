@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../calendar/presentation/widgets/calendar_month_view.dart';
 import '../../../calendar/presentation/widgets/year_month_picker_sheet.dart';
 
 const List<GroupPreviewMember> group_preview_members = [
@@ -341,18 +342,55 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
 
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('우리 병동 · 그룹 보기'),
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('우리 병동'),
+        trailing: Semantics(
+          label: '그룹 멤버 ${group_preview_members.length}명',
+          child: Container(
+            key: const ValueKey('group-preview-member-count'),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppTheme.primary_color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppTheme.chip_radius),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  CupertinoIcons.person_2_fill,
+                  size: 14,
+                  color: AppTheme.primary_dark_color,
+                ),
+                const SizedBox(width: AppTheme.spacing_xs),
+                Text(
+                  '${group_preview_members.length}명',
+                  style: AppTheme.body_small.copyWith(
+                    color: AppTheme.primary_dark_color,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       child: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildMemberOverview(),
-            const SizedBox(height: AppTheme.spacing_md),
-            _buildMonthHeader(),
-            const SizedBox(height: AppTheme.spacing_sm),
-            _buildCalendar(),
+            Container(
+              key: const ValueKey('group-preview-calendar-section'),
+              decoration: const BoxDecoration(
+                color: AppTheme.surface_color,
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppTheme.outline_variant_color,
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Column(children: [_buildMonthHeader(), _buildCalendar()]),
+            ),
             const SizedBox(height: AppTheme.spacing_md),
             Expanded(child: _buildSelectedDayDetail(selected_day_data)),
           ],
@@ -361,218 +399,43 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     );
   }
 
-  Widget _buildMemberOverview() {
-    return Padding(
-      key: const ValueKey('group-preview-member-overview'),
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '그룹 멤버',
-                style: AppTheme.body_medium.copyWith(
-                  color: AppTheme.on_surface_variant_color,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacing_sm),
-              Container(
-                key: const ValueKey('group-preview-member-count'),
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary_color.withValues(alpha: 0.09),
-                  borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-                ),
-                child: Text(
-                  '${group_preview_members.length}',
-                  style: AppTheme.body_small.copyWith(
-                    color: AppTheme.primary_dark_color,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            key: const ValueKey('group-preview-member-avatars'),
-            height: 44,
-            width: 166,
-            child: Stack(
-              children: [
-                for (
-                  var index = 0;
-                  index < group_preview_members.length;
-                  index++
-                )
-                  Positioned(
-                    left: index * 30,
-                    child: _buildMemberAvatar(group_preview_members[index]),
-                  ),
-                Positioned(left: 120, child: _buildAddMemberAvatar()),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMemberAvatar(GroupPreviewMember member) {
-    return Semantics(
-      label: member.name,
-      child: Container(
-        key: ValueKey('group-preview-avatar-${member.id}'),
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: member.color,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.background_color, width: 2),
-        ),
-        child: Text(
-          member.initial,
-          style: const TextStyle(
-            color: AppTheme.surface_color,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddMemberAvatar() {
-    return Semantics(
-      label: '그룹 멤버 추가',
-      child: Container(
-        key: const ValueKey('group-preview-add-member'),
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppTheme.surface_container_high_color,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.background_color, width: 2),
-        ),
-        child: const Icon(
-          CupertinoIcons.plus,
-          size: 18,
-          color: AppTheme.on_surface_variant_color,
-        ),
-      ),
-    );
-  }
-
   Widget _buildMonthHeader() {
-    final year_month = DateFormat('yyyy.MM', 'ko_KR').format(_focused_day);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: CupertinoButton(
-                key: const ValueKey('group-preview-year-month-button'),
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                onPressed: _showYearMonthPicker,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        year_month,
-                        style: AppTheme.heading_medium.copyWith(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.on_surface_color,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        CupertinoIcons.chevron_down,
-                        size: 18,
-                        color: AppTheme.on_surface_variant_color,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+    return KeyedSubtree(
+      key: const ValueKey('group-preview-month-header'),
+      child: CalendarMonthHeader(
+        focused_day: _focused_day,
+        can_go_to_previous_month: _canGoToPreviousMonth(),
+        can_go_to_next_month: _canGoToNextMonth(),
+        onPreviousMonth: _goToPreviousMonth,
+        onNextMonth: _goToNextMonth,
+        onSelectYearMonth: _showYearMonthPicker,
+        trailing: CupertinoButton(
+          key: const ValueKey('group-preview-today-button'),
+          minimumSize: const Size(54, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: AppTheme.primary_color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppTheme.radius_md),
+          onPressed: _goToToday,
+          child: Text(
+            '오늘',
+            style: AppTheme.body_medium.copyWith(
+              color: AppTheme.primary_dark_color,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          _buildMonthNavigationButton(
-            key: const ValueKey('group-preview-previous-month'),
-            icon: CupertinoIcons.chevron_left,
-            is_enabled: _canGoToPreviousMonth(),
-            onPressed: _goToPreviousMonth,
-          ),
-          CupertinoButton(
-            key: const ValueKey('group-preview-today-button'),
-            minimumSize: const Size(54, 36),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: AppTheme.primary_color.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(AppTheme.radius_md),
-            onPressed: _goToToday,
-            child: Text(
-              '오늘',
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.primary_dark_color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          _buildMonthNavigationButton(
-            key: const ValueKey('group-preview-next-month'),
-            icon: CupertinoIcons.chevron_right,
-            is_enabled: _canGoToNextMonth(),
-            onPressed: _goToNextMonth,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthNavigationButton({
-    required Key key,
-    required IconData icon,
-    required bool is_enabled,
-    required VoidCallback onPressed,
-  }) {
-    return CupertinoButton(
-      key: key,
-      minimumSize: const Size(44, 44),
-      padding: EdgeInsets.zero,
-      onPressed: is_enabled ? onPressed : null,
-      child: Icon(
-        icon,
-        size: 22,
-        color: is_enabled
-            ? AppTheme.on_surface_color
-            : AppTheme.outline_variant_color,
+        ),
       ),
     );
   }
 
   Widget _buildCalendar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        key: const ValueKey('group-preview-calendar-card'),
-        decoration: BoxDecoration(
-          color: AppTheme.surface_color,
-          borderRadius: BorderRadius.circular(AppTheme.input_radius),
-          border: Border.all(color: AppTheme.outline_variant_color),
-        ),
-        clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_sm),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          return notification is ScrollStartNotification ||
+              notification is ScrollUpdateNotification;
+        },
         child: TableCalendar<void>(
           key: const ValueKey('group-preview-calendar'),
           firstDay: _first_day,
@@ -581,7 +444,7 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
           calendarFormat: _calendar_format,
           locale: 'ko_KR',
           headerVisible: false,
-          daysOfWeekHeight: 32,
+          daysOfWeekHeight: 30,
           rowHeight: _calendar_row_height,
           availableGestures: AvailableGestures.horizontalSwipe,
           selectedDayPredicate: (day) => isSameDay(_selected_day, day),
@@ -595,8 +458,8 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
             setState(() => _focused_day = focused_day);
           },
           calendarStyle: const CalendarStyle(
-            tablePadding: EdgeInsets.zero,
-            cellMargin: EdgeInsets.zero,
+            tablePadding: EdgeInsets.only(bottom: AppTheme.spacing_sm),
+            cellMargin: EdgeInsets.all(2),
             outsideDaysVisible: true,
           ),
           calendarBuilders: CalendarBuilders<void>(
@@ -625,18 +488,10 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     final text_color = day.weekday == DateTime.sunday
         ? AppTheme.accent_red_color
         : day.weekday == DateTime.saturday
-        ? AppTheme.primary_dark_color
+        ? AppTheme.primary_color
         : AppTheme.on_surface_variant_color;
 
-    return Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: AppTheme.outline_variant_color.withValues(alpha: 0.45),
-          ),
-        ),
-      ),
+    return Center(
       child: Text(
         DateFormat('E', 'ko_KR').format(day),
         style: AppTheme.body_small.copyWith(
@@ -654,89 +509,127 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     bool is_outside = false,
   }) {
     final day_data = buildGroupPreviewDayData(date);
+    final working_member_days = day_data.members
+        .where((member_day) => member_day.is_working)
+        .toList(growable: false);
     final semantic_date_color = date.weekday == DateTime.sunday
         ? AppTheme.accent_red_color
         : date.weekday == DateTime.saturday
-        ? AppTheme.primary_dark_color
+        ? AppTheme.primary_color
         : AppTheme.on_surface_color;
-    final date_color = is_selected
-        ? AppTheme.primary_dark_color
-        : semantic_date_color;
     final date_text = Text(
       '${date.day}',
       style: TextStyle(
-        color: is_today && !is_selected ? AppTheme.surface_color : date_color,
-        fontSize: 13,
+        color: semantic_date_color,
+        fontSize: 14,
         fontWeight: is_selected || is_today ? FontWeight.w700 : FontWeight.w500,
       ),
     );
-    final date_indicator = is_today && !is_selected
-        ? Container(
-            width: 24,
-            height: 24,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: AppTheme.primary_color,
-              shape: BoxShape.circle,
+    final date_indicator = is_today
+        ? SizedBox(
+            width: 28,
+            height: 28,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                date_text,
+                const SizedBox(height: 1),
+                Container(
+                  width: 12,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary_color,
+                    borderRadius: BorderRadius.circular(AppTheme.radius_sm),
+                  ),
+                ),
+              ],
             ),
-            child: date_text,
           )
-        : SizedBox(height: 24, child: Center(child: date_text));
+        : SizedBox(height: 28, child: Center(child: date_text));
 
     return Semantics(
       label:
           '${date.month}월 ${date.day}일, ${day_data.working_count}명 근무, '
           '개인 일정 ${day_data.personal_event_count}개',
       button: true,
-      child: Opacity(
-        opacity: is_outside ? 0.38 : 1,
-        child: AnimatedContainer(
-          key: ValueKey(
-            'group-day-${date.year}-'
-            '${date.month.toString().padLeft(2, '0')}-'
-            '${date.day.toString().padLeft(2, '0')}',
-          ),
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-          decoration: BoxDecoration(
-            color: is_selected
-                ? AppTheme.primary_color.withValues(alpha: 0.08)
-                : AppTheme.surface_color,
-            border: is_selected
-                ? Border.all(color: AppTheme.primary_dark_color, width: 2)
-                : Border(
-                    right: BorderSide(
-                      color: AppTheme.outline_variant_color.withValues(
-                        alpha: 0.38,
-                      ),
-                    ),
-                    bottom: BorderSide(
-                      color: AppTheme.outline_variant_color.withValues(
-                        alpha: 0.38,
-                      ),
-                    ),
-                  ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              date_indicator,
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  '${day_data.working_count}명 근무',
-                  style: TextStyle(
-                    color: is_selected
-                        ? AppTheme.primary_dark_color
-                        : AppTheme.on_surface_variant_color,
-                    fontSize: 10,
-                    fontWeight: is_selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
+      child: SizedBox.expand(
+        key: ValueKey(
+          'group-day-${date.year}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}',
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.translate(
+              offset: const Offset(0, 3),
+              child: AnimatedContainer(
+                key: ValueKey(
+                  'group-selection-${date.year}-'
+                  '${date.month.toString().padLeft(2, '0')}-'
+                  '${date.day.toString().padLeft(2, '0')}',
+                ),
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                width: is_selected ? 50 : 0,
+                height: is_selected ? 50 : 0,
+                decoration: BoxDecoration(
+                  color: is_selected
+                      ? AppTheme.primary_color.withValues(alpha: 0.08)
+                      : null,
+                  borderRadius: BorderRadius.circular(AppTheme.radius_md),
+                  border: is_selected
+                      ? Border.all(color: AppTheme.primary_dark_color, width: 2)
+                      : null,
                 ),
               ),
-            ],
-          ),
+            ),
+            Positioned.fill(
+              child: Opacity(
+                opacity: is_outside ? 0.38 : 1,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    date_indicator,
+                    SizedBox(
+                      key: ValueKey(
+                        'group-preview-shift-dots-${date.year}-'
+                        '${date.month.toString().padLeft(2, '0')}-'
+                        '${date.day.toString().padLeft(2, '0')}',
+                      ),
+                      height: 8,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (
+                            var index = 0;
+                            index < working_member_days.length;
+                            index++
+                          ) ...[
+                            if (index > 0) const SizedBox(width: 3),
+                            Container(
+                              key: ValueKey(
+                                'group-preview-shift-dot-${date.year}-'
+                                '${date.month.toString().padLeft(2, '0')}-'
+                                '${date.day.toString().padLeft(2, '0')}-$index',
+                              ),
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: working_member_days[index].shift_color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -750,24 +643,43 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Text(
-                  DateFormat('M월 d일 EEEE', 'ko_KR').format(day_data.date),
-                  style: AppTheme.heading_small.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '선택일 근무 현황',
+                      style: AppTheme.body_small.copyWith(
+                        color: AppTheme.on_surface_variant_color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('M월 d일 EEEE', 'ko_KR').format(day_data.date),
+                      style: AppTheme.heading_small.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: AppTheme.spacing_sm),
-              Text(
-                '근무 ${day_data.working_count}명 · '
-                '개인 일정 ${day_data.personal_event_count}개',
+              Row(
                 key: const ValueKey('group-preview-day-summary'),
-                style: AppTheme.body_small.copyWith(
-                  color: AppTheme.on_surface_variant_color,
-                  fontWeight: FontWeight.w500,
-                ),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSummaryChip(
+                    label: '근무 ${day_data.working_count}명',
+                    is_primary: true,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildSummaryChip(
+                    label: '일정 ${day_data.personal_event_count}개',
+                  ),
+                ],
               ),
             ],
           ),
@@ -776,7 +688,12 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
         Expanded(
           child: ListView.separated(
             key: const ValueKey('group-preview-member-list'),
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              0,
+              16,
+              16 + MediaQuery.paddingOf(context).bottom,
+            ),
             itemCount: day_data.members.length,
             separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
@@ -788,19 +705,39 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     );
   }
 
+  Widget _buildSummaryChip({required String label, bool is_primary = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: is_primary
+            ? AppTheme.primary_color.withValues(alpha: 0.08)
+            : AppTheme.surface_container_low_color,
+        borderRadius: BorderRadius.circular(AppTheme.chip_radius),
+      ),
+      child: Text(
+        label,
+        style: AppTheme.body_small.copyWith(
+          color: is_primary
+              ? AppTheme.primary_dark_color
+              : AppTheme.on_surface_variant_color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMemberDayCard(GroupPreviewMemberDay member_day) {
     final badge_text_color = AppTheme.readableForegroundColor(
       member_day.shift_color,
       preferred_color: AppTheme.surface_color,
     );
+    final shift_description = member_day.is_working
+        ? '${member_day.shift_name} · ${member_day.shift_time_text}'
+        : '${member_day.shift_name} · 근무 없음';
 
     return Container(
       key: ValueKey('group-preview-member-${member_day.member.id}'),
-      decoration: BoxDecoration(
-        color: AppTheme.surface_color,
-        borderRadius: BorderRadius.circular(AppTheme.input_radius),
-        border: Border.all(color: AppTheme.outline_variant_color),
-      ),
+      decoration: AppTheme.cardDecoration(),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
@@ -815,111 +752,136 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: member_day.shift_color.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: member_day.shift_color.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Text(
-                    member_day.member.initial,
-                    style: TextStyle(
-                      color: member_day.shift_color,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  member_day.member.name,
-                  style: AppTheme.body_large.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: member_day.shift_color,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    member_day.shift_code,
-                    style: AppTheme.body_small.copyWith(
-                      color: badge_text_color,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: SingleChildScrollView(
-                    key: ValueKey(
-                      'group-preview-schedule-scroll-'
-                      '${member_day.member.id}',
-                    ),
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
+                Row(
+                  children: [
+                    Container(
                       key: ValueKey(
-                        'group-preview-schedule-row-'
+                        'group-preview-member-avatar-'
                         '${member_day.member.id}',
                       ),
-                      children: [
-                        _buildShiftTimeChip(member_day),
-                        for (final event in member_day.events) ...[
-                          const SizedBox(width: 6),
-                          _buildEventChip(event),
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: member_day.member.color.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: member_day.member.color.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        member_day.member.initial,
+                        style: TextStyle(
+                          color: member_day.member.color,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            member_day.member.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTheme.body_large.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            key: ValueKey(
+                              'group-preview-schedule-row-'
+                              '${member_day.member.id}',
+                            ),
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: member_day.shift_color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  shift_description,
+                                  key: ValueKey(
+                                    'group-preview-shift-time-'
+                                    '${member_day.member.id}',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTheme.body_medium.copyWith(
+                                    color: AppTheme.on_surface_variant_color,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
-                      ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      key: ValueKey(
+                        'group-preview-shift-code-${member_day.member.id}',
+                      ),
+                      constraints: const BoxConstraints(minWidth: 36),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: member_day.shift_color,
+                        borderRadius: BorderRadius.circular(AppTheme.radius_md),
+                      ),
+                      child: Text(
+                        member_day.shift_code,
+                        textAlign: TextAlign.center,
+                        style: AppTheme.body_small.copyWith(
+                          color: badge_text_color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (member_day.events.isNotEmpty) ...[
+                  const SizedBox(height: 11),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 56),
+                    child: SingleChildScrollView(
+                      key: ValueKey(
+                        'group-preview-event-scroll-'
+                        '${member_day.member.id}',
+                      ),
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < member_day.events.length;
+                            index++
+                          ) ...[
+                            if (index > 0) const SizedBox(width: 6),
+                            _buildEventChip(member_day.events[index]),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShiftTimeChip(GroupPreviewMemberDay member_day) {
-    final label = member_day.is_working ? member_day.shift_time_text : '근무 없음';
-
-    return Container(
-      key: ValueKey('group-preview-shift-time-${member_day.member.id}'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.surface_container_low_color,
-        borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            member_day.is_working ? CupertinoIcons.clock : CupertinoIcons.moon,
-            size: 13,
-            color: AppTheme.on_surface_variant_color,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: AppTheme.body_small.copyWith(
-              color: AppTheme.on_surface_variant_color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],

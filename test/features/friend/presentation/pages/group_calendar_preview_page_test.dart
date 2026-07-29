@@ -97,18 +97,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('우리 병동 · 그룹 보기'), findsOneWidget);
+    expect(find.text('우리 병동'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('group-preview-member-overview')),
+      find.byKey(const ValueKey('group-preview-member-count')),
       findsOneWidget,
     );
-    expect(find.text('그룹 멤버'), findsOneWidget);
+    expect(find.text('4명'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('group-preview-member-avatars')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('group-preview-add-member')),
+      find.byKey(const ValueKey('group-preview-calendar-section')),
       findsOneWidget,
     );
     expect(find.text('2026.01'), findsOneWidget);
@@ -117,17 +113,6 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('group-preview-calendar-card')),
-      findsOneWidget,
-    );
-    for (final member_id in ['me', 'minsu', 'jiyeon', 'donguk']) {
-      expect(
-        find.byKey(ValueKey('group-preview-avatar-$member_id')),
-        findsOneWidget,
-      );
-    }
-    expect(find.text('박현서'), findsWidgets);
-    expect(
       tester
           .widget<TableCalendar<void>>(
             find.byKey(const ValueKey('group-preview-calendar')),
@@ -135,21 +120,23 @@ void main() {
           .calendarFormat,
       CalendarFormat.month,
     );
-    expect(find.text('근무 4명 · 개인 일정 2개'), findsOneWidget);
+    expect(find.text('선택일 근무 현황'), findsOneWidget);
+    expect(find.text('근무 4명'), findsOneWidget);
+    expect(find.text('일정 2개'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('group-preview-member-list')),
       findsOneWidget,
     );
 
-    final calendar_card = tester.widget<Container>(
-      find.byKey(const ValueKey('group-preview-calendar-card')),
+    final calendar_section = tester.widget<Container>(
+      find.byKey(const ValueKey('group-preview-calendar-section')),
     );
-    final calendar_decoration = calendar_card.decoration! as BoxDecoration;
+    final calendar_decoration = calendar_section.decoration! as BoxDecoration;
     expect(calendar_decoration.color, AppTheme.surface_color);
     expect(calendar_decoration.border, isNotNull);
 
     final selected_cell = tester.widget<AnimatedContainer>(
-      find.byKey(const ValueKey('group-day-2026-01-01')),
+      find.byKey(const ValueKey('group-selection-2026-01-01')),
     );
     final selected_decoration = selected_cell.decoration! as BoxDecoration;
     final selected_border = selected_decoration.border! as Border;
@@ -159,15 +146,73 @@ void main() {
     );
     expect(selected_border.top.color, AppTheme.primary_dark_color);
     expect(selected_border.top.width, 2);
+    final expected_shift_colors = <Color>[
+      const Color(0xFFFF9500),
+      const Color(0xFFE85F80),
+      const Color(0xFF4355B8),
+      const Color(0xFF448F53),
+    ];
+    for (var index = 0; index < expected_shift_colors.length; index++) {
+      final shift_dot = find.byKey(
+        ValueKey('group-preview-shift-dot-2026-01-01-$index'),
+      );
+      expect(shift_dot, findsOneWidget);
+      final shift_dot_decoration =
+          tester.widget<Container>(shift_dot).decoration! as BoxDecoration;
+      expect(shift_dot_decoration.color, expected_shift_colors[index]);
+    }
+    expect(find.text('1명 근무'), findsNothing);
 
     final first_shift_bar = tester.widget<Container>(
       find.byKey(const ValueKey('group-preview-shift-bar-me')),
     );
     expect(first_shift_bar.color, const Color(0xFFFF9500));
+    final first_member_card = tester.widget<Container>(
+      find.byKey(const ValueKey('group-preview-member-me')),
+    );
+    final first_member_decoration =
+        first_member_card.decoration! as BoxDecoration;
+    expect(
+      first_member_decoration.borderRadius,
+      BorderRadius.circular(AppTheme.card_radius),
+    );
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('사람별 일정 목록은 근무 시간을 개인 일정보다 먼저 표시한다', (tester) async {
+  testWidgets('선택된 토요일과 일요일도 날짜 의미 색상을 유지한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _buildTestApp(screen_height: 800, initial_date: DateTime(2026, 1, 3)),
+    );
+    await tester.pumpAndSettle();
+
+    Text selectedDateText(String day, String key) {
+      return tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.text(day),
+        ),
+      );
+    }
+
+    expect(
+      selectedDateText('3', 'group-day-2026-01-03').style?.color,
+      AppTheme.primary_color,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('group-day-2026-01-04')));
+    await tester.pumpAndSettle();
+
+    expect(
+      selectedDateText('4', 'group-day-2026-01-04').style?.color,
+      AppTheme.accent_red_color,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('구성원 카드는 이름·근무 시간·개인 일정 순서로 표시한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -177,22 +222,28 @@ void main() {
     await tester.pumpAndSettle();
 
     final member_card = find.byKey(const ValueKey('group-preview-member-me'));
-    final schedule_row = find.descendant(
+    final shift_time = find.descendant(
       of: member_card,
-      matching: find.byKey(const ValueKey('group-preview-schedule-row-me')),
-    );
-    final row_widget = tester.widget<Row>(schedule_row);
-
-    expect(
-      row_widget.children.first.key,
-      const ValueKey('group-preview-shift-time-me'),
+      matching: find.byKey(const ValueKey('group-preview-shift-time-me')),
     );
     expect(
-      find.descendant(of: member_card, matching: find.text('07:00–15:00')),
+      find.descendant(of: member_card, matching: find.text('데이 · 07:00–15:00')),
       findsOneWidget,
     );
+    final personal_event = find.descendant(
+      of: member_card,
+      matching: find.text('09:30 병원 예약'),
+    );
+    expect(personal_event, findsOneWidget);
     expect(
-      find.descendant(of: member_card, matching: find.text('09:30 병원 예약')),
+      tester.getTopLeft(shift_time).dy,
+      lessThan(tester.getTopLeft(personal_event).dy),
+    );
+    expect(
+      find.descendant(
+        of: member_card,
+        matching: find.byKey(const ValueKey('group-preview-member-avatar-me')),
+      ),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
@@ -210,7 +261,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('group-day-2026-01-05')));
     await tester.pumpAndSettle();
 
-    expect(find.text('근무 0명 · 개인 일정 2개'), findsOneWidget);
+    expect(find.text('근무 0명'), findsOneWidget);
+    expect(find.text('일정 2개'), findsOneWidget);
     expect(find.text('OFF'), findsWidgets);
     final first_member_card = find.byKey(
       const ValueKey('group-preview-member-me'),
@@ -223,8 +275,12 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: first_member_card, matching: find.text('근무 없음')),
+      find.descendant(of: first_member_card, matching: find.text('휴무 · 근무 없음')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('group-preview-shift-dot-2026-01-05-0')),
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
   });
@@ -298,7 +354,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('group-room-preview-card')));
     await tester.pumpAndSettle();
 
-    expect(find.text('우리 병동 · 그룹 보기'), findsOneWidget);
+    expect(find.text('우리 병동'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('group-preview-calendar')),
       findsOneWidget,

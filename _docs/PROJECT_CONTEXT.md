@@ -654,36 +654,41 @@ FriendListPage footer
   데이터가 4명→3명→2명→1명→0명 근무를 5일 주기로 반복하고, 하루 전체 개인 일정은 2개와
   3개를 번갈아 구성원에게 분배한다. 근무자는 `D`·`E`·`N`·`F` 코드와 근무 시간을,
   비근무자는 `OFF`와 `근무 없음`을 표시한다.
-- 그룹 보기 main 영역은 `../design/group_view/DESIGN.md`, `code.html`, `screen.png` 시안을
-  기준으로 한다. 상단 본문에는 그룹 멤버 수와 Shift Harmony 분류색의 44px 겹침 아바타,
-  멤버 추가 원을 표시한다. 월 헤더는 큰 `yyyy.MM` 제목과 연/월 선택 chevron을 왼쪽에,
-  이전·오늘·다음 액션을 오른쪽에 배치한다.
-- 월/2주 캘린더는 흰색 surface, 12px radius, outline 테두리와 셀 구분선을 사용하는 7열
-  그리드다. 모든 날짜에 `N명 근무`를 표시하며 선택일은 8% primary tint와 2px primary dark
-  outline, 오늘은 선택되지 않았을 때 solid primary 원으로 구분한다. HTML 시안에서 설명을 위해
-  생략한 주차는 실제 Flutter 달력에서는 생략하지 않는다.
-- 날짜 선택 시 캘린더 아래의 독립 헤더에 날짜와 `근무 N명 · 개인 일정 N개`를 나란히 표시하고,
-  하단 목록에 4명의 근무/일정을 표시한다. 각 사람 카드는 흰색 surface와 outline, 4px 근무색
-  왼쪽 바, 근무색 tint 원형 아바타, solid 근무 코드 배지를 사용한다. 오른쪽 일정 영역은 가로
-  스크롤하며 설정된 근무 시간 칩을 맨 앞에 두고 개인 일정 칩을 뒤에 배치한다. 근무자는
-  `07:00–15:00` 형식, 휴무자는 `근무 없음`을 표시한다.
-  연/월 제목은 공용 `YearMonthPickerSheet`를 열며, 화면 높이 750px 미만에서는 2주 보기와
-  52px 행, 그 이상에서는 월 보기와 56px 행을 사용한다.
+- 그룹 보기 main 영역은 `../design/group_view ver2/DESIGN.md`, `code.html`, `screen.png`의
+  정보 계층을 참고하되 기존 ShiftMate의 Shift Harmony 컴포넌트 규칙을 우선한다. 내비게이션은
+  그룹명 `우리 병동`과 primary tint의 `4명` 요약만 표시해 중복된 별도 멤버 섹션을 제거한다.
+  월 헤더는 메인·친구 캘린더의 공용 `CalendarMonthHeader`를 재사용하고 연/월 선택,
+  이전·다음 이동과 `오늘` 액션을 같은 위치·타이포·surface 규칙으로 제공한다.
+- 월/2주 캘린더는 둥근 외곽 카드와 셀 구분선 없이 흰색 full-width surface 섹션으로 표시한다.
+  날짜별 `N명 근무` 문구 대신 실제 근무자의 근무색 5px 점을 최대 4개 표시해 7열에서도
+  구성원의 근무 분포를 빠르게 비교한다. 선택일은 앱 공통 8% primary tint와 2px primary dark
+  outline 사각형, 오늘은 공통 primary 밑줄을 사용한다. 선택된 토요일은 primary blue,
+  선택된 일요일은 accent red를 유지한다. HTML 시안에서 설명을 위해 생략한 주차는 실제 Flutter
+  달력에서는 생략하지 않는다.
+- 날짜 선택 시 캘린더 아래에 `선택일 근무 현황`과 날짜, `근무 N명`·`일정 N개` 요약 chip을
+  표시하고 하단 목록에 4명의 근무/개인 일정을 표시한다. 각 사람 카드는 흰색 surface,
+  16px radius와 outline, 4px 근무색 왼쪽 바를 사용한다. 원형 아바타는 멤버 고유색으로
+  사람을 구분하고 근무색 점·solid 근무 코드 배지는 당일 근무 타입을 구분한다. 본문은
+  이름 → `데이 · 07:00–15:00` 또는 `휴무 · 근무 없음` → 개인 일정 chip 순서로 배치하고,
+  개인 일정이 여러 개면 해당 행만 가로 스크롤한다. 연/월 제목은 공용
+  `YearMonthPickerSheet`를 열며, 화면 높이 750px 미만에서는 2주 보기와 52px 행,
+  그 이상에서는 월 보기와 56px 행을 사용한다.
 - 파일 역할/의존성/사용 예:
   - `lib/features/friend/presentation/pages/friend_list_page.dart`: `friendListProvider` 기반 기존
     친구 목록과 더미 그룹 방 목록을 페이지 내부 상태로 전환한다. 공용 `BottomActionBar`에
     `BottomActionBarItem` 두 개를 주입하고, `우리 병동` 카드를 누르면
     `GroupCalendarPreviewPage`를 연다. 그룹 방 선택은 별도 API를 호출하지 않는다.
   - `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`: 고정 구성원,
-    결정적 날짜별 더미 데이터 생성기, 0~4명 outline 그리드 캘린더와 시안 기반 선택일 구성원
-    상세를 한 파일에서 제공한다. `FriendListPage`의 그룹 방 목록 카드가 이 화면을 연다.
-    실제 그룹 계약이 마련되면 데이터 생성기를 application/data 계층의 조회 결과로 교체하고
-    화면 컴포넌트는 재사용할 수 있다.
+    결정적 날짜별 더미 데이터 생성기, 0~4명의 근무색 점 캘린더와 선택일 구성원 상세를 한
+    파일에서 제공한다. 공용 `CalendarMonthHeader`와 `YearMonthPickerSheet`에 의존하며
+    `FriendListPage`의 그룹 방 목록 카드가 이 화면을 연다. 실제 그룹 계약이 마련되면 데이터
+    생성기를 application/data 계층의 조회 결과로 교체하고 화면 컴포넌트는 재사용할 수 있다.
   - `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`: 5일 근무
-    인원 순환, 하루 2~3개 일정, 시안 분류색과 그룹 아바타·오늘 버튼·outline 캘린더 카드,
-    선택일 tint/outline과 근무색 바, 사람별 근무 시간 칩의 선두 순서, 월/2주 반응형 렌더링,
-    0명 날짜의 휴무 상세, footer의 친구/그룹 방 양방향 전환, 그룹 방 목록 카드 진입 경로와
-    390px 화면 오버플로 부재를 검증한다.
+    인원 순환, 하루 2~3개 일정, 근무색 점의 개수·색상, 내비게이션 멤버 수, full-width
+    calendar surface, 선택일 tint/outline과 주말 의미 색상, 구성원 카드의 근무색 바·16px
+    radius·이름/근무 시간/개인 일정 순서, 월/2주 반응형 렌더링, 0명 날짜의 휴무 상세,
+    footer의 친구/그룹 방 양방향 전환, 그룹 방 목록 카드 진입 경로와 390px 화면 오버플로
+    부재를 검증한다.
 
 ### 친구 요청 알림 응답 흐름
 

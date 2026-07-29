@@ -2,6 +2,15 @@
 
 ## 2026-07-29
 
+- [DONE] (FE) 그룹 뷰 디자인 개선
+  - 목적: `design/group_view ver2` 참고 시안의 캘린더·오늘 상태 정보 계층을 현재 ShiftMate의 Shift Harmony 패밀리룩에 맞게 그룹 캘린더 미리보기에 반영한다.
+  - 변경: 중복된 상단 멤버 섹션을 제거하고 내비게이션에 `우리 병동`과 `4명` 요약을 배치했다. 메인·친구 캘린더의 공용 `CalendarMonthHeader`를 재사용하고, 둥근 outline 캘린더 카드와 셀별 `N명 근무` 문구를 full-width 흰색 surface 및 실제 근무색 점 최대 4개로 교체했다. 오늘은 공통 primary 밑줄, 선택일은 8% primary tint와 2px primary dark outline을 사용하며 선택된 주말의 의미 색상을 유지한다. 선택일 헤더는 날짜와 `근무 N명`·`일정 N개` chip으로 정리했다. 구성원 카드는 16px surface 카드, 멤버 고유색 아바타, 근무색 왼쪽 바·점·코드 배지와 이름→근무명·시간→개인 일정 순서로 재구성했다.
+  - 영향범위: 그룹 캘린더 미리보기 화면, 관련 위젯 테스트와 프로젝트 문서. Behavior change: 그룹 멤버 요약은 별도 겹침 아바타 영역 대신 내비게이션 count로 표시되고, 달력의 근무 인원 문구는 근무 타입 색상 점으로 표시된다. 실제 그룹 API/DB 및 내 캘린더·단일 친구 캘린더는 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 390x844 렌더 이미지를 생성해 월 전체, 선택일 헤더, 구성원 카드의 잘림과 목록 스크롤을 확인했다. 그룹 미리보기 테스트를 8건으로 확장해 근무색 점의 개수·색상, full-width calendar surface, 선택일 tint/outline, 선택된 토·일요일 의미 색상, 이름/근무 시간/개인 일정 순서, 0명 근무, 390x740 2주 보기와 친구 탭 진입을 검증했다. 대상 2개 Dart 파일 `flutter analyze --no-fatal-infos` 진단 0건, 전체 Flutter 테스트 99건, `dart format`과 `git diff --check`가 통과했다. 프로젝트 전체 분석은 이번 변경 밖의 기존 네이밍 충돌·미사용 요소·생성 코드 ignore·deprecated API 등 96건으로 종료 코드 1이며 변경 대상 진단은 없다.
+  - 롤백: 이번 그룹 뷰 레이아웃·테스트·문서 변경만 이전 구현으로 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 5주·6주 월과 긴 구성원 이름·일정의 가독성을 확인하고, 실제 그룹 API 계약이 확정되면 더미 생성기를 서버 조회 결과로 교체한다.
+
 - [DONE] (CHORE) 근무 타입 코드 중복·키보드 수정 커밋 및 푸시
   - 목적: 입력 완료 시점의 중복 표시와 중복 오류 후 첫 탭 키보드 복원 작업을 검증 가능한 Git 이력으로 정리해 원격 저장소에 반영한다.
   - 변경: 코드 입력 중 컨트롤러 재할당과 즉시 중복 표시를 제거하고 대문자 변환을 `TextInputFormatter`로 이동한 변경, 입력 완료 후 중복 표시 정책, 중복 오류 상태에서 코드 필드 첫 탭 키보드 복원 구조를 하나의 수정 커밋으로 정리해 `origin/main`에 푸시한다. 구현 근거와 동작 계약은 PROJECT_CONTEXT 및 ADR-0015에 함께 기록했다.
