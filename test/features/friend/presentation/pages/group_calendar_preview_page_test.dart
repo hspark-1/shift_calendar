@@ -387,6 +387,11 @@ void main() {
     );
     expect(find.text('우리 병동'), findsOneWidget);
     expect(find.text('4명 · 그룹 캘린더'), findsOneWidget);
+    expect(
+      find.text('그룹 방'),
+      findsNWidgets(2),
+      reason: '본문 중복 제목 없이 내비게이션과 footer에만 표시해야 한다.',
+    );
     expect(find.byKey(const ValueKey('add-friend-button')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('friend-list-footer-button')));

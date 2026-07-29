@@ -201,13 +201,6 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
           padding: const EdgeInsets.all(16),
           sliver: SliverList.list(
             children: [
-              Text(
-                '그룹 방',
-                style: AppTheme.heading_small.copyWith(
-                  color: AppTheme.on_surface_color,
-                ),
-              ),
-              const SizedBox(height: 12),
               Semantics(
                 button: true,
                 label: '우리 병동 그룹 캘린더 미리보기 열기',

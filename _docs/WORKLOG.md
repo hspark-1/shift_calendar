@@ -2,6 +2,15 @@
 
 ## 2026-07-29
 
+- [DONE] (UI) 그룹 방 목록의 중복 본문 제목 제거
+  - 목적: 내비게이션 바와 하단 탭에 이미 표시되는 `그룹 방` 문구를 본문에서 반복하지 않고 첫 그룹 카드를 바로 노출한다.
+  - 변경: 그룹 방 목록 상단의 `그룹 방` 제목과 뒤따르던 12px 간격을 제거해 16px 목록 padding 다음에 `우리 병동` 카드가 바로 표시되게 했다. 테스트는 `그룹 방` 문구가 내비게이션과 footer 두 위치에만 남는지 검증한다.
+  - 영향범위: 친구 화면의 그룹 방 목록 본문과 관련 테스트·문서. Behavior change: 목록 본문의 중복 섹션 제목이 사라진다. 내비게이션 제목, footer 탭, 그룹 카드와 진입 동작은 유지한다.
+  - 파일: `lib/features/friend/presentation/pages/friend_list_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 그룹 미리보기 위젯 테스트 8건 통과, 변경 코드·테스트 `flutter analyze` 진단 0건, `dart format`, `git diff --check`가 통과했다.
+  - 롤백: 그룹 카드 위에 `그룹 방` 제목과 12px 간격을 복원한다.
+  - 다음: 실제 기기에서 그룹 카드의 상단 16px 여백이 내비게이션 아래에서 자연스럽게 보이는지 확인한다.
+
 - [DONE] (UI) 메인·친구 선택일 헤더를 그룹 보기와 정렬
   - 목적: 메인·친구 캘린더의 선택일 날짜 영역 높이와 일정 수 표현을 그룹 보기와 같은 시각 규칙으로 맞춘다.
   - 변경: 공용 `CalendarScheduleHeader`를 그룹 헤더와 같은 본문 44px 높이(세로 8px 여백 + 28px 콘텐츠, 0.5px 구분선 포함 실측 44.5px)로 조정했다. `N개의 일정` 일반 문구는 `CalendarScheduleSummaryChip`을 사용한 `일정 N개` pill로 교체하고, 일정이 없는 날도 `일정 0개`를 표시한다. 메인 근무 입력의 `완료` 버튼도 28px 콘텐츠 높이로 맞췄으며, 그룹의 `근무 N명`·`일정 N개`는 전용 중복 구현 대신 같은 공용 pill을 사용한다.
