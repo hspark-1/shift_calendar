@@ -87,17 +87,20 @@ class CalendarScheduleHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const ValueKey('selected-day-header'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing_md,
+        vertical: AppTheme.spacing_sm,
+      ),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
         ),
       ),
       child: SizedBox(
-        height: 36,
+        height: 28,
         child: Row(
           key: const ValueKey('selected-day-header-content'),
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
               child: SizedBox(
@@ -107,7 +110,7 @@ class CalendarScheduleHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      DateFormat('yyyy.MM.dd', 'ko_KR').format(selected_date),
+                      DateFormat('M월 d일 EEEE', 'ko_KR').format(selected_date),
                       style: AppTheme.heading_small,
                     ),
                     if (holiday_name != null) ...[
@@ -129,18 +132,11 @@ class CalendarScheduleHeader extends StatelessWidget {
                 ),
               ),
             ),
-            if (total_count != null && total_count! > 0) ...[
+            if (total_count != null) ...[
               const SizedBox(width: AppTheme.spacing_sm),
-              SizedBox(
-                height: 28,
-                child: Center(
-                  child: Text(
-                    '$total_count개의 일정',
-                    style: AppTheme.body_small.copyWith(
-                      color: AppTheme.on_surface_variant_color,
-                    ),
-                  ),
-                ),
+              CalendarScheduleSummaryChip(
+                key: const ValueKey('selected-day-schedule-count'),
+                label: '일정 $total_count개',
               ),
             ],
             if (trailing != null) ...[
@@ -148,6 +144,39 @@ class CalendarScheduleHeader extends StatelessWidget {
               trailing!,
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class CalendarScheduleSummaryChip extends StatelessWidget {
+  const CalendarScheduleSummaryChip({
+    super.key,
+    required this.label,
+    this.is_primary = false,
+  });
+
+  final String label;
+  final bool is_primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: is_primary
+            ? AppTheme.primary_color.withValues(alpha: 0.08)
+            : AppTheme.surface_container_low_color,
+        borderRadius: BorderRadius.circular(AppTheme.chip_radius),
+      ),
+      child: Text(
+        label,
+        style: AppTheme.body_small.copyWith(
+          color: is_primary
+              ? AppTheme.primary_dark_color
+              : AppTheme.on_surface_variant_color,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

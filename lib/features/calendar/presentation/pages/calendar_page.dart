@@ -10,11 +10,16 @@ import '../../../auth/presentation/pages/settings_page.dart';
 import '../../../friend/presentation/pages/friend_list_page.dart';
 import '../../../friend/presentation/pages/notification_page.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
+import '../../application/calendar_range_state.dart';
+import '../controllers/calendar_viewport_controller.dart';
+import '../models/calendar_day_presentation.dart';
+import '../models/calendar_layout_policy.dart';
+import '../providers/calendar_range_provider.dart';
 import '../providers/shift_types_provider.dart';
-import '../widgets/shift_badge.dart';
 import '../widgets/bottom_action_bar.dart';
 import '../widgets/calendar_month_view.dart';
 import '../widgets/calendar_schedule_card.dart';
+import '../widgets/calendar_viewport.dart';
 import '../widgets/personal_event_form_modal.dart';
 import '../widgets/shift_type_button.dart';
 import '../widgets/year_month_picker_sheet.dart';
@@ -33,6 +38,8 @@ class CalendarPage extends ConsumerStatefulWidget {
 }
 
 class _CalendarPageState extends ConsumerState<CalendarPage> {
+  static final _viewport_controller = const CalendarViewportController();
+
   CalendarFormat _calendar_format = CalendarFormat.month;
   DateTime _focused_day = DateTime.now();
   DateTime? _selected_day;
@@ -49,37 +56,24 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   // 임시 스케줄 데이터 (하루에 하나의 근무만 저장)
   final Map<DateTime, String?> _schedules = {};
 
-  // 서버가 반환한 근무표 표시 데이터: 날짜 -> 근무표 스냅샷
-  final Map<DateTime, WorkShiftApiModel> _workShifts = {};
-
-  // 일정(Events) 데이터: Map<DateTime, List<EventApiModel>> (날짜 -> 일정 목록)
-  final Map<DateTime, List<EventApiModel>> _events = {};
-
-  // 근무표 ID 데이터: Map<DateTime, String> (날짜 -> work_shift_id)
-  // 서버 삭제 API 호출 시 필요
-  final Map<DateTime, String> _work_shift_ids = {};
-
   // 근무 추가 모드 시작 시 초기 스케줄 상태 저장 (변경사항 추적용)
   Map<DateTime, String?>? _initial_schedules;
-
-  // 로딩 상태
-  bool _isLoading = false;
-
-  // 로드된 월 추적: Set<String> (예: "2026-01")
-  final Set<String> _loadedMonths = {};
 
   bool get _isShortScreen => MediaQuery.sizeOf(context).height < 750;
 
   CalendarFormat get _visibleCalendarFormat =>
-      _isShortScreen ? CalendarFormat.twoWeeks : _calendar_format;
+      CalendarLayoutPolicy.visibleFormat(
+        screen_height: MediaQuery.sizeOf(context).height,
+        preferred_format: _calendar_format,
+      );
 
   // 확장 모드 시 행 높이
-  double get _calendarRowHeight {
-    if (_is_expanded_view) {
-      return _isShortScreen ? 52.0 : 56.0;
-    }
-    return 48.0; // 기본 모드
-  }
+  double get _calendarRowHeight => CalendarLayoutPolicy.rowHeight(
+    screen_height: MediaQuery.sizeOf(context).height,
+    layout_mode: _is_expanded_view
+        ? CalendarCellLayoutMode.detailed
+        : CalendarCellLayoutMode.compact,
+  );
 
   @override
   void initState() {
@@ -97,11 +91,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 날짜 정규화 (시간 제거)
   DateTime _normalizeDate(DateTime date) {
     return normalizeCalendarDate(date);
-  }
-
-  /// 월 키 생성 (예: "2026-01")
-  String _getMonthKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
   }
 
   /// 공용 공휴일 캐시를 필요한 월 기준으로 갱신한다.
@@ -123,66 +112,63 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 3달 데이터 로딩 (전월, 현재월, 다음월)
   Future<void> _loadCalendarData(DateTime focusedMonth) async {
-    // 이미 로드된 월이면 스킵
-    final monthKey = _getMonthKey(focusedMonth);
-    if (_loadedMonths.contains(monthKey)) {
-      return;
-    }
+    await ref
+        .read(calendarRangeProvider.notifier)
+        .ensureMonthLoaded(focusedMonth);
+    if (!mounted) return;
 
-    // 로딩 중이면 스킵
-    if (_isLoading) {
-      return;
-    }
-
+    final loaded_work_shifts = ref
+        .read(calendarRangeProvider)
+        .work_shifts_by_date;
     setState(() {
-      _isLoading = true;
+      for (final entry in loaded_work_shifts.entries) {
+        if (!_is_shift_add_mode || !_schedules.containsKey(entry.key)) {
+          _schedules[entry.key] = entry.value.shiftTypeCode;
+        }
+      }
     });
+  }
 
-    try {
-      final calendarService = ref.read(calendarServiceProvider);
+  void _showCalendarRangeError(CalendarRangeState next) {
+    final error = next.last_error;
+    if (error == null || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showErrorDialog(_getErrorMessage(error));
+    });
+  }
 
-      // 3달 범위 계산
-      final range = calendarService.calculateThreeMonthRange(focusedMonth);
-
-      // 통합 캘린더 API로 한 번에 데이터 조회
-      final response = await calendarService.getCalendarRange(
-        startDate: range.startDate,
-        endDate: range.endDate,
-      );
-
-      if (mounted) {
-        setState(() {
-          // 근무표 데이터 병합
-          for (final workShift in response.data.workShifts) {
-            final normalizedDate = _normalizeDate(workShift.workDate);
-            _workShifts[normalizedDate] = workShift;
-            _schedules[normalizedDate] = workShift.shiftTypeCode;
-            _work_shift_ids[normalizedDate] = workShift.workShiftId;
-          }
-
-          // 일정 데이터 병합
-          for (final event in response.data.events) {
-            addEventToCalendarDateMap(_events, event);
-          }
-
-          // 로드된 월 추가
-          final prevMonthKey = _getMonthKey(range.startDate);
-          final currentMonthKey = _getMonthKey(focusedMonth);
-          final nextMonthKey = _getMonthKey(range.endDate);
-          _loadedMonths.add(prevMonthKey);
-          _loadedMonths.add(currentMonthKey);
-          _loadedMonths.add(nextMonthKey);
-
-          _isLoading = false;
-        });
+  void _syncSchedulesFromRange(CalendarRangeState next) {
+    if (!mounted) return;
+    setState(() {
+      for (final entry in next.work_shifts_by_date.entries) {
+        if (!_is_shift_add_mode || !_schedules.containsKey(entry.key)) {
+          _schedules[entry.key] = entry.value.shiftTypeCode;
+        }
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        _showErrorDialog(_getErrorMessage(e));
-      }
+    });
+  }
+
+  bool _hasRangeChanged(CalendarRangeState? previous, CalendarRangeState next) {
+    return !identical(previous?.work_shifts_by_date, next.work_shifts_by_date);
+  }
+
+  bool _hasRangeErrorChanged(
+    CalendarRangeState? previous,
+    CalendarRangeState next,
+  ) {
+    return next.last_error != null &&
+        previous?.error_revision != next.error_revision;
+  }
+
+  void _onCalendarRangeChanged(
+    CalendarRangeState? previous,
+    CalendarRangeState next,
+  ) {
+    if (_hasRangeChanged(previous, next)) {
+      _syncSchedulesFromRange(next);
+    }
+    if (_hasRangeErrorChanged(previous, next)) {
+      _showCalendarRangeError(next);
     }
   }
 
@@ -190,30 +176,42 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   String? _getScheduleForDay(DateTime day) {
     final normalizedDate = _normalizeDate(day);
     return _schedules[normalizedDate] ??
-        _workShifts[normalizedDate]?.shiftTypeCode;
+        ref
+            .read(calendarRangeProvider)
+            .workShiftFor(normalizedDate)
+            ?.shiftTypeCode;
   }
 
   /// 선택된 날짜의 서버 근무표 반환
   WorkShiftApiModel? _getWorkShiftForDay(DateTime day) {
-    return _workShifts[_normalizeDate(day)];
+    return ref.read(calendarRangeProvider).workShiftFor(day);
   }
 
   void _applyShiftTypeDisplayUpdate(ShiftTypeDisplayUpdate update) {
-    final affected_work_shifts = _workShifts.entries
+    final affected_work_shifts = ref
+        .read(calendarRangeProvider)
+        .work_shifts_by_date
+        .entries
         .where((entry) => entry.value.shiftTypeCode == update.previous_code)
         .toList();
     if (affected_work_shifts.isEmpty || !mounted) return;
 
     final updated_type = update.updated_type;
-    setState(() {
-      for (final entry in affected_work_shifts) {
-        _workShifts[entry.key] = entry.value.copyWithShiftType(
+    final updated_work_shifts = [
+      for (final entry in affected_work_shifts)
+        entry.value.copyWithShiftType(
           shift_type_code: updated_type.code,
           shift_type_name: updated_type.name,
           shift_type_color: updated_type.color,
           start_time: updated_type.startTime,
           end_time: updated_type.endTime,
-        );
+        ),
+    ];
+    ref
+        .read(calendarRangeProvider.notifier)
+        .upsertWorkShifts(updated_work_shifts);
+    setState(() {
+      for (final entry in affected_work_shifts) {
         _schedules[entry.key] = updated_type.code;
       }
     });
@@ -225,34 +223,18 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 이전 달로 이동 가능한지 확인
   bool _canGoToPreviousMonth() {
-    const firstYear = 2000;
-    const firstMonth = 1;
-    final previousMonth = DateTime(
-      _focused_day.year,
-      _focused_day.month - 1,
-      1,
-    );
-    return previousMonth.year > firstYear ||
-        (previousMonth.year == firstYear && previousMonth.month >= firstMonth);
+    return _viewport_controller.canMoveMonth(_focused_day, -1);
   }
 
   /// 다음 달로 이동 가능한지 확인
   bool _canGoToNextMonth() {
-    const lastYear = 2050;
-    const lastMonth = 12;
-    final nextMonth = DateTime(_focused_day.year, _focused_day.month + 1, 1);
-    return nextMonth.year < lastYear ||
-        (nextMonth.year == lastYear && nextMonth.month <= lastMonth);
+    return _viewport_controller.canMoveMonth(_focused_day, 1);
   }
 
   /// 이전 달로 이동
   void _goToPreviousMonth() {
-    if (!_canGoToPreviousMonth()) return;
-    final newFocusedDay = DateTime(
-      _focused_day.year,
-      _focused_day.month - 1,
-      1,
-    );
+    final newFocusedDay = _viewport_controller.monthAt(_focused_day, -1);
+    if (newFocusedDay == null) return;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -268,12 +250,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 다음 달로 이동
   void _goToNextMonth() {
-    if (!_canGoToNextMonth()) return;
-    final newFocusedDay = DateTime(
-      _focused_day.year,
-      _focused_day.month + 1,
-      1,
-    );
+    final newFocusedDay = _viewport_controller.monthAt(_focused_day, 1);
+    if (newFocusedDay == null) return;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -330,8 +308,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       if (mounted) {
         Navigator.pop(context);
         final eventDate = _normalizeDate(event.startAt);
+        ref.read(calendarRangeProvider.notifier).addEvent(event);
         setState(() {
-          addEventToCalendarDateMap(_events, event);
           _selected_day = eventDate;
           _focused_day = eventDate;
         });
@@ -348,6 +326,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(calendarRangeProvider);
+    ref.listen<CalendarRangeState>(
+      calendarRangeProvider,
+      _onCalendarRangeChanged,
+    );
     ref.listen(shiftTypeDisplayUpdatesProvider, (previous, next) {
       for (final entry in next.entries) {
         if (previous?[entry.key] == entry.value) continue;
@@ -378,10 +361,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 bottom: false,
                 child: Column(
                   children: [
-                    // 년/월 헤더
-                    _buildMonthHeader(),
-                    // 캘린더 위젯
-                    _buildCalendar(),
+                    _buildCalendarViewport(),
                     const SizedBox(height: AppTheme.spacing_xs),
                     // 선택된 날짜 정보 및 일정 목록
                     Expanded(child: _buildSelectedDayInfo()),
@@ -454,9 +434,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     );
   }
 
-  /// 년/월 헤더 위젯
-  Widget _buildMonthHeader() {
-    return CalendarMonthHeader(
+  Widget _buildCalendarViewport() {
+    return CalendarViewport(
       focused_day: _focused_day,
       can_go_to_previous_month: _canGoToPreviousMonth(),
       can_go_to_next_month: _canGoToNextMonth(),
@@ -481,6 +460,64 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             color: AppTheme.primary_color,
           ),
         ),
+      ),
+      grid_wrapper: (child) => Listener(
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: child,
+        ),
+      ),
+      month_view: CalendarMonthView<dynamic>(
+        calendar_key: const ValueKey('main-calendar'),
+        focused_day: _focused_day,
+        selected_day: _selected_day,
+        calendar_format: _visibleCalendarFormat,
+        row_height: _calendarRowHeight,
+        cell_layout: _is_expanded_view
+            ? CalendarCellLayout.badge
+            : CalendarCellLayout.compact,
+        day_presentation_builder: _getDayPresentation,
+        holiday_predicate: _isHoliday,
+        available_calendar_formats: const {
+          CalendarFormat.month: '월',
+          CalendarFormat.twoWeeks: '2주',
+          CalendarFormat.week: '주',
+        },
+        onDaySelected: (selected_day, focused_day) {
+          setState(() {
+            _selected_day = selected_day;
+            if (focused_day.month != _focused_day.month ||
+                focused_day.year != _focused_day.year) {
+              SchedulerBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() => _focused_day = focused_day);
+                  _loadCalendarData(focused_day);
+                  _loadHolidays(focused_day.year, month: focused_day.month);
+                }
+              });
+            }
+          });
+        },
+        onFormatChanged: _isShortScreen
+            ? null
+            : (format) {
+                setState(() {
+                  _calendar_format = format;
+                });
+              },
+        onPageChanged: (focused_day) {
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() => _focused_day = focused_day);
+              _loadCalendarData(focused_day);
+              _loadHolidays(focused_day.year, month: focused_day.month);
+            }
+          });
+        },
       ),
     );
   }
@@ -616,11 +653,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           _initial_schedules = null;
           for (final workShift in response.data.workShifts) {
             final normalizedDate = _normalizeDate(workShift.workDate);
-            _workShifts[normalizedDate] = workShift;
             _schedules[normalizedDate] = workShift.shiftTypeCode;
-            _work_shift_ids[normalizedDate] = workShift.workShiftId;
           }
         });
+        ref
+            .read(calendarRangeProvider.notifier)
+            .upsertWorkShifts(response.data.workShifts);
 
         // 성공 메시지 (선택사항)
         showCupertinoDialog(
@@ -667,15 +705,18 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     if (selectedDay == null) return false;
 
     final normalizedDate = _normalizeDate(selectedDay);
-    final workShiftId = _work_shift_ids[normalizedDate];
+    final workShiftId = ref
+        .read(calendarRangeProvider)
+        .workShiftFor(normalizedDate)
+        ?.workShiftId;
 
     // work_shift_id가 없으면 로컬에만 있는 데이터 (서버에 저장 안 됨)
     if (workShiftId == null) {
       // 로컬에서만 삭제
       setState(() {
         _schedules.remove(normalizedDate);
-        _workShifts.remove(normalizedDate);
       });
+      ref.read(calendarRangeProvider.notifier).removeWorkShift(normalizedDate);
       return true;
     }
 
@@ -687,9 +728,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       // 성공 시 로컬 상태에서도 삭제
       setState(() {
         _schedules.remove(normalizedDate);
-        _workShifts.remove(normalizedDate);
-        _work_shift_ids.remove(normalizedDate);
       });
+      ref.read(calendarRangeProvider.notifier).removeWorkShift(normalizedDate);
 
       return true;
     } catch (e) {
@@ -794,7 +834,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     });
   }
 
-  CalendarDayBadgeData? _getDayBadge(DateTime date) {
+  CalendarDayPresentation _getDayPresentation(DateTime date) {
     final work_shift = _getWorkShiftForDay(date);
     final shift_type = _getScheduleForDay(date);
     final shift_types_map = _is_shift_add_mode
@@ -812,8 +852,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         ? edit_shift_info?.color ??
               (work_shift == null ? null : _getWorkShiftColor(work_shift))
         : (work_shift == null ? null : _getWorkShiftColor(work_shift));
-    if (badge_text == null || badge_color == null) return null;
-    return CalendarDayBadgeData(text: badge_text, color: badge_color);
+    final indicator = badge_text == null || badge_color == null
+        ? null
+        : _is_expanded_view
+        ? CalendarBadgeIndicator(text: badge_text, color: badge_color)
+        : CalendarDotsIndicator(colors: [badge_color], dot_size: 8);
+    return CalendarDayPresentation(
+      date_color: _getCalendarDateColor(date),
+      indicator: indicator,
+    );
   }
 
   Color _getCalendarDateColor(DateTime date) {
@@ -862,108 +909,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     _pointer_start_y = null;
   }
 
-  /// 캘린더 위젯
-  Widget _buildCalendar() {
-    return Listener(
-      onPointerDown: _onPointerDown,
-      onPointerMove: _onPointerMove,
-      onPointerUp: _onPointerUp,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification ||
-              notification is ScrollStartNotification) {
-            return true;
-          }
-          return false;
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          child: CalendarMonthView(
-            calendar_key: const ValueKey('main-calendar'),
-            focused_day: _focused_day,
-            selected_day: _selected_day,
-            calendar_format: _visibleCalendarFormat,
-            row_height: _calendarRowHeight,
-            date_color_builder: _getCalendarDateColor,
-            day_badge_builder: _getDayBadge,
-            show_day_badge: _is_expanded_view,
-            holiday_predicate: _isHoliday,
-            available_calendar_formats: const {
-              CalendarFormat.month: '월',
-              CalendarFormat.twoWeeks: '2주',
-              CalendarFormat.week: '주',
-            },
-            onDaySelected: (selected_day, focused_day) {
-              setState(() {
-                _selected_day = selected_day;
-                if (focused_day.month != _focused_day.month ||
-                    focused_day.year != _focused_day.year) {
-                  SchedulerBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      setState(() => _focused_day = focused_day);
-                      _loadCalendarData(focused_day);
-                      _loadHolidays(focused_day.year, month: focused_day.month);
-                    }
-                  });
-                }
-              });
-            },
-            onFormatChanged: _isShortScreen
-                ? null
-                : (format) {
-                    setState(() {
-                      _calendar_format = format;
-                    });
-                  },
-            onPageChanged: (focused_day) {
-              SchedulerBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() => _focused_day = focused_day);
-                  _loadCalendarData(focused_day);
-                  _loadHolidays(focused_day.year, month: focused_day.month);
-                }
-              });
-            },
-            marker_builder: (context, date, events) {
-              if (_is_expanded_view) return null;
-
-              if (_is_shift_add_mode) {
-                final shift_type = _getScheduleForDay(date);
-                if (shift_type != null && shift_type.isNotEmpty) {
-                  return Positioned(
-                    bottom: 2,
-                    child: ShiftBadge(shift_type: shift_type, size: 8),
-                  );
-                }
-                return null;
-              }
-
-              final work_shift = _getWorkShiftForDay(date);
-              if (work_shift == null) return null;
-              return Positioned(
-                bottom: 0,
-                child: _buildWorkShiftDot(work_shift, size: 8),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 근무표 색상 점 위젯
-  Widget _buildWorkShiftDot(WorkShiftApiModel workShift, {double size = 16}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: _getWorkShiftColor(workShift),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
   /// 선택된 날짜 정보 위젯 (스케줄 화면 + 근무 설정 overlay)
   Widget _buildSelectedDayInfo() {
     // 스케줄 화면 (근무 추가 모드가 아닐 때만 표시)
@@ -983,7 +928,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         ? KoreanHolidays.getHolidayName(selectedDate) ?? '공휴일'
         : null;
 
-    final dayEvents = _events[normalizedDate] ?? [];
+    final dayEvents = ref.read(calendarRangeProvider).eventsFor(normalizedDate);
 
     return CalendarScheduleCard(
       key: const ValueKey('calendar-schedule-card'),
@@ -1147,8 +1092,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   Widget _buildShiftAddCompleteButton() {
     return SizedBox(
-      height: 36,
+      height: 28,
       child: CupertinoButton(
+        minimumSize: const Size(44, 28),
         padding: const EdgeInsets.symmetric(horizontal: 14),
         color: AppTheme.primary_color,
         borderRadius: BorderRadius.circular(AppTheme.radius_md),

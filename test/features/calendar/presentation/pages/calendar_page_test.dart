@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
@@ -16,6 +17,7 @@ import 'package:shift_mate/features/calendar/data/services/calendar_service.dart
 import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
 import 'package:shift_mate/features/calendar/presentation/pages/calendar_page.dart';
 import 'package:shift_mate/features/calendar/presentation/providers/shift_types_provider.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/calendar_schedule_card.dart';
 import 'package:shift_mate/features/friend/data/services/friend_service.dart';
 import 'package:shift_mate/features/friend/data/services/notification_service.dart';
 import 'package:shift_mate/features/friend/presentation/providers/notification_provider.dart';
@@ -270,19 +272,30 @@ void main() {
     final title_content = find.byKey(
       const ValueKey('selected-day-title-content'),
     );
-    final selected_date =
-        '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final schedule_count_chip = find.byKey(
+      const ValueKey('selected-day-schedule-count'),
+    );
+    final selected_date = DateFormat('M월 d일 EEEE', 'ko_KR').format(now);
 
     expect(header, findsOneWidget);
     expect(tester.widget(header), isA<Row>());
+    expect(
+      tester.getSize(find.byKey(const ValueKey('selected-day-header'))).height,
+      44.5,
+    );
     expect(
       tester.widget<Row>(title_content).crossAxisAlignment,
       CrossAxisAlignment.end,
     );
     expect(
-      tester.getCenter(find.text(selected_date)).dy,
-      closeTo(tester.getCenter(find.text('1개의 일정')).dy, 0.1),
+      tester.widget<CalendarScheduleSummaryChip>(schedule_count_chip).label,
+      '일정 1개',
     );
+    expect(
+      tester.getBottomLeft(find.text(selected_date)).dy,
+      closeTo(tester.getBottomLeft(schedule_count_chip).dy, 0.1),
+    );
+    expect(find.text('1개의 일정'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -408,8 +421,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    final formatted_date =
-        '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final formatted_date = DateFormat('M월 d일 EEEE', 'ko_KR').format(now);
     final header = find.byKey(const ValueKey('selected-day-header'));
     final date_text = find.text(formatted_date);
     final holiday_name = find.byKey(

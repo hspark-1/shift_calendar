@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
 import 'package:shift_mate/core/utils/korean_holidays.dart';
@@ -352,7 +353,12 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('박현서'), findsOneWidget);
     expect(find.text('friend@example.com'), findsNothing);
-    expect(find.text('2개의 일정'), findsOneWidget);
+    expect(find.text('일정 2개'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('selected-day-header'))).height,
+      44.5,
+    );
+    expect(find.text('2개의 일정'), findsNothing);
     expect(find.text('데이'), findsOneWidget);
     expect(find.text('06:30 ~ 15:00'), findsOneWidget);
     expect(find.text('개인 일정'), findsOneWidget);
@@ -478,9 +484,7 @@ void main() {
     expect(isSameDay(today_calendar.focusedDay, selected_date), isTrue);
     expect(today_calendar.selectedDayPredicate!(selected_date), isTrue);
     expect(
-      find.text(
-        '${selected_date.year}.${selected_date.month.toString().padLeft(2, '0')}.${selected_date.day.toString().padLeft(2, '0')}',
-      ),
+      find.text(DateFormat('M월 d일 EEEE', 'ko_KR').format(selected_date)),
       findsOneWidget,
     );
 

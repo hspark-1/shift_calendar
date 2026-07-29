@@ -2,6 +2,51 @@
 
 ## 2026-07-29
 
+- [DONE] (UI) 메인·친구 선택일 헤더를 그룹 보기와 정렬
+  - 목적: 메인·친구 캘린더의 선택일 날짜 영역 높이와 일정 수 표현을 그룹 보기와 같은 시각 규칙으로 맞춘다.
+  - 변경: 공용 `CalendarScheduleHeader`를 그룹 헤더와 같은 본문 44px 높이(세로 8px 여백 + 28px 콘텐츠, 0.5px 구분선 포함 실측 44.5px)로 조정했다. `N개의 일정` 일반 문구는 `CalendarScheduleSummaryChip`을 사용한 `일정 N개` pill로 교체하고, 일정이 없는 날도 `일정 0개`를 표시한다. 메인 근무 입력의 `완료` 버튼도 28px 콘텐츠 높이로 맞췄으며, 그룹의 `근무 N명`·`일정 N개`는 전용 중복 구현 대신 같은 공용 pill을 사용한다.
+  - 영향범위: 메인 일정 카드, 메인 근무 입력 카드, 친구 일정 카드, 그룹 선택일 요약 pill과 관련 테스트·문서. Behavior change: 메인·친구 선택일 헤더가 60px에서 44.5px로 줄고 일정 수가 pill로 표시되며, 근무 입력 `완료` 버튼은 36px에서 28px로 줄어든다. 데이터/API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`, `lib/features/calendar/presentation/pages/calendar_page.dart`, `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, 메인·친구·그룹 캘린더 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 메인·친구·그룹 캘린더 위젯 테스트 23건과 전체 Flutter 테스트 107건이 통과했다. 세 화면의 선택일 헤더 실측 높이 44.5px, `일정 N개` 문구, 공용 그룹 요약 pill을 검증했다. 변경 코드·테스트 `flutter analyze` 진단 0건, `dart format`, `git diff --check`가 통과했다.
+  - 롤백: 공용 헤더의 60px 구조와 `N개의 일정` 문구, 그룹 전용 요약 pill 구현을 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 긴 날짜·공휴일명과 일정 pill, 근무 입력 `완료` 버튼이 좁은 화면에서도 자연스럽게 배치되는지 확인한다.
+
+- [DONE] (UI) 메인·친구 선택일 날짜 형식을 그룹 보기와 통일
+  - 목적: 세 캘린더 하단 상세 헤더가 동일한 한국어 날짜 표현을 사용하게 한다.
+  - 변경: 공용 `CalendarScheduleHeader`의 `yyyy.MM.dd` 형식을 그룹 보기와 같은 `M월 d일 EEEE`로 변경하고, 메인·친구 캘린더 테스트 기대값을 같은 형식으로 갱신했다.
+  - 영향범위: 메인 일정 카드, 메인 근무 입력 카드, 친구 일정 카드의 선택일 날짜 문자열과 관련 테스트·문서. Behavior change: 선택일이 `7월 29일 수요일` 형태로 표시된다. 데이터/API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`, 메인·친구 캘린더 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 메인·친구·그룹 캘린더 위젯 테스트 23건과 전체 Flutter 테스트 107건이 통과했다. 변경 코드·테스트 `flutter analyze` 진단 0건, `dart format`, `git diff --check`가 통과했다.
+  - 롤백: 공용 헤더 날짜 포맷을 `yyyy.MM.dd`로 복원한다.
+  - 다음: 실제 기기에서 긴 요일 이름과 우측 일정 수/근무 액션이 좁은 화면에서도 자연스럽게 배치되는지 확인한다.
+
+- [DONE] (UI) 그룹 선택일 헤더 보조 문구 제거
+  - 목적: 그룹 하단 일정 영역의 헤더를 날짜와 근무·일정 요약에 집중하도록 간결하게 만든다.
+  - 변경: `선택일 근무 현황` 문구와 그 아래 2px 간격을 제거해 날짜가 헤더의 단일 제목으로 표시되게 했다.
+  - 영향범위: 그룹 캘린더 선택일 상세 헤더와 관련 테스트·문서. Behavior change: 하단 카드 헤더에는 날짜와 근무·일정 요약만 표시된다. 데이터/API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 그룹 미리보기 테스트 8건 통과, 변경 코드·테스트 `flutter analyze` 진단 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: 선택일 날짜 위에 보조 문구와 2px 간격을 복원한다.
+  - 다음: 실제 기기에서 날짜와 우측 요약 chip의 수직 정렬을 확인한다.
+
+- [DONE] (UI) 그룹 캘린더 배경·하단 일정 영역 패밀리룩 정렬
+  - 목적: 메인·친구 캘린더처럼 달력을 페이지 배경색에 자연스럽게 연결하고, 선택일 구성원 일정 목록은 별도 surface 영역으로 분리한다.
+  - 변경: 그룹 달력의 흰색 전용 surface와 하단 border를 제거해 페이지 `background_color`에 직접 배치했다. 캘린더와 선택일 상세 사이는 8px로 맞추고, 선택일 헤더·요약 chip·구성원 스크롤 목록을 좌우 16px 여백, 흰색 surface, 16px 반경, 1px outline의 단일 카드 영역으로 묶었다. 헤더와 목록은 0.5px 선으로 구분하고 카드 하단에는 시스템 안전영역을 포함한 최소 16px 여백을 적용했다.
+  - 영향범위: 그룹 캘린더 미리보기의 달력 배경, 캘린더와 선택일 상세 사이 간격, 하단 목록 외곽 영역과 관련 위젯 테스트·문서. Behavior change: 달력은 흰색 구획이 아니라 페이지 배경과 이어지고, 하단 선택일 정보는 독립된 카드 영역으로 보인다. 데이터 생성/API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`, `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 그룹 미리보기 테스트 8건과 전체 Flutter 테스트 107건이 통과했다. 변경 코드·테스트 `flutter analyze` 진단 0건과 `dart format`이 통과했으며, 달력 배경색/무경계, 하단 surface 카드의 색·반경·outline, 헤더 구분선, 하단 16px 안전 여백을 검증했다.
+  - 롤백: 그룹 달력의 흰색 surface·하단 border와 카드 밖 선택일 헤더/구성원 목록 구조를 복원한다.
+  - 다음: 실제 iOS/Android 기기에서 5·6주 월의 카드 높이와 홈 인디케이터 위 목록 스크롤을 확인한다.
+
+- [DONE] (REFACTOR) 메인·친구·그룹 캘린더 공통화
+  - 목적: 세 캘린더의 날짜 탐색·반응형 레이아웃·날짜 셀 렌더링을 공통 컴포넌트로 통합하고, 메인·친구의 중복된 3개월 조회 캐시를 공용 상태로 분리한다.
+  - 변경: `CalendarDayPresentation`과 badge/dots indicator, 750px 반응형 `CalendarLayoutPolicy`, 2000.01~2050.12 월 이동 `CalendarViewportController`, 공용 연월 헤더·수평 알림 경계·날짜 셀을 조합한 `CalendarViewport`/`CalendarMonthView`를 추가하고 세 화면을 이전했다. 메인·친구의 전월~다음월 조회·날짜별 병합·월별 in-flight/loaded/loading·오류 상태·로컬 mutation 반영은 loader 주입형 `CalendarRangeNotifier`로 통합했다. 메인은 본인 range provider, 친구는 friend ID family provider를 사용하고 로그인/로그아웃 시 계정 범위 캐시를 무효화한다. 메인 편집 draft, 친구 설정, 그룹 구성원 상세와 실제 API가 없는 그룹 더미 데이터는 화면별 책임으로 유지했으며 설계는 ADR-0016에 기록했다.
+  - 영향범위: 메인·친구·그룹 캘린더의 프레젠테이션, 메인·친구 캘린더 조회/캐시 상태, 인증 전환 시 캐시 무효화, 관련 테스트·아키텍처 문서. 외부 화면 동작과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/calendar/application/calendar_range_state.dart`, `calendar_range_notifier.dart`, `lib/features/calendar/presentation/controllers/calendar_viewport_controller.dart`, `models/calendar_day_presentation.dart`, `models/calendar_layout_policy.dart`, `providers/calendar_range_provider.dart`, `widgets/calendar_viewport.dart`, `widgets/calendar_month_view.dart`, 메인·친구·그룹 페이지, `friend_calendar_range_provider.dart`, `auth_provider.dart`, 신규 단위 테스트 3개, 기존 세 화면 테스트, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 공용 range notifier 3건, viewport controller 3건, layout policy 2건과 세 캘린더 위젯 테스트 23건을 묶은 31건이 통과했다. 전체 Flutter 테스트 107건, 변경 대상 17개 경로 `flutter analyze` 진단 0건, `dart format`, `git diff --check`가 통과했다. 프로젝트 전체 분석은 이번 변경 밖의 기존 네이밍 lint·미사용 요소·생성 코드 ignore·deprecated API 등 96건으로 종료 코드 1이며 변경 대상 진단은 없다.
+  - 롤백: 신규 공용 application/controller/model/viewport/provider와 ADR-0016을 제거하고, 메인·친구의 로컬 3개월 맵·로딩 집합 및 세 페이지의 기존 헤더/날짜 셀 구현을 복원한다. 인증 provider의 두 range 무효화와 신규 단위 테스트·문서도 함께 되돌린다.
+  - 다음: 실제 iOS/Android 기기에서 빠른 연속 월 스와이프, 요청 실패 후 재시도, 메인 compact↔badge 전환과 그룹 5·6주 월을 확인한다. 실제 그룹 API 계약이 확정되면 멤버 ID를 포함한 별도 aggregate state 필요 여부를 ADR-0016 기준으로 재평가한다.
+
 - [DONE] (FE) 그룹 뷰 디자인 개선
   - 목적: `design/group_view ver2` 참고 시안의 캘린더·오늘 상태 정보 계층을 현재 ShiftMate의 Shift Harmony 패밀리룩에 맞게 그룹 캘린더 미리보기에 반영한다.
   - 변경: 중복된 상단 멤버 섹션을 제거하고 내비게이션에 `우리 병동`과 `4명` 요약을 배치했다. 메인·친구 캘린더의 공용 `CalendarMonthHeader`를 재사용하고, 둥근 outline 캘린더 카드와 셀별 `N명 근무` 문구를 full-width 흰색 surface 및 실제 근무색 점 최대 4개로 교체했다. 오늘은 공통 primary 밑줄, 선택일은 8% primary tint와 2px primary dark outline을 사용하며 선택된 주말의 의미 색상을 유지한다. 선택일 헤더는 날짜와 `근무 N명`·`일정 N개` chip으로 정리했다. 구성원 카드는 16px surface 카드, 멤버 고유색 아바타, 근무색 왼쪽 바·점·코드 배지와 이름→근무명·시간→개인 일정 순서로 재구성했다.

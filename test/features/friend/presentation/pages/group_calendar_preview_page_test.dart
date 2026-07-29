@@ -120,7 +120,7 @@ void main() {
           .calendarFormat,
       CalendarFormat.month,
     );
-    expect(find.text('선택일 근무 현황'), findsOneWidget);
+    expect(find.text('선택일 근무 현황'), findsNothing);
     expect(find.text('근무 4명'), findsOneWidget);
     expect(find.text('일정 2개'), findsOneWidget);
     expect(
@@ -131,9 +131,55 @@ void main() {
     final calendar_section = tester.widget<Container>(
       find.byKey(const ValueKey('group-preview-calendar-section')),
     );
-    final calendar_decoration = calendar_section.decoration! as BoxDecoration;
-    expect(calendar_decoration.color, AppTheme.surface_color);
-    expect(calendar_decoration.border, isNotNull);
+    expect(calendar_section.color, AppTheme.background_color);
+    expect(calendar_section.decoration, isNull);
+
+    final selected_day_detail = tester.widget<Container>(
+      find.byKey(const ValueKey('group-preview-selected-day-detail')),
+    );
+    final selected_day_decoration =
+        selected_day_detail.decoration! as BoxDecoration;
+    expect(selected_day_decoration.color, AppTheme.surface_color);
+    expect(
+      selected_day_decoration.borderRadius,
+      BorderRadius.circular(AppTheme.card_radius),
+    );
+    expect(selected_day_decoration.border, isNotNull);
+    expect(
+      find.byKey(const ValueKey('group-preview-selected-day-header')),
+      findsOneWidget,
+    );
+    final selected_day_header = tester.widget<Container>(
+      find.byKey(const ValueKey('group-preview-selected-day-header')),
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('group-preview-selected-day-header')),
+          )
+          .height,
+      44.5,
+    );
+    expect(
+      find.byKey(const ValueKey('group-preview-working-count-chip')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('group-preview-event-count-chip')),
+      findsOneWidget,
+    );
+    final selected_day_header_decoration =
+        selected_day_header.decoration! as BoxDecoration;
+    expect(selected_day_header_decoration.border?.bottom.width, 0.5);
+    expect(
+      800 -
+          tester
+              .getBottomRight(
+                find.byKey(const ValueKey('group-preview-selected-day-detail')),
+              )
+              .dy,
+      greaterThanOrEqualTo(AppTheme.spacing_md),
+    );
 
     final selected_cell = tester.widget<AnimatedContainer>(
       find.byKey(const ValueKey('group-selection-2026-01-01')),

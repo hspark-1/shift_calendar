@@ -5,13 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/theme/app_theme.dart';
-
-class CalendarDayBadgeData {
-  const CalendarDayBadgeData({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-}
+import '../models/calendar_day_presentation.dart';
 
 class CalendarMonthHeader extends StatelessWidget {
   const CalendarMonthHeader({
@@ -93,7 +87,7 @@ class CalendarMonthHeader extends StatelessWidget {
   }
 }
 
-class CalendarMonthView extends StatelessWidget {
+class CalendarMonthView<T> extends StatelessWidget {
   const CalendarMonthView({
     super.key,
     required this.calendar_key,
@@ -101,9 +95,8 @@ class CalendarMonthView extends StatelessWidget {
     required this.selected_day,
     required this.calendar_format,
     required this.row_height,
-    required this.date_color_builder,
-    required this.day_badge_builder,
-    required this.show_day_badge,
+    required this.day_presentation_builder,
+    required this.cell_layout,
     required this.onDaySelected,
     required this.onPageChanged,
     this.holiday_predicate,
@@ -113,7 +106,9 @@ class CalendarMonthView extends StatelessWidget {
       CalendarFormat.twoWeeks: '2주',
       CalendarFormat.week: '주',
     },
-    this.marker_builder,
+    this.day_key_prefix,
+    this.selection_key_prefix,
+    this.days_of_week_height = 32,
   });
 
   final DateTime focused_day;
@@ -121,20 +116,21 @@ class CalendarMonthView extends StatelessWidget {
   final DateTime? selected_day;
   final CalendarFormat calendar_format;
   final double row_height;
-  final Color Function(DateTime date) date_color_builder;
-  final CalendarDayBadgeData? Function(DateTime date) day_badge_builder;
-  final bool show_day_badge;
+  final CalendarDayPresentationBuilder day_presentation_builder;
+  final CalendarCellLayout cell_layout;
   final bool Function(DateTime day)? holiday_predicate;
   final void Function(DateTime selected_day, DateTime focused_day)
   onDaySelected;
   final void Function(DateTime focused_day) onPageChanged;
   final void Function(CalendarFormat format)? onFormatChanged;
   final Map<CalendarFormat, String> available_calendar_formats;
-  final MarkerBuilder<dynamic>? marker_builder;
+  final String? day_key_prefix;
+  final String? selection_key_prefix;
+  final double days_of_week_height;
 
   @override
   Widget build(BuildContext context) {
-    return TableCalendar<dynamic>(
+    return TableCalendar<T>(
       key: calendar_key,
       firstDay: DateTime.utc(2000, 1, 1),
       lastDay: DateTime.utc(2050, 12, 31),
@@ -142,7 +138,7 @@ class CalendarMonthView extends StatelessWidget {
       calendarFormat: calendar_format,
       locale: 'ko_KR',
       headerVisible: false,
-      daysOfWeekHeight: 32,
+      daysOfWeekHeight: days_of_week_height,
       rowHeight: row_height,
       availableCalendarFormats: available_calendar_formats,
       availableGestures: AvailableGestures.horizontalSwipe,
@@ -171,7 +167,7 @@ class CalendarMonthView extends StatelessWidget {
         ),
         defaultTextStyle: const TextStyle(color: AppTheme.on_surface_color),
       ),
-      calendarBuilders: CalendarBuilders<dynamic>(
+      calendarBuilders: CalendarBuilders<T>(
         dowBuilder: (context, day) {
           final text_color = day.weekday == DateTime.sunday
               ? AppTheme.accent_red_color
@@ -192,49 +188,50 @@ class CalendarMonthView extends StatelessWidget {
             ? null
             : (context, date, focused_day) => _buildDayCell(
                 date: date,
-                text_color: date_color_builder(date),
+                presentation: day_presentation_builder(date),
                 is_outside:
                     date.year != focused_day.year ||
                     date.month != focused_day.month,
               ),
-        defaultBuilder: (context, date, focused_day) =>
-            _buildDayCell(date: date, text_color: date_color_builder(date)),
+        defaultBuilder: (context, date, focused_day) => _buildDayCell(
+          date: date,
+          presentation: day_presentation_builder(date),
+        ),
         outsideBuilder: (context, date, focused_day) => _buildDayCell(
           date: date,
-          text_color: date_color_builder(date),
+          presentation: day_presentation_builder(date),
           is_outside: true,
         ),
         todayBuilder: (context, date, focused_day) => _buildDayCell(
           date: date,
-          text_color: date_color_builder(date),
+          presentation: day_presentation_builder(date),
           is_today: true,
         ),
         selectedBuilder: (context, date, focused_day) => _buildDayCell(
           date: date,
-          text_color: date_color_builder(date),
+          presentation: day_presentation_builder(date),
           is_today: isSameDay(date, DateTime.now()),
           is_selected: true,
+          is_outside:
+              date.year != focused_day.year || date.month != focused_day.month,
         ),
-        markerBuilder: marker_builder,
       ),
     );
   }
 
   Widget _buildDayCell({
     required DateTime date,
-    required Color text_color,
+    required CalendarDayPresentation presentation,
     bool is_today = false,
     bool is_selected = false,
     bool is_outside = false,
   }) {
-    final badge = show_day_badge ? day_badge_builder(date) : null;
-    final selection_box_size = show_day_badge ? 58.0 : 48.0;
-    final selection_box_offset_y = show_day_badge ? 4.0 : 8.0;
+    final layout = _CellLayoutMetrics.from(cell_layout);
     final outside_alpha = is_outside ? 0.4 : 1.0;
     final date_text = Text(
       '${date.day}',
       style: TextStyle(
-        color: text_color.withValues(alpha: outside_alpha),
+        color: presentation.date_color.withValues(alpha: outside_alpha),
         fontSize: 14,
         fontWeight: is_selected || is_today
             ? FontWeight.w700
@@ -262,35 +259,26 @@ class CalendarMonthView extends StatelessWidget {
             ),
           )
         : date_text;
-    final cell_content = show_day_badge
-        ? Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 28, child: Center(child: date_indicator)),
-              const SizedBox(height: 2),
-              SizedBox(
-                height: 16,
-                child: badge == null
-                    ? null
-                    : _CalendarDayBadge(badge: badge, opacity: outside_alpha),
-              ),
-            ],
-          )
-        : Center(child: date_indicator);
-
-    return SizedBox.expand(
+    final cell_content = _buildCellContent(
+      date: date,
+      date_indicator: date_indicator,
+      indicator: presentation.indicator,
+      outside_alpha: outside_alpha,
+    );
+    final cell = SizedBox.expand(
+      key: _dateKey(day_key_prefix, date),
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
           Transform.translate(
-            offset: Offset(0, selection_box_offset_y),
+            offset: Offset(0, layout.selection_box_offset_y),
             child: AnimatedContainer(
+              key: _dateKey(selection_key_prefix, date),
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeInOut,
-              width: is_selected ? selection_box_size : 0,
-              height: is_selected ? selection_box_size : 0,
+              width: is_selected ? layout.selection_box_size : 0,
+              height: is_selected ? layout.selection_box_size : 0,
               decoration: BoxDecoration(
                 color: is_selected
                     ? AppTheme.primary_color.withValues(alpha: 0.08)
@@ -311,13 +299,109 @@ class CalendarMonthView extends StatelessWidget {
         ],
       ),
     );
+
+    final semantic_label = presentation.semantic_label;
+    if (semantic_label == null) return cell;
+    return Semantics(label: semantic_label, button: true, child: cell);
+  }
+
+  Widget _buildCellContent({
+    required DateTime date,
+    required Widget date_indicator,
+    required CalendarDayIndicator? indicator,
+    required double outside_alpha,
+  }) {
+    if (cell_layout == CalendarCellLayout.compact) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          Center(child: date_indicator),
+          if (indicator != null)
+            Positioned(
+              bottom: 0,
+              child: _buildIndicator(date, indicator, outside_alpha),
+            ),
+        ],
+      );
+    }
+
+    final indicator_height = cell_layout == CalendarCellLayout.badge
+        ? 16.0
+        : 8.0;
+    final vertical_gap = cell_layout == CalendarCellLayout.badge ? 2.0 : 0.0;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: 28, child: Center(child: date_indicator)),
+        SizedBox(height: vertical_gap),
+        SizedBox(
+          key: indicator is CalendarDotsIndicator
+              ? _dateKey('${indicator.key_prefix}-dots', date)
+              : null,
+          height: indicator_height,
+          child: indicator == null
+              ? null
+              : _buildIndicator(date, indicator, outside_alpha),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIndicator(
+    DateTime date,
+    CalendarDayIndicator indicator,
+    double opacity,
+  ) {
+    return switch (indicator) {
+      CalendarBadgeIndicator() => _CalendarDayBadge(
+        badge: indicator,
+        opacity: opacity,
+      ),
+      CalendarDotsIndicator() => Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var index = 0; index < indicator.colors.length; index++) ...[
+            if (index > 0) SizedBox(width: indicator.spacing),
+            Container(
+              key: _dateIndexKey('${indicator.key_prefix}-dot', date, index),
+              width: indicator.dot_size,
+              height: indicator.dot_size,
+              decoration: BoxDecoration(
+                color: indicator.colors[index].withValues(alpha: opacity),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ],
+      ),
+    };
+  }
+
+  Key? _dateKey(String? prefix, DateTime date) {
+    if (prefix == null) return null;
+    return ValueKey(
+      '$prefix-${date.year}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}',
+    );
+  }
+
+  Key? _dateIndexKey(String? prefix, DateTime date, int index) {
+    if (prefix == null) return null;
+    return ValueKey(
+      '$prefix-${date.year}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}-$index',
+    );
   }
 }
 
 class _CalendarDayBadge extends StatelessWidget {
   const _CalendarDayBadge({required this.badge, required this.opacity});
 
-  final CalendarDayBadgeData badge;
+  final CalendarBadgeIndicator badge;
   final double opacity;
 
   @override
@@ -346,4 +430,31 @@ class _CalendarDayBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CellLayoutMetrics {
+  const _CellLayoutMetrics({
+    required this.selection_box_size,
+    required this.selection_box_offset_y,
+  });
+
+  factory _CellLayoutMetrics.from(CalendarCellLayout layout) {
+    return switch (layout) {
+      CalendarCellLayout.compact => const _CellLayoutMetrics(
+        selection_box_size: 48,
+        selection_box_offset_y: 8,
+      ),
+      CalendarCellLayout.badge => const _CellLayoutMetrics(
+        selection_box_size: 58,
+        selection_box_offset_y: 4,
+      ),
+      CalendarCellLayout.dots => const _CellLayoutMetrics(
+        selection_box_size: 50,
+        selection_box_offset_y: 3,
+      ),
+    };
+  }
+
+  final double selection_box_size;
+  final double selection_box_offset_y;
 }

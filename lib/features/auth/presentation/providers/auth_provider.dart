@@ -3,8 +3,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../calendar/presentation/providers/calendar_range_provider.dart';
 import '../../../calendar/presentation/providers/shift_template_settings_provider.dart';
 import '../../../calendar/presentation/providers/shift_types_provider.dart';
+import '../../../friend/presentation/providers/friend_calendar_range_provider.dart';
 import '../../../friend/presentation/providers/friend_provider.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
 import '../../data/repositories/auth_repository_impl.dart';
@@ -69,6 +71,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this._repository, this._ref) : super(const AuthState());
 
   void _invalidateAccountScopedProviders() {
+    _ref.invalidate(calendarRangeProvider);
+    _ref.invalidate(friendCalendarRangeProvider);
     _ref.invalidate(shiftTypesProvider);
     _ref.invalidate(shiftTypeDisplayUpdatesProvider);
     _ref.invalidate(effectiveShiftTypesProvider);

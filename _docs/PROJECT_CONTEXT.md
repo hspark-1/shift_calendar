@@ -86,7 +86,8 @@
     오늘은 선택 여부와 관계없이 날짜 의미 색상을 유지한 굵은 날짜 텍스트와 숫자 아래 12x2px
     primary 밑줄로 구분한다. 일요일과 공휴일은 accent red, 토요일은 primary blue를 사용한다.
     우측 상단 `+` 버튼으로 근무 추가 모드에 들어가면 선택일 헤더 아래에 근무 타입 원형
-    버튼을 표시한다. 날짜 헤더 오른쪽에는 36px 높이의 compact `완료` 버튼을 배치하고,
+    버튼을 표시한다. 날짜 헤더 오른쪽에는 공용 헤더 콘텐츠와 같은 28px 높이의 compact `완료`
+    버튼을 배치하고,
     별도 하단 완료 버튼과 근무 타입 수 배지는 표시하지 않는다. 원형 버튼은 한 행 최대 5개,
     최대 2행으로 배치해 타입 1~10개를 내부 스크롤 없이 노출한다. 버튼 안에는 코드와 이름을
     표시하며, 선택 시 해당 타입 색상의 tint와 굵은 outline을 사용한다.
@@ -101,16 +102,47 @@
     다음 날 자동 이동은 `_selected_day`와 `_focused_day`를 함께 갱신해 월/2주 보기의 표시 페이지가
     선택일을 따라가게 하며, 캘린더·공휴일 데이터 추가 조회는 월 경계를 넘을 때만 실행한다.
     근무 설정 카드의 헤더 아래 본문은 12px padding을 사용한다.
-  - `lib/features/calendar/presentation/widgets/calendar_month_view.dart`: 메인·친구 캘린더가
-    함께 사용하는 월 헤더와 `TableCalendar` 표시 위젯. 공통 2000~2050 범위, 한국어 요일,
-    반응형 형식/행 높이 입력, 날짜 의미 색상, 근무 코드 배지, 오늘 밑줄, 선택 primary tint·2px
-    outline을 한 곳에서 렌더링한다. 각 페이지는 조회 상태와 날짜별 색상/배지 데이터,
-    날짜·페이지 선택 콜백, 메인 전용 compact marker만 주입한다. 근무 코드 배지는 저장된 근무
-    색상을 배경으로 유지하고 코드 글자는 해당 배경과 대비되는 공용 전경색을 사용한다.
+  - `lib/features/calendar/application/calendar_range_state.dart`,
+    `calendar_range_notifier.dart`: 메인·친구 캘린더가 공유하는 조회 상태다. 페이지가 주입한
+    loader로 전월 1일~다음월 말일을 조회하고, 월별 loaded/loading 집합과 in-flight Future로
+    동일 월 요청을 합친다. `WorkShiftApiModel`과 `EventApiModel`을 정규화된 날짜 맵에 병합하며
+    생성·근무 저장·삭제 결과를 같은 캐시에 반영한다. 오류는 `last_error`와 증가하는
+    `error_revision`으로 UI에 전달한다. 메인은 `calendarRangeProvider`, 친구는 친구 ID를 키로 한
+    `friendCalendarRangeProvider`를 사용하고 두 Provider 모두 `autoDispose`다.
+  - `lib/features/calendar/presentation/providers/calendar_range_provider.dart`,
+    `lib/features/friend/presentation/providers/friend_calendar_range_provider.dart`: 같은
+    `CalendarRangeNotifier`에 각각 `CalendarService.getCalendarRange()`와
+    `FriendService.getFriendCalendarRange(friend_user_id)` loader를 주입하는 조립 지점이다.
+    페이지는 focused month를 `ensureMonthLoaded()`에 전달하고 state의 `workShiftFor()`와
+    `eventsFor()`만 읽는다. 인증 계정 전환 시 `AuthNotifier`가 두 provider 캐시를 무효화한다.
+  - `lib/features/calendar/presentation/models/calendar_day_presentation.dart`: API/더미 도메인
+    데이터를 날짜 셀이 이해하는 `CalendarDayPresentation`으로 바꾸는 공용 표시 계약이다.
+    단일 근무는 `CalendarBadgeIndicator`, compact 또는 다중 구성원 근무는
+    `CalendarDotsIndicator`로 표현하고, 셀은 `compact`·`badge`·`dots` 레이아웃만 해석한다.
+  - `lib/features/calendar/presentation/models/calendar_layout_policy.dart`,
+    `controllers/calendar_viewport_controller.dart`: 750px 미만 2주 보기, compact 48px,
+    상세 52/56px 규칙과 2000.01~2050.12 월 이동 경계를 한 곳에서 관리한다.
+    focused/selected 날짜를 실제로 변경하고 월 변경 후 API를 요청하는 시점은 각 페이지가 소유한다.
+  - `lib/features/calendar/presentation/widgets/calendar_viewport.dart`,
+    `calendar_month_view.dart`: 메인·친구·그룹 캘린더가 함께 사용하는 연월 헤더, 수평 스크롤
+    알림 경계와 `TableCalendar` 날짜 셀이다. 한국어 요일, 날짜 의미 색상, badge/dots,
+    오늘 밑줄, 선택 primary tint·2px outline을 한 곳에서 렌더링한다. 각 페이지는
+    `CalendarDayPresentation` builder와 날짜·페이지 선택 콜백만 주입하며, 메인의 근무 편집
+    draft와 일정 추가, 친구 설정, 그룹 구성원 상세는 이 공용 위젯에 넣지 않는다.
+    근무 코드 배지는 저장된 근무 색상을 배경으로 유지하고 코드 글자는 해당 배경과 대비되는
+    공용 전경색을 사용한다.
+  - `test/features/calendar/application/calendar_range_notifier_test.dart`,
+    `test/features/calendar/presentation/controllers/calendar_viewport_controller_test.dart`,
+    `test/features/calendar/presentation/models/calendar_layout_policy_test.dart`: 동일 월 요청 병합,
+    3개월 범위·데이터 병합·실패 재시도·mutation 반영, 월 경계와 화면 높이별 형식/행 높이를
+    각각 검증한다. 공용 캘린더 계약을 변경할 때 세 페이지 위젯 테스트와 함께 실행한다.
   - `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`: 메인·친구 캘린더가
     함께 사용하는 선택일 일정 카드. `CalendarScheduleHeader`는 일정 카드와 메인 근무 설정 카드가
-    같은 16px 수평·12px 수직 padding, 36px 콘텐츠 슬롯, 날짜/공휴일 타이포와 0.5px 하단 구분선을
-    사용하게 하며, 일정 수 또는 완료 버튼을 trailing으로 배치한다. 일정 카드는 이 헤더와
+    같은 16px 수평·8px 수직 padding, 28px 콘텐츠 슬롯, 날짜/공휴일 타이포와 0.5px 하단
+    구분선을 사용해 그룹 선택일 헤더와 동일한 44.5px 실측 높이를 유지한다. 선택일은
+    `M월 d일 EEEE` 한국어 형식으로 표시하고 일정 수는 `N개의 일정` 문장 대신
+    `CalendarScheduleSummaryChip`의 `일정 N개` pill로 배치하며, 일정이 없을 때도 `일정 0개`를
+    명시한다. 이 공용 pill은 그룹의 `근무 N명`·`일정 N개`에도 사용한다. 일정 카드는 이 헤더와
     근무·개인 일정 행, 빈 상태를 제공한다. 메인은 근무 삭제 wrapper와 개인 일정 추가 footer를
     주입하고, 친구 캘린더는 기본 읽기 전용 근무 행을 사용한다.
   - `lib/features/calendar/presentation/widgets/shift_type_button.dart`: 근무 타입 선택 버튼 위젯.
@@ -342,6 +374,24 @@ Dio (HTTP Client)
 API Server
 ```
 
+캘린더 조회/표시의 구체 흐름은 다음과 같다.
+
+```
+CalendarPage / FriendCalendarPage
+  → CalendarRangeNotifier(loader)
+  → CalendarService / FriendService
+  → Dio → API
+  → CalendarRangeState
+  → CalendarDayPresentation
+  → CalendarViewport → CalendarMonthView
+```
+
+- 캘린더 UI state인 focused/selected 날짜, 선호 형식, 메인 근무 입력 draft는 페이지가 소유한다.
+- 서버에서 조회한 근무·일정 domain state, 월별 로딩/완료/오류 상태는
+  `CalendarRangeNotifier`가 소유한다.
+- 그룹 미리보기는 실제 API 계약이 없으므로 range provider를 사용하지 않고, 결정적 더미 데이터를
+  `CalendarDayPresentation`으로 변환해 공용 viewport와 날짜 셀만 재사용한다.
+
 **에러 처리 흐름**:
 
 ```
@@ -428,11 +478,14 @@ LoginPage
 
 ```
 CalendarPage
+  → calendarRangeProvider
+  → CalendarRangeNotifier.ensureMonthLoaded()
   → CalendarService.getCalendarRange()
   → GET /api/v1/calendar/range
   → CalendarRangeResponse(work_shifts, events)
-  → WorkShiftApiModel / EventApiModel 날짜별 맵
-  → TableCalendar + 선택 날짜 일정 카드
+  → CalendarRangeState 날짜별 맵
+  → CalendarDayPresentation
+  → CalendarViewport + 선택 날짜 일정 카드
 ```
 
 - 메인 캘린더의 저장된 근무표 표시는 서버가 반환한 `WorkShiftApiModel`을 기준으로 한다.
@@ -450,18 +503,18 @@ CalendarPage
   근무 입력 버튼을 최신화한다.
 - 저장된 근무표를 처음 화면에 그릴 때는 `shiftTypesProvider`의 코드별 캐시로 색상/이름/시간을
   재해석하지 않는다. 다만 화면이 유지된 상태에서 근무 타입 수정 응답이 도착하면
-  `CalendarPage`가 수정 전 코드와 일치하는 메모리 `_workShifts`/`_schedules` 항목의
+  `CalendarPage`가 수정 전 코드와 일치하는 `CalendarRangeState`와 편집용 `_schedules` 항목의
   코드·이름·색상·시간만 응답값으로 교체한다.
 - 이 stale 표시는 `SharedPreferences`나 보안 저장소의 영속 로컬 데이터가 원인이 아니다.
-  설정 route 아래에 계속 살아 있는 `CalendarPage`의 `_workShifts`와 이미 조회한 월을 표시하는
-  `_loadedMonths` 메모리 캐시가 수정 응답을 전달받지 못한 것이 원인이다.
+  설정 route 아래에 계속 살아 있는 `CalendarPage`의 range provider 메모리 캐시가 수정 응답을
+  전달받지 못하면 발생하므로, PUT 응답을 notifier의 `upsertWorkShifts()`로 직접 반영한다.
 - 메인 캘린더 근무 추가 모드는 서버 저장 전 `_schedules`에 임시 선택값을 쌓는다.
   진입 시 기존 `CalendarFormat`/확장 상태를 저장하고 월 확장 보기를 활성화하며, 입력 중에는
   확장/축소 드래그를 잠근다. 완료/취소 시 기존 달력 형식과 확장 상태를 복구한다.
   선택일의 원형 버튼에서 근무 타입을 누르면 다음 날로 자동 이동하고, 근무 설정 카드 내부 `완료` 버튼을
   눌렀을 때 변경된 항목만 `WorkShiftService.batchUpsertWorkShifts()`로 저장한다.
 - 로그인/로그아웃으로 계정이 바뀌면 근무 타입, 수정 응답 표시 업데이트, 근무 템플릿 설정,
-  친구, 알림 Provider 캐시를 무효화한다.
+  메인·친구 캘린더 range, 친구, 알림 Provider 캐시를 무효화한다.
 
 ### 개인 일정 생성/표시 흐름
 
@@ -606,8 +659,10 @@ FriendListPage
   `WorkShiftApiModel` 응답 필드를 직접 사용한다.
 - 파일 역할/의존성/사용 예:
   - `lib/features/friend/presentation/pages/friend_calendar_page.dart`: 친구 이름과 설정 진입,
-    화면 높이별 2주/월 읽기 전용 달력 및 선택일 일정 카드를 표시한다. `FriendService`의 공개
-    필터링 결과를 `WorkShiftApiModel`/`EventApiModel`로 렌더링하고 공용 `CalendarMonthView`,
+    화면 높이별 2주/월 읽기 전용 달력 및 선택일 일정 카드를 표시한다.
+    `friendCalendarRangeProvider(friend_user_id)`가 `FriendService`의 서버 공개 필터링 결과를
+    공용 range state로 관리하고 화면은 `WorkShiftApiModel`/`EventApiModel`을
+    `CalendarDayPresentation`으로 변환한다. 공용 `CalendarViewport`, `CalendarMonthView`,
     `CalendarScheduleCard`, `YearMonthPickerSheet`를 사용한다. 메인과 동일한 이벤트 날짜 매핑을
     사용하므로 종일 일정의 배타적 종료일을 중복 표시하지 않는다. 진입·월 이동·오늘 복귀 때
     `KoreanHolidays`의 월별 공용 캐시를 요청해 메인과 같은 공휴일 색상과 이름을 표시한다.
@@ -659,14 +714,18 @@ FriendListPage footer
   그룹명 `우리 병동`과 primary tint의 `4명` 요약만 표시해 중복된 별도 멤버 섹션을 제거한다.
   월 헤더는 메인·친구 캘린더의 공용 `CalendarMonthHeader`를 재사용하고 연/월 선택,
   이전·다음 이동과 `오늘` 액션을 같은 위치·타이포·surface 규칙으로 제공한다.
-- 월/2주 캘린더는 둥근 외곽 카드와 셀 구분선 없이 흰색 full-width surface 섹션으로 표시한다.
+- 월/2주 캘린더는 둥근 외곽 카드와 셀 구분선, 별도 흰색 surface 없이
+  `AppTheme.background_color` 페이지 배경에 직접 표시해 메인·친구 캘린더와 같은 바탕을 사용한다.
   날짜별 `N명 근무` 문구 대신 실제 근무자의 근무색 5px 점을 최대 4개 표시해 7열에서도
   구성원의 근무 분포를 빠르게 비교한다. 선택일은 앱 공통 8% primary tint와 2px primary dark
   outline 사각형, 오늘은 공통 primary 밑줄을 사용한다. 선택된 토요일은 primary blue,
   선택된 일요일은 accent red를 유지한다. HTML 시안에서 설명을 위해 생략한 주차는 실제 Flutter
   달력에서는 생략하지 않는다.
-- 날짜 선택 시 캘린더 아래에 `선택일 근무 현황`과 날짜, `근무 N명`·`일정 N개` 요약 chip을
-  표시하고 하단 목록에 4명의 근무/개인 일정을 표시한다. 각 사람 카드는 흰색 surface,
+- 날짜 선택 시 캘린더와 8px 간격을 두고, 좌우 16px 여백·16px 반경·얇은 outline을 사용한
+  독립된 흰색 surface 영역에 날짜, 공용 `CalendarScheduleSummaryChip`을 사용한
+  `근무 N명`·`일정 N개` 요약 pill 및
+  4명의 근무/개인 일정 목록을 함께 표시한다. 헤더와 스크롤 목록 사이는 0.5px 선으로 구분하고,
+  카드 하단은 시스템 안전영역과 최소 16px 떨어뜨린다. 각 사람 카드는 흰색 surface,
   16px radius와 outline, 4px 근무색 왼쪽 바를 사용한다. 원형 아바타는 멤버 고유색으로
   사람을 구분하고 근무색 점·solid 근무 코드 배지는 당일 근무 타입을 구분한다. 본문은
   이름 → `데이 · 07:00–15:00` 또는 `휴무 · 근무 없음` → 개인 일정 chip 순서로 배치하고,
@@ -680,15 +739,17 @@ FriendListPage footer
     `GroupCalendarPreviewPage`를 연다. 그룹 방 선택은 별도 API를 호출하지 않는다.
   - `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`: 고정 구성원,
     결정적 날짜별 더미 데이터 생성기, 0~4명의 근무색 점 캘린더와 선택일 구성원 상세를 한
-    파일에서 제공한다. 공용 `CalendarMonthHeader`와 `YearMonthPickerSheet`에 의존하며
+    파일에서 제공한다. 더미 날짜 데이터를 `CalendarDotsIndicator`로 변환해 공용
+    `CalendarViewport`·`CalendarMonthView`와 `YearMonthPickerSheet`에 의존하며
+    달력은 페이지 배경에 직접 배치하고 선택일 헤더·구성원 목록만 공용 카드 토큰으로 영역화한다.
     `FriendListPage`의 그룹 방 목록 카드가 이 화면을 연다. 실제 그룹 계약이 마련되면 데이터
-    생성기를 application/data 계층의 조회 결과로 교체하고 화면 컴포넌트는 재사용할 수 있다.
+    생성기만 application/data 계층의 조회 결과로 교체하고 공용 표시 컴포넌트는 유지한다.
   - `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`: 5일 근무
     인원 순환, 하루 2~3개 일정, 근무색 점의 개수·색상, 내비게이션 멤버 수, full-width
-    calendar surface, 선택일 tint/outline과 주말 의미 색상, 구성원 카드의 근무색 바·16px
-    radius·이름/근무 시간/개인 일정 순서, 월/2주 반응형 렌더링, 0명 날짜의 휴무 상세,
-    footer의 친구/그룹 방 양방향 전환, 그룹 방 목록 카드 진입 경로와 390px 화면 오버플로
-    부재를 검증한다.
+    background calendar와 무경계, 하단 선택일 surface 영역의 반경·outline·헤더 구분선·안전 여백,
+    선택일 tint/outline과 주말 의미 색상, 구성원 카드의 근무색 바·16px radius·이름/근무 시간/
+    개인 일정 순서, 월/2주 반응형 렌더링, 0명 날짜의 휴무 상세, footer의 친구/그룹 방 양방향
+    전환, 그룹 방 목록 카드 진입 경로와 390px 화면 오버플로 부재를 검증한다.
 
 ### 친구 요청 알림 응답 흐름
 

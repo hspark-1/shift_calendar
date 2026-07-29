@@ -5,7 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../calendar/presentation/controllers/calendar_viewport_controller.dart';
+import '../../../calendar/presentation/models/calendar_day_presentation.dart';
+import '../../../calendar/presentation/models/calendar_layout_policy.dart';
 import '../../../calendar/presentation/widgets/calendar_month_view.dart';
+import '../../../calendar/presentation/widgets/calendar_schedule_card.dart';
+import '../../../calendar/presentation/widgets/calendar_viewport.dart';
 import '../../../calendar/presentation/widgets/year_month_picker_sheet.dart';
 
 const List<GroupPreviewMember> group_preview_members = [
@@ -264,18 +269,20 @@ class GroupCalendarPreviewPage extends StatefulWidget {
 }
 
 class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
-  static final DateTime _first_day = DateTime.utc(2000);
-  static final DateTime _last_day = DateTime.utc(2050, 12, 31);
+  static final _viewport_controller = const CalendarViewportController();
 
   late DateTime _focused_day;
   late DateTime _selected_day;
 
-  bool get _is_short_screen => MediaQuery.sizeOf(context).height < 750;
+  CalendarFormat get _calendar_format => CalendarLayoutPolicy.visibleFormat(
+    screen_height: MediaQuery.sizeOf(context).height,
+    preferred_format: CalendarFormat.month,
+  );
 
-  CalendarFormat get _calendar_format =>
-      _is_short_screen ? CalendarFormat.twoWeeks : CalendarFormat.month;
-
-  double get _calendar_row_height => _is_short_screen ? 52 : 56;
+  double get _calendar_row_height => CalendarLayoutPolicy.rowHeight(
+    screen_height: MediaQuery.sizeOf(context).height,
+    layout_mode: CalendarCellLayoutMode.detailed,
+  );
 
   @override
   void initState() {
@@ -290,27 +297,23 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
   }
 
   bool _canGoToPreviousMonth() {
-    final previous_month = DateTime(_focused_day.year, _focused_day.month - 1);
-    return !previous_month.isBefore(_first_day);
+    return _viewport_controller.canMoveMonth(_focused_day, -1);
   }
 
   bool _canGoToNextMonth() {
-    final next_month = DateTime(_focused_day.year, _focused_day.month + 1);
-    return !next_month.isAfter(_last_day);
+    return _viewport_controller.canMoveMonth(_focused_day, 1);
   }
 
   void _goToPreviousMonth() {
-    if (!_canGoToPreviousMonth()) return;
-    setState(() {
-      _focused_day = DateTime(_focused_day.year, _focused_day.month - 1, 1);
-    });
+    final previous_month = _viewport_controller.monthAt(_focused_day, -1);
+    if (previous_month == null) return;
+    setState(() => _focused_day = previous_month);
   }
 
   void _goToNextMonth() {
-    if (!_canGoToNextMonth()) return;
-    setState(() {
-      _focused_day = DateTime(_focused_day.year, _focused_day.month + 1, 1);
-    });
+    final next_month = _viewport_controller.monthAt(_focused_day, 1);
+    if (next_month == null) return;
+    setState(() => _focused_day = next_month);
   }
 
   void _goToToday() {
@@ -325,8 +328,8 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     final selected_date = await showYearMonthPickerSheet(
       context: context,
       initial_date: _focused_day,
-      first_year: _first_day.year,
-      last_year: _last_day.year,
+      first_year: _viewport_controller.first_year,
+      last_year: _viewport_controller.last_year,
     );
     if (selected_date == null || !mounted) return;
 
@@ -375,23 +378,15 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
         ),
       ),
       child: SafeArea(
-        bottom: false,
+        minimum: const EdgeInsets.only(bottom: AppTheme.spacing_md),
         child: Column(
           children: [
             Container(
               key: const ValueKey('group-preview-calendar-section'),
-              decoration: const BoxDecoration(
-                color: AppTheme.surface_color,
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppTheme.outline_variant_color,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Column(children: [_buildMonthHeader(), _buildCalendar()]),
+              color: AppTheme.background_color,
+              child: _buildCalendarViewport(),
             ),
-            const SizedBox(height: AppTheme.spacing_md),
+            const SizedBox(height: AppTheme.spacing_sm),
             Expanded(child: _buildSelectedDayDetail(selected_day_data)),
           ],
         ),
@@ -399,329 +394,155 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     );
   }
 
-  Widget _buildMonthHeader() {
-    return KeyedSubtree(
-      key: const ValueKey('group-preview-month-header'),
-      child: CalendarMonthHeader(
+  Widget _buildCalendarViewport() {
+    return CalendarViewport(
+      focused_day: _focused_day,
+      can_go_to_previous_month: _canGoToPreviousMonth(),
+      can_go_to_next_month: _canGoToNextMonth(),
+      onPreviousMonth: _goToPreviousMonth,
+      onNextMonth: _goToNextMonth,
+      onSelectYearMonth: _showYearMonthPicker,
+      header_key: const ValueKey('group-preview-month-header'),
+      trailing: CupertinoButton(
+        key: const ValueKey('group-preview-today-button'),
+        minimumSize: const Size(54, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        color: AppTheme.primary_color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radius_md),
+        onPressed: _goToToday,
+        child: Text(
+          '오늘',
+          style: AppTheme.body_medium.copyWith(
+            color: AppTheme.primary_dark_color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      grid_wrapper: (child) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_sm),
+        child: child,
+      ),
+      month_view: CalendarMonthView<void>(
+        calendar_key: const ValueKey('group-preview-calendar'),
         focused_day: _focused_day,
-        can_go_to_previous_month: _canGoToPreviousMonth(),
-        can_go_to_next_month: _canGoToNextMonth(),
-        onPreviousMonth: _goToPreviousMonth,
-        onNextMonth: _goToNextMonth,
-        onSelectYearMonth: _showYearMonthPicker,
-        trailing: CupertinoButton(
-          key: const ValueKey('group-preview-today-button'),
-          minimumSize: const Size(54, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: AppTheme.primary_color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(AppTheme.radius_md),
-          onPressed: _goToToday,
-          child: Text(
-            '오늘',
-            style: AppTheme.body_medium.copyWith(
-              color: AppTheme.primary_dark_color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalendar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_sm),
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          return notification is ScrollStartNotification ||
-              notification is ScrollUpdateNotification;
-        },
-        child: TableCalendar<void>(
-          key: const ValueKey('group-preview-calendar'),
-          firstDay: _first_day,
-          lastDay: _last_day,
-          focusedDay: _focused_day,
-          calendarFormat: _calendar_format,
-          locale: 'ko_KR',
-          headerVisible: false,
-          daysOfWeekHeight: 30,
-          rowHeight: _calendar_row_height,
-          availableGestures: AvailableGestures.horizontalSwipe,
-          selectedDayPredicate: (day) => isSameDay(_selected_day, day),
-          onDaySelected: (selected_day, focused_day) {
-            setState(() {
-              _selected_day = _normalizeDate(selected_day);
-              _focused_day = focused_day;
-            });
-          },
-          onPageChanged: (focused_day) {
-            setState(() => _focused_day = focused_day);
-          },
-          calendarStyle: const CalendarStyle(
-            tablePadding: EdgeInsets.only(bottom: AppTheme.spacing_sm),
-            cellMargin: EdgeInsets.all(2),
-            outsideDaysVisible: true,
-          ),
-          calendarBuilders: CalendarBuilders<void>(
-            dowBuilder: (context, day) => _buildDayOfWeekCell(day),
-            defaultBuilder: (context, date, focused_day) =>
-                _buildDayCell(date: date),
-            outsideBuilder: (context, date, focused_day) =>
-                _buildDayCell(date: date, is_outside: true),
-            todayBuilder: (context, date, focused_day) =>
-                _buildDayCell(date: date, is_today: true),
-            selectedBuilder: (context, date, focused_day) => _buildDayCell(
-              date: date,
-              is_today: isSameDay(date, DateTime.now()),
-              is_selected: true,
-              is_outside:
-                  date.year != focused_day.year ||
-                  date.month != focused_day.month,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDayOfWeekCell(DateTime day) {
-    final text_color = day.weekday == DateTime.sunday
-        ? AppTheme.accent_red_color
-        : day.weekday == DateTime.saturday
-        ? AppTheme.primary_color
-        : AppTheme.on_surface_variant_color;
-
-    return Center(
-      child: Text(
-        DateFormat('E', 'ko_KR').format(day),
-        style: AppTheme.body_small.copyWith(
-          color: text_color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDayCell({
-    required DateTime date,
-    bool is_today = false,
-    bool is_selected = false,
-    bool is_outside = false,
-  }) {
-    final day_data = buildGroupPreviewDayData(date);
-    final working_member_days = day_data.members
-        .where((member_day) => member_day.is_working)
-        .toList(growable: false);
-    final semantic_date_color = date.weekday == DateTime.sunday
-        ? AppTheme.accent_red_color
-        : date.weekday == DateTime.saturday
-        ? AppTheme.primary_color
-        : AppTheme.on_surface_color;
-    final date_text = Text(
-      '${date.day}',
-      style: TextStyle(
-        color: semantic_date_color,
-        fontSize: 14,
-        fontWeight: is_selected || is_today ? FontWeight.w700 : FontWeight.w500,
-      ),
-    );
-    final date_indicator = is_today
-        ? SizedBox(
-            width: 28,
-            height: 28,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                date_text,
-                const SizedBox(height: 1),
-                Container(
-                  width: 12,
-                  height: 2,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary_color,
-                    borderRadius: BorderRadius.circular(AppTheme.radius_sm),
-                  ),
-                ),
+        selected_day: _selected_day,
+        calendar_format: _calendar_format,
+        row_height: _calendar_row_height,
+        days_of_week_height: 30,
+        cell_layout: CalendarCellLayout.dots,
+        day_key_prefix: 'group-day',
+        selection_key_prefix: 'group-selection',
+        day_presentation_builder: (date) {
+          final day_data = buildGroupPreviewDayData(date);
+          final working_member_days = day_data.members
+              .where((member_day) => member_day.is_working)
+              .toList(growable: false);
+          final date_color = date.weekday == DateTime.sunday
+              ? AppTheme.accent_red_color
+              : date.weekday == DateTime.saturday
+              ? AppTheme.primary_color
+              : AppTheme.on_surface_color;
+          return CalendarDayPresentation(
+            date_color: date_color,
+            semantic_label:
+                '${date.month}월 ${date.day}일, '
+                '${day_data.working_count}명 근무, '
+                '개인 일정 ${day_data.personal_event_count}개',
+            indicator: CalendarDotsIndicator(
+              key_prefix: 'group-preview-shift',
+              colors: [
+                for (final member_day in working_member_days)
+                  member_day.shift_color,
               ],
             ),
-          )
-        : SizedBox(height: 28, child: Center(child: date_text));
-
-    return Semantics(
-      label:
-          '${date.month}월 ${date.day}일, ${day_data.working_count}명 근무, '
-          '개인 일정 ${day_data.personal_event_count}개',
-      button: true,
-      child: SizedBox.expand(
-        key: ValueKey(
-          'group-day-${date.year}-'
-          '${date.month.toString().padLeft(2, '0')}-'
-          '${date.day.toString().padLeft(2, '0')}',
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Transform.translate(
-              offset: const Offset(0, 3),
-              child: AnimatedContainer(
-                key: ValueKey(
-                  'group-selection-${date.year}-'
-                  '${date.month.toString().padLeft(2, '0')}-'
-                  '${date.day.toString().padLeft(2, '0')}',
-                ),
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeInOut,
-                width: is_selected ? 50 : 0,
-                height: is_selected ? 50 : 0,
-                decoration: BoxDecoration(
-                  color: is_selected
-                      ? AppTheme.primary_color.withValues(alpha: 0.08)
-                      : null,
-                  borderRadius: BorderRadius.circular(AppTheme.radius_md),
-                  border: is_selected
-                      ? Border.all(color: AppTheme.primary_dark_color, width: 2)
-                      : null,
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Opacity(
-                opacity: is_outside ? 0.38 : 1,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    date_indicator,
-                    SizedBox(
-                      key: ValueKey(
-                        'group-preview-shift-dots-${date.year}-'
-                        '${date.month.toString().padLeft(2, '0')}-'
-                        '${date.day.toString().padLeft(2, '0')}',
-                      ),
-                      height: 8,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (
-                            var index = 0;
-                            index < working_member_days.length;
-                            index++
-                          ) ...[
-                            if (index > 0) const SizedBox(width: 3),
-                            Container(
-                              key: ValueKey(
-                                'group-preview-shift-dot-${date.year}-'
-                                '${date.month.toString().padLeft(2, '0')}-'
-                                '${date.day.toString().padLeft(2, '0')}-$index',
-                              ),
-                              width: 5,
-                              height: 5,
-                              decoration: BoxDecoration(
-                                color: working_member_days[index].shift_color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
+        onDaySelected: (selected_day, focused_day) {
+          setState(() {
+            _selected_day = _normalizeDate(selected_day);
+            _focused_day = focused_day;
+          });
+        },
+        onPageChanged: (focused_day) =>
+            setState(() => _focused_day = focused_day),
       ),
     );
   }
 
   Widget _buildSelectedDayDetail(GroupPreviewDayData day_data) {
-    return Column(
+    return Container(
       key: const ValueKey('group-preview-selected-day-detail'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '선택일 근무 현황',
-                      style: AppTheme.body_small.copyWith(
-                        color: AppTheme.on_surface_variant_color,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
+      margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_md),
+      decoration: AppTheme.cardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            key: const ValueKey('group-preview-selected-day-header'),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacing_md,
+              vertical: AppTheme.spacing_sm,
+            ),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: AppTheme.outline_variant_color,
+                  width: 0.5,
+                ),
+              ),
+            ),
+            child: SizedBox(
+              height: 28,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(
                       DateFormat('M월 d일 EEEE', 'ko_KR').format(day_data.date),
                       style: AppTheme.heading_small.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacing_sm),
-              Row(
-                key: const ValueKey('group-preview-day-summary'),
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildSummaryChip(
-                    label: '근무 ${day_data.working_count}명',
-                    is_primary: true,
                   ),
-                  const SizedBox(width: 6),
-                  _buildSummaryChip(
-                    label: '일정 ${day_data.personal_event_count}개',
+                  const SizedBox(width: AppTheme.spacing_sm),
+                  Row(
+                    key: const ValueKey('group-preview-day-summary'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CalendarScheduleSummaryChip(
+                        key: const ValueKey('group-preview-working-count-chip'),
+                        label: '근무 ${day_data.working_count}명',
+                        is_primary: true,
+                      ),
+                      const SizedBox(width: 6),
+                      CalendarScheduleSummaryChip(
+                        key: const ValueKey('group-preview-event-count-chip'),
+                        label: '일정 ${day_data.personal_event_count}개',
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: ListView.separated(
-            key: const ValueKey('group-preview-member-list'),
-            padding: EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              16 + MediaQuery.paddingOf(context).bottom,
             ),
-            itemCount: day_data.members.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              return _buildMemberDayCard(day_data.members[index]);
-            },
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryChip({required String label, bool is_primary = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: is_primary
-            ? AppTheme.primary_color.withValues(alpha: 0.08)
-            : AppTheme.surface_container_low_color,
-        borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-      ),
-      child: Text(
-        label,
-        style: AppTheme.body_small.copyWith(
-          color: is_primary
-              ? AppTheme.primary_dark_color
-              : AppTheme.on_surface_variant_color,
-          fontWeight: FontWeight.w700,
-        ),
+          Expanded(
+            child: ListView.separated(
+              key: const ValueKey('group-preview-member-list'),
+              padding: EdgeInsets.fromLTRB(
+                AppTheme.spacing_sm,
+                AppTheme.spacing_sm,
+                AppTheme.spacing_sm,
+                AppTheme.spacing_sm,
+              ),
+              itemCount: day_data.members.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                return _buildMemberDayCard(day_data.members[index]);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

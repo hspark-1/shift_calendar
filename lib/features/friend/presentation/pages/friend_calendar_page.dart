@@ -8,13 +8,18 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/korean_holidays.dart';
+import '../../../calendar/application/calendar_range_state.dart';
 import '../../../calendar/data/models/event_api_model.dart';
 import '../../../calendar/data/models/work_shift_api_model.dart';
+import '../../../calendar/presentation/controllers/calendar_viewport_controller.dart';
+import '../../../calendar/presentation/models/calendar_day_presentation.dart';
+import '../../../calendar/presentation/models/calendar_layout_policy.dart';
 import '../../../calendar/presentation/widgets/calendar_month_view.dart';
 import '../../../calendar/presentation/widgets/calendar_schedule_card.dart';
+import '../../../calendar/presentation/widgets/calendar_viewport.dart';
 import '../../../calendar/presentation/widgets/year_month_picker_sheet.dart';
 import '../../data/models/friend_model.dart';
-import '../../data/services/friend_service.dart';
+import '../providers/friend_calendar_range_provider.dart';
 import '../providers/friend_provider.dart';
 import 'friend_detail_page.dart';
 
@@ -29,23 +34,22 @@ class FriendCalendarPage extends ConsumerStatefulWidget {
 }
 
 class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
+  static final _viewport_controller = const CalendarViewportController();
+
   late FriendModel _friend;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
-  bool _isLoading = false;
-
-  final Map<DateTime, WorkShiftApiModel> _workShifts = {};
-  final Map<DateTime, List<EventApiModel>> _events = {};
-  final Set<String> _loadedMonths = {};
-
-  bool get _isShortScreen => MediaQuery.sizeOf(context).height < 750;
 
   CalendarFormat get _visibleCalendarFormat =>
-      _isShortScreen ? CalendarFormat.twoWeeks : CalendarFormat.month;
+      CalendarLayoutPolicy.visibleFormat(
+        screen_height: MediaQuery.sizeOf(context).height,
+        preferred_format: CalendarFormat.month,
+      );
 
-  double get _calendarRowHeight {
-    return _isShortScreen ? 52 : 56;
-  }
+  double get _calendarRowHeight => CalendarLayoutPolicy.rowHeight(
+    screen_height: MediaQuery.sizeOf(context).height,
+    layout_mode: CalendarCellLayoutMode.detailed,
+  );
 
   @override
   void initState() {
@@ -59,10 +63,6 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
 
   DateTime _normalizeDate(DateTime date) {
     return normalizeCalendarDate(date);
-  }
-
-  String _getMonthKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
   }
 
   Future<void> _loadHolidays(DateTime focused_day) async {
@@ -81,54 +81,10 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
     return KoreanHolidays.isFixedHoliday(date);
   }
 
-  ({DateTime startDate, DateTime endDate}) _calculateThreeMonthRange(
-    DateTime focusedMonth,
-  ) {
-    final startDate = DateTime(focusedMonth.year, focusedMonth.month - 1, 1);
-    final endDate = DateTime(focusedMonth.year, focusedMonth.month + 2, 0);
-    return (startDate: startDate, endDate: endDate);
-  }
-
-  Future<void> _loadCalendarData(DateTime focusedMonth) async {
-    final monthKey = _getMonthKey(focusedMonth);
-    if (_loadedMonths.contains(monthKey) || _isLoading) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final range = _calculateThreeMonthRange(focusedMonth);
-      final response = await ref
-          .read(friendServiceProvider)
-          .getFriendCalendarRange(
-            friendUserId: _friend.userId,
-            startDate: range.startDate,
-            endDate: range.endDate,
-          );
-
-      if (!mounted) return;
-
-      setState(() {
-        for (final workShift in response.data.workShifts) {
-          _workShifts[_normalizeDate(workShift.workDate)] = workShift;
-        }
-
-        for (final event in response.data.events) {
-          addEventToCalendarDateMap(_events, event);
-        }
-
-        _loadedMonths.add(_getMonthKey(range.startDate));
-        _loadedMonths.add(_getMonthKey(focusedMonth));
-        _loadedMonths.add(_getMonthKey(range.endDate));
-        _isLoading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-
-      setState(() => _isLoading = false);
-      _showErrorDialog(_getErrorMessage(error));
-    }
+  Future<void> _loadCalendarData(DateTime focusedMonth) {
+    return ref
+        .read(friendCalendarRangeProvider(_friend.userId).notifier)
+        .ensureMonthLoaded(focusedMonth);
   }
 
   String _getErrorMessage(dynamic error) {
@@ -139,33 +95,33 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   }
 
   WorkShiftApiModel? _getWorkShiftForDay(DateTime day) {
-    return _workShifts[_normalizeDate(day)];
+    return ref
+        .read(friendCalendarRangeProvider(_friend.userId))
+        .workShiftFor(day);
   }
 
   List<EventApiModel> _getEventsForDay(DateTime day) {
-    return _events[_normalizeDate(day)] ?? const [];
+    return ref.read(friendCalendarRangeProvider(_friend.userId)).eventsFor(day);
   }
 
   bool _canGoToPreviousMonth() {
-    final previousMonth = DateTime(_focusedDay.year, _focusedDay.month - 1);
-    return previousMonth.year > 2000 ||
-        (previousMonth.year == 2000 && previousMonth.month >= 1);
+    return _viewport_controller.canMoveMonth(_focusedDay, -1);
   }
 
   bool _canGoToNextMonth() {
-    final nextMonth = DateTime(_focusedDay.year, _focusedDay.month + 1);
-    return nextMonth.year < 2050 ||
-        (nextMonth.year == 2050 && nextMonth.month <= 12);
+    return _viewport_controller.canMoveMonth(_focusedDay, 1);
   }
 
   void _goToPreviousMonth() {
-    if (!_canGoToPreviousMonth()) return;
-    _moveToMonth(DateTime(_focusedDay.year, _focusedDay.month - 1, 1));
+    final previous_month = _viewport_controller.monthAt(_focusedDay, -1);
+    if (previous_month == null) return;
+    _moveToMonth(previous_month);
   }
 
   void _goToNextMonth() {
-    if (!_canGoToNextMonth()) return;
-    _moveToMonth(DateTime(_focusedDay.year, _focusedDay.month + 1, 1));
+    final next_month = _viewport_controller.monthAt(_focusedDay, 1);
+    if (next_month == null) return;
+    _moveToMonth(next_month);
   }
 
   void _goToToday() {
@@ -249,6 +205,20 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
+    final calendar_range_state = ref.watch(
+      friendCalendarRangeProvider(_friend.userId),
+    );
+    ref.listen<CalendarRangeState>(
+      friendCalendarRangeProvider(_friend.userId),
+      (previous, next) {
+        if (next.last_error == null ||
+            previous?.error_revision == next.error_revision) {
+          return;
+        }
+        _showErrorDialog(_getErrorMessage(next.last_error));
+      },
+    );
+
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
@@ -263,7 +233,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
         minimum: const EdgeInsets.only(bottom: AppTheme.spacing_md),
         child: Column(
           children: [
-            _buildCalendarSection(),
+            _buildCalendarSection(calendar_range_state),
             const SizedBox(height: AppTheme.spacing_sm),
             Flexible(child: _buildSelectedDaySchedule()),
           ],
@@ -272,15 +242,8 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
     );
   }
 
-  Widget _buildCalendarSection() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [_buildMonthHeader(), _buildCalendar()],
-    );
-  }
-
-  Widget _buildMonthHeader() {
-    return CalendarMonthHeader(
+  Widget _buildCalendarSection(CalendarRangeState calendar_range_state) {
+    return CalendarViewport(
       focused_day: _focusedDay,
       can_go_to_previous_month: _canGoToPreviousMonth(),
       can_go_to_next_month: _canGoToNextMonth(),
@@ -290,7 +253,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_isLoading) ...[
+          if (calendar_range_state.is_loading) ...[
             const CupertinoActivityIndicator(radius: 8),
             const SizedBox(width: AppTheme.spacing_sm),
           ],
@@ -311,33 +274,25 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCalendar() {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        final is_horizontal = notification.metrics.axis == Axis.horizontal;
-        return is_horizontal &&
-            (notification is ScrollStartNotification ||
-                notification is ScrollUpdateNotification);
-      },
-      child: CalendarMonthView(
+      month_view: CalendarMonthView<dynamic>(
         calendar_key: const ValueKey('friend-calendar'),
         focused_day: _focusedDay,
         selected_day: _selectedDay,
         calendar_format: _visibleCalendarFormat,
         row_height: _calendarRowHeight,
-        date_color_builder: _getCalendarDateColor,
-        day_badge_builder: (date) {
+        cell_layout: CalendarCellLayout.badge,
+        day_presentation_builder: (date) {
           final work_shift = _getWorkShiftForDay(date);
-          if (work_shift == null) return null;
-          return CalendarDayBadgeData(
-            text: work_shift.shiftTypeCode,
-            color: Color(work_shift.shiftTypeColor ?? 0xFF8E8E93),
+          return CalendarDayPresentation(
+            date_color: _getCalendarDateColor(date),
+            indicator: work_shift == null
+                ? null
+                : CalendarBadgeIndicator(
+                    text: work_shift.shiftTypeCode,
+                    color: Color(work_shift.shiftTypeColor ?? 0xFF8E8E93),
+                  ),
           );
         },
-        show_day_badge: true,
         holiday_predicate: _isHoliday,
         onDaySelected: (selected_day, focused_day) {
           setState(() {
