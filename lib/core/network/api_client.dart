@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,17 +41,17 @@ class ApiClient {
   static Interceptor _createLogInterceptor() {
     return InterceptorsWrapper(
       onRequest: (options, handler) {
-        print('🚀 REQUEST[${options.method}] => PATH: ${options.path}');
+        debugPrint('🚀 REQUEST[${options.method}] => PATH: ${options.path}');
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        print(
+        debugPrint(
           '✅ RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
         );
         return handler.next(response);
       },
       onError: (error, handler) {
-        print(
+        debugPrint(
           '❌ ERROR[${error.response?.statusCode}] => PATH: ${error.requestOptions.path}',
         );
         return handler.next(error);
@@ -60,23 +62,17 @@ class ApiClient {
   /// 인증 인터셉터
   static Interceptor _createAuthInterceptor(Dio dio) {
     final tokenService = TokenService();
-    bool isRefreshing = false;
+    Future<bool>? refresh_future;
 
-    Future<bool> refreshToken() async {
-      if (isRefreshing) return false;
-      isRefreshing = true;
-
+    Future<bool> performRefresh() async {
       try {
-        final refreshTokenValue = await tokenService.getRefreshToken();
-        if (refreshTokenValue == null) {
-          isRefreshing = false;
-          return false;
-        }
+        final refresh_token_value = await tokenService.getRefreshToken();
+        if (refresh_token_value == null) return false;
 
         // 토큰 갱신 요청
         final response = await dio.post(
           ApiConstants.auth_refresh,
-          data: {'refresh_token': refreshTokenValue},
+          data: {'refresh_token': refresh_token_value},
           options: Options(
             headers: {
               'Content-Type': 'application/json',
@@ -87,37 +83,46 @@ class ApiClient {
 
         if (response.data['success'] == true) {
           final data = response.data['data'] as Map<String, dynamic>;
-          final newAccessToken = data['access_token'] as String;
-          final newRefreshToken = data['refresh_token'] as String;
+          final new_access_token = data['access_token'] as String;
+          final new_refresh_token = data['refresh_token'] as String;
 
           // expires_at이 int(milliseconds) 또는 String(ISO 8601)일 수 있음
-          final expiresAtRaw = data['expires_at'];
-          final DateTime expiresAt;
-          if (expiresAtRaw is int) {
-            expiresAt = DateTime.fromMillisecondsSinceEpoch(
-              expiresAtRaw,
+          final expires_at_raw = data['expires_at'];
+          final DateTime expires_at;
+          if (expires_at_raw is int) {
+            expires_at = DateTime.fromMillisecondsSinceEpoch(
+              expires_at_raw,
               isUtc: true,
             );
           } else {
-            expiresAt = DateTime.parse(expiresAtRaw as String);
+            expires_at = DateTime.parse(expires_at_raw as String);
           }
 
           // 새 토큰 저장
           await tokenService.saveTokens(
-            access_token: newAccessToken,
-            refresh_token: newRefreshToken,
-            expires_at: expiresAt,
+            access_token: new_access_token,
+            refresh_token: new_refresh_token,
+            expires_at: expires_at,
           );
 
-          isRefreshing = false;
           return true;
         }
-        isRefreshing = false;
         return false;
       } catch (e) {
-        isRefreshing = false;
         return false;
       }
+    }
+
+    Future<bool> refreshToken() {
+      final in_flight = refresh_future;
+      if (in_flight != null) return in_flight;
+
+      final future = performRefresh();
+      refresh_future = future;
+      future.whenComplete(() {
+        if (identical(refresh_future, future)) refresh_future = null;
+      });
+      return future;
     }
 
     return InterceptorsWrapper(
@@ -140,16 +145,25 @@ class ApiClient {
         return handler.next(options);
       },
       onError: (error, handler) async {
+        if (_isPublicEndpoint(error.requestOptions.path)) {
+          return handler.next(error);
+        }
+
         // 401 에러 시 토큰 갱신 처리
         if (error.response?.statusCode == 401) {
+          if (error.requestOptions.extra['auth_retry_attempted'] == true) {
+            await tokenService.clearTokens();
+            return handler.next(error);
+          }
           final refreshed = await refreshToken();
 
           if (refreshed) {
             // 원래 요청 재시도
             final options = error.requestOptions;
-            final newToken = await tokenService.getAccessToken();
-            if (newToken != null) {
-              options.headers['Authorization'] = 'Bearer $newToken';
+            final new_token = await tokenService.getAccessToken();
+            if (new_token != null) {
+              options.headers['Authorization'] = 'Bearer $new_token';
+              options.extra['auth_retry_attempted'] = true;
 
               try {
                 final retryResponse = await dio.fetch(options);

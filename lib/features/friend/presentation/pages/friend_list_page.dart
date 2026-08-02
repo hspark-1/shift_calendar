@@ -3,8 +3,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../calendar/presentation/widgets/bottom_action_bar.dart';
+import '../../../group/application/group_providers.dart';
+import '../../../group/domain/entities/group_models.dart';
+import '../../../group/presentation/pages/group_calendar_page.dart';
+import '../../../group/presentation/pages/group_create_page.dart';
+import '../../../group/presentation/pages/received_group_invitations_page.dart';
+import '../../../group/presentation/widgets/group_room_list_view.dart';
 import '../../data/models/friend_model.dart';
 import '../providers/friend_provider.dart';
 import '../widgets/add_friend_modal.dart';
@@ -44,14 +51,7 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
         middle: Text(
           _selected_section == _FriendListSection.friends ? '친구' : '그룹 방',
         ),
-        trailing: _selected_section == _FriendListSection.friends
-            ? CupertinoButton(
-                key: const ValueKey('add-friend-button'),
-                padding: const EdgeInsets.only(left: 6),
-                onPressed: () => _showAddFriendModal(context),
-                child: const Icon(CupertinoIcons.person_add),
-              )
-            : null,
+        trailing: _buildNavigationActions(),
       ),
       child: Column(
         children: [
@@ -194,6 +194,10 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
   }
 
   Widget _buildGroupRoomList() {
+    if (AppConstants.group_api_enabled) {
+      return GroupRoomListView(onGroupTap: _navigateToGroup);
+    }
+
     return CustomScrollView(
       key: const ValueKey('group-room-list'),
       slivers: [
@@ -284,6 +288,38 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
     );
   }
 
+  Widget? _buildNavigationActions() {
+    if (_selected_section == _FriendListSection.friends) {
+      return CupertinoButton(
+        key: const ValueKey('add-friend-button'),
+        padding: const EdgeInsets.only(left: 6),
+        onPressed: () => _showAddFriendModal(context),
+        child: const Icon(CupertinoIcons.person_add),
+      );
+    }
+    if (!AppConstants.group_api_enabled) return null;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CupertinoButton(
+          key: const ValueKey('received-group-invitations-button'),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          minimumSize: const Size(36, 36),
+          onPressed: _navigateToGroupInvitations,
+          child: const Icon(CupertinoIcons.envelope),
+        ),
+        CupertinoButton(
+          key: const ValueKey('create-group-button'),
+          padding: const EdgeInsets.only(left: 6),
+          minimumSize: const Size(36, 36),
+          onPressed: _navigateToGroupCreate,
+          child: const Icon(CupertinoIcons.add),
+        ),
+      ],
+    );
+  }
+
   Widget _buildGroupRoomAvatars() {
     const avatar_size = 34.0;
     const avatar_overlap = 22.0;
@@ -349,5 +385,31 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
         builder: (context) => const GroupCalendarPreviewPage(),
       ),
     );
+  }
+
+  void _navigateToGroup(GroupSummary group) {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (context) => GroupCalendarPage(group_id: group.group_id),
+      ),
+    );
+  }
+
+  Future<void> _navigateToGroupCreate() async {
+    await Navigator.of(context).push(
+      CupertinoPageRoute<void>(builder: (context) => const GroupCreatePage()),
+    );
+    if (!mounted) return;
+    await ref.read(groupListProvider.notifier).loadGroups();
+  }
+
+  Future<void> _navigateToGroupInvitations() async {
+    await Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (context) => const ReceivedGroupInvitationsPage(),
+      ),
+    );
+    if (!mounted) return;
+    await ref.read(groupListProvider.notifier).loadGroups();
   }
 }

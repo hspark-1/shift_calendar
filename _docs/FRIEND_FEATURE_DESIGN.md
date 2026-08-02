@@ -284,7 +284,7 @@ _buildActionButton(
   `can_view=true`로 열람을 허용한 경우 표시한다.
 - 개인 일정은 `friend_level >= events.visibility_level` 조건을 통과한 결과만 표시한다.
 
-#### 3.2.6 그룹 방 목록과 미리보기 (`GroupCalendarPreviewPage`)
+#### 3.2.6 그룹 방 목록과 실제 그룹/미리보기 fallback
 
 ```
 ┌──────────────────────────────────────────┐
@@ -301,10 +301,15 @@ _buildActionButton(
 └──────────────────────────────────────────┘
 ```
 
-- 실제 그룹 API·DB 계약 전에는 문서에 정의된 박현서·김민수·이지연·이동욱 4명의
-  `우리 병동` 더미 방 하나만 표시한다.
-- 카드를 누르면 기존 `GroupCalendarPreviewPage`로 이동한다.
-- 그룹 방 footer 선택 자체는 친구 목록 API 상태를 변경하거나 그룹 API를 호출하지 않는다.
+- `GROUP_API_ENABLED=true`이면 `features/group`의 실제 그룹 목록·생성·상세·캘린더·초대 화면을
+  사용한다. 그룹 방 footer 진입 시 `GET /groups`를 호출하고 목록 카드에서 `GroupCalendarPage`로
+  이동한다.
+- 기본값인 `GROUP_API_ENABLED=false`에서는 박현서·김민수·이지연·이동욱 4명의 `우리 병동`
+  더미 방과 `GroupCalendarPreviewPage`를 rollout fallback으로 유지한다.
+- `GROUP_P1_ENABLED=true`일 때만 그룹 수정·초대 취소·멤버/역할·탈퇴·소유권·삭제 UI를 노출한다.
+- 최초 제안 범위는 `_docs/GROUP_API_SERVER_REQUEST.md`, 실제 서버 구현 기반 Flutter 계약은
+  `_docs/group_api_guide/GROUP_FRONTEND_API_GUIDE.md`, 구현·출시 상태는
+  `_docs/GROUP_FRONTEND_IMPLEMENTATION_PLAN.md`를 기준으로 확인한다.
 
 ---
 

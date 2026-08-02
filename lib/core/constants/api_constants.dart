@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
+
 import 'package:flutter/foundation.dart';
 
 /// API 관련 상수
@@ -6,7 +8,6 @@ class ApiConstants {
 
   /// 기본 API URL (개발/Stage 환경)
   static const String base_url_dev = 'https://stage-api.shiftmate.co.kr/api/v1';
-  // static const String base_url_dev = 'http://172.30.1.36:3000/api/v1';
 
   /// 기본 API URL (운영/Center 환경)
   static const String base_url_prod = 'https://api.shiftmate.co.kr/api/v1';
@@ -58,4 +59,10 @@ class ApiConstants {
   static const String notifications = '/notifications';
   static const String notifications_unread_count =
       '/notifications/unread-count';
+
+  // 그룹 관련 엔드포인트
+  static const String groups = '/groups';
+  static const String group_invitations = '/group-invitations';
+  static const String group_invitations_received =
+      '/group-invitations/received';
 }

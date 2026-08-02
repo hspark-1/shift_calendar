@@ -1,6 +1,37 @@
 # 작업 로그
 
+## 2026-08-02
+
+- [DONE] (UI) 그룹 보기의 시간 없는 근무 점 표시 제외
+  - 목적: 그룹 캘린더 날짜 셀에서 시작·종료 시간이 모두 있는 근무만 색상 점으로 표시하고, `시간 없음` 근무는 선택일 상세에만 남긴다.
+  - 변경: 실제 그룹 API 화면의 날짜 점 후보를 `start_time`과 `end_time`이 모두 존재하는 근무로 제한했다. 시간 없는 근무는 기존처럼 근무 인원에 집계하고 선택일 멤버 카드에 `시간 없음`으로 표시한다. 결정적 미리보기 데이터는 근무자 템플릿이 모두 시간을 가지며 휴무는 이미 점에서 제외되므로 코드를 변경하지 않고 fallback 회귀만 확인했다.
+  - 영향범위: 실제 그룹 캘린더 날짜 셀의 근무색 점, 관련 테스트·프로젝트 문서. 근무 인원 집계와 선택일 상세, 미리보기 데이터, API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/group/presentation/pages/group_calendar_page.dart`, `test/features/group/presentation/pages/group_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/GROUP_FRONTEND_IMPLEMENTATION_PLAN.md`, `_docs/WORKLOG.md`
+  - 테스트: 시간 있는 근무의 점 유지, 시간 없는 근무의 점 제외, `근무 1명` 집계와 `플렉스 · 시간 없음` 상세 유지를 검증하는 실제 그룹 화면 테스트 2건 통과. 전체 그룹 기능 테스트 9건과 `GROUP_API_ENABLED=false` fallback 미리보기 테스트 8건 통과. 변경 Dart 파일 `flutter analyze` 진단 0건, `dart format`, `git diff --check` 통과.
+  - 롤백: 그룹 날짜 셀의 근무색 점 생성 조건을 기존의 색상 존재 여부 기준으로 복원하고 관련 테스트·문서를 되돌린다.
+  - 다음: 실제 API 데이터에서 시간이 없는 사용자 정의 근무가 포함된 날짜를 선택해 기기 렌더를 확인한다.
+
+## 2026-08-01
+
+- [DONE] (FE) 그룹 API 기반 프론트 기능 구현
+  - 목적: 더미 그룹 방·그룹 캘린더를 실제 그룹 P0/P1 API에 연결하고, 그룹 생성·목록·상세·캘린더·초대·알림·권한별 관리 기능을 제공한다.
+  - 변경: `features/group`에 entity/Repository/DataSource/Riverpod 계층을 추가하고 그룹 P0/P1 endpoint 15개를 연결했다. 그룹 방 탭은 P0 플래그에서 실제 목록·생성·받은 초대·캘린더로 전환되며, 목록 새로고침/페이지네이션과 초대 행별 처리 상태를 제공한다. 실제 그룹 캘린더는 멤버별 `owner_user_id`·`SELF/VISIBLE/DENIED`를 보존하고 전월~다음월 범위를 그룹 IANA timezone으로 배치한다. `DENIED`는 잠금 상태로 남기고 공개된 row만 근무·일정 수에 집계하며 현지 자정의 event 종료일은 배타 처리한다. OWNER/ADMIN은 P0 친구 초대를 사용할 수 있고, P1 플래그에서는 그룹 수정·초대 목록/취소·멤버 제거/역할·탈퇴·소유권 이전·삭제를 역할표에 맞게 노출한다. 그룹 알림 4종과 payload를 추가하고 PENDING+actions 및 받은 초대 API 결과가 모두 유효할 때만 버튼을 표시하며 그룹 초대 응답을 친구 요청 API와 분리했다. 계정 전환 시 그룹 Provider를 무효화하고, 동시 401 요청은 하나의 refresh Future를 기다린 뒤 원 요청을 한 번만 재시도하도록 인증 인터셉터를 보완했다. `timezone` 0.11.1과 앱 시작 timezone DB 초기화를 추가했다.
+  - 영향범위: 친구 화면의 그룹 방 탭과 미리보기 fallback, 그룹 목록·생성·캘린더·초대·관리 신규 화면, 알림 모델/상태/화면, 인증 계정 캐시, Dio 401 갱신, 의존성·테스트·프로젝트 문서. Behavior change: `GROUP_API_ENABLED=true` 빌드에서는 더미 카드 대신 실제 서버 그룹 기능을 사용한다. 플래그 기본값은 false라 기본 빌드는 기존 미리보기를 유지하고, `GROUP_P1_ENABLED=true`일 때만 관리 mutation을 노출한다. 개인/친구 캘린더 API와 DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/group/**`, `lib/features/friend/presentation/pages/friend_list_page.dart`, `notification_page.dart`, `lib/features/friend/presentation/providers/notification_provider.dart`, `lib/features/friend/presentation/widgets/notification_item.dart`, `lib/features/friend/data/models/notification_model.dart`, `lib/features/auth/presentation/providers/auth_provider.dart`, `lib/core/constants/api_constants.dart`, `app_constants.dart`, `lib/core/network/api_client.dart`, `lib/main.dart`, `pubspec.yaml`, `pubspec.lock`, `test/features/group/**`, `test/features/friend/data/models/group_notification_model_test.dart`, `test/features/friend/presentation/providers/group_notification_provider_test.dart`, `_docs/GROUP_FRONTEND_IMPLEMENTATION_PLAN.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 신규 그룹/알림 테스트 11건에서 목록 summary/탭, 응답 파싱·unknown enum·소유자/색상/UTC 보존, 3개월 범위·동일 월 요청 병합, Asia/Seoul 날짜 변환·배타 종료일, DENIED 잠금/실제 row 집계, PENDING/EXPIRED 알림과 친구/그룹 응답 API 분리, 만료 409 서버 재조회, P1 플래그 off/on UI를 검증해 통과했다. 기존 그룹 미리보기 fallback 테스트 8건도 통과했다. 변경 생산 코드·신규 테스트 대상 `flutter analyze` 진단 0건, `git diff --check` 통과. 전체 테스트는 115건 통과 후 변경하지 않은 메인 캘린더의 기존 `390x750` RenderFlex 11px overflow 1건만 실패했고 이 테스트는 단독으로도 같은 오류가 재현된다. 프로젝트 전체 analyze는 변경 밖의 기존 naming info·생성 코드 중복 ignore·미사용 profile picker 진단 때문에 종료 코드 1이지만 변경 대상 진단은 없다. 현재 debug origin의 `GET /groups` 비인증 연결 확인은 `192.168.0.5:3000`에서 서버가 실행 중이지 않아 curl 연결 단계에서 실패했으므로 실제 Stage/API 응답 검증으로 판정하지 않았다.
+  - 롤백: 배포 설정에서 `GROUP_P1_ENABLED=false`, 이어서 `GROUP_API_ENABLED=false`로 실제 기능을 숨기면 서버 데이터 변경 없이 기존 `GroupCalendarPreviewPage`로 즉시 복귀한다. 코드 롤백 시 신규 그룹 모듈과 알림 분기, API 상수, timezone 초기화, 인증 캐시 무효화와 문서/테스트를 함께 되돌린다.
+  - 다음: 실제 Stage origin·인증 계정·서버 이미지와 migration 적용 시각을 확보해 `_docs/GROUP_FRONTEND_IMPLEMENTATION_PLAN.md`의 P0 인수 목록을 수행하고, 통과 후 P0/P1 플래그를 순차 승인한다. 메인 캘린더 750px 기존 overflow는 그룹 범위와 분리된 후속 수정 항목으로 처리한다.
+
 ## 2026-07-29
+
+- [DONE] (DOCS/BE) 그룹 기능 서버 개발 요청서 작성
+  - 목적: 더미 데이터로 동작하는 그룹 방·그룹 캘린더를 실제 서버 데이터로 전환할 수 있도록 그룹 생성, 목록, 상세, 멤버십·초대, 그룹 캘린더 범위 조회와 권한 계약을 구현 가능한 수준으로 정의한다.
+  - 변경: 1,358줄의 `_docs/GROUP_API_SERVER_REQUEST.md`를 추가해 P0/P1 endpoint 15개, `groups`·`group_members`·`group_invitations` 제안 DDL/인덱스, OWNER/ADMIN/MEMBER 권한, 초대·소유권 이전·soft delete transaction, 기존 친구 ACL을 재사용하는 정규화 그룹 캘린더 응답과 `calendar_access`, 초대 알림, 오류·환경변수·성능·테스트·Swagger·배포 완료 조건을 정의했다. 현재 drawio의 `calendars/calendar_shares`가 최종 단일 캘린더 DDL과 다름을 명시하고, 공개 권한·최대 멤버·timezone 등 서버팀 확인 항목을 분리했다.
+  - 영향범위: 서버 개발 요청 문서, 프로젝트 컨텍스트, 친구 기능 설계와 작업 로그. Flutter 코드와 현재 API/DB 동작은 변경하지 않는다.
+  - 파일: `_docs/GROUP_API_SERVER_REQUEST.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/FRIEND_FEATURE_DESIGN.md`, `_docs/WORKLOG.md`
+  - 테스트: JSON 예시 20개를 `jq`로 전부 파싱했고 Markdown code fence 78개가 짝을 이루는지, endpoint 15개와 문서 연결 경로가 존재하는지 확인했다. `git diff --check`가 통과했으며 문서 전용 변경이므로 Flutter 테스트는 실행하지 않았다.
+  - 롤백: 신규 요청 문서와 프로젝트 컨텍스트·친구 기능 설계·작업 로그의 연결 항목을 제거한다.
+  - 다음: 서버팀이 문서 마지막 확인 요청 8개에 답변하면 확정 정책을 ADR과 실제 migration/OpenAPI에 반영한다.
 
 - [DONE] (UI) 그룹 방 목록의 중복 본문 제목 제거
   - 목적: 내비게이션 바와 하단 탭에 이미 표시되는 `그룹 방` 문구를 본문에서 반복하지 않고 첫 그룹 카드를 바로 노출한다.

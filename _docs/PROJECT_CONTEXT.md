@@ -389,8 +389,11 @@ CalendarPage / FriendCalendarPage
 - 캘린더 UI state인 focused/selected 날짜, 선호 형식, 메인 근무 입력 draft는 페이지가 소유한다.
 - 서버에서 조회한 근무·일정 domain state, 월별 로딩/완료/오류 상태는
   `CalendarRangeNotifier`가 소유한다.
-- 그룹 미리보기는 실제 API 계약이 없으므로 range provider를 사용하지 않고, 결정적 더미 데이터를
-  `CalendarDayPresentation`으로 변환해 공용 viewport와 날짜 셀만 재사용한다.
+- 실제 그룹 캘린더는 여러 소유자의 `owner_user_id`와 `calendar_access`를 보존하는
+  `GroupCalendarRangeNotifier`를 사용한다. 그룹 timezone 변환과 월별 캐시는 그룹 전용 상태가
+  담당하고, `CalendarDayPresentation`·공용 viewport·날짜 셀만 메인/친구 화면과 공유한다.
+- `GROUP_API_ENABLED=false`인 기본 빌드는 서버 Stage 인수 전 rollback 경로로 결정적 더미
+  `GroupCalendarPreviewPage`를 유지한다.
 
 **에러 처리 흐름**:
 
@@ -405,6 +408,7 @@ DioException → handleApiError() → ApiException → UI (CupertinoAlertDialog)
 - 릴리스 빌드(운영/Center): `https://api.shiftmate.co.kr/api/v1`
 - `ApiClient.createDio()`가 선택된 값을 Dio `BaseOptions.baseUrl`에 적용하고,
   각 서비스는 `ApiConstants`의 상대 엔드포인트를 결합해 요청한다.
+- 그룹 Stage 인수 시 테스트한 origin·서버 이미지·migration 적용 시각을 작업 로그에 기록한다.
 
 ### 카카오 인증 및 프로필 저장 흐름
 
@@ -684,15 +688,13 @@ FriendListPage
     시트 노출을 검증한다. 설정 저장 후 친구 목록 GET을 다시 호출하고 서버 응답의 최신 `can_view`로
     설정 화면에 재진입하는지도 검증한다.
 
-### 친구·그룹 방 footer 및 더미 그룹 캘린더 미리보기
+### 친구·그룹 방 footer, 실제 그룹 API와 미리보기 fallback
 
 ```
 FriendListPage footer
   → 친구 리스트 | 그룹 방 리스트
-  → 그룹 방 리스트의 `우리 병동` 미리보기 카드
-  → GroupCalendarPreviewPage
-  → buildGroupPreviewDayData(date)
-  → 날짜별 근무 인원 그리드 + 선택일 구성원별 근무/개인 일정
+  → GROUP_API_ENABLED=true: GroupRoomListView → GroupCalendarPage
+  → GROUP_API_ENABLED=false: `우리 병동` 카드 → GroupCalendarPreviewPage
 ```
 
 - 친구 탭은 메인 화면과 같은 `BottomActionBar`를 화면 하단에 고정하고 `친구 리스트`,
@@ -703,9 +705,16 @@ FriendListPage footer
   액션을 숨긴 뒤, 본문의 중복 `그룹 방` 제목 없이 현재 더미 데이터에 대응하는 `우리 병동`
   카드와 4명 겹침 아바타를 바로 표시한다. 친구 목록 상단의 기존 그룹 미리보기 아이콘은
   footer/목록 경로로 대체한다.
-- 실제 그룹 API·DB 구현 전 화면 검토를 위한 Flutter 전용 미리보기다. 서버 요청, 영속화,
-  `friend_level_settings` 공개 판단에는 연결하지 않으며 내 캘린더와 단일 친구 캘린더 동작도
-  변경하지 않는다.
+- 실제 그룹 API는 기본 비활성 rollout gate 뒤에 구현되어 있다. `GROUP_API_ENABLED=true`면
+  그룹 목록·생성·상세·캘린더·초대·그룹 알림을 사용하고, false면 기존 Flutter 전용 미리보기를
+  표시한다. `GROUP_P1_ENABLED=true`는 Stage P1 확인 후에만 수정·멤버 관리·탈퇴·소유권·삭제
+  액션을 추가 노출한다. 두 플래그 기본값은 빌드 모드와 관계없이 false다.
+- 실제 그룹 화면은 서버가 기존 `friend_level_settings`로 필터링한 row만 표시한다.
+  `SELF`/`VISIBLE`은 받은 row를 보여주고 `DENIED` 멤버는 목록에 남기되 `캘린더 공개 안 함`으로
+  표시한다. 숨겨진 근무·일정이나 개수는 추정하지 않으며 `DENIED`를 `근무 없음`으로 표시하지 않는다.
+- 그룹 event의 UTC `start_at`/`end_at`은 `timezone` package로 응답 `group.timezone`에 변환한다.
+  `work_date`는 timezone 변환 없이 날짜 그대로 사용하고, 현지 자정의 배타적 종료일은 전날까지만
+  날짜 맵에 포함한다.
 - 구성원은 박현서·김민수·이지연·이동욱 4명으로 고정한다. 날짜를 기준으로 결정적으로 생성한
   데이터가 4명→3명→2명→1명→0명 근무를 5일 주기로 반복하고, 하루 전체 개인 일정은 2개와
   3개를 번갈아 구성원에게 분배한다. 근무자는 `D`·`E`·`N`·`F` 코드와 근무 시간을,
@@ -735,22 +744,72 @@ FriendListPage footer
   그 이상에서는 월 보기와 56px 행을 사용한다.
 - 파일 역할/의존성/사용 예:
   - `lib/features/friend/presentation/pages/friend_list_page.dart`: `friendListProvider` 기반 기존
-    친구 목록과 더미 그룹 방 목록을 페이지 내부 상태로 전환한다. 공용 `BottomActionBar`에
-    `BottomActionBarItem` 두 개를 주입하고, `우리 병동` 카드를 누르면
-    `GroupCalendarPreviewPage`를 연다. 그룹 방 선택은 별도 API를 호출하지 않는다.
+    친구 목록과 그룹 방 목록을 페이지 내부 상태로 전환한다. 공용 `BottomActionBar`에
+    `BottomActionBarItem` 두 개를 주입한다. 그룹 API 플래그가 켜지면 실제 목록·받은 초대·생성
+    진입을 제공하고, 꺼지면 `우리 병동` 카드를 눌러 `GroupCalendarPreviewPage`를 연다.
   - `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`: 고정 구성원,
     결정적 날짜별 더미 데이터 생성기, 0~4명의 근무색 점 캘린더와 선택일 구성원 상세를 한
     파일에서 제공한다. 더미 날짜 데이터를 `CalendarDotsIndicator`로 변환해 공용
     `CalendarViewport`·`CalendarMonthView`와 `YearMonthPickerSheet`에 의존하며
     달력은 페이지 배경에 직접 배치하고 선택일 헤더·구성원 목록만 공용 카드 토큰으로 영역화한다.
-    `FriendListPage`의 그룹 방 목록 카드가 이 화면을 연다. 실제 그룹 계약이 마련되면 데이터
-    생성기만 application/data 계층의 조회 결과로 교체하고 공용 표시 컴포넌트는 유지한다.
+    `GROUP_API_ENABLED=false`일 때 `FriendListPage`의 그룹 방 목록 카드가 이 화면을 연다.
+    실제 그룹 화면과 상태는 `features/group`에 분리하며 이 결정적 생성기는 rollout fallback과
+    공용 캘린더 표시 회귀 검증용으로 유지한다.
   - `test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`: 5일 근무
     인원 순환, 하루 2~3개 일정, 근무색 점의 개수·색상, 내비게이션 멤버 수, full-width
     background calendar와 무경계, 하단 선택일 surface 영역의 반경·outline·헤더 구분선·안전 여백,
     선택일 tint/outline과 주말 의미 색상, 구성원 카드의 근무색 바·16px radius·이름/근무 시간/
     개인 일정 순서, 월/2주 반응형 렌더링, 0명 날짜의 휴무 상세, footer의 친구/그룹 방 양방향
     전환, 그룹 방 목록 카드 진입 경로와 390px 화면 오버플로 부재를 검증한다.
+  - `_docs/GROUP_API_SERVER_REQUEST.md`: 더미 그룹 방을 실제 서버 데이터로 전환하기 위한 구현
+    요청서다. 최종 단일 캘린더 DDL을 기준으로 `groups`·`group_members`·`group_invitations`
+    migration, 그룹 생성/목록/상세/관리·초대 API, 기존 친구 ACL을 재사용하는 그룹 캘린더
+    aggregate 응답, 역할별 권한·오류·트랜잭션·성능·테스트·Swagger 완료 조건을 정의한다.
+    이 문서는 제안 계약이며 서버 적용 전 공개 권한, 멤버 수, timezone 정책을 확정해야 한다.
+  - `_docs/group_api_guide/GROUP_FRONTEND_API_GUIDE.md`: 서버 구현 결과에서 추출한 Flutter 소비
+    계약이다. endpoint별 request/response, 역할 매트릭스, `calendar_access`, 오류, 알림 상태,
+    Stage 인수 조건의 기준으로 사용한다.
+  - `_docs/GROUP_FRONTEND_IMPLEMENTATION_PLAN.md`: P0/P1 구현 범위, rollout 플래그, 화면/API 매핑,
+    테스트와 Stage 출시 체크리스트를 관리한다.
+  - `lib/features/group/domain/entities/group_models.dart`: 그룹·멤버·초대·캘린더 aggregate entity와
+    `OWNER/ADMIN/MEMBER`, `SELF/VISIBLE/DENIED`, 초대 상태의 안전한 unknown 파싱을 제공한다.
+  - `lib/features/group/domain/repositories/group_repository.dart`,
+    `lib/features/group/data/datasources/group_remote_datasource.dart`,
+    `lib/features/group/data/repositories/group_repository_impl.dart`: 화면과 Dio를 분리하는 그룹
+    Repository 계약, P0/P1 HTTP 호출, wrapper 파싱을 담당한다. 근무색과 `owner_user_id`, UTC
+    timestamp를 손실 없이 domain entity로 변환한다.
+  - `lib/features/group/application/group_providers.dart`: 그룹 목록·상세, 받은/보낸 초대와 행 단위
+    요청 상태를 관리한다. 목록은 page 1 교체/다음 page ID 병합, 수락은 그룹 목록 갱신,
+    관리 mutation은 상세 재조회를 사용한다.
+  - `lib/features/group/application/group_calendar_range_state.dart`,
+    `group_calendar_range_notifier.dart`, `group_calendar_provider.dart`: 그룹 전용 멀티 소유자
+    캘린더 상태와 3개월 범위 로더다. 월별 loaded/loading/in-flight, 그룹 timezone 이벤트 날짜 맵,
+    날짜별 근무·일정과 멤버 순서를 보존한다.
+  - `lib/features/group/presentation/widgets/group_room_list_view.dart`: `GroupSummary`만 사용해 그룹명,
+    멤버 수, 내 역할과 최대 4명 아바타를 표시하고 목록 새로고침·페이지네이션을 제공한다.
+  - `lib/features/group/presentation/pages/group_create_page.dart`, `group_invite_page.dart`,
+    `received_group_invitations_page.dart`: 그룹 생성, 기존 친구 bulk 초대, 받은 초대 수락/거절을
+    담당한다. 활성 멤버 20명과 메시지 200자 제한, 초대 행별 처리 상태를 UI에서 선검증한다.
+  - `lib/features/group/presentation/pages/group_calendar_page.dart`: 공용 캘린더 표시 계약 위에 실제
+    그룹 aggregate를 렌더링한다. 날짜별 근무색 점은 시작·종료 시간이 모두 있는 근무만 최대 4개로
+    표시하며 `시간 없음` 근무는 인원 집계와 선택일 상세에는 남기되 점은 그리지 않는다. 공개된 row
+    집계, 멤버별 근무·일정과 DENIED 잠금 상태를 표시하고 `GROUP_NOT_FOUND`면 일반 문구로 목록에
+    복귀한다.
+  - `lib/features/group/presentation/pages/group_management_page.dart`, `group_edit_page.dart`: 역할별
+    관리 UI다. P0 초대 진입은 OWNER/ADMIN에게 제공하고, P1 플래그가 켜질 때 수정·초대 취소·
+    멤버 제거/역할·소유권·탈퇴·삭제를 서버 권한표와 같은 조건으로 노출한다.
+  - `lib/features/friend/data/models/notification_model.dart`,
+    `presentation/providers/notification_provider.dart`, `presentation/pages/notification_page.dart`:
+    그룹 알림 payload/status를 보존하고 PENDING+accept/reject와 받은 초대 API 결과가 모두 유효할
+    때만 액션을 노출한다. 그룹 초대는 친구 요청 API와 분리해 응답하고 수락 시 그룹 목록을 갱신한다.
+  - `lib/core/network/api_client.dart`: 여러 요청이 동시에 401을 받아도 단일 refresh Future를
+    공유한다. 공개 refresh endpoint의 401은 재귀 갱신하지 않고, 원 요청은 새 토큰으로 한 번만
+    재시도하며 두 번째 401이면 토큰을 정리한다.
+  - `test/features/group/**`,
+    `test/features/friend/data/models/group_notification_model_test.dart`,
+    `test/features/friend/presentation/providers/group_notification_provider_test.dart`: 그룹 응답 파싱,
+    unknown enum, 3개월/중복 월 요청, timezone·배타 종료일, DENIED UI, 그룹 알림 조건과 친구/그룹
+    API 분리를 검증한다.
 
 ### 친구 요청 알림 응답 흐름
 

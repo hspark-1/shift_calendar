@@ -9,6 +9,8 @@ import '../../../calendar/presentation/providers/shift_types_provider.dart';
 import '../../../friend/presentation/providers/friend_calendar_range_provider.dart';
 import '../../../friend/presentation/providers/friend_provider.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
+import '../../../group/application/group_calendar_provider.dart';
+import '../../../group/application/group_providers.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/user.dart';
 
@@ -83,6 +85,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _ref.invalidate(searchUserProvider);
     _ref.invalidate(friendRequestsProvider);
     _ref.invalidate(notificationProvider);
+    _ref.invalidate(groupListProvider);
+    _ref.invalidate(groupDetailProvider);
+    _ref.invalidate(groupCalendarRangeProvider);
+    _ref.invalidate(receivedGroupInvitationsProvider);
   }
 
   /// 초기 인증 상태 확인

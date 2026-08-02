@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:timezone/data/latest.dart' as timezone_data;
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
@@ -30,6 +31,9 @@ void main() async {
 
   // 한국어 로케일 데이터 초기화
   await initializeDateFormatting('ko_KR', null);
+
+  // 그룹 캘린더 이벤트를 서버의 IANA timezone 기준 날짜로 배치한다.
+  timezone_data.initializeTimeZones();
 
   // 이전 실행에서 저장한 공휴일을 모든 캘린더가 즉시 사용할 수 있게 복원
   await KoreanHolidays.initialize();

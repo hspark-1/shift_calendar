@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'friend_model.dart';
 
 /// 알림 타입
@@ -5,6 +7,10 @@ enum NotificationType {
   friendRequest,
   friendAccepted,
   friendRejected,
+  groupInvitation,
+  groupInvitationAccepted,
+  groupInvitationRejected,
+  groupInvitationCanceled,
   scheduleShared,
   system,
   general;
@@ -19,6 +25,14 @@ enum NotificationType {
       case 'FRIEND_REQUEST_REJECTED':
       case 'FRIEND_REJECTED':
         return NotificationType.friendRejected;
+      case 'GROUP_INVITATION':
+        return NotificationType.groupInvitation;
+      case 'GROUP_INVITATION_ACCEPTED':
+        return NotificationType.groupInvitationAccepted;
+      case 'GROUP_INVITATION_REJECTED':
+        return NotificationType.groupInvitationRejected;
+      case 'GROUP_INVITATION_CANCELED':
+        return NotificationType.groupInvitationCanceled;
       case 'SCHEDULE_SHARED':
         return NotificationType.scheduleShared;
       case 'SYSTEM':
@@ -37,6 +51,14 @@ enum NotificationType {
         return 'FRIEND_REQUEST_ACCEPTED';
       case NotificationType.friendRejected:
         return 'FRIEND_REQUEST_REJECTED';
+      case NotificationType.groupInvitation:
+        return 'GROUP_INVITATION';
+      case NotificationType.groupInvitationAccepted:
+        return 'GROUP_INVITATION_ACCEPTED';
+      case NotificationType.groupInvitationRejected:
+        return 'GROUP_INVITATION_REJECTED';
+      case NotificationType.groupInvitationCanceled:
+        return 'GROUP_INVITATION_CANCELED';
       case NotificationType.scheduleShared:
         return 'SCHEDULE_SHARED';
       case NotificationType.system:
@@ -100,6 +122,13 @@ class NotificationPayload {
   final String? profileImageUrl;
   final String? requestStatus;
   final DateTime? respondedAt;
+  final String? invitation_id;
+  final String? group_id;
+  final String? group_name;
+  final String? inviter_user_id;
+  final String? inviter_name;
+  final String? invitation_status;
+  final DateTime? expires_at;
   final Map<String, dynamic> rawData;
 
   NotificationPayload({
@@ -109,11 +138,19 @@ class NotificationPayload {
     this.profileImageUrl,
     this.requestStatus,
     this.respondedAt,
+    this.invitation_id,
+    this.group_id,
+    this.group_name,
+    this.inviter_user_id,
+    this.inviter_name,
+    this.invitation_status,
+    this.expires_at,
     required this.rawData,
   });
 
   factory NotificationPayload.fromJson(Map<String, dynamic> json) {
     final respondedAtValue = json['responded_at'];
+    final expires_at_value = json['expires_at'];
 
     return NotificationPayload(
       relatedUserId: json['related_user_id'] as String?,
@@ -123,6 +160,15 @@ class NotificationPayload {
       requestStatus: json['request_status'] as String?,
       respondedAt: respondedAtValue is String
           ? DateTime.tryParse(respondedAtValue)
+          : null,
+      invitation_id: json['invitation_id'] as String?,
+      group_id: json['group_id'] as String?,
+      group_name: json['group_name'] as String?,
+      inviter_user_id: json['inviter_user_id'] as String?,
+      inviter_name: json['inviter_name'] as String?,
+      invitation_status: json['invitation_status'] as String?,
+      expires_at: expires_at_value is String
+          ? DateTime.tryParse(expires_at_value)
           : null,
       rawData: json,
     );
@@ -212,6 +258,15 @@ class NotificationModel {
 
   /// 액션이 있는지 확인
   bool get hasActions => actions.isNotEmpty;
+
+  bool get is_pending_group_invitation {
+    if (notificationType != NotificationType.groupInvitation ||
+        payload.invitation_status != 'PENDING') {
+      return false;
+    }
+    return findAction(NotificationActionType.accept) != null &&
+        findAction(NotificationActionType.reject) != null;
+  }
 
   /// 특정 타입의 액션 찾기
   NotificationAction? findAction(NotificationActionType type) {

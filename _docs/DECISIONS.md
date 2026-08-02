@@ -465,6 +465,51 @@
   - 주/일 보기나 여러 캘린더 중첩 표시가 추가되면 `CalendarDayPresentation`의 indicator 계약을
     확장하되 페이지별 도메인 객체를 공용 위젯에 직접 전달하지 않는다.
 
+## ADR-0017: 그룹 aggregate는 전용 상태로 관리하고 기능 플래그로 단계 출시한다
+
+- 배경(문제)
+  - 그룹 캘린더 응답은 여러 멤버의 근무·일정을 `owner_user_id`로 구분하고, 멤버별
+    `SELF/VISIBLE/DENIED` 공개 상태와 그룹 IANA timezone을 함께 제공한다.
+  - 기존 `CalendarRangeState`는 단일 소유자의 날짜별 근무 1건을 전제로 하므로 그대로 변환하면
+    소유자 ID와 DENIED 의미를 잃고, 기기 timezone을 사용하면 이벤트 날짜도 달라질 수 있다.
+  - 서버 P0/P1의 Stage 검증과 배포 시점이 다르며, 기존 결정적 그룹 미리보기는 안전한 rollback
+    경로로 이미 검증되어 있다.
+- 선택지(대안)
+  - A. 서버 그룹 응답을 기존 단일 소유자 `CalendarRangeState`로 축약한다.
+  - B. 그룹 페이지가 raw JSON을 직접 보관하고 날짜/권한을 렌더링 때마다 계산한다.
+  - C. 멀티 소유자·공개 상태·그룹 timezone을 보존하는 그룹 전용 domain state/notifier를 만들고,
+    공용 캘린더 표시 계약만 재사용하며 P0/P1을 독립 플래그로 출시한다.
+- 결정(무엇을 선택)
+  - C를 선택한다.
+  - `GroupCalendarRangeState`는 멤버 ID 맵/순서, 날짜별 다중 근무·일정, 월별 loaded/loading 상태를
+    보관하고 `GroupCalendarRangeNotifier`가 전월 1일~다음월 말일 범위를 병합한다.
+  - work shift의 `work_date`는 날짜 그대로 사용하고 event UTC timestamp만 응답
+    `group.timezone`으로 변환한다. 현지 자정 종료는 배타적 종료일로 처리한다.
+  - 서버의 ACL 결과를 최종값으로 사용한다. DENIED 멤버는 남기되 row/숨겨진 개수를 추정하지
+    않으며, 알림 액션은 받은 초대 API의 PENDING 결과를 source of truth로 삼는다.
+  - `GROUP_API_ENABLED`와 `GROUP_P1_ENABLED`는 기본 false다. P0 Stage 확인 후 첫 번째 플래그,
+    P1 권한/파괴 동작 확인 후 두 번째 플래그를 순서대로 활성화한다.
+- 근거(왜)
+  - 멀티 소유자 정보를 domain 계층에서 보존해야 선택일 구성원별 근무·일정을 정확히 연결하고
+    DENIED를 휴무로 오인하지 않는다.
+  - 그룹 timezone 변환을 한 상태 계층에 고정하면 기기 timezone과 DST 차이에 따른 날짜 오류를
+    테스트할 수 있다.
+  - 공용 `CalendarViewport`/`CalendarMonthView`는 유지하므로 ADR-0016의 표시 일관성을 지키면서
+    단일/멀티 소유자 상태를 억지로 합치지 않는다.
+  - 두 단계 플래그는 미검증 관리 API만 숨기거나 전체 실제 그룹 진입을 즉시 미리보기로 되돌리는
+    독립적인 rollback 수단을 제공한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - 그룹 응답의 소유자·공개 상태·timezone과 멤버 정렬을 손실 없이 유지한다.
+  - 실제 row만 집계하므로 비공개 데이터 존재 여부가 UI 숫자나 문구로 노출되지 않는다.
+  - 그룹 상태/Repository/테스트가 별도로 추가되어 코드량은 늘지만 개인·친구 캘린더 회귀 범위와
+    그룹 권한 변경 범위를 분리할 수 있다.
+  - 플래그 기본값이 false이므로 배포 설정이 누락되면 실제 API 기능이 노출되지 않는다.
+- 추후 과제(언제 다시 평가)
+  - Stage P0/P1 인수 결과와 서버 이미지·migration 시각을 작업 로그에 기록한 뒤 플래그 기본/배포
+    정책을 재평가한다.
+  - 그룹 주/일 보기나 서버 pagination/증분 캘린더 계약이 추가되면 전용 state의 범위 캐시 정책을
+    다시 검토한다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식

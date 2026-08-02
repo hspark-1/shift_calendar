@@ -1,6 +1,11 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../group/application/group_providers.dart';
+import '../../../group/domain/entities/group_models.dart';
+import '../../../group/domain/repositories/group_repository.dart';
 import '../../data/models/friend_model.dart';
 import '../../data/models/notification_model.dart';
 import '../../data/services/notification_service.dart';
@@ -13,6 +18,7 @@ class NotificationState {
   final int unreadCount;
   final bool isLoading;
   final dynamic error;
+  final Set<String> group_processing_ids;
 
   const NotificationState({
     this.notifications = const [],
@@ -20,6 +26,7 @@ class NotificationState {
     this.unreadCount = 0,
     this.isLoading = false,
     this.error,
+    this.group_processing_ids = const {},
   });
 
   NotificationState copyWith({
@@ -28,6 +35,7 @@ class NotificationState {
     int? unreadCount,
     bool? isLoading,
     dynamic error,
+    Set<String>? group_processing_ids,
   }) {
     return NotificationState(
       notifications: notifications ?? this.notifications,
@@ -35,6 +43,7 @@ class NotificationState {
       unreadCount: unreadCount ?? this.unreadCount,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      group_processing_ids: group_processing_ids ?? this.group_processing_ids,
     );
   }
 }
@@ -44,17 +53,39 @@ final notificationProvider =
     StateNotifierProvider<NotificationNotifier, NotificationState>((ref) {
       final notificationService = ref.watch(notificationServiceProvider);
       final friendService = ref.watch(friendServiceProvider);
-      return NotificationNotifier(notificationService, friendService);
+      final group_repository = ref.watch(groupRepositoryProvider);
+      return NotificationNotifier(
+        notificationService,
+        friendService,
+        group_repository: group_repository,
+        on_group_invitation_responded: (accepted) async {
+          await ref.read(receivedGroupInvitationsProvider.notifier).load();
+          if (accepted) {
+            await ref.read(groupListProvider.notifier).loadGroups();
+          }
+        },
+      );
     });
 
 /// 알림 Notifier
 class NotificationNotifier extends StateNotifier<NotificationState> {
   final NotificationService _notificationService;
   final FriendService _friendService;
+  final GroupRepository? _group_repository;
+  final Future<void> Function(bool accepted) _on_group_invitation_responded;
   final Map<String, NotificationModel> _locallyRespondedNotifications = {};
 
-  NotificationNotifier(this._notificationService, this._friendService)
-    : super(const NotificationState());
+  NotificationNotifier(
+    this._notificationService,
+    this._friendService, {
+    GroupRepository? group_repository,
+    Future<void> Function(bool accepted)? on_group_invitation_responded,
+  }) : _group_repository = group_repository,
+       _on_group_invitation_responded =
+           on_group_invitation_responded ?? _ignoreGroupInvitationResponse,
+       super(const NotificationState());
+
+  static Future<void> _ignoreGroupInvitationResponse(bool accepted) async {}
 
   /// 알림 목록 조회 (조회 시 읽음 처리됨)
   Future<void> loadNotifications({int page = 1, int limit = 20}) async {
@@ -72,6 +103,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         pagination: response.data.pagination,
         unreadCount: 0, // 조회 시 읽음 처리되므로 0으로 설정
         isLoading: false,
+        group_processing_ids: state.group_processing_ids,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e);
@@ -101,6 +133,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         pagination: response.data.pagination,
         unreadCount: state.unreadCount,
         isLoading: false,
+        group_processing_ids: state.group_processing_ids,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e);
@@ -122,6 +155,18 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     required NotificationModel notification,
     required NotificationAction action,
   }) async {
+    if (notification.notificationType == NotificationType.groupInvitation &&
+        (action.type == NotificationActionType.accept ||
+            action.type == NotificationActionType.reject)) {
+      return _respondToGroupInvitation(
+        notification: notification,
+        action_type: action.type,
+        request_action: action.type == NotificationActionType.accept
+            ? 'accept'
+            : 'reject',
+      );
+    }
+
     switch (action.type) {
       case NotificationActionType.accept:
         return _respondToFriendRequest(
@@ -145,6 +190,83 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
         // 닫기는 별도 처리 불필요
         return true;
     }
+  }
+
+  Future<bool> _respondToGroupInvitation({
+    required NotificationModel notification,
+    required NotificationActionType action_type,
+    required String request_action,
+  }) async {
+    final invitation_id = notification.payload.invitation_id;
+    final repository = _group_repository;
+    if (invitation_id == null ||
+        repository == null ||
+        !notification.is_pending_group_invitation ||
+        state.group_processing_ids.contains(invitation_id)) {
+      return false;
+    }
+
+    final previous_state = state;
+    state = state.copyWith(
+      group_processing_ids: {...state.group_processing_ids, invitation_id},
+      error: null,
+    );
+
+    try {
+      final result = await repository.respondToInvitation(
+        invitation_id: invitation_id,
+        action: request_action,
+      );
+      final response_notification = result.notification;
+      final updated_notification = response_notification == null
+          ? _buildRespondedGroupNotification(
+              notification: notification,
+              action_type: action_type,
+              result: result,
+            )
+          : NotificationModel.fromJson(response_notification);
+
+      _replaceNotification(
+        notification.notificationId,
+        updated_notification,
+        unreadCount: notification.isRead
+            ? state.unreadCount
+            : (state.unreadCount > 0 ? state.unreadCount - 1 : 0),
+      );
+      state = state.copyWith(
+        group_processing_ids: {...state.group_processing_ids}
+          ..remove(invitation_id),
+      );
+      await _on_group_invitation_responded(
+        action_type == NotificationActionType.accept,
+      );
+      return true;
+    } catch (error) {
+      state = previous_state.copyWith(error: error);
+      await _on_group_invitation_responded(false);
+      return false;
+    }
+  }
+
+  NotificationModel _buildRespondedGroupNotification({
+    required NotificationModel notification,
+    required NotificationActionType action_type,
+    required RespondGroupInvitationResult result,
+  }) {
+    final accepted = action_type == NotificationActionType.accept;
+    final status = accepted ? 'ACCEPTED' : 'REJECTED';
+    final payload_data = Map<String, dynamic>.from(notification.payload.rawData)
+      ..['invitation_status'] = status;
+
+    return notification.copyWith(
+      notificationType: accepted
+          ? NotificationType.groupInvitationAccepted
+          : NotificationType.groupInvitationRejected,
+      payload: NotificationPayload.fromJson(payload_data),
+      actions: const [],
+      isRead: true,
+      readAt: result.responded_at,
+    );
   }
 
   Future<bool> _respondToFriendRequest({

@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -8,11 +10,15 @@ import '../../data/models/notification_model.dart';
 class NotificationItem extends StatelessWidget {
   final NotificationModel notification;
   final void Function(NotificationAction action)? onActionTap;
+  final bool show_actions;
+  final bool actions_enabled;
 
   const NotificationItem({
     super.key,
     required this.notification,
     this.onActionTap,
+    this.show_actions = true,
+    this.actions_enabled = true,
   });
 
   @override
@@ -80,7 +86,7 @@ class NotificationItem extends StatelessWidget {
             ),
           ),
           // 액션 버튼 (동적 생성)
-          if (notification.hasActions) ...[
+          if (show_actions && notification.hasActions) ...[
             const SizedBox(height: 12),
             _buildActions(context),
           ],
@@ -105,6 +111,19 @@ class NotificationItem extends StatelessWidget {
       case NotificationType.friendRejected:
         icon = CupertinoIcons.person_badge_minus;
         color = CupertinoColors.systemRed;
+        break;
+      case NotificationType.groupInvitation:
+        icon = CupertinoIcons.person_3_fill;
+        color = AppTheme.primary_color;
+        break;
+      case NotificationType.groupInvitationAccepted:
+        icon = CupertinoIcons.check_mark_circled_solid;
+        color = CupertinoColors.systemGreen;
+        break;
+      case NotificationType.groupInvitationRejected:
+      case NotificationType.groupInvitationCanceled:
+        icon = CupertinoIcons.person_3;
+        color = CupertinoColors.systemGrey;
         break;
       case NotificationType.scheduleShared:
         icon = CupertinoIcons.calendar;
@@ -172,9 +191,9 @@ class NotificationItem extends StatelessWidget {
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: backgroundColor,
-      minSize: 0,
+      minimumSize: Size.zero,
       borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-      onPressed: () => onActionTap?.call(action),
+      onPressed: actions_enabled ? () => onActionTap?.call(action) : null,
       child: Text(
         action.label,
         style: TextStyle(

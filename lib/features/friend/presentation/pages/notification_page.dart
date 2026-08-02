@@ -1,7 +1,12 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../group/application/group_providers.dart';
+import '../../../group/presentation/pages/group_calendar_page.dart';
 import '../../data/models/friend_model.dart';
 import '../../data/models/notification_model.dart';
 import '../providers/notification_provider.dart';
@@ -25,21 +30,33 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
     // 페이지 진입 시 알림 목록 로드
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(notificationProvider.notifier).loadNotifications();
+      if (AppConstants.group_api_enabled) {
+        ref.read(receivedGroupInvitationsProvider.notifier).load(limit: 100);
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(notificationProvider);
+    final group_invitation_state = AppConstants.group_api_enabled
+        ? ref.watch(receivedGroupInvitationsProvider)
+        : const GroupInvitationState(has_loaded: true);
 
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: const CupertinoNavigationBar(middle: Text('알림')),
-      child: SafeArea(bottom: false, child: _buildContent(state)),
+      child: SafeArea(
+        bottom: false,
+        child: _buildContent(state, group_invitation_state),
+      ),
     );
   }
 
-  Widget _buildContent(NotificationState state) {
+  Widget _buildContent(
+    NotificationState state,
+    GroupInvitationState group_invitation_state,
+  ) {
     // 로딩 중
     if (state.isLoading && state.notifications.isEmpty) {
       return const Center(child: CupertinoActivityIndicator());
@@ -117,12 +134,29 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate((context, index) {
               final notification = state.notifications[index];
+              final invitation_id = notification.payload.invitation_id;
+              final is_group_invitation =
+                  notification.notificationType ==
+                  NotificationType.groupInvitation;
+              final pending_invitation_ids = group_invitation_state.invitations
+                  .map((item) => item.invitation_id)
+                  .toSet();
+              final show_group_actions =
+                  group_invitation_state.has_loaded &&
+                  group_invitation_state.error == null &&
+                  notification.is_pending_group_invitation &&
+                  invitation_id != null &&
+                  pending_invitation_ids.contains(invitation_id);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: NotificationItem(
                   notification: notification,
                   onActionTap: (action) =>
                       _handleNotificationAction(notification, action),
+                  show_actions: !is_group_invitation || show_group_actions,
+                  actions_enabled:
+                      invitation_id == null ||
+                      !state.group_processing_ids.contains(invitation_id),
                 ),
               );
             }, childCount: state.notifications.length),
@@ -172,6 +206,8 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
     switch (action.type) {
       case NotificationActionType.accept:
       case NotificationActionType.reject:
+        final is_group_invitation =
+            notification.notificationType == NotificationType.groupInvitation;
         final success = await ref
             .read(notificationProvider.notifier)
             .handleNotificationAction(
@@ -179,6 +215,14 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
               action: action,
             );
         if (success) {
+          if (is_group_invitation) {
+            if (!mounted) return;
+            if (action.type == NotificationActionType.accept) {
+              _navigateToAcceptedGroup(notification);
+            }
+            return;
+          }
+
           await ref
               .read(friendListProvider.notifier)
               .loadFriends(
@@ -190,11 +234,17 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
             _navigateToAcceptedFriendCalendar(notification);
           }
         } else if (mounted) {
-          _showError('요청 처리에 실패했습니다.');
+          _showError(
+            getNotificationErrorMessage(ref.read(notificationProvider).error),
+          );
         }
         break;
 
       case NotificationActionType.navigate:
+        if (notification.payload.group_id != null) {
+          _navigateToAcceptedGroup(notification);
+          break;
+        }
         if (action.route != null) {
           // 라우트에 따라 네비게이션
           if (action.route == '/friends') {
@@ -211,6 +261,20 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
         // 닫기는 별도 처리 불필요
         break;
     }
+  }
+
+  void _navigateToAcceptedGroup(NotificationModel notification) {
+    final group_id = notification.payload.group_id;
+    if (group_id == null) {
+      _showError('그룹 정보를 불러오지 못했습니다.');
+      return;
+    }
+
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (context) => GroupCalendarPage(group_id: group_id),
+      ),
+    );
   }
 
   void _navigateToAcceptedFriendCalendar(NotificationModel notification) {
