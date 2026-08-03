@@ -175,11 +175,14 @@ class AuthRemoteDataSource {
   }
 
   /// 로그아웃 (현재 기기)
-  Future<void> logout(String refreshToken) async {
+  Future<void> logout(String refreshToken, String installation_id) async {
     try {
       await _dio.post(
         ApiConstants.auth_logout,
-        data: {'refresh_token': refreshToken},
+        data: {
+          'refresh_token': refreshToken,
+          'installation_id': installation_id,
+        },
       );
     } on DioException catch (e) {
       // 서버 오류가 발생해도 로컬 토큰은 삭제

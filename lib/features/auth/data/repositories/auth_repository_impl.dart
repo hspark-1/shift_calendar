@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/token_service.dart';
+import '../../../../core/push/installation_id_service.dart';
 import '../../domain/entities/user.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../services/naver_login_service.dart';
@@ -11,7 +12,12 @@ import '../services/naver_login_service.dart';
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final remoteDatasource = ref.watch(authRemoteDataSourceProvider);
   final tokenService = ref.watch(tokenServiceProvider);
-  return AuthRepositoryImpl(remoteDatasource, tokenService);
+  final installation_id_service = ref.watch(installationIdServiceProvider);
+  return AuthRepositoryImpl(
+    remoteDatasource,
+    tokenService,
+    installation_id_service: installation_id_service,
+  );
 });
 
 /// 인증 Repository 인터페이스
@@ -50,12 +56,16 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remote_datasource;
   final TokenService _token_service;
   final NaverLoginService _naver_login_service;
+  final InstallationIdService _installation_id_service;
 
   AuthRepositoryImpl(
     this._remote_datasource,
     this._token_service, {
     NaverLoginService? naver_login_service,
-  }) : _naver_login_service = naver_login_service ?? NaverLoginService();
+    InstallationIdService? installation_id_service,
+  }) : _naver_login_service = naver_login_service ?? NaverLoginService(),
+       _installation_id_service =
+           installation_id_service ?? InstallationIdService();
 
   @override
   Future<AuthResponse> loginWithKakao() async {
@@ -140,7 +150,8 @@ class AuthRepositoryImpl implements AuthRepository {
       // 서버 로그아웃 (현재 기기)
       final refreshToken = await _token_service.getRefreshToken();
       if (refreshToken != null) {
-        await _remote_datasource.logout(refreshToken);
+        final installation_id = await _installation_id_service.getOrCreate();
+        await _remote_datasource.logout(refreshToken, installation_id);
       }
     } catch (e) {
       // 서버 오류가 발생해도 로컬 토큰은 삭제

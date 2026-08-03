@@ -59,6 +59,7 @@ class ApiConstants {
   static const String notifications = '/notifications';
   static const String notifications_unread_count =
       '/notifications/unread-count';
+  static const String devices_current = '/devices/current';
 
   // 그룹 관련 엔드포인트
   static const String groups = '/groups';

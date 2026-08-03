@@ -1,5 +1,29 @@
 # 작업 로그
 
+## 2026-08-03
+
+- [DONE] (FE) FCM 푸시 알림 및 기기 등록 구현
+  - 목적: 로그인 사용자 기기를 서버에 등록하고 Android/iOS에서 foreground·background·종료 상태의 푸시를 수신해 알림 페이지로 연결한다.
+  - 변경:
+    - Firebase/FCM/local notification/package info/UUID 버전을 정확히 고정하고 secure storage 10.3.1 호환 API로 갱신
+    - Debug Stage, Profile/Release Production `FirebaseOptions`를 build define으로 분리하고 설정 누락 시 기존 앱은 유지하면서 push만 비활성화
+    - secure storage 설치 UUID, 인증 기기 API, 로그인·앱 시작·token refresh·5분 debounce resume 동기화와 logout installation ID 전달 구현
+    - foreground OS 자동 표시를 끄고 high 채널 local banner·미읽음 갱신·최근 notification ID 영속 중복 제거 구현
+    - background handler, initial/opened message, root navigator pending destination으로 인증·프로필 완료 후 항상 `NotificationPage` 이동
+    - iOS Runner/RunnerTests/Podfile 15.0, APNs entitlement, remote notification/fetch background mode와 Android notification 권한/channel 설정
+    - `flutter_local_notifications 22.2.0`이 공식 최소 API 24를 선언해 계획의 Android API 23은 manifest 강제 override 없이 API 24로 조정하고 ADR-0018에 근거 기록
+  - 영향범위: 앱 초기화, 인증 lifecycle, 알림 상태, 네이티브 빌드 설정과 패키지 의존성. 기존 인앱 알림 API는 유지한다.
+  - 파일: `lib/core/push/**`, `lib/main.dart`, 인증 datasource/repository, `android/app`, `ios/Runner`, `pubspec.yaml`, `test/core/push/**`, `_docs/PUSH_NOTIFICATION_GUIDE.md`
+  - 테스트:
+    - 변경 파일 `flutter analyze --no-fatal-infos`: 0건
+    - push 단위 테스트 4건 통과
+    - Android API 24 debug APK 빌드 통과
+    - iOS 15 simulator debug Runner 빌드 통과
+    - 전체 Flutter 테스트 123 pass, 1 skip. 기존 `calendar_page_test.dart`의 `750px 경계 화면은 기존 월 보기를 유지한다` 1건은 이번 변경과 무관한 overflow로 실패
+    - `git diff --check` 통과
+  - 롤백: 서버 enqueue/worker를 먼저 끄고 신규 push coordinator와 Firebase 의존성·네이티브 설정을 제거한 이전 앱으로 복귀한다. 설치 UUID는 민감 credential이 아니며 앱 삭제 전까지 유지한다.
+  - 다음: 환경별 Firebase 앱/define, APNs key, service account와 실제 Android/iOS 기기를 준비해 6개 알림·권한·token refresh·최신 기기 전환·background/terminated 탭을 Stage E2E로 확인한다.
+
 ## 2026-08-02
 
 - [DONE] (UI) 그룹 보기의 시간 없는 근무 점 표시 제외

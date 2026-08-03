@@ -34,7 +34,13 @@ dependencies:
 
   # 로컬 저장소
   shared_preferences: ^2.3.4
-  flutter_secure_storage: ^9.2.3
+  flutter_secure_storage: 10.3.1
+  # 푸시 알림
+  firebase_core: 4.12.1
+  firebase_messaging: 16.4.3
+  flutter_local_notifications: 22.2.0
+  package_info_plus: 10.2.1
+  uuid: 4.5.2
 
   # 환경 변수
   flutter_dotenv: ^5.1.0

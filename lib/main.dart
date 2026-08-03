@@ -1,6 +1,9 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:timezone/data/latest.dart' as timezone_data;
@@ -12,6 +15,11 @@ import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/profile_setup_page.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/calendar/presentation/pages/calendar_page.dart';
+import 'features/friend/presentation/pages/notification_page.dart';
+import 'core/push/push_coordinator.dart';
+import 'core/push/push_providers.dart';
+
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +46,19 @@ void main() async {
   // 이전 실행에서 저장한 공휴일을 모든 캘린더가 즉시 사용할 수 있게 복원
   await KoreanHolidays.initialize();
 
-  runApp(const ProviderScope(child: ShiftMateApp()));
+  final firebase_enabled = await initializePushFirebase();
+  if (firebase_enabled) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        pushFirebaseEnabledProvider.overrideWithValue(firebase_enabled),
+      ],
+      child: const ShiftMateApp(),
+    ),
+  );
 }
 
 /// 메인 앱 위젯
@@ -48,6 +68,7 @@ class ShiftMateApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoApp(
+      navigatorKey: rootNavigatorKey,
       title: AppConstants.app_name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -64,10 +85,12 @@ class AuthWrapper extends ConsumerStatefulWidget {
   ConsumerState<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _AuthWrapperState extends ConsumerState<AuthWrapper> {
+class _AuthWrapperState extends ConsumerState<AuthWrapper>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 앱 시작 시 인증 상태 확인
     Future.microtask(() {
       ref.read(authProvider.notifier).checkAuthStatus();
@@ -75,8 +98,53 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(pushCoordinatorProvider).onAppResumed();
+    }
+  }
+
+  void _openPendingNotificationIfReady(AuthState auth_state) {
+    if (auth_state.status != AuthStatus.authenticated ||
+        auth_state.is_new_user ||
+        !ref.read(pendingPushNotificationNavigationProvider)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || rootNavigatorKey.currentState == null) return;
+      ref.read(pendingPushNotificationNavigationProvider.notifier).state =
+          false;
+      rootNavigatorKey.currentState!.push(
+        CupertinoPageRoute<void>(builder: (_) => const NotificationPage()),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      final coordinator = ref.read(pushCoordinatorProvider);
+      if (next.status == AuthStatus.authenticated &&
+          previous?.status != AuthStatus.authenticated) {
+        coordinator.startAuthenticated();
+      } else if (next.status == AuthStatus.unauthenticated &&
+          previous?.status == AuthStatus.authenticated) {
+        ref.read(pendingPushNotificationNavigationProvider.notifier).state =
+            false;
+        coordinator.stopAuthenticated();
+      }
+      _openPendingNotificationIfReady(next);
+    });
+    ref.listen<bool>(pendingPushNotificationNavigationProvider, (_, next) {
+      if (next) _openPendingNotificationIfReady(ref.read(authProvider));
+    });
 
     switch (authState.status) {
       case AuthStatus.initial:

@@ -510,6 +510,39 @@
   - 그룹 주/일 보기나 서버 pagination/증분 캘린더 계약이 추가되면 전용 state의 범위 캐시 정책을
     다시 검토한다.
 
+## ADR-0018: 푸시 lifecycle을 인증과 분리하고 모든 탭은 알림 목록으로 수렴한다
+
+- 배경(문제)
+  - FCM token은 설치·권한·APNs 준비·로그인 사용자·foreground 상태에 따라 바뀌며, 실패가 로그인 자체를 실패시키면 안 된다.
+  - background/종료 상태의 navigator가 아직 준비되지 않았거나 사용자가 로그아웃 상태일 수 있다.
+  - 서버 전달은 at-least-once이므로 foreground 중복 표시를 클라이언트에서도 줄여야 한다.
+- 선택지(대안)
+  - A. 로그인 메서드 안에서 Firebase 권한과 token 등록을 필수 단계로 처리하고 payload별 세부 화면으로 직접 이동한다.
+  - B. 앱 전역 PushCoordinator가 인증 상태를 관찰해 best-effort 동기화하고 모든 탭을 pending destination을 거쳐 NotificationPage로 이동시킨다.
+  - C. FCM notification 자동 표시만 사용하고 foreground와 앱 route는 처리하지 않는다.
+- 결정(무엇을 선택)
+  - B를 선택한다.
+  - Debug는 Stage, Profile/Release는 Production `FirebaseOptions`와 API를 사용한다.
+  - 설치 UUID는 secure storage에 보관하고 logout 후에도 유지한다.
+  - 로그인 완료, 인증된 앱 시작, token refresh, foreground 복귀 때 기기를 동기화하며 복귀는 5분 debounce한다.
+  - foreground는 OS 자동 표시를 끄고 high-importance local notification을 표시한다.
+  - background/종료/local notification 탭은 root navigator pending 상태에 기록하고 인증·프로필 완료 후 `NotificationPage`로 이동한다.
+  - 최근 `notification_id` 50개를 영속 저장해 foreground 중복 표시를 막고 logout 때 계정별 상태를 지운다.
+- 근거(왜)
+  - Firebase/APNs 또는 기기 API 장애가 기존 인증과 인앱 알림 사용을 막지 않는다.
+  - 알림 원본은 서버 `notifications`이므로 클라이언트가 payload만 믿고 세부 상태를 구성하지 않는다.
+  - pending destination은 navigator/auth/profile 준비 순서와 푸시 탭 시점의 경합을 제거한다.
+  - 환경별 명시적 options는 실제 설정이 없는 개발 환경에서 push만 안전하게 비활성화할 수 있다.
+- 결과/영향(좋은 점/트레이드오프)
+  - 앱 lifecycle과 token refresh를 한 coordinator에서 관리하고 Android/iOS 수신 동작을 통일한다.
+  - 모든 탭이 알림 목록으로 수렴해 stale 도메인 payload로 잘못된 세부 화면을 여는 위험을 줄인다.
+  - Firebase Console 앱 등록, APNs key, 환경별 build define과 실제 provisioning은 저장소 밖에서 준비해야 한다.
+  - background OS 표시의 중복은 collapse ID에 의존하고 앱 영속 dedupe는 foreground local banner에 적용된다.
+  - 계획의 Android API 23과 달리 `flutter_local_notifications 22.2.0`의 공식 최소가 API 24이므로 Android 7.0 이상만 지원한다. API 23 강제 manifest override는 런타임 안전성을 보장하지 않아 사용하지 않는다.
+- 추후 과제(언제 다시 평가)
+  - 알림 유형별 검증된 deep link 계약이 생기면 schema version을 올리고 허용 route 표를 별도 ADR로 설계한다.
+  - 두 환경 앱 동시 설치가 필요해지면 application ID/bundle ID suffix와 Firebase 앱 등록을 재설계한다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식

@@ -10,6 +10,7 @@
 - 캘린더 기반 일정 조회 및 편집
 - 친구 간 일정 공유
 - 카카오·네이버 OAuth 로그인
+- FCM 친구·그룹 푸시 알림과 인앱 알림 목록 연결
 
 ### 기술 스택
 
@@ -18,6 +19,7 @@
 - **네트워크**: Dio 5.7.0
 - **인증**: 카카오 Flutter SDK, 네이버 iOS/Android 네이티브 SDK
 - **로컬 저장소**: Flutter Secure Storage, Shared Preferences
+- **푸시**: Firebase Core/Messaging, Flutter Local Notifications
 - **코드 생성**: Freezed, JSON Serializable, Riverpod Generator
 
 ### 앱 브랜드 및 플랫폼 식별자
@@ -401,6 +403,29 @@ CalendarPage / FriendCalendarPage
 DioException → handleApiError() → ApiException → UI (CupertinoAlertDialog)
 ```
 
+### 푸시 알림·기기 동기화 흐름
+
+```text
+AuthWrapper 인증 상태
+  → PushCoordinator
+     ├─ 로그인/앱 시작: 권한 → APNs(iOS) → FCM token → PUT /devices/current
+     ├─ onTokenRefresh: 강제 기기 동기화
+     ├─ foreground 복귀: 5분 debounce 동기화
+     ├─ onMessage: notification_id 중복 제거 → local banner → 미읽음 갱신
+     └─ getInitialMessage/onMessageOpenedApp/local tap
+          → pending destination
+          → 인증·프로필 완료
+          → NotificationPage
+```
+
+- 푸시 lifecycle은 인증 성공과 분리된 best-effort 동작이며 실패해도 로그인을 실패시키지 않습니다.
+- 설치 UUID는 `InstallationIdService`가 secure storage에 만들고 logout 후에도 유지합니다.
+- logout 요청에는 installation ID를 선택 필드로 보내 서버의 사용자-기기 귀속을 해제하며 local pending route와 중복 ID 상태는 지웁니다.
+- foreground는 Firebase 자동 표시를 끄고 `shiftmate_high` local notification을 사용합니다. background/종료 상태 표시는 OS가 처리합니다.
+- schema v1과 `destination=NOTIFICATIONS`만 수용하고 모든 탭은 세부 화면 대신 `NotificationPage`로 이동합니다.
+- Debug는 Stage Firebase/API, Profile/Release는 Production Firebase/API를 사용합니다. 설정 값은 `--dart-define`으로 주입하며 없으면 push만 비활성화합니다.
+- 파일 역할·환경 변수·실기기 인수는 `_docs/PUSH_NOTIFICATION_GUIDE.md`, 결정 근거는 ADR-0018을 정본으로 사용합니다.
+
 ### API 기본 URL 정책
 
 - `ApiConstants.base_url`은 `kDebugMode`를 기준으로 빌드 모드별 주소를 선택한다.
@@ -409,6 +434,7 @@ DioException → handleApiError() → ApiException → UI (CupertinoAlertDialog)
 - `ApiClient.createDio()`가 선택된 값을 Dio `BaseOptions.baseUrl`에 적용하고,
   각 서비스는 `ApiConstants`의 상대 엔드포인트를 결합해 요청한다.
 - 그룹 Stage 인수 시 테스트한 origin·서버 이미지·migration 적용 시각을 작업 로그에 기록한다.
+- 기기 등록은 인증 `PUT /devices/current`를 사용하며 raw FCM token은 응답/로그에 노출하지 않는다.
 
 ### 카카오 인증 및 프로필 저장 흐름
 
@@ -843,8 +869,21 @@ NotificationPage
   홈 인디케이터/화면 끝에서 잘린 것처럼 보이지 않게 한다. 추가 페이지가 남아 있거나 로딩 중이면
   footer 문구 대신 하단 여백만 표시하고, 마지막 페이지에서만 완료 문구를 표시한다.
 
+### 푸시 수신 파일과 상태 규칙
+
+- `lib/core/push/firebase_environment_options.dart`: Debug Stage/Profile·Release Production 옵션 선택
+- `lib/core/push/installation_id_service.dart`: secure storage 설치 UUID 생성·검증·재사용
+- `lib/core/push/device_remote_datasource.dart`: 인증 기기 API와 safe response parsing
+- `lib/core/push/push_coordinator.dart`: 권한, APNs/FCM token, lifecycle, local banner, persistent dedupe
+- `lib/core/push/push_providers.dart`: Riverpod coordinator와 pending navigation 상태
+- UI state는 `pendingPushNotificationNavigationProvider`가 소유하고, 서버 알림 domain state와 미읽음 개수는 기존 `notificationProvider`가 소유합니다.
+- 기기 동기화의 로딩/실패 UI는 표시하지 않으며 오류는 민감값 없이 runtime type만 debug log에 남깁니다.
+- Android 최소 버전은 API 24입니다. `flutter_local_notifications 22.2.0`이 API 24를 선언하므로 계획의 API 23을 강제 override하지 않습니다.
+
 ### iOS 로컬 빌드 규칙
 
+- iOS Runner, RunnerTests와 Podfile의 최소 deployment target은 15.0입니다.
+- Push Notifications entitlement와 Background Modes의 `remote-notification`/`fetch`가 필요하며 APNs method swizzling은 기본 활성 상태를 유지합니다.
 - VS Code의 `.vscode/launch.json`은 `lib/main.dart`와 프로젝트 루트를 명시하고,
   `.env`의 compile-time define은 앱 인자 `args`가 아니라 Flutter 도구 인자
   `toolArgs`의 `--dart-define-from-file=.env`로 전달한다.
