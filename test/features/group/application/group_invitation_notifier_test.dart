@@ -1,5 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/features/group/application/group_providers.dart';
@@ -38,6 +40,30 @@ class _ExpiredInvitationRepository implements GroupRepository {
       code: 'GROUP_INVITATION_EXPIRED',
       message: '그룹 초대가 만료되었습니다.',
       statusCode: 409,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _DelayedForbiddenOutgoingRepository implements GroupRepository {
+  final Completer<void> request_started = Completer<void>();
+  final Completer<void> release_request = Completer<void>();
+
+  @override
+  Future<PaginatedGroupInvitations> getGroupInvitations({
+    required String group_id,
+    GroupInvitationStatus? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    request_started.complete();
+    await release_request.future;
+    throw ApiException(
+      code: 'GROUP_PERMISSION_DENIED',
+      message: '해당 그룹 작업 권한이 없습니다.',
+      statusCode: 403,
     );
   }
 
@@ -84,5 +110,20 @@ void main() {
       (notifier.state.error! as ApiException).code,
       'GROUP_INVITATION_EXPIRED',
     );
+  });
+
+  test('보낸 초대 요청 중 dispose된 notifier는 403 완료 후 상태를 갱신하지 않는다', () async {
+    final repository = _DelayedForbiddenOutgoingRepository();
+    final notifier = GroupOutgoingInvitationsNotifier(
+      repository: repository,
+      group_id: 'group-1',
+    );
+    final load_future = notifier.load();
+    await repository.request_started.future;
+
+    notifier.dispose();
+    repository.release_request.complete();
+
+    await expectLater(load_future, completes);
   });
 }

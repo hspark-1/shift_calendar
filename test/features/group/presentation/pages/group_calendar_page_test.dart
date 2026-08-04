@@ -130,7 +130,7 @@ void main() {
     await initializeDateFormatting('ko_KR');
   });
 
-  testWidgets('공개된 row만 집계하고 DENIED 멤버는 공개 안 함으로 표시한다', (tester) async {
+  testWidgets('근무 미설정 문구를 숨기고 DENIED 멤버는 공개 안 함으로 표시한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -157,7 +157,7 @@ void main() {
     expect(find.text('근무 1명'), findsOneWidget);
     expect(find.text('일정 1개'), findsOneWidget);
     expect(find.text('데이 · 07:00–15:00'), findsOneWidget);
-    expect(find.text('근무 없음'), findsOneWidget);
+    expect(find.text('근무 없음'), findsNothing);
     expect(find.text('캘린더 공개 안 함'), findsOneWidget);
     expect(find.text('00:30 서울 일정'), findsOneWidget);
     expect(

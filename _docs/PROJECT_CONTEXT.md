@@ -819,11 +819,14 @@ FriendListPage footer
   - `lib/features/group/presentation/pages/group_calendar_page.dart`: 공용 캘린더 표시 계약 위에 실제
     그룹 aggregate를 렌더링한다. 날짜별 근무색 점은 시작·종료 시간이 모두 있는 근무만 최대 4개로
     표시하며 `시간 없음` 근무는 인원 집계와 선택일 상세에는 남기되 점은 그리지 않는다. 공개된 row
-    집계, 멤버별 근무·일정과 DENIED 잠금 상태를 표시하고 `GROUP_NOT_FOUND`면 일반 문구로 목록에
-    복귀한다.
+    집계, 멤버별 근무·일정과 DENIED 잠금 상태를 표시한다. 공개 멤버에게 근무 객체가 없으면
+    `근무 없음` 문구나 근무 행을 만들지 않고 이름과 개인 일정만 표시한다. `GROUP_NOT_FOUND`면 일반
+    문구로 목록에 복귀한다.
   - `lib/features/group/presentation/pages/group_management_page.dart`, `group_edit_page.dart`: 역할별
     관리 UI다. P0 초대 진입은 OWNER/ADMIN에게 제공하고, P1 플래그가 켜질 때 수정·초대 취소·
-    멤버 제거/역할·소유권·탈퇴·삭제를 서버 권한표와 같은 조건으로 노출한다.
+    멤버 제거/역할·소유권·탈퇴·삭제를 서버 권한표와 같은 조건으로 노출한다. 보낸 초대 목록은
+    OWNER/ADMIN 화면이 Provider를 구독한 뒤에만 조회하며, MEMBER는 관리자 전용 endpoint를 호출하지
+    않는다. outgoing invitation의 비동기 결과는 notifier가 dispose된 뒤 상태에 반영하지 않는다.
   - `lib/features/friend/data/models/notification_model.dart`,
     `presentation/providers/notification_provider.dart`, `presentation/pages/notification_page.dart`:
     그룹 알림 payload/status를 보존하고 PENDING+accept/reject와 받은 초대 API 결과가 모두 유효할

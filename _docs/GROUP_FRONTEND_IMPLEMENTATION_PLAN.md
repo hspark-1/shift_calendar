@@ -82,6 +82,7 @@ FriendListPage / NotificationPage
 - [x] 소유권 이전·그룹 삭제(OWNER)
 - [x] 요청 중 같은 멤버/초대 행 액션 비활성화
 - [x] 권한 실패 후 상세 재조회
+- [x] OWNER/ADMIN만 보낸 초대 조회, outgoing notifier dispose 후 비동기 상태 갱신 차단
 
 ### Stage 인수 — 서버 환경에서 수행
 
@@ -119,7 +120,8 @@ FriendListPage / NotificationPage
 
 - Repository 파싱: `owner_user_id`, 색상, UTC, unknown enum 보존
 - Notifier: 3개월 범위, 월 요청 중복 방지, IANA timezone 날짜 배치, 종료일 배타 처리
-- Widget: 공개 row 집계, `DENIED` 잠금, 근무 없음과 공개 안 함 구분, 시간 없는 근무의 날짜 점 제외
+- Widget: 공개 row 집계, `DENIED` 잠금, 미설정 근무 행 숨김, 시간 없는 근무의 날짜 점 제외,
+  MEMBER의 관리자 전용 초대 조회 차단
 - 알림: PENDING+accept/reject일 때만 버튼, EXPIRED terminal, 그룹 API/친구 API 분기
 - 변경 파일 `flutter analyze` 진단 0건
 - 신규 그룹·알림 테스트 통과

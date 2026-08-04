@@ -26,6 +26,24 @@
 
 ## 2026-08-02
 
+- [DONE] (FIX) 그룹 보낸 초대 Provider dispose 후 상태 갱신 방지
+  - 목적: P1 그룹 정보 화면에서 권한 없는 멤버의 관리자 전용 초대 조회와 `autoDispose` 이후 상태 갱신 예외를 제거한다.
+  - 변경: 그룹 정보 화면의 `initState`에서 역할 확인 없이 실행하던 보낸 초대·친구 목록 조회를 제거했다. OWNER/ADMIN의 P1 보낸 초대 영역이 실제 Provider를 구독한 상태에서만 최초 조회를 예약하고, MEMBER는 관리자 endpoint를 호출하지 않는다. outgoing invitation의 load/create/cancel은 비동기 완료 직후 `mounted`를 확인해 notifier가 dispose됐으면 state를 읽거나 쓰지 않고 종료한다.
+  - 영향범위: 그룹 관리 화면의 보낸 초대 조회, outgoing invitation notifier, 관련 테스트·문서. 서버 권한과 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/group/application/group_providers.dart`, `lib/features/group/presentation/pages/group_management_page.dart`, `test/features/group/application/group_invitation_notifier_test.dart`, `test/features/group/presentation/pages/group_management_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/GROUP_FRONTEND_IMPLEMENTATION_PLAN.md`, `_docs/WORKLOG.md`
+  - 테스트: 수정 전 재현 테스트에서 dispose 후 403 완료 시 동일한 `Bad state`와 P1 MEMBER의 관리자 API 호출 1회를 확인했다. DebugMCP로 catch 시 `error=GROUP_PERMISSION_DENIED(403)`, `mounted=false`를 확인했으며 수정 후 같은 지점이 state 접근 전 반환되는 것을 재검증했다. P1 회귀 테스트 4건, 기본 그룹 테스트 10건(1건 skip), `GROUP_P1_ENABLED=true` 그룹 테스트 11건 통과. 변경 파일 `flutter analyze` 진단 0건, `dart format`, `git diff --check` 통과.
+  - 롤백: 역할별 조회 조건과 notifier dispose 보호를 이전 구현으로 복원한다.
+  - 다음: 실제 MEMBER 계정으로 그룹 정보 진입 시 보낸 초대 endpoint가 호출되지 않고, OWNER/ADMIN 화면 이탈 중 요청 완료에도 예외가 없는지 Stage에서 확인한다.
+
+- [DONE] (UI) 그룹 멤버의 미설정 근무 문구 제거
+  - 목적: 선택일에 설정된 근무가 없는 공개 멤버는 불필요한 `근무 없음` 문구 없이 이름과 개인 일정만 표시한다.
+  - 변경: 실제 그룹 캘린더에서 근무 객체가 없을 때 근무 설명의 간격·문구와 근무 코드 배지를 렌더링하지 않도록 변경했다. 근무 객체가 있으나 시간이 없는 경우의 `근무명 · 시간 없음`과 DENIED 멤버의 `캘린더 공개 안 함`은 기존대로 유지한다.
+  - 영향범위: 실제 그룹 캘린더의 선택일 멤버 카드, 관련 테스트·프로젝트 문서. 근무·일정 집계와 API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/group/presentation/pages/group_calendar_page.dart`, `test/features/group/presentation/pages/group_calendar_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/GROUP_FRONTEND_IMPLEMENTATION_PLAN.md`, `_docs/WORKLOG.md`
+  - 테스트: 실제 그룹 화면 테스트 2건에서 미설정 근무 문구 미표시, 시간 없는 실제 근무 상세 유지, 날짜 점 제외, DENIED 잠금을 검증해 통과했다. 전체 그룹 기능 테스트 9건 통과, 변경 Dart 파일 `flutter analyze` 진단 0건, `dart format`, `git diff --check` 통과.
+  - 롤백: 근무 객체가 없는 멤버에게 `근무 없음` 설명을 다시 표시한다.
+  - 다음: 실제 API에서 근무·개인 일정이 모두 없는 멤버 카드와 개인 일정만 있는 멤버 카드의 높이·정렬을 기기에서 확인한다.
+
 - [DONE] (UI) 그룹 보기의 시간 없는 근무 점 표시 제외
   - 목적: 그룹 캘린더 날짜 셀에서 시작·종료 시간이 모두 있는 근무만 색상 점으로 표시하고, `시간 없음` 근무는 선택일 상세에만 남긴다.
   - 변경: 실제 그룹 API 화면의 날짜 점 후보를 `start_time`과 `end_time`이 모두 존재하는 근무로 제한했다. 시간 없는 근무는 기존처럼 근무 인원에 집계하고 선택일 멤버 카드에 `시간 없음`으로 표시한다. 결정적 미리보기 데이터는 근무자 템플릿이 모두 시간을 가지며 휴무는 이미 점에서 제외되므로 코드를 변경하지 않고 fallback 회귀만 확인했다.

@@ -13,13 +13,18 @@ import 'package:shift_mate/features/group/domain/repositories/group_repository.d
 import 'package:shift_mate/features/group/presentation/pages/group_management_page.dart';
 
 class _FakeGroupRepository implements GroupRepository {
+  _FakeGroupRepository({this.my_role = GroupRole.owner});
+
+  final GroupRole my_role;
+  int outgoing_invitation_call_count = 0;
+
   @override
   Future<GroupDetail> getGroupDetail(String group_id) async {
     return GroupDetail(
       group_id: group_id,
       name: '우리 병동',
       timezone: 'Asia/Seoul',
-      my_role: GroupRole.owner,
+      my_role: my_role,
       member_count: 2,
       members: [
         GroupMember(
@@ -48,6 +53,7 @@ class _FakeGroupRepository implements GroupRepository {
     int page = 1,
     int limit = 20,
   }) async {
+    outgoing_invitation_call_count += 1;
     return (
       invitations: const <GroupInvitation>[],
       pagination: GroupPagination(
@@ -85,10 +91,11 @@ class _FakeFriendService extends FriendService {
 
 void main() {
   testWidgets('P0 초대는 항상 보이고 P1 관리 액션은 플래그를 따른다', (tester) async {
+    final repository = _FakeGroupRepository();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          groupRepositoryProvider.overrideWithValue(_FakeGroupRepository()),
+          groupRepositoryProvider.overrideWithValue(repository),
           friendServiceProvider.overrideWithValue(_FakeFriendService()),
         ],
         child: const CupertinoApp(
@@ -114,6 +121,29 @@ void main() {
       find.byKey(const ValueKey('group-delete-button')),
       AppConstants.group_p1_enabled ? findsOneWidget : findsNothing,
     );
+    expect(
+      repository.outgoing_invitation_call_count,
+      AppConstants.group_p1_enabled ? 1 : 0,
+    );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('P1 MEMBER는 관리자 전용 보낸 초대 API를 호출하지 않는다', (tester) async {
+    final repository = _FakeGroupRepository(my_role: GroupRole.member);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          groupRepositoryProvider.overrideWithValue(repository),
+          friendServiceProvider.overrideWithValue(_FakeFriendService()),
+        ],
+        child: const CupertinoApp(
+          home: GroupManagementPage(group_id: 'group-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.outgoing_invitation_call_count, 0);
+    expect(tester.takeException(), isNull);
+  }, skip: !AppConstants.group_p1_enabled);
 }

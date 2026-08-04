@@ -38,14 +38,6 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
       if (detail_state.group == null) {
         ref.read(groupDetailProvider(widget.group_id).notifier).load();
       }
-      if (AppConstants.group_p1_enabled) {
-        ref
-            .read(groupOutgoingInvitationsProvider(widget.group_id).notifier)
-            .load();
-        if (ref.read(friendListProvider).friends.isEmpty) {
-          ref.read(friendListProvider.notifier).loadFriends(limit: 100);
-        }
-      }
     });
   }
 
@@ -259,7 +251,8 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
 
   Widget _buildPendingInvitations() {
     final state = ref.watch(groupOutgoingInvitationsProvider(widget.group_id));
-    if (state.is_loading && !state.has_loaded) {
+    if (!state.has_loaded) {
+      if (!state.is_loading) _schedulePendingInvitationLoad();
       return const Center(child: CupertinoActivityIndicator());
     }
     if (state.error != null && state.invitations.isEmpty) {
@@ -283,7 +276,11 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
     }
     if (state.invitations.isEmpty) return const SizedBox.shrink();
 
-    final friends = ref.watch(friendListProvider).friends;
+    final friend_state = ref.watch(friendListProvider);
+    if (friend_state.friends.isEmpty && !friend_state.isLoading) {
+      _scheduleFriendLoad();
+    }
+    final friends = friend_state.friends;
     return Container(
       decoration: AppTheme.cardDecoration(),
       child: Column(
@@ -325,6 +322,27 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
         ],
       ),
     );
+  }
+
+  void _schedulePendingInvitationLoad() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final provider = groupOutgoingInvitationsProvider(widget.group_id);
+      final current_state = ref.read(provider);
+      if (!current_state.has_loaded && !current_state.is_loading) {
+        ref.read(provider.notifier).load();
+      }
+    });
+  }
+
+  void _scheduleFriendLoad() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final friend_state = ref.read(friendListProvider);
+      if (friend_state.friends.isEmpty && !friend_state.isLoading) {
+        ref.read(friendListProvider.notifier).loadFriends(limit: 100);
+      }
+    });
   }
 
   Widget _buildMembershipActions(GroupDetail group) {

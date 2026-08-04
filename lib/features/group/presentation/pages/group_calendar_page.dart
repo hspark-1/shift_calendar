@@ -517,9 +517,7 @@ class _MemberDayCard extends StatelessWidget {
   }
 
   Widget _buildVisible({required Color shift_color}) {
-    final description = shift == null
-        ? '근무 없음'
-        : '${shift!.shift_type_name} · ${_shiftTime(shift!)}';
+    final visible_shift = shift;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -539,19 +537,22 @@ class _MemberDayCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.body_small.copyWith(
-                      color: AppTheme.on_surface_variant_color,
+                  if (visible_shift != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      '${visible_shift.shift_type_name} · '
+                      '${_shiftTime(visible_shift)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.body_small.copyWith(
+                        color: AppTheme.on_surface_variant_color,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            if (shift != null)
+            if (visible_shift != null)
               Container(
                 constraints: const BoxConstraints(minWidth: 36),
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
@@ -560,7 +561,7 @@ class _MemberDayCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppTheme.radius_md),
                 ),
                 child: Text(
-                  shift!.shift_type_code,
+                  visible_shift.shift_type_code,
                   textAlign: TextAlign.center,
                   style: AppTheme.body_small.copyWith(
                     color: AppTheme.readableForegroundColor(

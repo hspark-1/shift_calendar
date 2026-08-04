@@ -455,12 +455,14 @@ class GroupOutgoingInvitationsNotifier
         page: page,
         limit: limit,
       );
+      if (!mounted) return;
       state = GroupInvitationState(
         invitations: result.invitations,
         pagination: result.pagination,
         has_loaded: true,
       );
     } catch (error) {
+      if (!mounted) return;
       state = state.copyWith(is_loading: false, has_loaded: true, error: error);
     }
   }
@@ -477,9 +479,11 @@ class GroupOutgoingInvitationsNotifier
         invitee_user_ids: invitee_user_ids,
         message: message,
       );
+      if (!mounted) return false;
       state = state.copyWith(is_loading: false);
       return true;
     } catch (error) {
+      if (!mounted) return false;
       state = state.copyWith(is_loading: false, error: error);
       return false;
     }
@@ -493,6 +497,7 @@ class GroupOutgoingInvitationsNotifier
     );
     try {
       await _repository.cancelInvitation(invitation_id);
+      if (!mounted) return false;
       state = state.copyWith(
         invitations: state.invitations
             .where((item) => item.invitation_id != invitation_id)
@@ -501,6 +506,7 @@ class GroupOutgoingInvitationsNotifier
       );
       return true;
     } catch (error) {
+      if (!mounted) return false;
       if (error is ApiException &&
           const {
             'GROUP_INVITATION_ALREADY_PROCESSED',
@@ -508,6 +514,7 @@ class GroupOutgoingInvitationsNotifier
             'GROUP_INVITATION_NOT_FOUND',
           }.contains(error.code)) {
         await load();
+        if (!mounted) return false;
         state = state.copyWith(
           processing_ids: {...state.processing_ids}..remove(invitation_id),
           error: error,
