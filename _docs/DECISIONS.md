@@ -543,6 +543,94 @@
   - 알림 유형별 검증된 deep link 계약이 생기면 schema version을 올리고 허용 route 표를 별도 ADR로 설계한다.
   - 두 환경 앱 동시 설치가 필요해지면 application ID/bundle ID suffix와 Firebase 앱 등록을 재설계한다.
 
+## ADR-0019: Apple 로그인은 서버 challenge와 code 교환을 사용하고 이메일 자동 연결을 금지한다
+
+- 배경(문제)
+  - `users.apple_id`는 이미 존재하지만 Flutter와 Express에 Apple 인증 흐름이 없었다.
+  - Apple identity token은 서명·issuer·audience·만료·nonce를 서버에서 검증해야 하며 Android는
+    Service ID와 HTTPS callback을 사용하는 웹 인증 경로가 추가로 필요하다.
+  - Apple 비공개 relay 이메일은 기존 OAuth 이메일과 다를 수 있고, 이메일 일치만으로 계정을
+    자동 연결하면 다른 계정에 Apple subject를 잘못 귀속할 수 있다.
+- 선택지(대안)
+  - A. Flutter가 identity token payload를 디코딩하고 그 사용자 정보로 앱 세션을 만든다.
+  - B. 서버가 authorization code를 검증하되 기존 카카오·네이버처럼 같은 이메일 계정에 Apple ID를 자동 연결한다.
+  - C. 서버가 일회성 nonce/state challenge를 발급하고 authorization code를 직접 교환하며,
+    `apple_id`만 자동 로그인 키로 사용하고 이메일 충돌은 명시적인 계정 연결로 분리한다.
+- 결정(무엇을 선택)
+  - C를 선택한다.
+  - Flutter는 `POST /auth/apple/challenge` 이후 Apple SDK를 호출하고, 반환된 code/state/nonce를
+    `POST /auth/apple`로 전달한다. 앱은 서버 검증 성공 후에만 ShiftMate JWT를 저장한다.
+  - iOS는 Bundle ID, Android는 서버 challenge가 반환한 Service ID와 HTTPS callback을 사용한다.
+  - 서버는 challenge를 DB에서 1회 소비하고 Apple token endpoint/JWKS 검증을 수행한다.
+  - 검증된 `sub`가 없는 신규 로그인에서 이메일이 기존 계정과 충돌하면
+    `ACCOUNT_LINK_REQUIRED`를 반환하며 자동 연결하지 않는다.
+  - Apple refresh token은 앱 JWT `refresh_tokens`와 분리해 AES-256-GCM 암호화 저장하고 계정 삭제 시 revoke한다.
+  - 서버와 Apple Developer 설정이 검증되기 전에는 `APPLE_LOGIN_ENABLED` 기본값 false로 버튼을 숨긴다.
+- 근거(왜)
+  - code 교환 결과와 nonce를 서버가 검증해야 replay와 변조된 deep link로 앱 세션이 만들어지는 것을 막을 수 있다.
+  - client ID와 callback을 서버가 플랫폼별로 확정하면 Stage/Center 빌드의 하드코딩 불일치를 줄인다.
+  - Apple subject와 명시적인 재인증만 계정 연결 근거로 사용하면 relay 이메일 및 기존 provider 계정 충돌을 안전하게 처리할 수 있다.
+  - 원문 복구 가능한 Apple refresh token이 있어야 앱 내 계정 삭제 시 Apple revoke API를 호출할 수 있다.
+- 결과/영향(좋은 점/트레이드오프)
+  - `sign_in_with_apple` 7.0.1, Apple 서비스/모델, 두 public API 계약, iOS entitlement,
+    Android callback activity와 관련 테스트가 추가된다.
+  - 신규 사용자는 기존 프로필 설정 흐름을 재사용하고 명시적인 `data.is_new_user`를 우선 사용한다.
+  - 서버에는 challenge/authorization 두 테이블과 Apple secret/JWKS/token 교환 구현이 필요하다.
+  - 같은 이메일의 기존 사용자는 별도 계정 연결 UI/API가 준비될 때까지 Apple 로그인으로 자동 진입할 수 없다.
+- 추후 과제(언제 다시 평가)
+  - `_docs/APPLE_SIGN_IN_SERVER_GUIDE.md` 완료 조건과 iOS/Android Stage 실기기 E2E를 통과한 뒤
+    `APPLE_LOGIN_ENABLED` Production 활성화를 검토한다.
+  - Production 출시 전 앱 내 계정 삭제, Apple refresh token revoke, private relay 발송 설정을 완료한다.
+  - Flutter를 3.41/Dart 3.11 이상으로 올릴 때 `sign_in_with_apple` 8.x 전환을 회귀 검증한다.
+
+## ADR-0020: Google 로그인은 ID Token을 서버에서 검증하고 이메일 자동 연결을 금지한다
+
+- 배경(문제)
+  - Google 로그인을 추가하려면 Flutter SDK가 확인한 계정을 ShiftMate 사용자와 연결해야 하지만,
+    클라이언트가 전달하는 Google 사용자 ID나 이메일만으로 앱 세션을 만들면 위·변조를 막을 수 없다.
+  - 기존 `users`에는 Google subject 컬럼이 없고, 같은 이메일이 이미 카카오·네이버·Apple 계정에
+    사용 중일 수 있다.
+  - 이번 기능은 로그인만 필요하므로 Google API access token, 추가 scope나 offline authorization
+    code를 보관할 이유가 없다.
+- 선택지(대안)
+  - A. Flutter가 Google 프로필을 전달하면 서버가 사용자 ID·이메일을 그대로 신뢰한다.
+  - B. Flutter가 authorization code를 보내고 서버가 Google access/refresh token까지 보관한다.
+  - C. Flutter는 Google ID Token만 보내고 서버가 서명·audience·issuer·만료와 verified email을
+    검증한다. 검증된 `sub`만 자동 로그인 키로 사용하며 기존 이메일 충돌은 계정 연결로 분리한다.
+- 결정(무엇을 선택)
+  - C를 선택한다.
+  - Flutter는 `google_sign_in` 7.2.0의 singleton을 한 번 초기화하고 사용자 탭에서
+    `authenticate()`를 호출해 `idToken`만 `POST /api/v1/auth/google/token`으로 전달한다.
+  - 서버는 Web application OAuth client ID를 audience로 `google-auth-library.verifyIdToken()`을
+    실행하고 검증된 `sub`를 nullable unique `users.google_id`에 저장한다.
+  - 신규 `sub`의 검증 이메일이 기존 사용자와 충돌하면 자동 연결하지 않고 HTTP 409
+    `ACCOUNT_LINK_REQUIRED`를 반환한다.
+  - 신규 사용자, 기본 근무 템플릿과 ShiftMate refresh token은 하나의 DB transaction에서 만든다.
+  - 앱 로그아웃과 서버 토큰 교환 실패 시 Google 로컬 세션을 정리한다.
+  - Google 버튼은 별도 앱 기능 플래그 없이 항상 노출하며 Apple의 기존 플래그는 유지한다.
+- 근거(왜)
+  - ID Token 서버 검증은 클라이언트 주장 대신 Google 서명과 예상 audience를 신뢰 경계로 삼는다.
+  - 로그인에 필요하지 않은 scope와 Google refresh token을 배제하면 권한·비밀 저장·철회 범위를
+    최소화할 수 있다.
+  - provider subject와 명시적 재인증만 계정 연결 근거로 사용하면 이메일 재사용이나 provider 간
+    계정 오귀속 위험을 줄인다.
+  - 서버 transaction은 사용자만 생성되고 기본 템플릿이나 refresh token이 누락되는 부분 성공을
+    방지한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - `google_sign_in` 의존성, SDK service 경계, public endpoint 계약, `User.google_id`, iOS reversed
+    URL scheme과 카카오→네이버→Google→Apple 반응형 로그인 UI가 추가된다.
+  - Android는 `google-services.json` 없이 Web client ID를 `serverClientId`로 사용하며 package와
+    빌드 서명별 SHA-1/SHA-256을 Google Cloud에 등록해야 한다.
+  - 같은 이메일의 기존 사용자는 계정 연결 UI/API가 준비될 때까지 Google 로그인으로 자동 진입할
+    수 없고 기존 로그인 방식을 안내받는다.
+  - Google 버튼이 항상 보이므로 앱 배포 전에 서버 endpoint와 OAuth client 설정을 활성화해야 한다.
+- 추후 과제(언제 다시 평가)
+  - `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`의 migration·서버·OpenAPI·Stage 실기기 E2E 완료 조건을
+    통과한 뒤 Flutter 빌드를 배포한다.
+  - provider 재인증 기반 계정 연결 UI/API 요구가 확정되면 이메일 자동 연결 없이 별도 ADR로 설계한다.
+  - Google Drive 등 추가 API 권한이 필요해지면 인증과 authorization을 분리하고 최소 scope 및
+    token 저장·철회 정책을 새로 결정한다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식

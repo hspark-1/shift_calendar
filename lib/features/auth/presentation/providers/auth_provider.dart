@@ -11,7 +11,9 @@ import '../../../friend/presentation/providers/friend_provider.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
 import '../../../group/application/group_calendar_provider.dart';
 import '../../../group/application/group_providers.dart';
+import '../../data/models/apple_auth_models.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/services/google_login_service.dart';
 import '../../domain/entities/user.dart';
 
 /// 인증 상태
@@ -154,6 +156,62 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       return true;
+    } catch (e) {
+      final errorMessage = e is ApiException
+          ? e.message
+          : e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(is_loading: false, error: errorMessage);
+      return false;
+    }
+  }
+
+  /// Google 로그인
+  Future<bool> loginWithGoogle() async {
+    state = state.copyWith(is_loading: true, error: null);
+
+    try {
+      final authResponse = await _repository.loginWithGoogle();
+
+      _invalidateAccountScopedProviders();
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: authResponse.user,
+        is_new_user: authResponse.is_new_user,
+      );
+
+      return true;
+    } on GoogleLoginCanceledException {
+      state = state.copyWith(is_loading: false, error: null);
+      return false;
+    } catch (e) {
+      final errorMessage = e is ApiException
+          ? e.message
+          : e.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(is_loading: false, error: errorMessage);
+      return false;
+    }
+  }
+
+  /// Apple 로그인
+  Future<bool> loginWithApple() async {
+    state = state.copyWith(is_loading: true, error: null);
+
+    try {
+      final authResponse = await _repository.loginWithApple();
+
+      _invalidateAccountScopedProviders();
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: authResponse.user,
+        is_new_user: authResponse.is_new_user,
+      );
+
+      return true;
+    } on AppleLoginCanceledException {
+      state = state.copyWith(is_loading: false, error: null);
+      return false;
     } catch (e) {
       final errorMessage = e is ApiException
           ? e.message

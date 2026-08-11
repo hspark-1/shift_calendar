@@ -21,7 +21,6 @@ User _$UserFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$User {
-  // ignore: invalid_annotation_target
   @JsonKey(name: 'user_id')
   @RequiredStringOrIntConverter()
   String get id => throw _privateConstructorUsedError;
@@ -32,6 +31,7 @@ mixin _$User {
   @StringOrIntConverter()
   String? get kakao_id => throw _privateConstructorUsedError;
   String? get apple_id => throw _privateConstructorUsedError;
+  String? get google_id => throw _privateConstructorUsedError;
   @FlexibleDateTimeConverter()
   DateTime? get created_at => throw _privateConstructorUsedError;
 
@@ -57,6 +57,7 @@ abstract class $UserCopyWith<$Res> {
     String? timezone,
     @StringOrIntConverter() String? kakao_id,
     String? apple_id,
+    String? google_id,
     @FlexibleDateTimeConverter() DateTime? created_at,
   });
 }
@@ -83,6 +84,7 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? timezone = freezed,
     Object? kakao_id = freezed,
     Object? apple_id = freezed,
+    Object? google_id = freezed,
     Object? created_at = freezed,
   }) {
     return _then(
@@ -115,6 +117,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
                 ? _value.apple_id
                 : apple_id // ignore: cast_nullable_to_non_nullable
                       as String?,
+            google_id: freezed == google_id
+                ? _value.google_id
+                : google_id // ignore: cast_nullable_to_non_nullable
+                      as String?,
             created_at: freezed == created_at
                 ? _value.created_at
                 : created_at // ignore: cast_nullable_to_non_nullable
@@ -141,6 +147,7 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
     String? timezone,
     @StringOrIntConverter() String? kakao_id,
     String? apple_id,
+    String? google_id,
     @FlexibleDateTimeConverter() DateTime? created_at,
   });
 }
@@ -164,6 +171,7 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? timezone = freezed,
     Object? kakao_id = freezed,
     Object? apple_id = freezed,
+    Object? google_id = freezed,
     Object? created_at = freezed,
   }) {
     return _then(
@@ -196,6 +204,10 @@ class __$$UserImplCopyWithImpl<$Res>
             ? _value.apple_id
             : apple_id // ignore: cast_nullable_to_non_nullable
                   as String?,
+        google_id: freezed == google_id
+            ? _value.google_id
+            : google_id // ignore: cast_nullable_to_non_nullable
+                  as String?,
         created_at: freezed == created_at
             ? _value.created_at
             : created_at // ignore: cast_nullable_to_non_nullable
@@ -216,13 +228,13 @@ class _$UserImpl implements _User {
     this.timezone,
     @StringOrIntConverter() this.kakao_id,
     this.apple_id,
+    this.google_id,
     @FlexibleDateTimeConverter() this.created_at,
   });
 
   factory _$UserImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserImplFromJson(json);
 
-  // ignore: invalid_annotation_target
   @override
   @JsonKey(name: 'user_id')
   @RequiredStringOrIntConverter()
@@ -241,12 +253,14 @@ class _$UserImpl implements _User {
   @override
   final String? apple_id;
   @override
+  final String? google_id;
+  @override
   @FlexibleDateTimeConverter()
   final DateTime? created_at;
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, timezone: $timezone, kakao_id: $kakao_id, apple_id: $apple_id, created_at: $created_at)';
+    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, timezone: $timezone, kakao_id: $kakao_id, apple_id: $apple_id, google_id: $google_id, created_at: $created_at)';
   }
 
   @override
@@ -265,6 +279,8 @@ class _$UserImpl implements _User {
                 other.kakao_id == kakao_id) &&
             (identical(other.apple_id, apple_id) ||
                 other.apple_id == apple_id) &&
+            (identical(other.google_id, google_id) ||
+                other.google_id == google_id) &&
             (identical(other.created_at, created_at) ||
                 other.created_at == created_at));
   }
@@ -280,6 +296,7 @@ class _$UserImpl implements _User {
     timezone,
     kakao_id,
     apple_id,
+    google_id,
     created_at,
   );
 
@@ -308,12 +325,12 @@ abstract class _User implements User {
     final String? timezone,
     @StringOrIntConverter() final String? kakao_id,
     final String? apple_id,
+    final String? google_id,
     @FlexibleDateTimeConverter() final DateTime? created_at,
   }) = _$UserImpl;
 
   factory _User.fromJson(Map<String, dynamic> json) = _$UserImpl.fromJson;
 
-  // ignore: invalid_annotation_target
   @override
   @JsonKey(name: 'user_id')
   @RequiredStringOrIntConverter()
@@ -331,6 +348,8 @@ abstract class _User implements User {
   String? get kakao_id;
   @override
   String? get apple_id;
+  @override
+  String? get google_id;
   @override
   @FlexibleDateTimeConverter()
   DateTime? get created_at;

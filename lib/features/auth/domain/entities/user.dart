@@ -1,3 +1,5 @@
+// ignore_for_file: invalid_annotation_target, non_constant_identifier_names
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'user.freezed.dart';
@@ -54,7 +56,7 @@ class FlexibleDateTimeConverter implements JsonConverter<DateTime?, dynamic> {
   dynamic toJson(DateTime? object) => object?.toIso8601String();
 }
 
-/// int(Unix timestamp) 또는 String(ISO 8601)을 non-null DateTime으로 변환하는 JsonConverter
+/// int(Unix timestamp milliseconds) 또는 String(ISO 8601)을 non-null DateTime으로 변환
 class RequiredFlexibleDateTimeConverter
     implements JsonConverter<DateTime, dynamic> {
   const RequiredFlexibleDateTimeConverter();
@@ -65,8 +67,7 @@ class RequiredFlexibleDateTimeConverter
       throw ArgumentError('Required DateTime field cannot be null');
     }
     if (json is int) {
-      // Unix timestamp (초 단위)를 DateTime으로 변환
-      return DateTime.fromMillisecondsSinceEpoch(json * 1000, isUtc: true);
+      return DateTime.fromMillisecondsSinceEpoch(json, isUtc: true);
     }
     if (json is String) {
       return DateTime.parse(json);
@@ -82,7 +83,6 @@ class RequiredFlexibleDateTimeConverter
 @freezed
 class User with _$User {
   const factory User({
-    // ignore: invalid_annotation_target
     @JsonKey(name: 'user_id')
     @RequiredStringOrIntConverter()
     required String id,
@@ -92,6 +92,7 @@ class User with _$User {
     String? timezone,
     @StringOrIntConverter() String? kakao_id,
     String? apple_id,
+    String? google_id,
     @FlexibleDateTimeConverter() DateTime? created_at,
   }) = _User;
 
@@ -123,18 +124,20 @@ class AuthResponse with _$AuthResponse {
   }) = _AuthResponse;
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
-    // 서버 응답에서 신규 가입 여부 판단
-    final message = json['message'] as String? ?? '';
-    final isNewUser = message.contains('회원가입');
-
     final data = json['data'] as Map<String, dynamic>;
+    // 신규 계약의 명시적 boolean을 우선하고 기존 서버 메시지는 호환용으로만 사용한다.
+    final message = json['message'] as String? ?? '';
+    final isNewUser =
+        data['is_new_user'] as bool? ??
+        json['is_new_user'] as bool? ??
+        message.contains('회원가입');
 
     // expires_at이 int(Unix timestamp) 또는 String(ISO 8601)일 수 있음
     final expiresAtRaw = data['expires_at'];
     final DateTime expiresAt;
     if (expiresAtRaw is int) {
       expiresAt = DateTime.fromMillisecondsSinceEpoch(
-        expiresAtRaw * 1000,
+        expiresAtRaw,
         isUtc: true,
       );
     } else {

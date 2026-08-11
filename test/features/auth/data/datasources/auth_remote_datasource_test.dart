@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/constants/api_constants.dart';
 import 'package:shift_mate/features/auth/data/datasources/auth_remote_datasource.dart';
+import 'package:shift_mate/features/auth/data/models/apple_auth_models.dart';
+import 'package:shift_mate/features/auth/domain/entities/user.dart';
 
 void main() {
   group('AuthRemoteDataSource.loginWithNaverToken', () {
@@ -55,6 +57,71 @@ void main() {
     });
   });
 
+  group('AuthRemoteDataSource.loginWithGoogleIdToken', () {
+    test('정확한 endpoint/body로 ID Token을 보내고 millisecond 만료 시각을 파싱한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      RequestOptions? captured_request;
+      final expires_at = DateTime.utc(2026, 8, 11, 12);
+
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'message': 'Google 로그인 성공',
+                  'data': {
+                    'user': {
+                      'user_id': 'google-user-id',
+                      'email': 'google@example.com',
+                      'name': 'Google 사용자',
+                      'google_id': 'google-subject',
+                    },
+                    'access_token': 'app-access-token',
+                    'refresh_token': 'app-refresh-token',
+                    'expires_at': expires_at.millisecondsSinceEpoch,
+                    'is_new_user': true,
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      final data_source = AuthRemoteDataSource(dio);
+      final auth_response = await data_source.loginWithGoogleIdToken(
+        'google-id-token',
+      );
+
+      expect(captured_request?.method, 'POST');
+      expect(captured_request?.path, ApiConstants.auth_google_token);
+      expect(captured_request?.data, {'id_token': 'google-id-token'});
+      expect(auth_response.user.id, 'google-user-id');
+      expect(auth_response.user.google_id, 'google-subject');
+      expect(auth_response.expires_at, expires_at);
+      expect(auth_response.is_new_user, isTrue);
+    });
+
+    test('AuthToken JSON의 정수 expires_at도 Unix epoch milliseconds로 파싱한다', () {
+      final expires_at = DateTime.utc(2026, 8, 11, 12);
+
+      final auth_token = AuthToken.fromJson({
+        'access_token': 'access-token',
+        'refresh_token': 'refresh-token',
+        'expires_at': expires_at.millisecondsSinceEpoch,
+      });
+
+      expect(auth_token.expires_at, expires_at);
+    });
+  });
+
   group('AuthRemoteDataSource.updateProfile', () {
     test('POST /auth/profile로 전달된 프로필 필드만 전송한다', () async {
       final dio = Dio(
@@ -101,6 +168,141 @@ void main() {
       expect(user.id, 'user-id');
       expect(user.name, '변경된 이름');
       expect(user.timezone, 'Asia/Seoul');
+    });
+  });
+
+  group('AuthRemoteDataSource Apple 로그인', () {
+    test('POST /auth/apple/challenge로 플랫폼을 보내고 challenge를 파싱한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      RequestOptions? captured_request;
+
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'nonce': 'server-nonce',
+                    'state': 'signed-state',
+                    'client_id': 'com.hspark.shiftmate.android',
+                    'redirect_uri':
+                        'https://stage-api.shiftmate.co.kr/api/v1/auth/apple/callback',
+                    'expires_at': '2026-08-06T00:05:00.000Z',
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      final data_source = AuthRemoteDataSource(dio);
+      final challenge = await data_source.createAppleChallenge(
+        AppleLoginPlatform.android,
+      );
+
+      expect(captured_request?.method, 'POST');
+      expect(captured_request?.path, ApiConstants.auth_apple_challenge);
+      expect(captured_request?.data, {'platform': 'android'});
+      expect(challenge.nonce, 'server-nonce');
+      expect(challenge.state, 'signed-state');
+      expect(challenge.client_id, 'com.hspark.shiftmate.android');
+      expect(
+        challenge.redirect_uri,
+        Uri.parse(
+          'https://stage-api.shiftmate.co.kr/api/v1/auth/apple/callback',
+        ),
+      );
+    });
+
+    test('POST /auth/apple로 검증용 credential을 보내고 신규 여부를 파싱한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      RequestOptions? captured_request;
+
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'message': 'Apple 로그인 성공',
+                  'data': {
+                    'user': {
+                      'user_id': 'apple-user-id',
+                      'email': 'relay@privaterelay.appleid.com',
+                      'name': 'Apple 사용자',
+                      'apple_id': 'apple-subject',
+                    },
+                    'access_token': 'app-access-token',
+                    'refresh_token': 'app-refresh-token',
+                    'expires_at': '2026-08-06T01:00:00.000Z',
+                    'is_new_user': true,
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+      const credential = AppleLoginCredential(
+        platform: AppleLoginPlatform.ios,
+        authorization_code: 'authorization-code',
+        identity_token: 'identity-token',
+        state: 'signed-state',
+        nonce: 'server-nonce',
+        given_name: '길동',
+        family_name: '홍',
+      );
+
+      final data_source = AuthRemoteDataSource(dio);
+      final auth_response = await data_source.loginWithApple(credential);
+
+      expect(captured_request?.method, 'POST');
+      expect(captured_request?.path, ApiConstants.auth_apple);
+      expect(captured_request?.data, {
+        'platform': 'ios',
+        'authorization_code': 'authorization-code',
+        'identity_token': 'identity-token',
+        'state': 'signed-state',
+        'nonce': 'server-nonce',
+        'given_name': '길동',
+        'family_name': '홍',
+      });
+      expect(auth_response.user.apple_id, 'apple-subject');
+      expect(auth_response.is_new_user, isTrue);
+    });
+
+    test('명시적인 is_new_user boolean을 성공 메시지보다 우선한다', () {
+      final response = AuthResponse.fromJson({
+        'success': true,
+        'message': '회원가입이 완료되었습니다.',
+        'data': {
+          'user': {
+            'user_id': 'existing-user-id',
+            'email': 'existing@example.com',
+            'name': '기존 사용자',
+          },
+          'access_token': 'app-access-token',
+          'refresh_token': 'app-refresh-token',
+          'expires_at': '2026-08-06T01:00:00.000Z',
+          'is_new_user': false,
+        },
+      });
+
+      expect(response.is_new_user, isFalse);
     });
   });
 }

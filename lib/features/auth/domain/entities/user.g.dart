@@ -14,6 +14,7 @@ _$UserImpl _$$UserImplFromJson(Map<String, dynamic> json) => _$UserImpl(
   timezone: json['timezone'] as String?,
   kakao_id: const StringOrIntConverter().fromJson(json['kakao_id']),
   apple_id: json['apple_id'] as String?,
+  google_id: json['google_id'] as String?,
   created_at: const FlexibleDateTimeConverter().fromJson(json['created_at']),
 );
 
@@ -27,6 +28,7 @@ Map<String, dynamic> _$$UserImplToJson(
   'timezone': instance.timezone,
   'kakao_id': const StringOrIntConverter().toJson(instance.kakao_id),
   'apple_id': instance.apple_id,
+  'google_id': instance.google_id,
   'created_at': const FlexibleDateTimeConverter().toJson(instance.created_at),
 };
 

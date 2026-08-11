@@ -9,7 +9,7 @@
 - 교대 근무 일정 관리 (데이/이브닝/나이트 등)
 - 캘린더 기반 일정 조회 및 편집
 - 친구 간 일정 공유
-- 카카오·네이버 OAuth 로그인
+- 카카오·네이버·Google·Apple OAuth 로그인
 - FCM 친구·그룹 푸시 알림과 인앱 알림 목록 연결
 
 ### 기술 스택
@@ -17,7 +17,8 @@
 - **프레임워크**: Flutter (Cupertino 디자인)
 - **상태관리**: Flutter Riverpod 2.6.1
 - **네트워크**: Dio 5.7.0
-- **인증**: 카카오 Flutter SDK, 네이버 iOS/Android 네이티브 SDK
+- **인증**: 카카오 Flutter SDK, 네이버 iOS/Android 네이티브 SDK,
+  `google_sign_in` 7.2.0, `sign_in_with_apple` 7.0.1
 - **로컬 저장소**: Flutter Secure Storage, Shared Preferences
 - **푸시**: Firebase Core/Messaging, Flutter Local Notifications
 - **코드 생성**: Freezed, JSON Serializable, Riverpod Generator
@@ -28,6 +29,7 @@
 - Dart 패키지명은 `shift_mate`를 사용한다.
 - Android `namespace`와 `applicationId`, Kotlin 패키지는 `com.hspark.shiftmate`를 사용한다.
 - iOS Runner Bundle ID와 네이버 전용 URL Scheme은 `com.hspark.shiftmate`를 사용한다.
+  Google iOS client와 Android OAuth client도 같은 Bundle ID/package name을 등록한다.
 - `calendar`는 캘린더 기능·도메인을 나타내는 명칭에만 사용하고 앱 브랜드 식별자로 사용하지 않는다.
 
 ### UI 디자인 시스템
@@ -321,21 +323,23 @@
     슬라이더의 가로 1.0/세로 0.8 배율, HEX·RGB·색상 휠·최근 색상 간 동기화, 완료 색상
     반환과 뒤로가기 폐기, 로컬 최근 색상의 빈 상태·복원·최신순 저장·중복 제거·6개 상한을 검증한다.
   - `lib/features/auth/presentation/pages/login_page.dart`: 비인증 사용자의 로그인 화면.
-    `AuthNotifier`의 기존 카카오·네이버 로그인 콜백과 버튼 내부 로딩 표시를 유지하면서,
-    밝은 앱 배경에 맞는 600x90 한국어 소셜 로그인 완성형 이미지를 같은 54px 전체 너비
-    터치 영역에서 `BoxFit.contain`으로 표시한다. 이미지 비율을 왜곡하지 않으며 각 버튼에
-    접근성 버튼 레이블을 제공한다.
-  - `assets/icons/kakao_login_img.png`: 카카오 한국어 완성형 로그인 버튼 이미지(600x90).
-    배경 `#FEE500`과 공식 심볼·레이블 구성을 유지하며 `LoginPage`의 카카오 로그인 콜백에
-    연결된다.
-  - `assets/icons/naver_login_img.png`: 네이버 한국어 녹색 완성형 로그인 버튼 이미지(600x90).
-    배경은 네이버 공식 지정색 `#03A94D`, 로고와 레이블은 흰색이다. 원본 기준 N 로고
-    30x30px, 레이블 최대 높이 28px이며 390px 테스트 화면의 342px 버튼 너비에서 자연 비율로
-    축소해도 N 로고가 약 17.1px로 표시되어 완성형 최소 16px 규칙을 충족한다.
-  - `test/features/auth/presentation/pages/login_page_test.dart`: 두 공식 이미지의 에셋 경로,
-    `BoxFit.contain`, 동일한 342x54 터치 영역, 카카오·네이버 접근성 레이블을 검증한다.
-    에셋을 실제 디코딩해 두 이미지가 600x90인지와 빈 배경 영역 픽셀이 카카오 `#FEE500`,
-    네이버 `#03A94D`인지도 확인한다.
+    `AuthNotifier`의 카카오·네이버·Google·Apple 로그인 콜백과 공용 로딩 표시를 제공한다.
+    Apple 버튼은 서버와 Apple Developer 설정이 준비된 빌드에서만
+    `APPLE_LOGIN_ENABLED=true`로 노출하며, 기본값은 false다.
+    Google 버튼은 별도 기능 플래그 없이 항상 노출한다. 네 provider는
+    `assets/icons/kakao.png`, `naver.png`, `google.png`, `apple.png`의 원형 아이콘을 64px로
+    표시하고, 각 아이콘과 접근성 터치 영역을 동일한 64x64로 구성한다. 버튼 중심 간 거리는
+    84px(64px 터치 영역 + 20px 간격)이다. `Wrap`이 390px에서 카카오→네이버→Google→Apple
+    순서의 한 행을 만들고, 좁은 화면에서는 같은 순서로 자동 줄바꿈한다. 공용 로그인 요청 중에는
+    아이콘을 유지한 채 모든 버튼을 비활성화·반투명 처리하고 아래 로딩 표시를 노출한다.
+    Google·Apple 사용자 취소는 실패 alert로 처리하지 않는다.
+  - `assets/icons/kakao.png`, `assets/icons/naver.png`, `assets/icons/google.png`,
+    `assets/icons/apple.png`: 로그인 화면의 원형 아이콘 이미지. 네 파일은 모두 176x176 PNG이며
+    이미지 자체 의미는 중복 읽지 않도록 제외하고 버튼 단위의 `카카오 로그인`, `네이버 로그인`,
+    `Google 로그인`, `Apple 로그인` 접근성 레이블을 제공한다.
+  - `test/features/auth/presentation/pages/login_page_test.dart`: Google 상시 노출, Apple 기능 플래그,
+    네 아이콘의 64x64 터치/시각 크기, 20px 간격, 390px 한 줄과 좁은 화면 줄바꿈, 순서,
+    176x176 원본 규격, 접근성 레이블과 공용 로딩 비활성화를 검증한다.
   - `lib/features/auth/data/services/naver_login_service.dart`: `naver_login_flutter`이 연결한
     iOS/Android 네이버 네이티브 SDK를 호출하고 Access Token만 Repository에 반환한다.
     iOS는 네이버 앱 설치 시 앱 인증을 우선하며 미설치 때만 SDK 인앱 브라우저로 fallback한다.
@@ -343,6 +347,21 @@
     조회한다. `NaverLoginSdk` 경계를 통해 플랫폼 채널 없이 서비스 결과를 단위 테스트할 수 있다.
   - `test/features/auth/data/services/naver_login_service_test.dart`: 로그인 결과 토큰 반환,
     Android 토큰 추가 조회, 사용자 취소·네이티브 취소 오류 변환과 SDK 로그아웃 위임을 검증한다.
+  - `lib/features/auth/data/services/google_login_service.dart`: `GoogleSignIn.instance` 초기화를 한 번만
+    수행하고 사용자 탭에서 `authenticate()`를 호출해 서버 audience용 ID Token만 반환한다.
+    `GoogleSignInSdk` 경계로 client ID, 토큰 누락, 사용자 취소, 설정 오류와 로그아웃을 플랫폼 채널
+    없이 테스트할 수 있다. Android는 `serverClientId`, iOS는 `clientId`와 `serverClientId`를 전달한다.
+  - `test/features/auth/data/services/google_login_service_test.dart`: SDK 초기화 1회, 플랫폼별 client ID,
+    ID Token 반환·누락, 취소·설정 오류의 사용자용 예외 변환과 로그아웃을 검증한다.
+  - `lib/features/auth/data/models/apple_auth_models.dart`: 서버 challenge와 Apple SDK 결과를
+    플랫폼 독립적인 요청 모델로 정규화한다. 서버에는 authorization code, 선택적인 identity token,
+    state/nonce와 최초 로그인 이름만 전송하며 클라이언트 이메일은 보내지 않는다.
+  - `lib/features/auth/data/services/apple_login_service.dart`: iOS 네이티브 인증과 Android 웹 인증을
+    `AppleSignInSdk` 경계로 호출한다. 서버가 발급한 nonce/state를 SDK에 전달하고 반환 state를
+    로컬에서도 대조한다. Android Service ID와 HTTPS callback은 challenge 응답을 사용하며,
+    Chrome Custom Tab이 앱으로 돌아오지 않으면 2분 뒤 재시도 가능한 오류로 종료한다.
+  - `test/features/auth/data/services/apple_login_service_test.dart`: iOS/Android 옵션, nonce/state,
+    state 불일치, 사용자 취소와 지원 불가 처리를 실제 플랫폼 채널 없이 검증한다.
   - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
     시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션,
     정적 토글, 별도 로그아웃 버튼을 Cupertino 커스텀 위젯으로 구현한다. 설정 화면 내부에는
@@ -467,9 +486,10 @@ LoginPage
     서버 토큰 교환, 프로필 조회·수정과 로그아웃 HTTP 요청을 담당한다.
     신규 사용자 프로필 완료 시 `updateProfile()`이 POST 요청을 보낸다.
   - `test/features/auth/data/datasources/auth_remote_datasource_test.dart`:
-    실제 네트워크 대신 Dio 인터셉터로 요청을 가로챈다. 네이버 SDK Access Token이
-    `POST /auth/naver/token`의 `access_token` 필드로 전달되는지와 프로필 수정의 POST 메서드,
-    `/auth/profile` 경로, null 필드 제외 본문 및 응답 파싱을 검증한다.
+    실제 네트워크 대신 Dio 인터셉터로 요청을 가로챈다. 네이버 SDK Access Token과 Google
+    ID Token이 각 `/auth/naver/token`, `/auth/google/token` 요청의 정확한 필드로 전달되는지,
+    Google 응답의 `google_id`와 millisecond `expires_at`, 프로필 수정의 POST 메서드·경로·본문 및
+    응답 파싱을 검증한다.
 
 ### 네이버 네이티브 인증 흐름
 
@@ -501,8 +521,93 @@ LoginPage
   - iOS 로컬: gitignored `ios/Flutter/Secrets.xcconfig`에
     `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 설정한다.
   - CI/CD: 같은 이름의 Gradle project property/Xcode build setting을 주입한다.
-- 로그아웃은 서버 refresh token 폐기 시도 후 카카오·네이버 SDK 로컬 세션을 각각 정리하고,
+- 로그아웃은 서버 refresh token 폐기 시도 후 카카오·네이버·Google SDK 로컬 세션을 각각 정리하고,
   소셜 SDK 오류 여부와 관계없이 앱 JWT를 삭제한다.
+
+### Google ID Token 인증 흐름
+
+```text
+LoginPage
+  → GoogleLoginService → google_sign_in authenticate()
+  → Google ID Token
+  → POST /api/v1/auth/google/token { id_token }
+  → 서버 verifyIdToken() 및 사용자 정책 적용
+  → ShiftMate Access/Refresh Token
+  → 신규 사용자: ProfileSetupPage
+  → 기존 사용자: CalendarPage
+```
+
+- `google_sign_in` 7.2.0을 고정하며 Google API scope나 authorization code를 요청하지 않는다.
+- `AuthRepositoryImpl.loginWithGoogle()`은 SDK ID Token을 서버에 전달하고 서버 성공 후에만 기존
+  `TokenService`에 ShiftMate JWT를 저장한다. 서버 교환 실패 시 Google 로컬 세션을 정리한다.
+- `AuthRemoteDataSource.loginWithGoogleIdToken()`은 public endpoint인 `/auth/google/token`에
+  `{"id_token":"..."}`만 전송한다. 응답 `expires_at` 정수는 Unix epoch milliseconds로 파싱한다.
+- Google 취소는 `GoogleLoginCanceledException`으로 분리해 `AuthNotifier`와 로그인 화면이 오류
+  dialog를 표시하지 않는다. 다른 SDK/설정 오류와 서버 오류는 사용자용 메시지로 표시한다.
+- `User.google_id`는 서버 전환 전후 응답을 함께 처리할 수 있는 nullable 필드다.
+- 빌드 설정:
+  - Android/iOS 공통 Dart define: `GOOGLE_SERVER_CLIENT_ID` (Web application OAuth client ID)
+  - iOS Dart define: `GOOGLE_IOS_CLIENT_ID`
+  - iOS xcconfig build setting: `GOOGLE_REVERSED_CLIENT_ID`; `Info.plist` URL scheme이 이를 참조한다.
+  - Android는 `google-services.json` 없이 `serverClientId`를 전달한다. Google Cloud에 package
+    `com.hspark.shiftmate`와 Debug/Stage/Release별 SHA-1·SHA-256을 등록한다.
+- 파일 역할/의존성/사용 예:
+  - `lib/core/constants/app_constants.dart`: 두 Google Dart define을 compile-time 상수로 제공한다.
+  - `lib/features/auth/data/repositories/auth_repository_impl.dart`: Google SDK → 서버 → JWT 저장 순서와
+    서버 실패/앱 로그아웃의 Google 세션 정리를 소유한다.
+  - `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`: 실제 Express route/controller/service/model/migration과
+    OpenAPI 구조에 맞춘 검증, 이메일 충돌, 오류, 환경변수, Stage/Center 배포·롤백 요구문서다.
+  - Google 서버 구현의 핵심 정책은 검증된 `sub`만 로그인 키로 사용하고 같은 이메일의 기존 계정에
+    자동 연결하지 않는 것이다.
+
+### Apple 인증 흐름
+
+```text
+LoginPage
+  → POST /api/v1/auth/apple/challenge { platform }
+  → AppleLoginService
+     ├─ iOS: AuthenticationServices 네이티브 인증
+     └─ Android: Service ID + HTTPS callback 웹 인증
+  → POST /api/v1/auth/apple
+     { platform, authorization_code, identity_token?, state, nonce, name? }
+  → 서버 Apple code/token/claim 검증
+  → ShiftMate Access/Refresh Token
+  → 신규 사용자: ProfileSetupPage
+  → 기존 사용자: CalendarPage
+```
+
+- Flutter 3.38.5/Dart 3.10.4와 호환되는 `sign_in_with_apple` 7.0.1을 고정한다.
+- `AuthRepositoryImpl.loginWithApple()`은 challenge → SDK → 서버 검증 순서를 소유하고 서버 성공
+  이후에만 기존 `TokenService`로 앱 JWT를 저장한다.
+- `AuthRemoteDataSource`는 public endpoint인 `/auth/apple/challenge`, `/auth/apple`만 호출한다.
+  Android의 `/auth/apple/callback`은 Apple 서버와 plugin callback activity 사이의 경로이므로
+  Flutter가 직접 호출하지 않는다.
+- challenge 응답이 플랫폼별 `client_id`와 `redirect_uri`를 제공한다. 앱에 Apple Service ID나
+  callback을 하드코딩하지 않는다.
+- `AuthResponse`는 `data.is_new_user` boolean을 우선 파싱하고 기존 서버 메시지 판정은 하위 호환
+  fallback으로만 유지한다.
+- iOS `Runner.entitlements`와 Xcode target에 Sign in with Apple capability를 선언한다.
+  실제 실행에는 Apple Developer App ID capability와 갱신된 provisioning profile이 필요하다.
+- Android manifest는 plugin의 `signinwithapple://callback` activity를 등록하며 기존 MainActivity의
+  `singleTop`을 유지한다.
+- 서버 구현 전 또는 Stage 검증 전에는 `APPLE_LOGIN_ENABLED=false`로 버튼을 숨긴다.
+- 파일 역할/의존성/사용 예:
+  - `lib/core/constants/app_constants.dart`: Apple 로그인 빌드 기능 플래그를 제공한다. 서버 활성화,
+    Apple Developer 설정, 실기기 검증이 모두 끝난 환경에서만 `--dart-define`으로 true를 전달한다.
+  - `lib/features/auth/data/datasources/auth_remote_datasource.dart`: challenge와 로그인 완료 HTTP 계약을
+    구현하고 서버 오류를 `ApiException`으로 변환한다.
+  - `lib/features/auth/data/repositories/auth_repository_impl.dart`: Apple SDK 결과를 서버가 검증하기
+    전에는 앱 세션을 만들지 않으며 성공 응답의 앱 JWT만 secure storage에 저장한다.
+  - `_docs/APPLE_SIGN_IN_SERVER_GUIDE.md`: 현재 Express route/controller/service/model/migration 규칙에
+    맞춘 Apple code 교환, JWKS 검증, 이메일 충돌, token 암호화/revoke, OpenAPI, 테스트,
+    Stage/Center 배포·롤백 가이드다. 서버 구현 티켓과 완료 감사 체크리스트로 사용한다.
+  - `test/features/auth/data/repositories/auth_repository_impl_test.dart`,
+    `test/features/auth/presentation/providers/auth_provider_test.dart`: challenge → SDK → 서버 → 앱 JWT
+    순서와 사용자 취소 시 오류 미노출을 검증한다.
+
+현재 `schema.drawio`와 `visibility_flow.drawio`는 Apple 인증 테이블과 `users.google_id`를 포함하지
+않으며, `schema.drawio`는 최종 단일 캘린더 DDL보다 오래된 구조다. 서버에서 Google migration을
+구현할 때 Apple 정본화 상태도 확인하고 서버 정본 DDL·AGENTS 문서·drawio를 함께 갱신해야 한다.
 
 ### 메인 캘린더 조회/표시 흐름
 
@@ -903,6 +1008,9 @@ NotificationPage
 - Debug/Profile/Release Runner 구성은 각각 동일한 이름의 Flutter xcconfig를 사용하며,
   각 파일은 해당 `Pods-Runner.<configuration>.xcconfig`, `Generated.xcconfig`,
   로컬 `Secrets.xcconfig`를 포함한다.
+- Google 로그인 iOS 빌드는 `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_SERVER_CLIENT_ID`를 Dart define으로,
+  `GOOGLE_REVERSED_CLIENT_ID`를 xcconfig build setting으로 주입한다. `Info.plist`의 Google URL scheme은
+  마지막 값을 참조하므로 로컬 `Secrets.xcconfig`와 CI secret 설정에 reversed client ID가 필요하다.
 - 파일 역할/의존성/사용 예:
   - `.vscode/launch.json`: VS Code/Cursor의 Flutter Debug·Release 실행 진입점.
     Dart/Flutter 확장의 `toolArgs`로 `.env` define을 전달하고, iOS 실행 시

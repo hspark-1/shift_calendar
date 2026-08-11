@@ -6,6 +6,8 @@ import '../../../../core/services/token_service.dart';
 import '../../../../core/push/installation_id_service.dart';
 import '../../domain/entities/user.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../services/apple_login_service.dart';
+import '../services/google_login_service.dart';
 import '../services/naver_login_service.dart';
 
 /// Auth Repository Provider
@@ -27,6 +29,12 @@ abstract class AuthRepository {
 
   /// 네이버 로그인 (네이티브 SDK + 서버 인증)
   Future<AuthResponse> loginWithNaver();
+
+  /// Google 로그인 (ID Token + 서버 인증)
+  Future<AuthResponse> loginWithGoogle();
+
+  /// Apple 로그인 (challenge + SDK + 서버 인증)
+  Future<AuthResponse> loginWithApple();
 
   /// 토큰 갱신
   Future<AuthToken> refreshToken();
@@ -56,14 +64,20 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remote_datasource;
   final TokenService _token_service;
   final NaverLoginService _naver_login_service;
+  final GoogleLoginService _google_login_service;
+  final AppleLoginService _apple_login_service;
   final InstallationIdService _installation_id_service;
 
   AuthRepositoryImpl(
     this._remote_datasource,
     this._token_service, {
     NaverLoginService? naver_login_service,
+    GoogleLoginService? google_login_service,
+    AppleLoginService? apple_login_service,
     InstallationIdService? installation_id_service,
   }) : _naver_login_service = naver_login_service ?? NaverLoginService(),
+       _google_login_service = google_login_service ?? GoogleLoginService(),
+       _apple_login_service = apple_login_service ?? AppleLoginService(),
        _installation_id_service =
            installation_id_service ?? InstallationIdService();
 
@@ -98,6 +112,57 @@ class AuthRepositoryImpl implements AuthRepository {
     );
 
     // 3. 토큰 저장
+    await _token_service.saveTokens(
+      access_token: authResponse.access_token,
+      refresh_token: authResponse.refresh_token,
+      expires_at: authResponse.expires_at,
+    );
+
+    return authResponse;
+  }
+
+  @override
+  Future<AuthResponse> loginWithGoogle() async {
+    // 1. Google SDK에서 서버 audience용 ID Token을 가져온다.
+    final google_id_token = await _google_login_service.loginWithGoogle();
+
+    try {
+      // 2. 서버가 ID Token을 검증하고 앱 세션을 발급한다.
+      final authResponse = await _remote_datasource.loginWithGoogleIdToken(
+        google_id_token,
+      );
+
+      // 3. 서버 인증 성공 후에만 앱 JWT를 저장한다.
+      await _token_service.saveTokens(
+        access_token: authResponse.access_token,
+        refresh_token: authResponse.refresh_token,
+        expires_at: authResponse.expires_at,
+      );
+
+      return authResponse;
+    } catch (_) {
+      try {
+        await _google_login_service.logout();
+      } catch (_) {
+        // 서버 교환 실패가 원본 오류이며 Google 로컬 정리 실패로 덮어쓰지 않는다.
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<AuthResponse> loginWithApple() async {
+    // 1. 서버가 플랫폼별 client ID와 일회성 nonce/state를 확정한다.
+    final challenge = await _remote_datasource.createAppleChallenge(
+      _apple_login_service.platform,
+    );
+
+    // 2. Apple 네이티브/웹 인증 결과를 challenge와 대조한다.
+    final credential = await _apple_login_service.loginWithApple(challenge);
+
+    // 3. 서버가 Apple code/token을 검증하고 앱 세션을 발급한다.
+    final authResponse = await _remote_datasource.loginWithApple(credential);
+
     await _token_service.saveTokens(
       access_token: authResponse.access_token,
       refresh_token: authResponse.refresh_token,
@@ -167,6 +232,13 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       // 네이버 SDK 로그아웃
       await _naver_login_service.logout();
+    } catch (e) {
+      // 소셜 SDK 오류가 발생해도 로컬 토큰은 삭제
+    }
+
+    try {
+      // Google SDK 로그아웃
+      await _google_login_service.logout();
     } catch (e) {
       // 소셜 SDK 오류가 발생해도 로컬 토큰은 삭제
     }

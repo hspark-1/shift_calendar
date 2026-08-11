@@ -17,6 +17,19 @@ class AppConstants {
     defaultValue: '',
   );
 
+  /// Google iOS OAuth client ID (--dart-define으로 전달)
+  static const String google_ios_client_id = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  /// Google Web application OAuth client ID (--dart-define으로 전달)
+  /// Android와 iOS ID Token의 서버 audience로 사용한다.
+  static const String google_server_client_id = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '',
+  );
+
   /// 기본 타임존
   static const String default_timezone = 'Asia/Seoul';
 
@@ -29,6 +42,15 @@ class AppConstants {
   );
   static const bool group_p1_enabled = bool.fromEnvironment(
     'GROUP_P1_ENABLED',
+    defaultValue: false,
+  );
+
+  /// Apple 로그인 기능 플래그.
+  ///
+  /// 서버의 challenge/login/callback 계약과 Apple Developer 설정이 모두
+  /// 준비된 빌드에서만 true로 주입한다.
+  static const bool apple_login_enabled = bool.fromEnvironment(
+    'APPLE_LOGIN_ENABLED',
     defaultValue: false,
   );
 

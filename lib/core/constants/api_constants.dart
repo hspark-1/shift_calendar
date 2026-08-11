@@ -26,6 +26,10 @@ class ApiConstants {
   static const String auth_refresh = '/auth/refresh';
   static const String auth_kakao_token = '/auth/kakao/token';
   static const String auth_naver_token = '/auth/naver/token';
+  static const String auth_google_token = '/auth/google/token';
+  static const String auth_apple_challenge = '/auth/apple/challenge';
+  static const String auth_apple = '/auth/apple';
+  static const String auth_apple_callback = '/auth/apple/callback';
   static const String auth_profile = '/auth/profile';
   static const String auth_logout = '/auth/logout';
   static const String auth_logout_all = '/auth/logout-all';

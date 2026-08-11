@@ -6,7 +6,9 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' hide User;
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_error_handler.dart';
 import '../../domain/entities/user.dart';
+import '../models/apple_auth_models.dart';
 
 /// Auth Remote DataSource Provider
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
@@ -85,6 +87,64 @@ class AuthRemoteDataSource {
       throw Exception(errorMessage);
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// Google ID Token으로 서버 로그인을 요청한다.
+  Future<AuthResponse> loginWithGoogleIdToken(String googleIdToken) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.auth_google_token,
+        data: {'id_token': googleIdToken},
+      );
+
+      if (response.data['success'] == true) {
+        return AuthResponse.fromJson(response.data);
+      }
+
+      throw Exception(response.data['message'] ?? 'Google 로그인에 실패했습니다.');
+    } on DioException catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /// Apple 인증을 시작할 일회성 nonce/state와 플랫폼 설정을 요청한다.
+  Future<AppleAuthChallenge> createAppleChallenge(
+    AppleLoginPlatform platform,
+  ) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.auth_apple_challenge,
+        data: {'platform': platform.api_value},
+      );
+
+      if (response.data['success'] == true) {
+        return AppleAuthChallenge.fromJson(
+          response.data['data'] as Map<String, dynamic>,
+        );
+      }
+
+      throw Exception(response.data['message'] ?? 'Apple 로그인 준비에 실패했습니다.');
+    } on DioException catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /// 검증 가능한 Apple 인증 결과로 서버 로그인을 요청한다.
+  Future<AuthResponse> loginWithApple(AppleLoginCredential credential) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.auth_apple,
+        data: credential.toJson(),
+      );
+
+      if (response.data['success'] == true) {
+        return AuthResponse.fromJson(response.data);
+      }
+
+      throw Exception(response.data['message'] ?? 'Apple 로그인에 실패했습니다.');
+    } on DioException catch (error) {
+      throw handleApiError(error);
     }
   }
 

@@ -187,6 +187,10 @@ class ApiClient {
     const publicEndpoints = [
       ApiConstants.auth_kakao_token,
       ApiConstants.auth_naver_token,
+      ApiConstants.auth_google_token,
+      ApiConstants.auth_apple_challenge,
+      ApiConstants.auth_apple,
+      ApiConstants.auth_apple_callback,
       ApiConstants.auth_login,
       ApiConstants.auth_register,
       ApiConstants.auth_refresh,

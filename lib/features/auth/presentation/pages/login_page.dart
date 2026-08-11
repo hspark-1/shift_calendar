@@ -1,4 +1,4 @@
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,9 +9,14 @@ import '../../../calendar/presentation/pages/calendar_page.dart';
 import '../providers/auth_provider.dart';
 import 'profile_setup_page.dart';
 
-/// 카카오 로그인 페이지
+/// 소셜 로그인 페이지
 class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+  final bool apple_login_enabled;
+
+  const LoginPage({
+    super.key,
+    this.apple_login_enabled = AppConstants.apple_login_enabled,
+  });
 
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
@@ -100,6 +105,82 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  Future<void> _handleGoogleLogin() async {
+    if (_is_loading) return;
+
+    setState(() {
+      _is_loading = true;
+    });
+
+    final success = await ref.read(authProvider.notifier).loginWithGoogle();
+
+    if (!mounted) return;
+
+    setState(() {
+      _is_loading = false;
+    });
+
+    if (success) {
+      final authState = ref.read(authProvider);
+
+      if (authState.is_new_user) {
+        Navigator.of(context).pushReplacement(
+          CupertinoPageRoute(
+            builder: (context) => ProfileSetupPage(user: authState.user!),
+          ),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          CupertinoPageRoute(builder: (context) => const CalendarPage()),
+        );
+      }
+    } else {
+      // 사용자 취소는 error가 null이므로 별도 실패 다이얼로그를 표시하지 않는다.
+      final error = ref.read(authProvider).error;
+      if (error != null) {
+        _showErrorDialog(error);
+      }
+    }
+  }
+
+  Future<void> _handleAppleLogin() async {
+    if (_is_loading) return;
+
+    setState(() {
+      _is_loading = true;
+    });
+
+    final success = await ref.read(authProvider.notifier).loginWithApple();
+
+    if (!mounted) return;
+
+    setState(() {
+      _is_loading = false;
+    });
+
+    if (success) {
+      final authState = ref.read(authProvider);
+
+      if (authState.is_new_user) {
+        Navigator.of(context).pushReplacement(
+          CupertinoPageRoute(
+            builder: (context) => ProfileSetupPage(user: authState.user!),
+          ),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          CupertinoPageRoute(builder: (context) => const CalendarPage()),
+        );
+      }
+    } else {
+      // 사용자 취소는 error가 null이므로 별도 실패 다이얼로그를 표시하지 않는다.
+      final error = ref.read(authProvider).error;
+      if (error != null) {
+        _showErrorDialog(error);
+      }
+    }
+  }
+
   void _showErrorDialog(String message) {
     showCupertinoDialog(
       context: context,
@@ -129,12 +210,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               // 앱 로고 및 타이틀
               _buildHeader(),
               const Spacer(flex: 2),
-              // 카카오 로그인 버튼
-              _buildKakaoLoginButton(),
+              // 소셜 로그인 버튼
+              _buildSocialLoginButtons(),
               const SizedBox(height: 12),
-              // 네이버 로그인 버튼
-              _buildNaverLoginButton(),
-              const SizedBox(height: 16),
+              SizedBox(
+                height: 20,
+                child: _is_loading
+                    ? const CupertinoActivityIndicator(radius: 9)
+                    : null,
+              ),
+              const SizedBox(height: 8),
               // 이용약관 안내
               _buildTermsText(),
               const SizedBox(height: 40),
@@ -188,53 +273,74 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _buildKakaoLoginButton() {
-    return Semantics(
-      button: true,
-      enabled: !_is_loading,
-      label: '카카오 로그인',
-      child: GestureDetector(
-        onTap: _is_loading ? null : _handleKakaoLogin,
-        child: SizedBox(
-          key: const Key('kakao_login_button'),
-          width: double.infinity,
-          height: 54,
-          child: _is_loading
-              ? const Center(
-                  child: CupertinoActivityIndicator(color: Color(0xFF191919)),
-                )
-              : Image.asset(
-                  'assets/icons/kakao_login_img.png',
-                  fit: BoxFit.contain,
-                  excludeFromSemantics: true,
-                ),
+  Widget _buildSocialLoginButtons() {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 20,
+      runSpacing: 12,
+      children: [
+        _buildSocialLoginButton(
+          button_key: const Key('kakao_login_button'),
+          asset_path: 'assets/icons/kakao.png',
+          semantics_label: '카카오 로그인',
+          on_pressed: _handleKakaoLogin,
         ),
-      ),
+        _buildSocialLoginButton(
+          button_key: const Key('naver_login_button'),
+          asset_path: 'assets/icons/naver.png',
+          semantics_label: '네이버 로그인',
+          on_pressed: _handleNaverLogin,
+        ),
+        _buildSocialLoginButton(
+          button_key: const Key('google_login_button'),
+          asset_path: 'assets/icons/google.png',
+          semantics_label: 'Google 로그인',
+          on_pressed: _handleGoogleLogin,
+        ),
+        if (widget.apple_login_enabled) ...[
+          _buildSocialLoginButton(
+            button_key: const Key('apple_login_button'),
+            asset_path: 'assets/icons/apple.png',
+            semantics_label: 'Apple 로그인',
+            on_pressed: _handleAppleLogin,
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _buildNaverLoginButton() {
+  Widget _buildSocialLoginButton({
+    required Key button_key,
+    required String asset_path,
+    required String semantics_label,
+    required VoidCallback on_pressed,
+  }) {
+    const button_size = 64.0;
+
     return Semantics(
+      container: true,
+      excludeSemantics: true,
       button: true,
       enabled: !_is_loading,
-      label: '네이버 로그인',
-      child: GestureDetector(
-        onTap: _is_loading ? null : _handleNaverLogin,
-        child: SizedBox(
-          key: const Key('naver_login_button'),
-          width: double.infinity,
-          height: 54,
-          child: _is_loading
-              ? const Center(
-                  child: CupertinoActivityIndicator(
-                    color: CupertinoColors.white,
-                  ),
-                )
-              : Image.asset(
-                  'assets/icons/naver_login_img.png',
-                  fit: BoxFit.contain,
-                  excludeFromSemantics: true,
-                ),
+      label: semantics_label,
+      child: CupertinoButton(
+        key: button_key,
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(button_size, button_size),
+        pressedOpacity: 0.7,
+        onPressed: _is_loading ? null : on_pressed,
+        child: AnimatedOpacity(
+          opacity: _is_loading ? 0.45 : 1,
+          duration: const Duration(milliseconds: 150),
+          child: ClipOval(
+            child: Image.asset(
+              asset_path,
+              width: button_size,
+              height: button_size,
+              fit: BoxFit.cover,
+              excludeFromSemantics: true,
+            ),
+          ),
         ),
       ),
     );

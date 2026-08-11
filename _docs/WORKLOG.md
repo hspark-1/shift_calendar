@@ -1,5 +1,72 @@
 # 작업 로그
 
+## 2026-08-11
+
+- [DONE] (FE/DOCS) Google 소셜 로그인 구현 및 서버 요구문서 작성
+  - 목적: Google ID Token을 ShiftMate 서버에서 검증하는 로그인 흐름을 Flutter 인증 계층과 로그인 화면에 추가하고, 후속 Express 구현에 필요한 확정 계약을 문서화한다.
+  - 변경:
+    - `google_sign_in` 7.2.0을 고정하고 앱 전역 SDK singleton을 한 번만 초기화하는 `GoogleSignInSdk`/`GoogleLoginService` 경계를 추가했다. Android는 Web client ID를 `serverClientId`로, iOS는 iOS client ID와 Web client ID를 전달하며 `authenticate()` 결과의 ID Token만 반환한다.
+    - ID Token 누락, 취소, 지원/설정 오류를 사용자용 예외로 구분했다. 서버 토큰 교환 실패와 앱 로그아웃은 Google 로컬 세션을 best-effort로 정리하고, ShiftMate JWT는 서버 성공 후에만 저장한다.
+    - `/auth/google/token` public endpoint, `{ "id_token": "..." }` datasource, Repository/Notifier 흐름과 nullable `User.google_id`를 추가했다. 서버 정수 `expires_at`은 실제 Express 계약인 Unix epoch milliseconds로 수정했다.
+    - 로그인 화면을 64x64 아이콘·20px 간격의 반응형 `Wrap`으로 바꿨다. Google은 항상 노출하고 Apple 플래그는 유지하며, 카카오→네이버→Google→Apple 순서, 좁은 화면 줄바꿈, 접근성 레이블과 공용 로딩 비활성·반투명을 적용했다.
+    - iOS `Info.plist`에 `GOOGLE_REVERSED_CLIENT_ID` build setting을 사용하는 URL scheme을 추가하고 CocoaPods를 동기화했다. Android는 `google-services.json` 없이 빌드한다.
+    - 실제 Express route/controller/service/User/environment/OpenAPI/migration 구조를 기준으로 ID Token 검증, 이메일 자동 연결 금지, transaction, 오류, 환경변수, Google Cloud, Stage/Center 배포·롤백을 `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`에 결정 완료 상태로 작성했다. 서버 코드는 수정하지 않았다.
+    - Google 인증 흐름·환경·파일 역할을 프로젝트 컨텍스트에, ID Token 서버 검증과 이메일 자동 연결 금지 정책을 ADR-0020에 반영했다.
+  - 영향범위: Flutter 인증 SDK/data/repository/state/User 모델·로그인 UI, iOS URL scheme/Pod, 패키지 lockfile, 인증 테스트와 프로젝트 문서. Behavior change: Google 버튼이 모든 로그인 화면에 나타나며 정수 로그인 만료 시각을 millisecond로 해석한다. 기존 카카오·네이버와 Apple 기능 플래그 정책은 유지한다.
+  - 파일: `lib/features/auth/data/services/google_login_service.dart`, 인증 datasource/repository/entity/provider/page 및 생성 코드, `lib/core/constants/api_constants.dart`, `app_constants.dart`, `lib/core/network/api_client.dart`, `ios/Runner/Info.plist`, `ios/Flutter/*.xcconfig`, `ios/Podfile.lock`, `pubspec.yaml`, `pubspec.lock`, `assets/icons/google.png`, `test/features/auth/**`, `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트:
+    - 전체 인증 service/datasource/repository/provider/login UI 테스트 37건 통과. 초기화 1회, 플랫폼별 client ID, ID Token 반환·누락, 취소·설정 오류, 로그아웃, endpoint/body, 서버 성공 후 JWT 저장, 실패 시 Google 정리, `is_new_user`, 로그인 응답과 `AuthToken`의 millisecond 파싱, 176x176 에셋/64x64 버튼, 390px 한 줄·좁은 화면 줄바꿈, 접근성과 로딩 비활성화를 검증했다.
+    - 변경 생산 코드·인증 테스트 `flutter analyze --no-fatal-infos`: 진단 0건.
+    - 형식 검증용 Google client ID를 주입한 Android debug APK와 iOS simulator debug Runner 빌드 통과. 빌드된 iOS 앱의 Google URL scheme이 주입한 reversed client ID로 해석된 것도 확인했다.
+    - `pod install --repo-update` 통과, `Info.plist` lint 통과, Google 아이콘 176x176 RGBA 확인, 서버 가이드 JSON 예시 3개 파싱·code fence 14개 균형·참조 서버 파일 존재 확인, `dart format`과 `git diff --check` 통과.
+    - 전체 Flutter 테스트는 151 pass, 1 skip이며 기존 `calendar_page_test.dart`의 `750px 경계 화면은 기존 월 보기를 유지한다` 1건만 기존과 동일한 RenderFlex 11px overflow로 실패했다. 전체 analyze 38건(기존 profile picker 미사용 warning 1건과 naming/deprecated info 37건)은 Google 변경 파일 밖이며 변경 대상 분석에는 진단이 없다.
+  - 롤백: Google service/API/Repository/Provider/User 필드/버튼, iOS URL scheme, 패키지·Pod, 테스트와 Google 문서/ADR 항목을 함께 되돌린다. 실제 서버 배포 뒤 장애가 나면 서버 `GOOGLE_AUTH_ENABLED=false`를 먼저 적용하고 nullable `google_id` 데이터가 존재하면 DB 컬럼은 보존한다.
+  - 다음: `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md` 순서대로 Express `google-auth-library`, route/service/User/OpenAPI와 guarded migration을 구현한다. Google Cloud Web/iOS/Android client와 빌드별 SHA-1·SHA-256, 실제 secret을 준비해 Stage iOS/Android 실기기 E2E를 통과한 뒤 Center 서버를 먼저 활성화하고 앱을 배포한다.
+
+## 2026-08-06
+
+- [DONE] (FE) 소셜 로그인 원형 아이콘 표시 크기 확대
+  - 목적: 실제 로그인 화면에서 64x64 터치 영역 안의 44x44 이미지가 작게 보이는 문제를 해결한다.
+  - 변경: 카카오·네이버·Apple 원형 이미지를 터치 영역과 동일한 64x64로 확대해 버튼 내부의 10px 사방 여백을 제거했다. 기존 중앙 가로 배열, 버튼 중심 간 84px 거리(64px 버튼 + 20px 간격), 로딩 비활성화와 인증 handler를 유지했다.
+  - 영향범위: 로그인 화면 소셜 아이콘의 시각 크기, 위젯 테스트와 프로젝트 컨텍스트. Behavior change: 세 원형 아이콘의 지름이 44px에서 64px로 확대된다. OAuth/API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 로그인 위젯 테스트에서 세 버튼과 세 이미지가 모두 64x64인지, 동일 Y 좌표·중심 간 84px 거리·접근성 레이블과 Apple 기능 플래그 노출을 검증했다. 전체 인증 테스트 21건 통과, 변경 코드·테스트 `flutter analyze --no-fatal-infos` 진단 0건, `dart format` 통과.
+  - 롤백: 원형 이미지 크기를 44x44로 복원하고 테스트·문서 기대값을 되돌린다.
+  - 다음: Stage iOS/Android 실제 기기에서 확대된 아이콘의 선명도와 눌림·로딩 피드백을 확인한다.
+
+- [DONE] (FE) 소셜 로그인 버튼을 원형 아이콘 가로 배열로 변경
+  - 목적: 새로 추가된 카카오·네이버·Apple 원형 이미지를 로그인 화면에서 일관된 크기의 가로형 소셜 로그인 버튼으로 사용한다.
+  - 변경: 기존 세로형 전체 너비 브랜드 버튼을 `assets/icons/kakao.png`, `naver.png`, `apple.png`를 사용하는 중앙 정렬 한 행으로 교체했다. 각 원형 이미지는 44x44로 표시하고, 접근 가능한 64x64 `CupertinoButton` 터치 영역과 버튼 사이 20px 간격을 적용했다. 공용 로그인 중에는 아이콘을 유지한 채 세 버튼을 비활성화·반투명 처리하고 행 아래에 로딩 표시를 제공한다. 기존 카카오·네이버·Apple handler, 사용자 취소 처리와 `APPLE_LOGIN_ENABLED` 플래그는 유지했다.
+  - 영향범위: 로그인 화면 소셜 로그인 UI, 신규 원형 이미지 세 개, 로그인 페이지 위젯 테스트와 프로젝트 컨텍스트. Behavior change: Apple 기능 플래그가 켜진 화면에서는 세 로그인 버튼이 세로형 전체 너비 버튼 대신 원형 아이콘 한 행으로 표시된다. OAuth/API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 테스트: 로그인 위젯 테스트 3건에서 카카오·네이버 기본 노출, Apple 플래그 노출, 64x64 터치 영역, 44x44 아이콘, 동일 Y 좌표, 중심 간 84px 거리, 신규 에셋 경로·176x176 원본 규격과 접근성 레이블을 검증해 통과했다. 전체 인증 테스트 21건 통과, 변경 코드·테스트 `flutter analyze --no-fatal-infos` 진단 0건, `dart format`과 `git diff --check` 통과.
+  - 롤백: 로그인 페이지의 소셜 로그인 영역과 위젯 테스트를 기존 세로형 전체 너비 버튼으로 복원하고 관련 문서 항목을 되돌린다.
+  - 다음: Stage iOS/Android 실제 기기에서 아이콘 선명도, 눌림·로딩 피드백과 Apple 기능 플래그 활성화 시 세 provider 인증 진입을 확인한다.
+
+- [DONE] (FE/DOCS) Apple 소셜 로그인 구현 및 서버 구현 가이드 작성
+  - 목적: Flutter 앱에서 Apple 인증을 시작해 검증 가능한 인증 결과를 서버에 전달하고, 기존 ShiftMate JWT·신규 사용자 프로필 흐름에 연결한다. 이어서 Express 서버가 같은 계약을 안전하게 구현할 수 있는 검증·계정 연결·토큰 철회·배포 가이드를 제공한다.
+  - 변경:
+    - Flutter 3.38.5/Dart 3.10.4 호환 `sign_in_with_apple` 7.0.1을 고정하고 lockfile·iOS Pod를 갱신했다.
+    - 서버 challenge가 플랫폼별 nonce/state/client ID/callback을 확정하고, Apple SDK 결과를 서버가 검증한 뒤에만 기존 ShiftMate JWT를 secure storage에 저장하는 Repository 흐름을 추가했다.
+    - iOS 네이티브와 Android 웹 인증을 `AppleSignInSdk` 경계로 분리하고 state 불일치, 사용자 취소, 지원 불가, Android Custom Tab 2분 timeout을 처리했다.
+    - `/auth/apple/challenge`, `/auth/apple`, `/auth/apple/callback` 상수와 public endpoint, `AuthNotifier.loginWithApple()`, 신규 사용자 명시 boolean 우선 파싱을 추가했다.
+    - 로그인 화면은 `APPLE_LOGIN_ENABLED=true`일 때만 342x54 공식 검은색 Apple 버튼을 노출한다. 사용자 취소는 오류 alert로 표시하지 않는다.
+    - iOS entitlement/Xcode capability와 Android `signinwithapple://callback` activity를 추가했다.
+    - Express 실제 route/controller/service/model/migration/OpenAPI/환경변수 구조에 맞춰 challenge 1회 소비, Apple code/JWKS 검증, 이메일 자동 연결 금지, AES-256-GCM refresh token 저장/revoke, DB DDL, 오류, 테스트, Stage/Center 배포·롤백을 `_docs/APPLE_SIGN_IN_SERVER_GUIDE.md`에 확정했다.
+    - Apple 인증 정책을 ADR-0019와 프로젝트 컨텍스트에 반영하고 오래된 `schema.drawio`가 최종 DDL 정본이 아님을 명시했다.
+  - 영향범위: 인증 데이터·상태·로그인 UI, iOS/Android 네이티브 설정, 패키지 의존성, 인증 테스트와 프로젝트 문서. Behavior change: `APPLE_LOGIN_ENABLED=true` 빌드에만 세 번째 로그인 버튼이 나타난다. 기본값 false이므로 서버 배포 전 기존 카카오·네이버 로그인 화면은 유지된다.
+  - 파일: `lib/features/auth/data/models/apple_auth_models.dart`, `data/services/apple_login_service.dart`, 인증 datasource/repository/entity/provider/page, `lib/core/constants/api_constants.dart`, `app_constants.dart`, `lib/core/network/api_client.dart`, `ios/Runner/Runner.entitlements`, `ios/Runner.xcodeproj/project.pbxproj`, `ios/Podfile.lock`, `android/app/src/main/AndroidManifest.xml`, `pubspec.yaml`, `pubspec.lock`, `test/features/auth/**`, `_docs/APPLE_SIGN_IN_SERVER_GUIDE.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트:
+    - Apple service/datasource/repository/provider/login page 단위·위젯 테스트 16건 통과
+    - 변경 생산 코드·테스트 15개 대상 `flutter analyze --no-fatal-infos`: 진단 0건
+    - `APPLE_LOGIN_ENABLED=true` Android debug APK 빌드 통과
+    - `APPLE_LOGIN_ENABLED=true` iOS simulator debug Runner 빌드 통과
+    - 전체 Flutter 테스트: 135 pass, 1 skip. 기존 `calendar_page_test.dart`의 `750px 경계 화면은 기존 월 보기를 유지한다` 1건은 기존과 같은 RenderFlex 11px overflow로 실패하며 Apple 변경 파일과 겹치지 않는다.
+    - 전체 analyze는 변경 밖 기존 생성 코드 duplicate ignore·미사용 profile picker warning과 naming/deprecated info 41건으로 종료 코드 1이며, 변경 대상 analyze는 0건이다.
+    - 서버 가이드 JSON 예시 6개 파싱, Markdown code fence 46개 균형, 참조한 서버 route/controller/service/model/migration 파일 존재 확인, `git diff --check` 통과
+  - 롤백: 앱 빌드에서 `APPLE_LOGIN_ENABLED=false`로 버튼을 즉시 숨긴다. 코드 롤백 시 Apple 모델·서비스·API/Repository/Provider/UI, 패키지·Pod, iOS entitlement/Xcode capability, Android callback, 테스트와 문서를 함께 되돌린다. 기존 카카오·네이버 로그인과 앱 JWT 저장 계약은 변경하지 않는다.
+  - 다음: `_docs/APPLE_SIGN_IN_SERVER_GUIDE.md` 순서대로 서버 migration·세 endpoint·Apple token 검증·계정 삭제/revoke를 구현하고 Apple Developer App ID/key/Service ID/provisioning/private relay 설정을 완료한다. Stage iOS/Android 실기기 E2E와 롤백 리허설 통과 후 서버·앱 기능 플래그를 Production에서 활성화한다.
+
 ## 2026-08-03
 
 - [DONE] (FE) FCM 푸시 알림 및 기기 등록 구현
