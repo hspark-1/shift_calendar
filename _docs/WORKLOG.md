@@ -1,6 +1,25 @@
 # 작업 로그
 
+## 2026-08-14
+
+- [DONE] (FE) 설정 화면 회원 탈퇴 버튼 및 비동기 탈퇴 API 연동
+  - 목적: 사용자가 설정 화면에서 복구 불가 영향을 확인한 뒤 회원 탈퇴를 요청하고, 서버 접수 즉시 로컬 인증·계정 캐시를 정리해 로그인 화면으로 이동한다.
+  - 변경: 로그아웃 아래에 별도 `회원 탈퇴` 액션을 추가하고 일정·근무표·친구·그룹 정보 삭제와 복구 불가를 최종 확인하게 했다. `DELETE /auth/account`에 boolean `confirmation=true`를 보내고 해당 요청은 글로벌 access token 자동 refresh에서 제외했다. Google 현재 계정은 SDK `disconnect()`, Naver 현재 token은 `logOutAndDeleteToken()`으로 서버 요청 전 연결을 해제한다. `202`는 로컬 JWT·소셜 세션·계정 Provider 캐시를 정리하고 로그인으로 이동하며, `401`·`ACCOUNT_DELETION_IN_PROGRESS`도 로컬 세션을 종료한다. `REAUTHENTICATION_REQUIRED`는 설정 화면을 유지하고 재로그인·재확인을 안내하며, 기타 미접수 오류는 인증 상태를 유지한다. 서버 `request_id`를 `ApiException`에 보존해 실패 로그에 남긴다.
+  - 영향범위: Flutter 인증 datasource/repository/notifier, Google·Naver SDK 경계, 설정 화면, 인증 단위·위젯 테스트와 프로젝트 문서. DB 스키마와 서버 구현은 변경하지 않는다.
+  - 파일: `lib/core/constants/api_constants.dart`, `lib/core/network/api_client.dart`, `api_error_handler.dart`, `api_exception.dart`, `lib/features/auth/data/datasources/auth_remote_datasource.dart`, `data/repositories/auth_repository_impl.dart`, `data/services/google_login_service.dart`, `naver_login_service.dart`, `presentation/providers/auth_provider.dart`, `presentation/pages/settings_page.dart`, `test/features/auth/**`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 롤백: 탈퇴 endpoint·SDK 연결 해제·Notifier 분기·설정 버튼과 관련 테스트·ADR-0021·프로젝트 컨텍스트를 함께 제거한다. `ApiException.request_id`와 `skip_auth_refresh`를 다른 흐름이 사용하게 된 후에는 해당 의존성을 먼저 분리한다.
+  - 테스트: 전체 인증 테스트 53건이 통과했다. 탈퇴 요청 method/path/boolean body·refresh 제외, `request_id` 보존, Google/Naver 연결 해제, 202 로컬 정리, 403 재인증 상태 유지, 409 세션 정리, 설정 버튼·복구 불가 확인·로그인 전환을 검증했다. 변경 파일 17개 정적 분석은 진단 0건, `dart format`과 `git diff --check`는 통과했다. 전체 테스트는 167 pass·1 skip이고 변경 범위 밖의 기존 `calendar_page_test.dart`의 `750px 경계 화면은 기존 월 보기를 유지한다` 1건만 기존과 같은 RenderFlex 11px overflow로 실패했다. 전체 analyze의 기존 38건(프로필 picker 미사용 warning 1건, 프로젝트 snake_case/deprecated info 37건)은 변경 범위 밖이며 변경 대상 분석에는 진단이 없다.
+  - 다음: Stage에서 카카오·네이버·Google·Apple 계정별 실기기 탈퇴, 10분 경과 재인증, 202 후 일반 API 차단과 백그라운드 삭제 완료를 서버 로그·DB·provider 콘솔에서 확인한다.
+
 ## 2026-08-13
+
+- [DONE] (DESIGN) 프로필 설정 필수·선택 정보 위계 개선
+  - 목적: 신규 사용자가 반드시 입력해야 하는 기본 정보와 건너뛸 수 있는 근무 정보를 즉시 구분하고, 선택 정보 때문에 가입 완료가 막힌다고 오해하지 않게 한다.
+  - 변경: 상단의 중복 완료 액션과 큰 장식 영역을 제거하고 프로필 안내를 컴팩트하게 재구성했다. 기본 정보에는 `필수` 배지·필수 표시·이메일 인증 상태를, 근무 정보에는 `선택` 배지와 `지금 입력하지 않아도 괜찮아요` 상시 안내를 추가했다. 선택 필드 초기값은 비워 두고 하단의 단일 `저장하고 시작하기` 버튼은 이름·휴대폰만 검증하도록 구성했다. focus/error 상태, 44px 이상 터치 영역, 작은 화면 대응과 하단 안전영역도 반영했다. 디자인 규칙과 현재 Flutter/API 계약에 없는 시안 필드의 구현 전제도 문서화했다.
+  - 영향범위: `design/signup input personal data`의 프로필 설정 HTML 시안·디자인 규칙과 프로젝트 문서. Behavior change: 근무 정보가 비어 있어도 완료할 수 있고, 완료 액션은 하단 버튼 하나만 표시된다. Flutter/API/DB 동작은 변경하지 않는다.
+  - 파일: `../design/signup input personal data/code.html`, `../design/signup input personal data/DESIGN.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 롤백: HTML 시안의 필수·선택 위계, 단일 하단 액션, 검증 스크립트와 디자인/프로젝트 문서 항목을 이전 버전으로 복원한다.
+  - 테스트: inline JavaScript 구문, 필수·선택 배지 및 선택 안내 존재, 완료 CTA 단일 노출, 선택 근무 필드의 `required` 미사용을 정적으로 검증했다. `git diff --check`를 통과했다. 연결 가능한 미리보기 브라우저가 없어 실제 렌더 캡처는 수행하지 않았으며, 검증되지 않은 `screen.png`는 덮어쓰지 않았다.
 
 - [DONE] (FIX) 로그인 콘텐츠 수평 중앙 정렬을 레이아웃 제약으로 통일
   - 목적: 로그인 헤더와 소셜 버튼 그룹을 고정 px 이동 없이 화면의 좌우 중앙에 배치한다.

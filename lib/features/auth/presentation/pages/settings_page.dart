@@ -27,6 +27,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   static const Color _switch_off_color = Color(0xFFCCCCCC);
 
   bool _is_logging_out = false;
+  bool _is_deleting_account = false;
+
+  bool get _is_processing => _is_logging_out || _is_deleting_account;
 
   static double _scaled(double value) {
     return value * _settings_scale;
@@ -102,9 +105,109 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     });
 
     // 로그아웃 후 네비게이션 스택 초기화하고 로그인 페이지로 이동
+    _navigateToLogin();
+  }
+
+  void _navigateToLogin() {
     Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       CupertinoPageRoute<void>(builder: (context) => const LoginPage()),
       (route) => false,
+    );
+  }
+
+  void _showDeleteAccountConfirmDialog() {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (dialog_context) => CupertinoAlertDialog(
+        title: const Text('회원 탈퇴'),
+        content: const Text(
+          '회원 탈퇴 시 일정, 근무표, 친구 관계 및 그룹 정보가 '
+          '삭제됩니다.\n삭제된 데이터는 복구할 수 없습니다.\n\n'
+          '정말 탈퇴하시겠습니까?',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialog_context).pop(),
+            child: const Text('취소'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.of(dialog_context).pop();
+              _handleDeleteAccount();
+            },
+            child: const Text('탈퇴'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    setState(() => _is_deleting_account = true);
+
+    final result = await ref.read(authProvider.notifier).deleteAccount();
+    if (!mounted) return;
+
+    setState(() => _is_deleting_account = false);
+
+    switch (result) {
+      case AccountDeletionResult.accepted:
+      case AccountDeletionResult.session_ended:
+        _navigateToLogin();
+        return;
+      case AccountDeletionResult.reauthentication_required:
+        _showReauthenticationAlert();
+        return;
+      case AccountDeletionResult.failed:
+        _showAccountDeletionError();
+        return;
+    }
+  }
+
+  void _showReauthenticationAlert() {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (dialog_context) => CupertinoAlertDialog(
+        title: const Text('다시 로그인이 필요합니다'),
+        content: const Text(
+          '안전한 회원 탈퇴를 위해 다시 로그인해주세요. '
+          '로그인 후 탈퇴 요청을 다시 확인해야 합니다.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialog_context).pop(),
+            child: const Text('나중에'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () async {
+              Navigator.of(dialog_context).pop();
+              await ref.read(authProvider.notifier).logout();
+              if (mounted) _navigateToLogin();
+            },
+            child: const Text('다시 로그인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAccountDeletionError() {
+    final message = ref.read(authProvider).error ?? '잠시 후 다시 시도해주세요.';
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (dialog_context) => CupertinoAlertDialog(
+        title: const Text('회원 탈퇴 실패'),
+        content: Text(message),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialog_context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -228,6 +331,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
             SizedBox(height: _scaled(24)),
             _buildLogoutButton(),
+            SizedBox(height: _scaled(12)),
+            _buildDeleteAccountButton(),
           ],
         ),
       ),
@@ -535,7 +640,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildLogoutButton() {
     return CupertinoButton(
       padding: EdgeInsets.zero,
-      onPressed: _is_logging_out ? null : _showLogoutConfirmDialog,
+      onPressed: _is_processing ? null : _showLogoutConfirmDialog,
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.symmetric(
@@ -570,6 +675,45 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteAccountButton() {
+    return CupertinoButton(
+      key: const Key('delete_account_button'),
+      padding: EdgeInsets.zero,
+      onPressed: _is_processing ? null : _showDeleteAccountConfirmDialog,
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 44),
+        alignment: Alignment.center,
+        child: _is_deleting_account
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CupertinoActivityIndicator(),
+                  SizedBox(width: _scaled(8)),
+                  Text(
+                    '탈퇴 요청 중',
+                    style: _scaledTextStyle(
+                      AppTheme.body_large,
+                      color: _on_error_container_color,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                '회원 탈퇴',
+                style: _scaledTextStyle(
+                  AppTheme.body_large,
+                  color: _on_error_container_color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
       ),
     );
   }

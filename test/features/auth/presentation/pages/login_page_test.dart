@@ -40,6 +40,9 @@ class _PendingGoogleAuthRepository implements AuthRepository {
   Future<void> logout() async {}
 
   @override
+  Future<void> deleteAccount(User user) async {}
+
+  @override
   Future<AuthToken> refreshToken() => throw UnimplementedError();
 
   @override

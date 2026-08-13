@@ -14,6 +14,8 @@ abstract interface class GoogleSignInSdk {
   Future<String?> authenticateAndGetIdToken();
 
   Future<void> signOut();
+
+  Future<void> disconnect();
 }
 
 /// google_sign_in의 앱 전역 singleton을 사용하는 실제 구현.
@@ -46,6 +48,9 @@ class NativeGoogleSignInSdk implements GoogleSignInSdk {
 
   @override
   Future<void> signOut() => _google_sign_in.signOut();
+
+  @override
+  Future<void> disconnect() => _google_sign_in.disconnect();
 }
 
 /// 사용자 액션으로 Google 인증을 시작해 서버 검증용 ID Token만 반환한다.
@@ -119,6 +124,13 @@ class GoogleLoginService {
     _validateConfiguration();
     await _ensureInitialized();
     await _google_sign_in_sdk.signOut();
+  }
+
+  /// 회원 탈퇴 전 Google 앱 연결과 로컬 세션을 해제한다.
+  Future<void> disconnect() async {
+    _validateConfiguration();
+    await _ensureInitialized();
+    await _google_sign_in_sdk.disconnect();
   }
 
   void _validateConfiguration() {

@@ -11,6 +11,7 @@ Exception handleApiError(DioException error) {
         code: errorData['code'] as String? ?? 'UNKNOWN_ERROR',
         message: errorData['message'] as String? ?? '알 수 없는 오류가 발생했습니다.',
         statusCode: error.response!.statusCode,
+        request_id: data['request_id'] as String?,
       );
     }
 
@@ -21,6 +22,9 @@ Exception handleApiError(DioException error) {
           ? data['message'] as String
           : '서버 오류가 발생했습니다.',
       statusCode: error.response!.statusCode,
+      request_id: data is Map<String, dynamic>
+          ? data['request_id'] as String?
+          : null,
     );
   }
 
@@ -49,4 +53,3 @@ Exception handleApiError(DioException error) {
     statusCode: null,
   );
 }
-

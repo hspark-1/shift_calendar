@@ -1,6 +1,7 @@
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../calendar/presentation/providers/calendar_range_provider.dart';
@@ -26,6 +27,13 @@ enum AuthStatus {
 
   /// 인증 안됨 (로그아웃 상태)
   unauthenticated,
+}
+
+enum AccountDeletionResult {
+  accepted,
+  reauthentication_required,
+  session_ended,
+  failed,
 }
 
 /// 인증 상태 모델
@@ -270,6 +278,49 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _invalidateAccountScopedProviders();
 
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  /// 소셜 연결 해제와 서버 탈퇴 접수를 순차적으로 실행한다.
+  Future<AccountDeletionResult> deleteAccount() async {
+    final user = state.user;
+    if (user == null) {
+      state = const AuthState(status: AuthStatus.unauthenticated);
+      return AccountDeletionResult.session_ended;
+    }
+
+    state = state.copyWith(is_loading: true, error: null);
+
+    try {
+      await _repository.deleteAccount(user);
+      _invalidateAccountScopedProviders();
+      state = const AuthState(status: AuthStatus.unauthenticated);
+      return AccountDeletionResult.accepted;
+    } on ApiException catch (error) {
+      if (error.request_id != null) {
+        debugPrint('회원 탈퇴 실패 request_id=${error.request_id}');
+      }
+
+      if (error.code == 'REAUTHENTICATION_REQUIRED') {
+        state = state.copyWith(is_loading: false, error: null);
+        return AccountDeletionResult.reauthentication_required;
+      }
+
+      if (error.statusCode == 401 ||
+          error.code == 'ACCOUNT_DELETION_IN_PROGRESS') {
+        _invalidateAccountScopedProviders();
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return AccountDeletionResult.session_ended;
+      }
+
+      state = state.copyWith(is_loading: false, error: error.message);
+      return AccountDeletionResult.failed;
+    } catch (error) {
+      state = state.copyWith(
+        is_loading: false,
+        error: error.toString().replaceAll('Exception: ', ''),
+      );
+      return AccountDeletionResult.failed;
+    }
   }
 
   /// 에러 초기화

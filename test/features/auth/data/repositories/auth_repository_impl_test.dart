@@ -3,6 +3,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/services/token_service.dart';
+import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:shift_mate/features/auth/data/models/apple_auth_models.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
@@ -19,6 +20,8 @@ class _FakeAuthRemoteDataSource extends AuthRemoteDataSource {
   String? google_id_token;
   Object? google_login_error;
   int kakao_logout_count = 0;
+  int delete_account_count = 0;
+  Object? delete_account_error;
 
   final challenge = const AppleAuthChallenge(
     nonce: 'server-nonce',
@@ -65,6 +68,13 @@ class _FakeAuthRemoteDataSource extends AuthRemoteDataSource {
   @override
   Future<void> logoutKakao() async {
     kakao_logout_count += 1;
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    delete_account_count += 1;
+    final current_error = delete_account_error;
+    if (current_error != null) throw current_error;
   }
 }
 
@@ -124,6 +134,7 @@ class _FakeGoogleLoginService extends GoogleLoginService {
   Object? login_error;
   int login_count = 0;
   int logout_count = 0;
+  int disconnect_count = 0;
 
   @override
   Future<String> loginWithGoogle() async {
@@ -137,14 +148,25 @@ class _FakeGoogleLoginService extends GoogleLoginService {
   Future<void> logout() async {
     logout_count += 1;
   }
+
+  @override
+  Future<void> disconnect() async {
+    disconnect_count += 1;
+  }
 }
 
 class _FakeNaverLoginService extends NaverLoginService {
   int logout_count = 0;
+  int disconnect_count = 0;
 
   @override
   Future<void> logout() async {
     logout_count += 1;
+  }
+
+  @override
+  Future<void> disconnect() async {
+    disconnect_count += 1;
   }
 }
 
@@ -239,6 +261,81 @@ void main() {
     expect(remote_data_source.kakao_logout_count, 1);
     expect(naver_login_service.logout_count, 1);
     expect(google_login_service.logout_count, 1);
+    expect(token_service.clear_count, 1);
+  });
+
+  test('Google·Naver 연결 해제 후 탈퇴 API를 접수하고 로컬 세션을 정리한다', () async {
+    final remote_data_source = _FakeAuthRemoteDataSource();
+    final google_login_service = _FakeGoogleLoginService();
+    final naver_login_service = _FakeNaverLoginService();
+    final token_service = _FakeTokenService();
+    final repository = AuthRepositoryImpl(
+      remote_data_source,
+      token_service,
+      google_login_service: google_login_service,
+      naver_login_service: naver_login_service,
+    );
+
+    await repository.deleteAccount(remote_data_source.response.user);
+
+    expect(google_login_service.disconnect_count, 1);
+    expect(naver_login_service.disconnect_count, 1);
+    expect(remote_data_source.delete_account_count, 1);
+    expect(remote_data_source.kakao_logout_count, 1);
+    expect(naver_login_service.logout_count, 1);
+    expect(google_login_service.logout_count, 1);
+    expect(token_service.clear_count, 1);
+  });
+
+  test('재인증 필요 오류에서는 앱 JWT와 인증 상태를 유지한다', () async {
+    final remote_data_source = _FakeAuthRemoteDataSource()
+      ..delete_account_error = ApiException(
+        code: 'REAUTHENTICATION_REQUIRED',
+        message: '다시 로그인해주세요.',
+        statusCode: 403,
+      );
+    final token_service = _FakeTokenService();
+    final repository = AuthRepositoryImpl(
+      remote_data_source,
+      token_service,
+      google_login_service: _FakeGoogleLoginService(),
+      naver_login_service: _FakeNaverLoginService(),
+    );
+
+    await expectLater(
+      repository.deleteAccount(remote_data_source.response.user),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.code,
+          'code',
+          'REAUTHENTICATION_REQUIRED',
+        ),
+      ),
+    );
+
+    expect(token_service.clear_count, 0);
+  });
+
+  test('이미 탈퇴 처리 중이면 로컬 세션을 정리한다', () async {
+    final remote_data_source = _FakeAuthRemoteDataSource()
+      ..delete_account_error = ApiException(
+        code: 'ACCOUNT_DELETION_IN_PROGRESS',
+        message: '회원 탈퇴가 처리 중입니다.',
+        statusCode: 409,
+      );
+    final token_service = _FakeTokenService();
+    final repository = AuthRepositoryImpl(
+      remote_data_source,
+      token_service,
+      google_login_service: _FakeGoogleLoginService(),
+      naver_login_service: _FakeNaverLoginService(),
+    );
+
+    await expectLater(
+      repository.deleteAccount(remote_data_source.response.user),
+      throwsA(isA<ApiException>()),
+    );
+
     expect(token_service.clear_count, 1);
   });
 }

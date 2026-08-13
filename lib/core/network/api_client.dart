@@ -133,7 +133,8 @@ class ApiClient {
         }
 
         // 만료 임박 시 미리 갱신
-        if (await tokenService.isTokenExpired()) {
+        final skip_auth_refresh = options.extra['skip_auth_refresh'] == true;
+        if (!skip_auth_refresh && await tokenService.isTokenExpired()) {
           await refreshToken();
         }
 
@@ -150,7 +151,8 @@ class ApiClient {
         }
 
         // 401 에러 시 토큰 갱신 처리
-        if (error.response?.statusCode == 401) {
+        if (error.response?.statusCode == 401 &&
+            error.requestOptions.extra['skip_auth_refresh'] != true) {
           if (error.requestOptions.extra['auth_retry_attempted'] == true) {
             await tokenService.clearTokens();
             return handler.next(error);

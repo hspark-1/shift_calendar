@@ -9,6 +9,7 @@ class _FakeGoogleSignInSdk implements GoogleSignInSdk {
   int initialize_count = 0;
   int authenticate_count = 0;
   int sign_out_count = 0;
+  int disconnect_count = 0;
   String? client_id;
   String? server_client_id;
   bool supports_authenticate = true;
@@ -39,6 +40,11 @@ class _FakeGoogleSignInSdk implements GoogleSignInSdk {
   @override
   Future<void> signOut() async {
     sign_out_count += 1;
+  }
+
+  @override
+  Future<void> disconnect() async {
+    disconnect_count += 1;
   }
 }
 
@@ -91,6 +97,20 @@ void main() {
       expect(sdk.initialize_count, 1);
       expect(sdk.authenticate_count, 2);
       expect(sdk.sign_out_count, 1);
+    });
+
+    test('회원 탈퇴용 연결 해제를 Google SDK에 위임한다', () async {
+      final sdk = _FakeGoogleSignInSdk();
+      final service = GoogleLoginService(
+        google_sign_in_sdk: sdk,
+        target_platform: TargetPlatform.android,
+        server_client_id: 'server-client-id',
+      );
+
+      await service.disconnect();
+
+      expect(sdk.initialize_count, 1);
+      expect(sdk.disconnect_count, 1);
     });
 
     test('ID Token이 없으면 사용자용 오류로 변환한다', () async {

@@ -12,6 +12,10 @@ class _FakeNaverLoginSdk implements NaverLoginSdk {
   NaverToken current_token = NaverToken.empty();
   PlatformException? login_exception;
   bool logout_called = false;
+  bool disconnect_called = false;
+  NaverLoginResult disconnect_result = NaverLoginResult(
+    status: NaverLoginStatus.loggedOut,
+  );
 
   @override
   Future<NaverLoginResult> logIn() async {
@@ -31,6 +35,12 @@ class _FakeNaverLoginSdk implements NaverLoginSdk {
   Future<NaverLoginResult> logOut() async {
     logout_called = true;
     return NaverLoginResult(status: NaverLoginStatus.loggedOut);
+  }
+
+  @override
+  Future<NaverLoginResult> logOutAndDeleteToken() async {
+    disconnect_called = true;
+    return disconnect_result;
   }
 }
 
@@ -112,6 +122,46 @@ void main() {
       await service.logout();
 
       expect(sdk.logout_called, isTrue);
+    });
+
+    test('회원 탈퇴용 토큰 삭제를 네이버 SDK에 위임한다', () async {
+      final sdk = _FakeNaverLoginSdk()
+        ..current_token = _token('naver-access-token');
+      final service = NaverLoginService(naver_login_sdk: sdk);
+
+      await service.disconnect();
+
+      expect(sdk.disconnect_called, isTrue);
+    });
+
+    test('네이버 연결 해제 실패를 탈퇴 요청 전에 전달한다', () async {
+      final sdk = _FakeNaverLoginSdk()
+        ..current_token = _token('naver-access-token')
+        ..disconnect_result = NaverLoginResult(
+          status: NaverLoginStatus.error,
+          errorMessage: '연결 해제 실패',
+        );
+      final service = NaverLoginService(naver_login_sdk: sdk);
+
+      await expectLater(
+        service.disconnect(),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('연결 해제 실패'),
+          ),
+        ),
+      );
+    });
+
+    test('네이버 로컬 토큰이 없으면 연결 해제를 건너뛴다', () async {
+      final sdk = _FakeNaverLoginSdk();
+      final service = NaverLoginService(naver_login_sdk: sdk);
+
+      await service.disconnect();
+
+      expect(sdk.disconnect_called, isFalse);
     });
   });
 }

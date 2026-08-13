@@ -379,7 +379,10 @@
     프로필, 섹션, 행, 아이콘, 토글, 로그아웃 버튼 치수를 축소한다. 섹션 카드는
     행 배경/구분선을 `ClipRRect`로 먼저 클리핑하고, `foregroundDecoration`이 primary
     tint 1px outline을 마지막에 그려 같은 크기의 내부 surface가 border를 덮지 않게 한다.
-    실제 구현된 항목은 `ShiftTemplateSettingsPage`로 이동하는 근무 패턴 설정과 로그아웃이다.
+    실제 구현된 항목은 `ShiftTemplateSettingsPage`로 이동하는 근무 패턴 설정,
+    로그아웃, 회원 탈퇴이다. 회원 탈퇴는 로그아웃 아래의 별도 destructive 액션으로 노출하고,
+    일정·근무표·친구·그룹 정보 삭제와 복구 불가를 최종 확인한 뒤만 요청한다.
+    요청 중에는 로그아웃과 탈퇴 버튼을 모두 비활성화해 중복 요청을 막는다.
     프로필 편집, 기본 알림 설정, 다크 모드, 언어 및 지역, 글꼴 크기, 비밀번호 변경,
     로그인 생체 인증, 공지사항, 고객 센터는 `_showFeatureUnavailableAlert()`로
     "준비 중인 기능" alert를 표시하고 상태를 변경하지 않는다. 버전 정보는
@@ -487,6 +490,12 @@ LoginPage
 - Express 서버의 프로필 수정 계약은 `POST /api/v1/auth/profile`이다.
   `AuthRemoteDataSource.updateProfile()`은 null이 아닌 `name`, `timezone`,
   `profile_image_url`만 요청 본문에 포함한다.
+- `../design/signup input personal data/code.html`은 프로필 설정의 UI/UX 검토용 HTML 시안이다.
+  기본 정보는 `필수` 배지와 필수 표시를 사용하고, 근무 정보는 `선택` 배지 및
+  `지금 입력하지 않아도 괜찮아요` 안내를 항상 노출한다. 선택 근무 정보가 비어 있어도
+  하단의 단일 `저장하고 시작하기` 동작을 막지 않는다. 이 시안의 휴대폰·직종·소속 필드는
+  현재 Flutter `POST /api/v1/auth/profile` 계약에 포함되지 않으므로 실제 앱 구현 전 서버 계약과
+  DB 스키마 확정이 필요하다.
 - 파일 역할/의존성/사용 예:
   - `lib/features/auth/data/datasources/auth_remote_datasource.dart`: 카카오 SDK 로그인,
     서버 토큰 교환, 프로필 조회·수정과 로그아웃 HTTP 요청을 담당한다.
@@ -529,6 +538,39 @@ LoginPage
   - CI/CD: 같은 이름의 Gradle project property/Xcode build setting을 주입한다.
 - 로그아웃은 서버 refresh token 폐기 시도 후 카카오·네이버·Google SDK 로컬 세션을 각각 정리하고,
   소셜 SDK 오류 여부와 관계없이 앱 JWT를 삭제한다.
+
+### 회원 탈퇴 흐름
+
+```text
+SettingsPage 최종 확인
+  → Google 현재 계정 disconnect / Naver 현재 SDK token disconnect
+  → DELETE /api/v1/auth/account { confirmation: true }
+  → 202: 로컬 JWT·소셜 로컬 세션·계정 Provider 캐시 정리
+  → 로그인 화면으로 navigation stack 초기화
+```
+
+- 탈퇴는 서버의 비동기 삭제 작업을 시작하는 `202 Accepted`를 성공 기준으로 삼고
+  삭제 완료 상태를 폴링하지 않는다.
+- 요청은 boolean `confirmation: true`만 전송한다. 탈퇴 API의 `401`은 refresh token으로
+  자동 재시도하지 않고 로컬 인증을 정리한다. `ACCOUNT_DELETION_IN_PROGRESS`도 이미
+  접수된 상태로 보고 동일하게 로그인 화면으로 이동한다.
+- `REAUTHENTICATION_REQUIRED`는 현재 JWT와 설정 화면을 유지하고 전용 안내를 표시한다.
+  `다시 로그인` 선택 시 로컬 세션을 종료하고 로그인 화면으로 이동하며, 전체
+  로그인 후 사용자가 탈퇴를 다시 확인해야 한다. access token refresh는 재인증이 아니다.
+- Google은 현재 사용자의 `google_id`가 있을 때 `GoogleSignIn.disconnect()`를 호출한다.
+  Naver는 SDK의 현재 access token이 있을 때만 `logOutAndDeleteToken()`으로 앱 연결을
+  해제한다. Apple·Kakao provider revoke는 서버 비동기 삭제 작업이 담당한다.
+- `ApiException.request_id`는 서버 오류 추적 ID를 보존한다. 미접수 오류는 request ID를
+  로그에 남기고 로컬 로그인 상태를 유지하며, 서버 메시지를 alert로 표시한다.
+- 파일 역할/의존성/사용 예:
+  - `AuthRemoteDataSource.deleteAccount()`: refresh 자동 재시도를 비활성화한 DELETE 요청과
+    `202` 성공 계약을 구현한다.
+  - `AuthRepositoryImpl.deleteAccount()`: Google/Naver 사전 연결 해제, 서버 접수,
+    로컬 credential 정리 순서를 소유한다.
+  - `AuthNotifier.deleteAccount()`: API 오류 코드를 UI 결과로 변환하고 성공·이미 처리 중·
+    미인증 시 계정 단위 Provider 캐시를 무효화한다.
+  - `test/features/auth/presentation/pages/settings_page_test.dart`: 버튼 동시 노출, 복구 불가 확인,
+    성공 후 로그인 이동과 재인증 안내를 검증한다.
 
 ### Google ID Token 인증 흐름
 

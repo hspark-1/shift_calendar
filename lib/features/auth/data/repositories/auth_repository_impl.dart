@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/token_service.dart';
 import '../../../../core/push/installation_id_service.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/user.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../services/apple_login_service.dart';
@@ -51,6 +52,9 @@ abstract class AuthRepository {
 
   /// 로그아웃
   Future<void> logout();
+
+  /// 회원 탈퇴 접수
+  Future<void> deleteAccount(User user);
 
   /// 토큰 유효성 확인
   Future<bool> isLoggedIn();
@@ -244,6 +248,42 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     // 저장된 토큰 삭제
+    await _token_service.clearTokens();
+  }
+
+  @override
+  Future<void> deleteAccount(User user) async {
+    // 서버가 해제용 토큰을 보관하지 않는 provider는 요청 전에 해제한다.
+    if (user.google_id != null && user.google_id!.isNotEmpty) {
+      await _google_login_service.disconnect();
+    }
+    await _naver_login_service.disconnect();
+
+    try {
+      await _remote_datasource.deleteAccount();
+    } on ApiException catch (error) {
+      if (error.statusCode == 401 ||
+          error.code == 'ACCOUNT_DELETION_IN_PROGRESS') {
+        await _clearLocalSession();
+      }
+      rethrow;
+    }
+
+    await _clearLocalSession();
+  }
+
+  Future<void> _clearLocalSession() async {
+    try {
+      await _remote_datasource.logoutKakao();
+    } catch (_) {
+      // 서버 접수 후 SDK 정리 실패가 로컬 JWT 삭제를 막지 않는다.
+    }
+    try {
+      await _naver_login_service.logout();
+    } catch (_) {}
+    try {
+      await _google_login_service.logout();
+    } catch (_) {}
     await _token_service.clearTokens();
   }
 

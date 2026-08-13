@@ -8,6 +8,7 @@ abstract interface class NaverLoginSdk {
   Future<NaverLoginResult> logIn();
   Future<NaverToken> getCurrentAccessToken();
   Future<NaverLoginResult> logOut();
+  Future<NaverLoginResult> logOutAndDeleteToken();
 }
 
 /// 실제 네이버 네이티브 SDK 구현
@@ -25,6 +26,11 @@ class NativeNaverLoginSdk implements NaverLoginSdk {
   @override
   Future<NaverLoginResult> logOut() {
     return FlutterNaverLogin.logOut();
+  }
+
+  @override
+  Future<NaverLoginResult> logOutAndDeleteToken() {
+    return FlutterNaverLogin.logOutAndDeleteToken();
   }
 }
 
@@ -84,5 +90,21 @@ class NaverLoginService {
   /// 네이버 SDK에 저장된 로컬 로그인 상태를 해제합니다.
   Future<void> logout() async {
     await _naver_login_sdk.logOut();
+  }
+
+  /// 회원 탈퇴 전 네이버 앱 연결과 SDK 토큰을 해제한다.
+  Future<void> disconnect() async {
+    final current_token = await _naver_login_sdk.getCurrentAccessToken();
+    if (current_token.accessToken.trim().isEmpty) return;
+
+    final result = await _naver_login_sdk.logOutAndDeleteToken();
+    if (result.status == NaverLoginStatus.error) {
+      final error_message = result.errorMessage?.trim();
+      throw Exception(
+        error_message == null || error_message.isEmpty
+            ? '네이버 계정 연결 해제에 실패했습니다.'
+            : '네이버 계정 연결 해제에 실패했습니다: $error_message',
+      );
+    }
   }
 }

@@ -6,8 +6,96 @@ import 'package:shift_mate/core/constants/api_constants.dart';
 import 'package:shift_mate/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:shift_mate/features/auth/data/models/apple_auth_models.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
+import 'package:shift_mate/core/network/api_exception.dart';
 
 void main() {
+  group('AuthRemoteDataSource.deleteAccount', () {
+    test('DELETE /auth/account에 boolean confirmation true를 전송한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      RequestOptions? captured_request;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 202,
+                data: {
+                  'success': true,
+                  'data': {
+                    'deletion_request_id': 'deletion-id',
+                    'status': 'PENDING',
+                    'requested_at': '2026-08-14T02:30:00.000Z',
+                  },
+                  'request_id': 'request-id',
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      await AuthRemoteDataSource(dio).deleteAccount();
+
+      expect(captured_request?.method, 'DELETE');
+      expect(captured_request?.path, ApiConstants.auth_account);
+      expect(captured_request?.data, {'confirmation': true});
+      expect(captured_request?.extra['skip_auth_refresh'], isTrue);
+    });
+
+    test(
+      'REAUTHENTICATION_REQUIRED와 request_id를 ApiException으로 보존한다',
+      () async {
+        final dio = Dio(
+          BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+        );
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  response: Response<Map<String, dynamic>>(
+                    requestOptions: options,
+                    statusCode: 403,
+                    data: {
+                      'success': false,
+                      'error': {
+                        'code': 'REAUTHENTICATION_REQUIRED',
+                        'message': '회원 탈퇴를 위해 다시 로그인해주세요.',
+                      },
+                      'request_id': 'server-request-id',
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+
+        await expectLater(
+          AuthRemoteDataSource(dio).deleteAccount(),
+          throwsA(
+            isA<ApiException>()
+                .having(
+                  (error) => error.code,
+                  'code',
+                  'REAUTHENTICATION_REQUIRED',
+                )
+                .having(
+                  (error) => error.request_id,
+                  'request_id',
+                  'server-request-id',
+                ),
+          ),
+        );
+      },
+    );
+  });
+
   group('AuthRemoteDataSource.loginWithNaverToken', () {
     test('POST /auth/naver/token으로 네이버 Access Token을 전송한다', () async {
       final dio = Dio(

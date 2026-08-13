@@ -33,6 +33,7 @@ class ApiConstants {
   static const String auth_profile = '/auth/profile';
   static const String auth_logout = '/auth/logout';
   static const String auth_logout_all = '/auth/logout-all';
+  static const String auth_account = '/auth/account';
 
   static const String schedules = '/schedules';
   static const String schedules_shared = '/schedules/shared';

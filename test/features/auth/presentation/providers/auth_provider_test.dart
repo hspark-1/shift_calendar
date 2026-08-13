@@ -7,14 +7,19 @@ import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.
 import 'package:shift_mate/features/auth/data/services/google_login_service.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/presentation/providers/auth_provider.dart';
+import 'package:shift_mate/core/network/api_exception.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   Object? apple_login_error;
   Object? google_login_error;
   AuthResponse? google_login_response;
+  Object? delete_account_error;
+  int delete_account_count = 0;
+  bool is_logged_in = false;
+  User? profile;
 
   @override
-  Future<bool> isLoggedIn() async => false;
+  Future<bool> isLoggedIn() async => is_logged_in;
 
   @override
   Future<AuthResponse> loginWithApple() async {
@@ -27,7 +32,7 @@ class _FakeAuthRepository implements AuthRepository {
   Future<String?> getAccessToken() async => null;
 
   @override
-  Future<User> getProfile() => throw UnimplementedError();
+  Future<User> getProfile() async => profile!;
 
   @override
   Future<AuthResponse> loginWithKakao() => throw UnimplementedError();
@@ -49,6 +54,13 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> logout() async {}
 
   @override
+  Future<void> deleteAccount(User user) async {
+    delete_account_count += 1;
+    final current_error = delete_account_error;
+    if (current_error != null) throw current_error;
+  }
+
+  @override
   Future<User> updateProfile({
     String? name,
     String? timezone,
@@ -57,6 +69,8 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('Apple 사용자 취소는 로그인 오류로 노출하지 않는다', () async {
     final repository = _FakeAuthRepository()
       ..apple_login_error = const AppleLoginCanceledException();
@@ -122,5 +136,50 @@ void main() {
     expect(state.user?.google_id, 'google-subject');
     expect(state.is_new_user, isTrue);
     expect(state.error, isNull);
+  });
+
+  test('탈퇴 접수 성공 시 계정 상태를 비인증으로 전환한다', () async {
+    const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');
+    final repository = _FakeAuthRepository()
+      ..is_logged_in = true
+      ..profile = user;
+    final container = ProviderContainer(
+      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(authProvider.notifier);
+    await notifier.checkAuthStatus();
+    final result = await notifier.deleteAccount();
+
+    expect(result, AccountDeletionResult.accepted);
+    expect(repository.delete_account_count, 1);
+    expect(container.read(authProvider).status, AuthStatus.unauthenticated);
+  });
+
+  test('재인증 필요 시 인증 상태를 유지하고 별도 결과를 반환한다', () async {
+    const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');
+    final repository = _FakeAuthRepository()
+      ..is_logged_in = true
+      ..profile = user
+      ..delete_account_error = ApiException(
+        code: 'REAUTHENTICATION_REQUIRED',
+        message: '다시 로그인해주세요.',
+        statusCode: 403,
+        request_id: 'request-id',
+      );
+    final container = ProviderContainer(
+      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(authProvider.notifier);
+    await notifier.checkAuthStatus();
+    final result = await notifier.deleteAccount();
+
+    expect(result, AccountDeletionResult.reauthentication_required);
+    expect(container.read(authProvider).status, AuthStatus.authenticated);
+    expect(container.read(authProvider).is_loading, isFalse);
+    expect(container.read(authProvider).error, isNull);
   });
 }

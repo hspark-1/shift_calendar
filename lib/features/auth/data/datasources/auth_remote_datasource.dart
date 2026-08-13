@@ -7,6 +7,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' hide User;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_error_handler.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/user.dart';
 import '../models/apple_auth_models.dart';
 
@@ -256,6 +257,32 @@ class AuthRemoteDataSource {
       await _dio.post(ApiConstants.auth_logout_all);
     } on DioException catch (e) {
       throw Exception(_extractErrorMessage(e, '전체 로그아웃에 실패했습니다.'));
+    }
+  }
+
+  /// 회원 탈퇴를 비동기 작업으로 접수한다.
+  Future<void> deleteAccount() async {
+    try {
+      final response = await _dio.delete(
+        ApiConstants.auth_account,
+        data: {'confirmation': true},
+        options: Options(extra: {'skip_auth_refresh': true}),
+      );
+
+      if (response.statusCode == 202 && response.data['success'] == true) {
+        return;
+      }
+
+      throw ApiException(
+        code: 'INVALID_ACCOUNT_DELETION_RESPONSE',
+        message: '회원 탈퇴 요청을 접수하지 못했습니다.',
+        statusCode: response.statusCode,
+        request_id: response.data is Map<String, dynamic>
+            ? response.data['request_id'] as String?
+            : null,
+      );
+    } on DioException catch (error) {
+      throw handleApiError(error);
     }
   }
 }
