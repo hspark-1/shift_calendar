@@ -1,6 +1,28 @@
 # 작업 로그
 
+## 2026-08-13
+
+- [DONE] (FIX) 로그인 콘텐츠 수평 중앙 정렬을 레이아웃 제약으로 통일
+  - 목적: 로그인 헤더와 소셜 버튼 그룹을 고정 px 이동 없이 화면의 좌우 중앙에 배치한다.
+  - 변경: 페이지 콘텐츠를 `Align(alignment: Alignment.center)`와 가용 가로 너비를 채우는 `SizedBox`에 배치했다. 세로 `Column`에 `CrossAxisAlignment.center`를 명시하고, 소셜 버튼 `Wrap`도 전체 너비에서 `WrapAlignment.center`를 적용해 px 기반 좌우 보정 없이 중앙을 계산하게 했다. 3개·4개 버튼 구성의 실제 그룹 중심이 페이지 중심과 일치하는 회귀 검증을 추가했다.
+  - 영향범위: 로그인 콘텐츠와 소셜 버튼 그룹의 수평 정렬, 로그인 위젯 테스트, 프로젝트 문서. Behavior change: 수평 위치는 고정 이동값이 아니라 부모의 실제 가용 너비를 기준으로 결정된다. OAuth/API/DB 계약은 변경하지 않는다.
+  - 파일: `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 롤백: 수평 전체 너비와 중앙 정렬 제약, 회귀 테스트와 문서 기록을 이전 구조로 복원한다.
+  - 테스트: 로그인 페이지 위젯 테스트 7건 통과. 3개·4개 버튼 그룹 중심과 페이지 중심 일치, 좁은 화면 자동 줄바꿈, 작은 높이 스크롤, 로딩 상태를 검증했다. 변경 Dart 파일 `flutter analyze --no-fatal-infos` 진단 0건, `dart format`과 `git diff --check` 통과.
+
 ## 2026-08-11
+
+- [DONE] (FIX) 로그인 화면 세로 간격 복원
+  - 목적: Google 버튼 추가 후 헤더와 소셜 로그인 영역 사이가 과도하게 벌어져 화면이 상·하로 분리되어 보이는 문제를 수정한다.
+  - 변경: 헤더 위·아래의 flex `Spacer`를 제거하고 앱 아이콘·설명·소셜 버튼·로딩·약관을 하나의 중앙 콘텐츠 그룹으로 묶었다. 헤더 설명과 소셜 버튼 사이는 64px 고정 간격으로 배치하고, `SingleChildScrollView`와 viewport 최소 높이 제약으로 작은 화면에서는 전체 콘텐츠를 스크롤할 수 있게 했다. 390x844 세로 좌표와 390x360 overflow 회귀 테스트를 추가했다.
+  - 영향범위: 로그인 화면 세로 배치, 로그인 위젯 테스트와 프로젝트 컨텍스트. Behavior change: 화면 높이에 따라 234px까지 늘어나던 헤더-버튼 간격이 64px로 고정되고, 작은 높이에서는 RenderFlex overflow 대신 스크롤한다. OAuth/API/DB 계약과 소셜 버튼 순서·크기는 변경하지 않는다.
+  - 파일: `lib/features/auth/presentation/pages/login_page.dart`, `test/features/auth/presentation/pages/login_page_test.dart`, `_docs/PROJECT_CONTEXT.md`, `_docs/WORKLOG.md`
+  - 롤백: 로그인 페이지의 중앙 그룹/스크롤 배치와 회귀 테스트·문서 항목을 이전 `Spacer` 배치로 되돌린다.
+  - 테스트:
+    - 수정 전 390x844에서 헤더-버튼 간격 234px(기대 64px), 390x360에서 하단 RenderFlex 16px overflow를 회귀 테스트로 재현했다.
+    - 수정 후 로그인 페이지 위젯 테스트 7건과 전체 인증 테스트 39건 통과.
+    - 변경 Dart 파일 `flutter analyze --no-fatal-infos`: 진단 0건. `dart format`과 `git diff --check` 통과.
+  - 다음: iOS/Android 실기기에서 Safe Area가 있는 화면과 접근성 글자 크기를 포함해 중앙 그룹 위치와 작은 높이 스크롤을 확인한다.
 
 - [DONE] (FE/DOCS) Google 소셜 로그인 구현 및 서버 요구문서 작성
   - 목적: Google ID Token을 ShiftMate 서버에서 검증하는 로그인 흐름을 Flutter 인증 계층과 로그인 화면에 추가하고, 후속 Express 구현에 필요한 확정 계약을 문서화한다.

@@ -89,6 +89,7 @@ void main() {
     final kakao_finder = find.byKey(const Key('kakao_login_button'));
     final naver_finder = find.byKey(const Key('naver_login_button'));
     final google_finder = find.byKey(const Key('google_login_button'));
+    final page_center = tester.getCenter(find.byType(CupertinoPageScaffold));
 
     expect(tester.getSize(kakao_finder), const Size.square(64));
     expect(tester.getSize(naver_finder), const Size.square(64));
@@ -108,6 +109,15 @@ void main() {
     expect(
       tester.getCenter(google_finder).dx - tester.getCenter(naver_finder).dx,
       84,
+    );
+    expect(
+      (tester.getCenter(kakao_finder).dx + tester.getCenter(google_finder).dx) /
+          2,
+      closeTo(page_center.dx, 0.01),
+    );
+    expect(
+      tester.getCenter(find.byKey(const Key('social_login_buttons'))).dx,
+      closeTo(page_center.dx, 0.01),
     );
     expect(find.byKey(const Key('apple_login_button')), findsNothing);
 
@@ -161,6 +171,7 @@ void main() {
     final naver_finder = find.byKey(const Key('naver_login_button'));
     final google_finder = find.byKey(const Key('google_login_button'));
     final apple_finder = find.byKey(const Key('apple_login_button'));
+    final page_center = tester.getCenter(find.byType(CupertinoPageScaffold));
     final button_centers = [
       tester.getCenter(kakao_finder),
       tester.getCenter(naver_finder),
@@ -182,6 +193,14 @@ void main() {
     expect(button_centers[1].dx - button_centers[0].dx, 84);
     expect(button_centers[2].dx - button_centers[1].dx, 84);
     expect(button_centers[3].dx - button_centers[2].dx, 84);
+    expect(
+      (button_centers.first.dx + button_centers.last.dx) / 2,
+      closeTo(page_center.dx, 0.01),
+    );
+    expect(
+      tester.getCenter(find.byKey(const Key('social_login_buttons'))).dx,
+      closeTo(page_center.dx, 0.01),
+    );
     expect(findAssetImage('assets/icons/google.png'), findsOneWidget);
     expect(findAssetImage('assets/icons/apple.png'), findsOneWidget);
     expect(
@@ -195,6 +214,48 @@ void main() {
     expect(find.bySemanticsLabel('Google 로그인'), findsOneWidget);
     expect(find.bySemanticsLabel('Apple 로그인'), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('헤더와 소셜 버튼을 고정 간격의 중앙 콘텐츠 그룹으로 배치한다', (tester) async {
+    final screen_height = 844.0;
+    await tester.binding.setSurfaceSize(Size(390, screen_height));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: CupertinoApp(home: LoginPage(apple_login_enabled: true)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final description_finder = find.text('교대 근무 일정을 쉽게 관리하고\n친구들과 공유하세요');
+    final kakao_finder = find.byKey(const Key('kakao_login_button'));
+    final terms_finder = find.text('로그인 시 이용약관 및 개인정보처리방침에 동의합니다.');
+
+    final header_to_buttons_gap =
+        tester.getTopLeft(kakao_finder).dy -
+        tester.getBottomLeft(description_finder).dy;
+    final bottom_margin = screen_height - tester.getBottomLeft(terms_finder).dy;
+
+    expect(header_to_buttons_gap, 64);
+    expect(bottom_margin, greaterThanOrEqualTo(120));
+  });
+
+  testWidgets('높이가 작은 화면에서는 로그인 콘텐츠를 스크롤할 수 있다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 360));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: CupertinoApp(home: LoginPage(apple_login_enabled: true)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.byKey(const Key('google_login_button')), findsOneWidget);
+    expect(find.text('로그인 시 이용약관 및 개인정보처리방침에 동의합니다.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('좁은 화면에서는 순서를 유지해 자동 줄바꿈한다', (tester) async {

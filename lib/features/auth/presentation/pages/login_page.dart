@@ -202,29 +202,47 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              // 앱 로고 및 타이틀
-              _buildHeader(),
-              const Spacer(flex: 2),
-              // 소셜 로그인 버튼
-              _buildSocialLoginButtons(),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 20,
-                child: _is_loading
-                    ? const CupertinoActivityIndicator(radius: 9)
-                    : null,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 24,
+                  ),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // 앱 로고 및 타이틀
+                          _buildHeader(),
+                          const SizedBox(height: 64),
+                          // 소셜 로그인 버튼
+                          _buildSocialLoginButtons(),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 20,
+                            child: _is_loading
+                                ? const CupertinoActivityIndicator(radius: 9)
+                                : null,
+                          ),
+                          const SizedBox(height: 8),
+                          // 이용약관 안내
+                          _buildTermsText(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 8),
-              // 이용약관 안내
-              _buildTermsText(),
-              const SizedBox(height: 40),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -274,38 +292,42 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Widget _buildSocialLoginButtons() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 20,
-      runSpacing: 12,
-      children: [
-        _buildSocialLoginButton(
-          button_key: const Key('kakao_login_button'),
-          asset_path: 'assets/icons/kakao.png',
-          semantics_label: '카카오 로그인',
-          on_pressed: _handleKakaoLogin,
-        ),
-        _buildSocialLoginButton(
-          button_key: const Key('naver_login_button'),
-          asset_path: 'assets/icons/naver.png',
-          semantics_label: '네이버 로그인',
-          on_pressed: _handleNaverLogin,
-        ),
-        _buildSocialLoginButton(
-          button_key: const Key('google_login_button'),
-          asset_path: 'assets/icons/google.png',
-          semantics_label: 'Google 로그인',
-          on_pressed: _handleGoogleLogin,
-        ),
-        if (widget.apple_login_enabled) ...[
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        key: const Key('social_login_buttons'),
+        alignment: WrapAlignment.center,
+        spacing: 20,
+        runSpacing: 12,
+        children: [
           _buildSocialLoginButton(
-            button_key: const Key('apple_login_button'),
-            asset_path: 'assets/icons/apple.png',
-            semantics_label: 'Apple 로그인',
-            on_pressed: _handleAppleLogin,
+            button_key: const Key('kakao_login_button'),
+            asset_path: 'assets/icons/kakao.png',
+            semantics_label: '카카오 로그인',
+            on_pressed: _handleKakaoLogin,
           ),
+          _buildSocialLoginButton(
+            button_key: const Key('naver_login_button'),
+            asset_path: 'assets/icons/naver.png',
+            semantics_label: '네이버 로그인',
+            on_pressed: _handleNaverLogin,
+          ),
+          _buildSocialLoginButton(
+            button_key: const Key('google_login_button'),
+            asset_path: 'assets/icons/google.png',
+            semantics_label: 'Google 로그인',
+            on_pressed: _handleGoogleLogin,
+          ),
+          if (widget.apple_login_enabled) ...[
+            _buildSocialLoginButton(
+              button_key: const Key('apple_login_button'),
+              asset_path: 'assets/icons/apple.png',
+              semantics_label: 'Apple 로그인',
+              on_pressed: _handleAppleLogin,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 

@@ -330,16 +330,22 @@
     `assets/icons/kakao.png`, `naver.png`, `google.png`, `apple.png`의 원형 아이콘을 64px로
     표시하고, 각 아이콘과 접근성 터치 영역을 동일한 64x64로 구성한다. 버튼 중심 간 거리는
     84px(64px 터치 영역 + 20px 간격)이다. `Wrap`이 390px에서 카카오→네이버→Google→Apple
-    순서의 한 행을 만들고, 좁은 화면에서는 같은 순서로 자동 줄바꿈한다. 공용 로그인 요청 중에는
-    아이콘을 유지한 채 모든 버튼을 비활성화·반투명 처리하고 아래 로딩 표시를 노출한다.
-    Google·Apple 사용자 취소는 실패 alert로 처리하지 않는다.
+    순서의 한 행을 만들고, 좁은 화면에서는 같은 순서로 자동 줄바꿈한다. 소셜 버튼 영역은
+    가용 가로 너비를 채우고 `WrapAlignment.center`로 그룹을 화면 좌우 중앙에 배치하며,
+    수평 위치 보정을 위한 px 기반 이동은 사용하지 않는다. 공용 로그인 요청 중에는
+    아이콘을 유지한 채 모든 버튼을 비활성화·반투명 처리하고 아래 로딩 표시를 노출한다. 헤더부터
+    약관까지를 하나의 중앙 콘텐츠 그룹으로 배치하고 헤더 설명과 소셜 버튼 사이 간격은 64px로
+    고정한다. flex `Spacer`로 화면 상·하를 분리하지 않으며, 콘텐츠가 화면 높이를 넘으면
+    `SingleChildScrollView`로 전체 로그인 요소에 접근한다. Google·Apple 사용자 취소는 실패
+    alert로 처리하지 않는다.
   - `assets/icons/kakao.png`, `assets/icons/naver.png`, `assets/icons/google.png`,
     `assets/icons/apple.png`: 로그인 화면의 원형 아이콘 이미지. 네 파일은 모두 176x176 PNG이며
     이미지 자체 의미는 중복 읽지 않도록 제외하고 버튼 단위의 `카카오 로그인`, `네이버 로그인`,
     `Google 로그인`, `Apple 로그인` 접근성 레이블을 제공한다.
   - `test/features/auth/presentation/pages/login_page_test.dart`: Google 상시 노출, Apple 기능 플래그,
     네 아이콘의 64x64 터치/시각 크기, 20px 간격, 390px 한 줄과 좁은 화면 줄바꿈, 순서,
-    176x176 원본 규격, 접근성 레이블과 공용 로딩 비활성화를 검증한다.
+    176x176 원본 규격, 접근성 레이블, 공용 로딩 비활성화, 헤더-버튼 64px 세로 간격과 작은 높이의
+    스크롤/overflow 방지를 검증한다.
   - `lib/features/auth/data/services/naver_login_service.dart`: `naver_login_flutter`이 연결한
     iOS/Android 네이버 네이티브 SDK를 호출하고 Access Token만 Repository에 반환한다.
     iOS는 네이버 앱 설치 시 앱 인증을 우선하며 미설치 때만 SDK 인앱 브라우저로 fallback한다.
