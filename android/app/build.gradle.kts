@@ -14,6 +14,13 @@ if (secretsFile.exists()) {
     secretsProperties.load(secretsFile.inputStream())
 }
 
+val kakao_stage_native_app_key = secretsProperties.getProperty("KAKAO_NATIVE_APP_KEY_STAGE")
+    ?: project.findProperty("KAKAO_NATIVE_APP_KEY_STAGE")?.toString()
+    ?: ""
+val kakao_release_native_app_key = secretsProperties.getProperty("KAKAO_NATIVE_APP_KEY")
+    ?: project.findProperty("KAKAO_NATIVE_APP_KEY")?.toString()
+    ?: ""
+
 android {
     namespace = "com.hspark.shiftmate"
     compileSdk = flutter.compileSdkVersion
@@ -39,11 +46,8 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        // 카카오 로그인 설정 (secrets.properties 또는 --dart-define에서 읽어옴)
-        val kakaoNativeAppKey = secretsProperties.getProperty("KAKAO_NATIVE_APP_KEY")
-            ?: project.findProperty("KAKAO_NATIVE_APP_KEY")?.toString()
-            ?: ""
-        manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakaoNativeAppKey
+        // Profile/Release 기본값. Flutter --dart-define과는 별도로 주입한다.
+        manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakao_release_native_app_key
 
         // 네이버 네이티브 SDK 설정
         val naverClientId = secretsProperties.getProperty("NAVER_CLIENT_ID")
@@ -57,7 +61,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug는 Stage Kakao 앱의 callback URL Scheme을 사용한다.
+            manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakao_stage_native_app_key
+        }
         release {
+            manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakao_release_native_app_key
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")

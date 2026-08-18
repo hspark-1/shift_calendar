@@ -28,14 +28,19 @@ void main() async {
   await dotenv.load(fileName: '.env');
 
   // 카카오 SDK 초기화
-  final kakaoKey = AppConstants.kakao_native_app_key;
-  assert(
-    kakaoKey.isNotEmpty,
-    'KAKAO_NATIVE_APP_KEY가 설정되지 않았습니다.\n'
-    '실행 방법: flutter run --dart-define=KAKAO_NATIVE_APP_KEY=실제키값\n'
-    '또는 ios/Flutter/Secrets.xcconfig, android/secrets.properties 파일에 키를 설정하세요.',
-  );
-  KakaoSdk.init(nativeAppKey: kakaoKey);
+  final kakao_key = AppConstants.kakao_native_app_key;
+  if (kakao_key.isEmpty) {
+    final kakao_key_define_name = AppConstants.kakao_native_app_key_define_name;
+    throw StateError(
+      '$kakao_key_define_name가 Dart define에 설정되지 않았습니다.\n'
+      '실행 방법: flutter run --dart-define-from-file=.env\n'
+      'Debug(Stage)는 KAKAO_NATIVE_APP_KEY_STAGE, Profile/Release는 '
+      'KAKAO_NATIVE_APP_KEY를 사용합니다. 네이티브 URL Scheme을 위해 '
+      'ios/Flutter/Secrets.xcconfig와 android/secrets.properties에도 '
+      '환경별 키가 별도로 필요합니다.',
+    );
+  }
+  KakaoSdk.init(nativeAppKey: kakao_key);
 
   // 한국어 로케일 데이터 초기화
   await initializeDateFormatting('ko_KR', null);

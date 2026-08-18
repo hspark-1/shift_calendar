@@ -1,5 +1,7 @@
 // ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
+import 'package:flutter/foundation.dart';
+
 /// 앱 전역 상수
 class AppConstants {
   AppConstants._();
@@ -10,12 +12,25 @@ class AppConstants {
   /// 앱 버전
   static const String app_version = '1.0.0';
 
-  /// 카카오 Native App Key (--dart-define으로 전달)
-  /// 실행: flutter run --dart-define=KAKAO_NATIVE_APP_KEY=실제키값
-  static const String kakao_native_app_key = String.fromEnvironment(
+  /// 카카오 Stage Native App Key (--dart-define으로 전달)
+  static const String _kakao_stage_native_app_key = String.fromEnvironment(
+    'KAKAO_NATIVE_APP_KEY_STAGE',
+    defaultValue: '',
+  );
+
+  /// 카카오 Production Native App Key (--dart-define으로 전달)
+  static const String _kakao_release_native_app_key = String.fromEnvironment(
     'KAKAO_NATIVE_APP_KEY',
     defaultValue: '',
   );
+
+  /// Debug는 Stage, Profile/Release는 Production 키를 사용한다.
+  static String get kakao_native_app_key =>
+      kDebugMode ? _kakao_stage_native_app_key : _kakao_release_native_app_key;
+
+  /// 현재 빌드에서 필수인 Dart define 이름.
+  static String get kakao_native_app_key_define_name =>
+      kDebugMode ? 'KAKAO_NATIVE_APP_KEY_STAGE' : 'KAKAO_NATIVE_APP_KEY';
 
   /// Google iOS OAuth client ID (--dart-define으로 전달)
   static const String google_ios_client_id = String.fromEnvironment(

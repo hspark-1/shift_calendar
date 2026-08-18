@@ -59,6 +59,18 @@ class _SettingsAuthRepository implements AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    String? phone,
+    String? job_type,
+    String? workplace,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<User> completeProfile({
+    required String name,
+    required String timezone,
+    required String phone,
+    String? job_type,
+    String? workplace,
   }) => throw UnimplementedError();
 }
 

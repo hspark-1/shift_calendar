@@ -21,7 +21,7 @@
   `google_sign_in` 7.2.0, `sign_in_with_apple` 7.0.1
 - **로컬 저장소**: Flutter Secure Storage, Shared Preferences
 - **푸시**: Firebase Core/Messaging, Flutter Local Notifications
-- **코드 생성**: Freezed, JSON Serializable, Riverpod Generator
+- **코드 생성**: Freezed, JSON Serializable
 
 ### 앱 브랜드 및 플랫폼 식별자
 
@@ -472,7 +472,7 @@ LoginPage
   → Kakao Access Token
   → POST /api/v1/auth/kakao/token
   → 신규 사용자: ProfileSetupPage
-  → POST /api/v1/auth/profile
+  → POST /api/v1/auth/profile/complete
   → CalendarPage
 ```
 
@@ -484,27 +484,71 @@ LoginPage
   플랫폼 설정은 Android 패키지명 `com.hspark.shiftmate`와 빌드 서명 키 해시,
   iOS Bundle ID `com.hspark.shiftmate`를 사용한다. 카카오 로그인을 활성화하고
   닉네임·프로필 이미지·이메일 동의항목을 설정한다.
+- Native App Key는 Debug(Stage)와 Profile/Release(Production)를 분리하되, 각 환경 안에서는
+  Dart SDK 초기화 값과 네이티브 callback URL Scheme에 같은 키를 주입한다.
+  `.env`에는 Stage용 `KAKAO_NATIVE_APP_KEY_STAGE`와 Production용
+  `KAKAO_NATIVE_APP_KEY`를 두고 `--dart-define-from-file=.env`로 전달한다.
+  `AppConstants`는 `kDebugMode`가 true일 때 Stage 키, 그 외 Profile/Release에서는 Production
+  키를 선택한다. 네이티브 callback은 Android의 gitignored `android/secrets.properties`에
+  같은 두 이름을 두고 Gradle build type별 Manifest placeholder로 선택하며, iOS의 gitignored
+  `ios/Flutter/Secrets.xcconfig`에 같은 두 이름을 두고 Debug xcconfig만 Stage 키를 공용
+  `KAKAO_NATIVE_APP_KEY` build setting으로 매핑한다. Profile/Release xcconfig는 Production
+  `KAKAO_NATIVE_APP_KEY`를 그대로 사용한다. Dart define은 Gradle/Xcode build setting을
+  자동으로 채우지 않으며 네이티브 secret 파일도 `String.fromEnvironment`를 채우지 않는다.
+- `main.dart`는 현재 빌드가 선택한 Dart define 키가 비어 있으면 `StateError`로 시작을
+  중단하고 누락된 환경변수 이름을 표시한다. 카카오 버튼이 항상 노출되는 현재 앱에서 빈 키로
+  SDK를 초기화하지 않는다.
+- `test/core/constants/app_constants_test.dart`는 Debug 테스트 빌드에 Stage sentinel을 Dart
+  define으로 주입해 `AppConstants`가 Stage 키와 환경변수 이름을 선택하는지 검증한다.
 - `AuthRepositoryImpl.loginWithKakao()`는 SDK 토큰을
   `AuthRemoteDataSource.loginWithKakaoToken()`에 전달하며, 서버 토큰 교환 요청 본문은
   `{"access_token": "<Kakao Access Token>"}`이다.
-- Express 서버의 프로필 수정 계약은 `POST /api/v1/auth/profile`이다.
-  `AuthRemoteDataSource.updateProfile()`은 null이 아닌 `name`, `timezone`,
-  `profile_image_url`만 요청 본문에 포함한다.
+- 카카오 token endpoint의 Dio 실패는 공용 `handleApiError()`로 변환해 서버의 구조화된
+  `error.code`, `error.message`, `request_id`를 `ApiException`에 보존한다. 토큰 발급 앱 불일치처럼
+  인증이 거부된 이유를 일반 문자열 예외로 소실하지 않는다.
+- 서버는 Redirect URI 없이 `POST /api/v1/auth/kakao/token`만 운영 계약으로 제공해야 하며,
+  전달받은 토큰의 `/v1/user/access_token_info.app_id`를 서버의 기대 Kakao App ID와 비교한 뒤
+  사용자 정보를 조회해야 한다. 상세 구현·환경변수·레거시 제거·테스트 계약은
+  `_docs/KAKAO_LOGIN_SERVER_REQUEST.md`를 따른다.
+- Express 서버의 일반 프로필 수정 계약은 `POST /api/v1/auth/profile`이고 가입 완료 계약은
+  `POST /api/v1/auth/profile/complete`로 분리한다. 가입 완료에는 이름·타임존·휴대폰이 필수이며
+  직종·소속은 선택이다. 선택값이 없으면 요청에서 생략한다.
+- 서버 응답의 `requires_profile_setup`을 가입 화면 분기의 정본으로 사용한다. 서버 전환기에는
+  해당 필드가 없을 때만 휴대폰 유무로 미완료를 판단해, 앱 종료·재실행 후에도 입력 화면을
+  재개한다. OAuth의 `is_new_user`는 계정 생성 여부를 위한 호환 필드다.
 - `../design/signup input personal data/code.html`은 프로필 설정의 UI/UX 검토용 HTML 시안이다.
   기본 정보는 `필수` 배지와 필수 표시를 사용하고, 근무 정보는 `선택` 배지 및
   `지금 입력하지 않아도 괜찮아요` 안내를 항상 노출한다. 선택 근무 정보가 비어 있어도
-  하단의 단일 `저장하고 시작하기` 동작을 막지 않는다. 이 시안의 휴대폰·직종·소속 필드는
-  현재 Flutter `POST /api/v1/auth/profile` 계약에 포함되지 않으므로 실제 앱 구현 전 서버 계약과
-  DB 스키마 확정이 필요하다.
+  하단의 단일 `저장하고 시작하기` 동작을 막지 않는다. Flutter 화면과 클라이언트 계약은 구현됐고,
+  서버의 DB/API/응답 변경과 선배포 조건은 `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`를
+  정본으로 따른다.
 - 파일 역할/의존성/사용 예:
   - `lib/features/auth/data/datasources/auth_remote_datasource.dart`: 카카오 SDK 로그인,
     서버 토큰 교환, 프로필 조회·수정과 로그아웃 HTTP 요청을 담당한다.
-    신규 사용자 프로필 완료 시 `updateProfile()`이 POST 요청을 보낸다.
+    신규 사용자 프로필 완료 시 `completeProfile()`이 전용 POST 요청을 보낸다.
+  - `lib/features/auth/presentation/pages/profile_setup_page.dart`: 필수 기본 정보와 선택 근무 정보를
+    한 화면에서 분리하고, 필수값 검증 후 가입 완료 API를 호출한다. 하단 단일 CTA와 스크롤 가능한
+    본문을 사용한다.
   - `test/features/auth/data/datasources/auth_remote_datasource_test.dart`:
-    실제 네트워크 대신 Dio 인터셉터로 요청을 가로챈다. 네이버 SDK Access Token과 Google
-    ID Token이 각 `/auth/naver/token`, `/auth/google/token` 요청의 정확한 필드로 전달되는지,
-    Google 응답의 `google_id`와 millisecond `expires_at`, 프로필 수정의 POST 메서드·경로·본문 및
-    응답 파싱을 검증한다.
+    실제 네트워크 대신 Dio 인터셉터로 요청을 가로챈다. 카카오·네이버 SDK Access Token과 Google
+    ID Token이 각 `/auth/kakao/token`, `/auth/naver/token`, `/auth/google/token` 요청의 정확한 필드로 전달되는지,
+    Google 응답의 `google_id`와 millisecond `expires_at`, 프로필 수정·가입 완료의 POST
+    메서드·경로·선택값 생략·응답 파싱을 검증한다. 카카오 App ID 불일치 응답과 프로필 구조화
+    오류의 코드·메시지·request ID 보존도 검증한다.
+  - `test/features/auth/presentation/pages/profile_setup_page_test.dart`: 390x844 화면에서 필수·선택
+    위계, 단일 CTA, 필수 검증과 선택값 생략/전달을 검증한다.
+  - `build.yaml`: Freezed/json_serializable 입력을 실제 annotation 파일로 제한해 Dart SDK와
+    analyzer 언어 버전 차이로 사용하지 않는 builder가 전체 소스를 분석하는 실패를 피한다.
+    entity나 `@freezed` 모델을 새 위치에 추가하면 include 목록도 함께 갱신한다.
+  - `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`: 가입 완료 DB migration, Express 흐름,
+    API·오류·개인정보·OpenAPI·테스트·서버 선배포 순서를 정의하는 서버 전달 정본이다.
+  - `test/features/auth/data/repositories/auth_repository_impl_test.dart`:
+    카카오 SDK Access Token이 server token datasource로 전달되고 서버 성공 후 ShiftMate JWT가
+    저장되는지 검증한다. Apple challenge/code, Google ID Token, 회원 탈퇴 세션 정리 회귀도 함께
+    고정한다.
+  - `_docs/KAKAO_LOGIN_SERVER_REQUEST.md`: 현재 Flutter SDK 토큰 로그인과 키 주입 완료 범위,
+    Express의 Kakao App ID 검증, SDK 전용 endpoint, Admin Key 탈퇴 worker, 배포·테스트·롤백
+    인수 조건을 서버 담당자에게 전달하는 정본이다.
 
 ### 네이버 네이티브 인증 흐름
 

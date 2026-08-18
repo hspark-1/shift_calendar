@@ -2,6 +2,8 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart'
+    show OAuthToken;
 import 'package:shift_mate/core/services/token_service.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -19,6 +21,7 @@ class _FakeAuthRemoteDataSource extends AuthRemoteDataSource {
   AppleLoginCredential? login_credential;
   String? google_id_token;
   Object? google_login_error;
+  String? kakao_access_token;
   int kakao_logout_count = 0;
   int delete_account_count = 0;
   Object? delete_account_error;
@@ -42,6 +45,23 @@ class _FakeAuthRemoteDataSource extends AuthRemoteDataSource {
     expires_at: DateTime.utc(2026, 8, 7),
     is_new_user: true,
   );
+
+  @override
+  Future<OAuthToken> loginWithKakaoSdk() async {
+    return OAuthToken(
+      'kakao-sdk-access-token',
+      DateTime.utc(2026, 8, 17),
+      'kakao-sdk-refresh-token',
+      DateTime.utc(2026, 9, 17),
+      const ['account_email', 'profile_nickname'],
+    );
+  }
+
+  @override
+  Future<AuthResponse> loginWithKakaoToken(String kakaoAccessToken) async {
+    kakao_access_token = kakaoAccessToken;
+    return response;
+  }
 
   @override
   Future<AppleAuthChallenge> createAppleChallenge(
@@ -171,6 +191,20 @@ class _FakeNaverLoginService extends NaverLoginService {
 }
 
 void main() {
+  test('카카오 SDK Access Token을 서버에 전달한 뒤 앱 JWT를 저장한다', () async {
+    final remote_data_source = _FakeAuthRemoteDataSource();
+    final token_service = _FakeTokenService();
+    final repository = AuthRepositoryImpl(remote_data_source, token_service);
+
+    final response = await repository.loginWithKakao();
+
+    expect(remote_data_source.kakao_access_token, 'kakao-sdk-access-token');
+    expect(response.access_token, 'app-access-token');
+    expect(token_service.save_count, 1);
+    expect(token_service.access_token, 'app-access-token');
+    expect(token_service.refresh_token, 'app-refresh-token');
+  });
+
   test('Apple challenge, SDK, 서버 검증 후 앱 JWT를 저장한다', () async {
     final remote_data_source = _FakeAuthRemoteDataSource();
     final apple_login_service = _FakeAppleLoginService();

@@ -1,4 +1,4 @@
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +8,8 @@ import 'package:shift_mate/features/auth/data/services/google_login_service.dart
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/presentation/providers/auth_provider.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
+import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
+import 'package:shift_mate/features/calendar/presentation/providers/shift_types_provider.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   Object? apple_login_error;
@@ -17,6 +19,8 @@ class _FakeAuthRepository implements AuthRepository {
   int delete_account_count = 0;
   bool is_logged_in = false;
   User? profile;
+  User? completed_profile;
+  Map<String, String?>? completed_profile_request;
 
   @override
   Future<bool> isLoggedIn() async => is_logged_in;
@@ -65,8 +69,34 @@ class _FakeAuthRepository implements AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    String? phone,
+    String? job_type,
+    String? workplace,
   }) => throw UnimplementedError();
+
+  @override
+  Future<User> completeProfile({
+    required String name,
+    required String timezone,
+    required String phone,
+    String? job_type,
+    String? workplace,
+  }) async {
+    completed_profile_request = {
+      'name': name,
+      'timezone': timezone,
+      'phone': phone,
+      'job_type': job_type,
+      'workplace': workplace,
+    };
+    return completed_profile!;
+  }
 }
+
+List<Override> _overrides(_FakeAuthRepository repository) => [
+  authRepositoryProvider.overrideWithValue(repository),
+  shiftTypesProvider.overrideWith((ref) async => const <ShiftTypeInfo>[]),
+];
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -74,9 +104,7 @@ void main() {
   test('Apple 사용자 취소는 로그인 오류로 노출하지 않는다', () async {
     final repository = _FakeAuthRepository()
       ..apple_login_error = const AppleLoginCanceledException();
-    final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
-    );
+    final container = ProviderContainer(overrides: _overrides(repository));
     addTearDown(container.dispose);
 
     final notifier = container.read(authProvider.notifier);
@@ -92,9 +120,7 @@ void main() {
   test('Google 사용자 취소는 로그인 오류로 노출하지 않는다', () async {
     final repository = _FakeAuthRepository()
       ..google_login_error = const GoogleLoginCanceledException();
-    final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
-    );
+    final container = ProviderContainer(overrides: _overrides(repository));
     addTearDown(container.dispose);
 
     final notifier = container.read(authProvider.notifier);
@@ -121,9 +147,7 @@ void main() {
         expires_at: DateTime.utc(2026, 8, 11),
         is_new_user: true,
       );
-    final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
-    );
+    final container = ProviderContainer(overrides: _overrides(repository));
     addTearDown(container.dispose);
 
     final success = await container
@@ -138,14 +162,72 @@ void main() {
     expect(state.error, isNull);
   });
 
+  test('저장된 프로필이 미완료이면 앱 재시작 인증에서도 설정 화면 상태를 유지한다', () async {
+    const user = User(
+      id: 'user-id',
+      email: 'user@example.com',
+      name: '사용자',
+      timezone: 'Asia/Seoul',
+      phone: null,
+      requires_profile_setup: true,
+    );
+    final repository = _FakeAuthRepository()
+      ..is_logged_in = true
+      ..profile = user;
+    final container = ProviderContainer(overrides: _overrides(repository));
+    addTearDown(container.dispose);
+
+    await container.read(authProvider.notifier).checkAuthStatus();
+
+    expect(container.read(authProvider).status, AuthStatus.authenticated);
+    expect(container.read(authProvider).is_new_user, isTrue);
+  });
+
+  test('가입 완료 성공 시 선택 정보를 전달하고 설정 필요 상태를 해제한다', () async {
+    const completed_user = User(
+      id: 'user-id',
+      email: 'user@example.com',
+      name: '김간호',
+      timezone: 'Asia/Seoul',
+      phone: '010-1234-5678',
+      job_type: 'NURSE',
+      workplace: '제일병원 중환자실',
+      requires_profile_setup: false,
+    );
+    final repository = _FakeAuthRepository()
+      ..completed_profile = completed_user;
+    final container = ProviderContainer(overrides: _overrides(repository));
+    addTearDown(container.dispose);
+
+    final success = await container
+        .read(authProvider.notifier)
+        .completeProfileSetup(
+          name: '김간호',
+          timezone: 'Asia/Seoul',
+          phone: '01012345678',
+          job_type: 'NURSE',
+          workplace: '제일병원 중환자실',
+        );
+
+    expect(success, isTrue);
+    expect(repository.completed_profile_request, {
+      'name': '김간호',
+      'timezone': 'Asia/Seoul',
+      'phone': '01012345678',
+      'job_type': 'NURSE',
+      'workplace': '제일병원 중환자실',
+    });
+    expect(container.read(authProvider).user, completed_user);
+    expect(container.read(authProvider).is_new_user, isFalse);
+    expect(container.read(authProvider).is_loading, isFalse);
+  });
+
   test('탈퇴 접수 성공 시 계정 상태를 비인증으로 전환한다', () async {
     const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');
     final repository = _FakeAuthRepository()
       ..is_logged_in = true
       ..profile = user;
-    final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
-    );
+    final container = ProviderContainer(overrides: _overrides(repository));
     addTearDown(container.dispose);
 
     final notifier = container.read(authProvider.notifier);
@@ -168,9 +250,7 @@ void main() {
         statusCode: 403,
         request_id: 'request-id',
       );
-    final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
-    );
+    final container = ProviderContainer(overrides: _overrides(repository));
     addTearDown(container.dispose);
 
     final notifier = container.read(authProvider.notifier);

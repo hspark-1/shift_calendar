@@ -90,6 +90,10 @@ class User with _$User {
     required String name,
     String? profile_image_url,
     String? timezone,
+    String? phone,
+    String? job_type,
+    String? workplace,
+    bool? requires_profile_setup,
     @StringOrIntConverter() String? kakao_id,
     String? apple_id,
     String? google_id,
@@ -128,6 +132,8 @@ class AuthResponse with _$AuthResponse {
     // 신규 계약의 명시적 boolean을 우선하고 기존 서버 메시지는 호환용으로만 사용한다.
     final message = json['message'] as String? ?? '';
     final isNewUser =
+        data['requires_profile_setup'] as bool? ??
+        json['requires_profile_setup'] as bool? ??
         data['is_new_user'] as bool? ??
         json['is_new_user'] as bool? ??
         message.contains('회원가입');

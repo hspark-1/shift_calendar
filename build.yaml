@@ -1,0 +1,12 @@
+targets:
+  $default:
+    builders:
+      freezed:
+        generate_for:
+          include:
+            - lib/core/network/api_result.dart
+            - lib/features/**/domain/entities/*.dart
+      json_serializable:
+        generate_for:
+          include:
+            - lib/features/**/domain/entities/*.dart

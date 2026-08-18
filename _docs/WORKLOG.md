@@ -1,5 +1,36 @@
 # 작업 로그
 
+## 2026-08-17
+
+- [DONE] (FE/DOCS) 가입 프로필 필수·선택 UI 및 서버 계약 정립
+  - 목적: 신규 사용자가 필수 기본 정보와 선택 근무 정보를 명확히 구분해 입력하고, 앱을 종료했다가 다시 로그인해도 미완료 가입 흐름을 정확히 재개할 수 있게 한다. 현재 서버에 없는 근무 정보 저장·가입 완료 계약은 백엔드가 구현 가능한 요구 문서로 확정한다.
+  - 변경: `ProfileSetupPage`를 컴팩트한 프로필 안내, `필수` 기본 정보 카드, `선택` 근무 정보 카드, 개인정보 안내와 하단 단일 CTA로 재구성했다. 이름·휴대폰·타임존만 가입 완료를 막고 직종·소속은 비워도 저장한다. 휴대폰 숫자 입력/10~11자리 검증, timezone picker, 직종 action sheet, 로딩·구조화 오류 표시를 연결했다. User·Repository·DataSource·Notifier에 `phone`, `job_type`, `workplace`, `requires_profile_setup`과 idempotent `POST /auth/profile/complete` 계약을 추가했다. 앱 재시작 시 서버 완료 상태를 우선하고 구버전 서버는 phone 유무로 fallback한다. 계정 전환 시 근무 유형 원본/표시 상태만 무효화하고 파생 Provider가 불필요한 API를 시작하지 않게 정리했다. 서버 요청서에 현재 구현 확인 결과, DB migration/backfill, Express 계층, validation/error/privacy/OpenAPI/test, 서버 선배포·롤백을 확정하고 ADR-0024를 추가했다. 미사용 `riverpod_generator`를 제거하고 `build.yaml`로 실제 Freezed/JSON 입력만 제한해 생성 코드를 재동기화했다.
+  - 영향범위: Flutter 프로필 설정 화면, 인증 User/Repository/DataSource/Provider 계약, 인증 테스트, 가입 완료 API·DB·배포 요구 문서와 프로젝트 문서. Behavior change: 기본 정보가 유효하면 근무 정보를 입력하지 않고도 완료할 수 있고, 완료 여부는 OAuth 생성 순간이 아닌 서버 영속 상태로 복원된다. 기존 캘린더·공개 범위 규칙은 변경하지 않는다.
+  - 파일: `lib/features/auth/**`, `lib/core/constants/api_constants.dart`, `test/features/auth/**`, `pubspec.yaml`, `pubspec.lock`, `build.yaml`, `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 롤백: 신규 가입 완료 endpoint 계약과 User 필드, 프로필 설정 UI·테스트·문서 변경을 함께 복원한다.
+  - 테스트: 인증 전체 65건이 통과했고, 390x844 프로필 화면의 필수·선택 위계/단일 CTA/필수 검증/선택값 생략·전달, datasource method/path/body/응답·구조화 오류, 재실행 미완료 복원과 완료 상태 해제를 검증했다. 변경 대상 9개 파일 analyzer 진단 0건, `dart format`, Freezed/json_serializable 생성(10 outputs), `git diff --check`, 문서 code fence 균형을 통과했다. Stage Kakao sentinel을 주입한 전체 테스트는 180 pass·1 skip이며 변경 범위 밖의 기존 `calendar_page_test.dart` 750px 경계 RenderFlex 11px overflow 1건만 기존과 같이 실패했다. sentinel 없는 기본 전체 테스트 명령은 카카오 키 필수 테스트도 함께 실패하므로 전체 검증에는 `--dart-define=KAKAO_NATIVE_APP_KEY_STAGE=...`가 필요하다.
+  - 다음: 서버 담당자가 `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md` 순서대로 migration과 완료 endpoint를 Stage에 선배포한 뒤 카카오·네이버·Google·Apple 신규/미완료 사용자 E2E를 통과하고 Flutter Production을 배포한다.
+
+- [DONE] (FE/DOCS) 카카오 Native App Key Stage/Production 빌드 분리
+  - 목적: Debug(Stage)와 Profile/Release(Production)가 서로 다른 Kakao Native App Key와 callback URL Scheme을 사용하도록 Dart·Android·iOS 빌드 설정을 일치시킨다.
+  - 변경: 기존 Production `KAKAO_NATIVE_APP_KEY`를 보존하고 Stage용 `KAKAO_NATIVE_APP_KEY_STAGE`를 추가했다. `AppConstants`는 Debug에서 Stage, Profile/Release에서 Production 값을 선택하고 `main.dart`는 현재 빌드에 필요한 변수명을 포함해 누락 오류를 낸다. Android는 debug build type의 Manifest placeholder만 Stage로 덮어쓰며 Profile/Release 기본값은 Production으로 유지한다. iOS Debug xcconfig는 Stage 값을 공용 `KAKAO_NATIVE_APP_KEY`로 매핑하고 Profile/Release는 Production 값을 사용한다. 서버 요청 문서는 환경별 App ID/Admin Key 계약으로 바꾸고 ADR-0023에 빌드 환경 경계를 기록했다.
+  - 영향범위: Flutter Kakao SDK 초기화 키, Android/iOS Kakao callback URL Scheme, 로컬/CI 환경변수, Stage/Production 서버 App ID 검증과 인증 문서. Behavior change: Debug는 Stage Kakao 앱에서 토큰을 발급받고 Profile/Release는 Production Kakao 앱을 사용한다. application ID/Bundle ID는 같아 두 앱을 동시에 설치하지 않는다.
+  - 파일: `lib/core/constants/app_constants.dart`, `lib/main.dart`, `android/app/build.gradle.kts`, `ios/Flutter/Debug.xcconfig`, `ios/Flutter/Profile.xcconfig`, `ios/Flutter/Release.xcconfig`, `test/core/constants/app_constants_test.dart`, `_docs/KAKAO_LOGIN_SERVER_REQUEST.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: Stage sentinel Dart define을 주입한 상수 선택 테스트와 기존 카카오 datasource/repository 회귀를 포함한 20건이 통과했다. 변경 Dart 3개 파일 analyzer 진단 0건, Android Debug/Release Manifest 병합 Gradle 80개 task 성공 및 Stage/Production scheme 선택, iOS Debug xcconfig Stage build setting 매핑, plist 문법, `dart format`, 문서 code fence 균형, `git diff --check`를 검증했다. Android Gradle에는 기존 Kotlin `jvmTarget` deprecation과 외부 플러그인 Manifest namespace 경고만 남아 있다.
+  - 롤백: `AppConstants`를 단일 `KAKAO_NATIVE_APP_KEY`로 되돌리고 Android debug override와 iOS Debug Stage 매핑, 신규 상수 테스트, ADR-0023 및 환경별 문서 기록을 함께 제거한다.
+  - 다음: 로컬 `.env`, `android/secrets.properties`, `ios/Flutter/Secrets.xcconfig`에 같은 Stage Native App Key를 `KAKAO_NATIVE_APP_KEY_STAGE`로 추가한다. Stage 서버에는 Stage `KAKAO_APP_ID`와 worker Admin Key를 주입하고 Android debug key hash 및 iOS Bundle ID를 Stage Kakao 앱에 등록한 뒤 실기기 로그인을 검증한다.
+
+## 2026-08-16
+
+- [DONE] (FE/DOCS) 카카오 네이티브 SDK 설정 명확화 및 서버 구현 요청서 작성
+  - 목적: Flutter의 실제 카카오 SDK 토큰 로그인과 Dart/네이티브 키 주입 경계를 코드·테스트로 고정하고, Express가 운영에서 적용해야 할 토큰 앱 소속 검증·레거시 Web 경로 정리·환경변수·테스트 계약을 전달한다.
+  - 변경: `main.dart`의 Debug 전용 assert를 모든 빌드에서 동작하는 `StateError` 검증으로 바꾸고 `.env` Dart define과 Android/iOS 네이티브 build setting에 같은 Native App Key를 각각 주입해야 한다는 오류 안내·Gradle 주석을 명확히 했다. 카카오 SDK Access Token이 `POST /auth/kakao/token`의 정확한 body로 전달되고 서버 성공 뒤 ShiftMate JWT가 저장되는 datasource/repository 테스트를 추가했다. token endpoint 오류는 공용 `handleApiError()`로 변환해 `KAKAO_TOKEN_APP_MISMATCH`의 코드·메시지·request ID를 보존한다. ADR-0022에 SDK token 단일 운영과 서버 App ID 검증 결정을 기록하고, `_docs/KAKAO_LOGIN_SERVER_REQUEST.md`에 프론트 완료 범위, 서버 `access_token_info.app_id` 검증, Web route·환경변수 제거, Admin Key worker, OpenAPI·테스트·배포·롤백 인수 조건을 작성했다.
+  - 영향범위: Flutter 카카오 초기화 실패 정책, Android 빌드 설정 안내, 카카오 token endpoint 오류 타입, 인증 datasource/repository 회귀 테스트, 프로젝트 인증 정책과 서버 전달 문서. Behavior change: Release에서도 Dart define Native App Key가 없으면 빈 키로 실행하지 않고 시작 즉시 실패하며, 구조화된 카카오 서버 오류가 일반 문자열 대신 `ApiException`으로 보존된다. 서버 코드는 변경하지 않는다.
+  - 파일: `lib/main.dart`, `lib/features/auth/data/datasources/auth_remote_datasource.dart`, `android/app/build.gradle.kts`, `test/features/auth/data/datasources/auth_remote_datasource_test.dart`, `test/features/auth/data/repositories/auth_repository_impl_test.dart`, `_docs/KAKAO_LOGIN_SERVER_REQUEST.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 인증 전체 테스트 56건 통과. 신규 카카오 endpoint/method/body/응답 파싱, SDK token 전달 후 JWT 저장, App ID 불일치 오류 코드·메시지·request ID 보존을 검증했다. 변경 Dart 코드·테스트 4개 파일의 `flutter analyze --no-fatal-infos`는 진단 0건이고 `dart format`, 문서 code fence 28개 균형, 서버 참조 파일 존재 확인, `git diff --check`를 통과했다.
+  - 롤백: `main.dart`를 Debug assert 기반 키 검증으로 복원하고 카카오 Dio 오류를 문자열 `Exception`으로 되돌린 뒤 신규 테스트·ADR-0022·서버 요청서와 프로젝트 컨텍스트 기록을 함께 제거한다. 서버가 구조화 오류 계약을 배포한 뒤에는 오류 변환을 먼저 서버 계약과 분리한다.
+  - 다음: 서버 담당자가 `_docs/KAKAO_LOGIN_SERVER_REQUEST.md` 순서대로 `KAKAO_APP_ID` 검증과 SDK token 단일 endpoint를 구현하고 Stage iOS/Android 실기기 로그인·탈퇴 E2E를 통과한다. Production Android keystore 확정 후 실제 Release key hash를 Kakao Native App Key에 등록한다.
+
 ## 2026-08-14
 
 - [DONE] (FE) 설정 화면 회원 탈퇴 버튼 및 비동기 탈퇴 API 연동

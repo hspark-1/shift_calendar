@@ -3,6 +3,6 @@
 #include? "Secrets.xcconfig"
 
 // 소셜 로그인 키
+// Release는 Production KAKAO_NATIVE_APP_KEY를 사용한다.
 // CI/CD에서는 환경변수로, 로컬에서는 Secrets.xcconfig로 설정
 // Google 로그인은 GOOGLE_REVERSED_CLIENT_ID build setting도 필요
-KAKAO_NATIVE_APP_KEY=$(KAKAO_NATIVE_APP_KEY)

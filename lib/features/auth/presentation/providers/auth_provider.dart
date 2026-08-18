@@ -85,11 +85,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void _invalidateAccountScopedProviders() {
     _ref.invalidate(calendarRangeProvider);
     _ref.invalidate(friendCalendarRangeProvider);
-    _ref.invalidate(shiftTypesProvider);
     _ref.invalidate(shiftTypeDisplayUpdatesProvider);
-    _ref.invalidate(effectiveShiftTypesProvider);
-    _ref.invalidate(shiftTypesMapProvider);
-    _ref.invalidate(shiftTypeOrderProvider);
+    _ref.invalidate(shiftTypesProvider);
     _ref.invalidate(shiftTemplateSettingsProvider);
     _ref.invalidate(friendListProvider);
     _ref.invalidate(searchUserProvider);
@@ -113,7 +110,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.authenticated,
           user: user,
-          is_new_user: false,
+          is_new_user:
+              user.requires_profile_setup ??
+              (user.phone == null || user.phone!.trim().isEmpty),
         );
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
@@ -234,6 +233,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? name,
     String? timezone,
     String? profile_image_url,
+    String? phone,
+    String? job_type,
+    String? workplace,
   }) async {
     state = state.copyWith(is_loading: true, error: null);
 
@@ -242,6 +244,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         name: name,
         timezone: timezone,
         profile_image_url: profile_image_url,
+        phone: phone,
+        job_type: job_type,
+        workplace: workplace,
       );
 
       state = state.copyWith(
@@ -260,9 +265,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// 프로필 설정 완료 (신규 사용자 플래그 해제)
-  void completeProfileSetup() {
-    state = state.copyWith(is_new_user: false);
+  /// 신규 가입 필수·선택 프로필 저장 및 완료 처리
+  Future<bool> completeProfileSetup({
+    required String name,
+    required String timezone,
+    required String phone,
+    String? job_type,
+    String? workplace,
+  }) async {
+    state = state.copyWith(is_loading: true, error: null);
+
+    try {
+      final updated_user = await _repository.completeProfile(
+        name: name,
+        timezone: timezone,
+        phone: phone,
+        job_type: job_type,
+        workplace: workplace,
+      );
+
+      state = state.copyWith(
+        user: updated_user,
+        is_new_user: false,
+        is_loading: false,
+      );
+      return true;
+    } catch (error) {
+      final error_message = error is ApiException
+          ? error.message
+          : error.toString().replaceAll('Exception: ', '');
+      state = state.copyWith(is_loading: false, error: error_message);
+      return false;
+    }
   }
 
   /// 로그아웃

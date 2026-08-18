@@ -28,6 +28,10 @@ mixin _$User {
   String get name => throw _privateConstructorUsedError;
   String? get profile_image_url => throw _privateConstructorUsedError;
   String? get timezone => throw _privateConstructorUsedError;
+  String? get phone => throw _privateConstructorUsedError;
+  String? get job_type => throw _privateConstructorUsedError;
+  String? get workplace => throw _privateConstructorUsedError;
+  bool? get requires_profile_setup => throw _privateConstructorUsedError;
   @StringOrIntConverter()
   String? get kakao_id => throw _privateConstructorUsedError;
   String? get apple_id => throw _privateConstructorUsedError;
@@ -55,6 +59,10 @@ abstract class $UserCopyWith<$Res> {
     String name,
     String? profile_image_url,
     String? timezone,
+    String? phone,
+    String? job_type,
+    String? workplace,
+    bool? requires_profile_setup,
     @StringOrIntConverter() String? kakao_id,
     String? apple_id,
     String? google_id,
@@ -82,6 +90,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? name = null,
     Object? profile_image_url = freezed,
     Object? timezone = freezed,
+    Object? phone = freezed,
+    Object? job_type = freezed,
+    Object? workplace = freezed,
+    Object? requires_profile_setup = freezed,
     Object? kakao_id = freezed,
     Object? apple_id = freezed,
     Object? google_id = freezed,
@@ -109,6 +121,22 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
                 ? _value.timezone
                 : timezone // ignore: cast_nullable_to_non_nullable
                       as String?,
+            phone: freezed == phone
+                ? _value.phone
+                : phone // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            job_type: freezed == job_type
+                ? _value.job_type
+                : job_type // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            workplace: freezed == workplace
+                ? _value.workplace
+                : workplace // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            requires_profile_setup: freezed == requires_profile_setup
+                ? _value.requires_profile_setup
+                : requires_profile_setup // ignore: cast_nullable_to_non_nullable
+                      as bool?,
             kakao_id: freezed == kakao_id
                 ? _value.kakao_id
                 : kakao_id // ignore: cast_nullable_to_non_nullable
@@ -145,6 +173,10 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
     String name,
     String? profile_image_url,
     String? timezone,
+    String? phone,
+    String? job_type,
+    String? workplace,
+    bool? requires_profile_setup,
     @StringOrIntConverter() String? kakao_id,
     String? apple_id,
     String? google_id,
@@ -169,6 +201,10 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? name = null,
     Object? profile_image_url = freezed,
     Object? timezone = freezed,
+    Object? phone = freezed,
+    Object? job_type = freezed,
+    Object? workplace = freezed,
+    Object? requires_profile_setup = freezed,
     Object? kakao_id = freezed,
     Object? apple_id = freezed,
     Object? google_id = freezed,
@@ -196,6 +232,22 @@ class __$$UserImplCopyWithImpl<$Res>
             ? _value.timezone
             : timezone // ignore: cast_nullable_to_non_nullable
                   as String?,
+        phone: freezed == phone
+            ? _value.phone
+            : phone // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        job_type: freezed == job_type
+            ? _value.job_type
+            : job_type // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        workplace: freezed == workplace
+            ? _value.workplace
+            : workplace // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        requires_profile_setup: freezed == requires_profile_setup
+            ? _value.requires_profile_setup
+            : requires_profile_setup // ignore: cast_nullable_to_non_nullable
+                  as bool?,
         kakao_id: freezed == kakao_id
             ? _value.kakao_id
             : kakao_id // ignore: cast_nullable_to_non_nullable
@@ -226,6 +278,10 @@ class _$UserImpl implements _User {
     required this.name,
     this.profile_image_url,
     this.timezone,
+    this.phone,
+    this.job_type,
+    this.workplace,
+    this.requires_profile_setup,
     @StringOrIntConverter() this.kakao_id,
     this.apple_id,
     this.google_id,
@@ -248,6 +304,14 @@ class _$UserImpl implements _User {
   @override
   final String? timezone;
   @override
+  final String? phone;
+  @override
+  final String? job_type;
+  @override
+  final String? workplace;
+  @override
+  final bool? requires_profile_setup;
+  @override
   @StringOrIntConverter()
   final String? kakao_id;
   @override
@@ -260,7 +324,7 @@ class _$UserImpl implements _User {
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, timezone: $timezone, kakao_id: $kakao_id, apple_id: $apple_id, google_id: $google_id, created_at: $created_at)';
+    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, timezone: $timezone, phone: $phone, job_type: $job_type, workplace: $workplace, requires_profile_setup: $requires_profile_setup, kakao_id: $kakao_id, apple_id: $apple_id, google_id: $google_id, created_at: $created_at)';
   }
 
   @override
@@ -275,6 +339,13 @@ class _$UserImpl implements _User {
                 other.profile_image_url == profile_image_url) &&
             (identical(other.timezone, timezone) ||
                 other.timezone == timezone) &&
+            (identical(other.phone, phone) || other.phone == phone) &&
+            (identical(other.job_type, job_type) ||
+                other.job_type == job_type) &&
+            (identical(other.workplace, workplace) ||
+                other.workplace == workplace) &&
+            (identical(other.requires_profile_setup, requires_profile_setup) ||
+                other.requires_profile_setup == requires_profile_setup) &&
             (identical(other.kakao_id, kakao_id) ||
                 other.kakao_id == kakao_id) &&
             (identical(other.apple_id, apple_id) ||
@@ -294,6 +365,10 @@ class _$UserImpl implements _User {
     name,
     profile_image_url,
     timezone,
+    phone,
+    job_type,
+    workplace,
+    requires_profile_setup,
     kakao_id,
     apple_id,
     google_id,
@@ -323,6 +398,10 @@ abstract class _User implements User {
     required final String name,
     final String? profile_image_url,
     final String? timezone,
+    final String? phone,
+    final String? job_type,
+    final String? workplace,
+    final bool? requires_profile_setup,
     @StringOrIntConverter() final String? kakao_id,
     final String? apple_id,
     final String? google_id,
@@ -343,6 +422,14 @@ abstract class _User implements User {
   String? get profile_image_url;
   @override
   String? get timezone;
+  @override
+  String? get phone;
+  @override
+  String? get job_type;
+  @override
+  String? get workplace;
+  @override
+  bool? get requires_profile_setup;
   @override
   @StringOrIntConverter()
   String? get kakao_id;

@@ -64,8 +64,8 @@ class AuthRemoteDataSource {
       }
 
       throw Exception(response.data['message'] ?? '로그인에 실패했습니다.');
-    } on DioException catch (e) {
-      throw Exception(_extractErrorMessage(e, '로그인에 실패했습니다.'));
+    } on DioException catch (error) {
+      throw handleApiError(error);
     }
   }
 
@@ -205,6 +205,9 @@ class AuthRemoteDataSource {
     String? name,
     String? timezone,
     String? profile_image_url,
+    String? phone,
+    String? job_type,
+    String? workplace,
   }) async {
     try {
       final data = <String, dynamic>{};
@@ -213,6 +216,9 @@ class AuthRemoteDataSource {
       if (profile_image_url != null) {
         data['profile_image_url'] = profile_image_url;
       }
+      if (phone != null) data['phone'] = phone;
+      if (job_type != null) data['job_type'] = job_type;
+      if (workplace != null) data['workplace'] = workplace;
 
       final response = await _dio.post(ApiConstants.auth_profile, data: data);
 
@@ -221,8 +227,40 @@ class AuthRemoteDataSource {
       }
 
       throw Exception(response.data['message'] ?? '프로필 수정에 실패했습니다.');
-    } on DioException catch (e) {
-      throw Exception(_extractErrorMessage(e, '프로필 수정에 실패했습니다.'));
+    } on DioException catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /// 신규 가입 프로필 완료
+  Future<User> completeProfile({
+    required String name,
+    required String timezone,
+    required String phone,
+    String? job_type,
+    String? workplace,
+  }) async {
+    try {
+      final data = <String, dynamic>{
+        'name': name,
+        'timezone': timezone,
+        'phone': phone,
+      };
+      if (job_type != null) data['job_type'] = job_type;
+      if (workplace != null) data['workplace'] = workplace;
+
+      final response = await _dio.post(
+        ApiConstants.auth_profile_complete,
+        data: data,
+      );
+
+      if (response.data['success'] == true) {
+        return User.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+
+      throw Exception(response.data['message'] ?? '프로필 설정을 완료하지 못했습니다.');
+    } on DioException catch (error) {
+      throw handleApiError(error);
     }
   }
 

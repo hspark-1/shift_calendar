@@ -674,6 +674,123 @@
   - 서버가 Google/Naver revoke token을 안전하게 보관하게 되면 클라이언트 사전 해제 의존성을
     재평가한다.
 
+## ADR-0022: 카카오 로그인은 Flutter 네이티브 SDK 토큰 방식만 운영한다
+
+- 배경(문제)
+  - Flutter 앱은 카카오 SDK가 Access Token을 발급하고 `POST /auth/kakao/token`으로 전달하지만,
+    Express에는 과거 WebView authorization code용 `POST /auth/kakao`와 Redirect URI 문서가 남아 있다.
+  - Dart SDK 초기화 키와 Android/iOS callback URL Scheme 키는 서로 다른 빌드 경로로 주입되지만,
+    기존 안내는 네이티브 secret 파일 하나만으로 Dart define도 채워지는 것처럼 해석될 수 있었다.
+  - 서버가 `/v2/user/me`만 호출하면 토큰의 유효한 사용자 정보는 얻을 수 있지만 그 토큰이
+    ShiftMate 카카오 앱에서 발급됐는지는 고정하지 못한다.
+- 선택지(대안)
+  - A. Flutter SDK 토큰 방식과 서버 Web authorization code 방식을 계속 함께 운영한다.
+  - B. Flutter SDK 토큰 방식만 운영하고 서버가 토큰의 Kakao App ID를 확인한다.
+- 결정(무엇을 선택)
+  - B를 선택한다.
+  - Flutter는 Native App Key로 SDK를 초기화하고 SDK Access Token만
+    `POST /api/v1/auth/kakao/token`의 `access_token` 필드로 전달한다.
+  - Dart define과 Android/iOS 네이티브 build setting에는 같은 Native App Key를 각각 주입하며,
+    Dart define이 비어 있으면 Debug/Release 모두 앱 시작을 중단한다.
+  - Express는 `access_token_info.app_id`를 환경별 기대 App ID와 비교하고 일치한 토큰만
+    `/v2/user/me` 및 기존 사용자 provisioning으로 넘긴다.
+  - Web authorization code endpoint와 그 전용 Client ID·Client Secret·Redirect URI,
+    개발용 Kakao Web 테스트 페이지는 제거한다.
+- 근거(왜)
+  - 실제 배포 클라이언트가 하나인 상태에서 두 인증 경로를 유지하면 공개 endpoint·secret·문서와
+    회귀 범위만 늘어난다.
+  - 네이티브 SDK callback은 `kakao{Native App Key}://oauth`이며 Stage/Production API URL을
+    웹 Redirect URI로 등록할 이유가 없다.
+  - 토큰 발급 앱 검증은 다른 Kakao App에서 발급된 토큰이 ShiftMate 계정 연결에 사용되는 것을
+    차단한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - Flutter의 외부 동작은 유지하면서 키 누락 Release 빌드를 시작 단계에서 차단한다.
+  - 서버는 `KAKAO_APP_ID`를 새 필수값으로 관리하고, 탈퇴 worker는 별도로
+    `KAKAO_ADMIN_KEY`를 관리해야 한다.
+  - `/auth/kakao`를 사용하던 비모바일 클라이언트가 있다면 Breaking change가 되므로 제거 전
+    접근 로그와 소유자를 확인한다.
+- 추후 과제(언제 다시 평가)
+  - 웹 클라이언트를 실제 출시할 때는 모바일 endpoint를 재사용하지 않고 OIDC 또는 웹
+    authorization code 계약을 별도 위협 모델·ADR과 함께 설계한다.
+  - Production Android 서명 키가 확정되면 해당 Release key hash를 Native App Key의 Android
+    앱 정보에 등록하고 실기기 로그인을 재검증한다.
+
+## ADR-0023: 카카오 앱 키는 Debug Stage와 Profile/Release Production으로 분리한다
+
+- 배경(문제)
+  - 기존 Flutter Dart define, Android Manifest placeholder, iOS xcconfig는 모든 빌드에서 하나의
+    `KAKAO_NATIVE_APP_KEY`를 사용했다.
+  - API와 Firebase는 이미 Debug를 Stage, Profile/Release를 Production으로 구분하므로 카카오
+    토큰 발급 앱도 같은 환경 경계에 맞춰야 한다.
+  - ADR-0022의 서버 App ID 검증이 활성화되면 클라이언트 Native App Key와 서버의 기대
+    `KAKAO_APP_ID`가 환경별로 일치하지 않는 로그인은 거부된다.
+- 선택지(대안)
+  - A. 모든 빌드가 Production Kakao 앱을 계속 공유한다.
+  - B. 별도 Flutter flavor와 application ID/Bundle ID suffix를 추가한다.
+  - C. 현재 빌드 모드를 유지하고 Debug만 Stage 키, Profile/Release는 Production 키를 선택한다.
+- 결정(무엇을 선택)
+  - C를 선택한다.
+  - Dart define과 Android/iOS 네이티브 설정에 `KAKAO_NATIVE_APP_KEY_STAGE`와 Production
+    `KAKAO_NATIVE_APP_KEY`를 각각 주입한다.
+  - Dart는 `kDebugMode`, Android는 debug build type override, iOS는 Debug xcconfig 매핑으로
+    Stage 키를 선택한다. Profile/Release는 Production 키를 사용한다.
+  - Stage/Production 서버는 동일한 환경변수 이름 `KAKAO_APP_ID`에 각 Kakao 앱의 App ID를
+    별도로 주입하고 탈퇴 worker의 Admin Key도 같은 환경 앱에 맞춘다.
+- 근거(왜)
+  - 현재 API/Firebase 환경 선택과 동일한 경계를 사용해 신규 flavor 없이 변경 범위를 제한한다.
+  - Dart SDK 초기화와 네이티브 callback URL Scheme이 각 환경 안에서 같은 Native App Key를
+    사용하도록 빌드 시스템에서 고정할 수 있다.
+- 결과/영향(좋은 점/트레이드오프)
+  - Debug Kakao 로그인은 Stage Kakao 앱과 Stage 서버 검증을 사용하고 Profile/Release는
+    Production Kakao 앱과 Production 서버 검증을 사용한다.
+  - Stage와 Production 앱은 같은 Android application ID와 iOS Bundle ID를 유지하므로 두 버전을
+    한 기기에 동시에 설치할 수 없다.
+  - Kakao service user ID는 앱별 값이므로 Stage와 Production 사용자 데이터는 서로 독립적이다.
+- 추후 과제(언제 다시 평가)
+  - Stage 배포본과 Production 앱의 동시 설치 또는 release mode Stage 검증이 필요해지면
+    product flavor, Xcode scheme, application ID/Bundle ID suffix를 함께 도입한다.
+  - Production Android keystore 확정 후 Release key hash를 Production Native App Key에 등록한다.
+
+## ADR-0024: 가입 완료는 별도 idempotent API와 영속 완료 상태로 판정한다
+
+- 배경(문제)
+  - 기본 정보는 필수이고 근무 정보는 선택이지만 기존 프로필 화면과 API에는 휴대폰·직종·소속의
+    전체 계약이 없었다.
+  - OAuth 응답의 `is_new_user`는 계정 생성 순간만 나타내므로 사용자가 가입 입력 중 앱을 종료하면
+    다음 실행에서 미완료 화면을 안정적으로 재개할 수 없다.
+  - 일반 프로필 수정과 최초 필수 정보 검증·완료 처리를 같은 endpoint에 두면 부분 저장만 된
+    사용자를 완료로 오판할 수 있다.
+- 선택지(대안)
+  - A. 클라이언트가 `is_new_user`를 로컬에 저장하고 기존 프로필 수정 API만 호출한다.
+  - B. 서버가 phone 유무만으로 매 요청마다 가입 완료를 추론한다.
+  - C. 별도 가입 완료 API가 필수값을 transaction으로 저장하고 서버의 영속 완료 시각에서
+    `requires_profile_setup`을 계산한다.
+- 결정(무엇을 선택)
+  - C를 선택한다.
+  - Flutter는 필수 `name`, `timezone`, `phone`과 선택 `job_type`, `workplace`를
+    `POST /api/v1/auth/profile/complete`에 보낸다. 선택값은 없어도 완료할 수 있다.
+  - 서버는 `profile_completed_at`을 영속 저장하며 가입 완료 API는 같은 요청을 안전하게 다시
+    보낼 수 있는 idempotent 계약으로 제공한다.
+  - 인증 및 본인 프로필 응답의 `requires_profile_setup`을 화면 분기 정본으로 사용한다.
+    서버 전환기의 Flutter는 필드가 없으면 phone 유무만 호환 fallback으로 사용한다.
+  - 기존 `POST /api/v1/auth/profile`은 가입 완료와 분리된 일반 편집 endpoint로 유지한다.
+- 근거(왜)
+  - 완료 판정을 서버에 영속하면 재설치·다른 기기·앱 강제 종료 뒤에도 같은 흐름을 재개한다.
+  - 필수값 저장과 완료 표식을 하나의 transaction으로 묶어 부분 성공을 방지한다.
+  - 전용 endpoint는 일반 수정의 부분 update/null 규칙과 최초 완료의 엄격한 required 규칙을
+    명확히 분리한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - 서버에는 세 컬럼, migration/backfill, 완료 route/controller/service와 기존 인증 응답 변경이
+    필요하다.
+  - 서버가 먼저 배포되지 않으면 신규 Flutter 가입 완료 요청은 404가 되므로 배포 순서를 강제한다.
+  - 선택 근무 정보는 비워도 가입할 수 있고 추후 일반 프로필 편집에서 추가·삭제할 수 있다.
+  - User 모델과 인증 상태는 기존 `is_new_user` 호환 필드 외에 `requires_profile_setup`을 수용한다.
+- 추후 과제(언제 다시 평가)
+  - `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`의 Stage E2E와 migration 완료 조건을 통과한
+    뒤 Flutter Production을 배포한다.
+  - 모든 운영 서버가 새 응답을 제공하고 기존 앱 지원 기간이 끝나면 phone 기반 Flutter fallback과
+    화면 분기용 `is_new_user` 이름을 정리한다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식

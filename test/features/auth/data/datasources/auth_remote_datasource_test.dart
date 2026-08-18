@@ -145,6 +145,104 @@ void main() {
     });
   });
 
+  group('AuthRemoteDataSource.loginWithKakaoToken', () {
+    test('POST /auth/kakao/token으로 카카오 Access Token을 전송한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      RequestOptions? captured_request;
+
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'message': '로그인 성공',
+                  'data': {
+                    'user': {
+                      'user_id': 'kakao-user-id',
+                      'email': 'kakao@example.com',
+                      'name': '카카오 사용자',
+                      'kakao_id': 'kakao-subject',
+                    },
+                    'access_token': 'app-access-token',
+                    'refresh_token': 'app-refresh-token',
+                    'expires_at': '2026-08-17T00:00:00.000Z',
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      final data_source = AuthRemoteDataSource(dio);
+      final auth_response = await data_source.loginWithKakaoToken(
+        'kakao-access-token',
+      );
+
+      expect(captured_request, isNotNull);
+      expect(captured_request!.method, 'POST');
+      expect(captured_request!.path, ApiConstants.auth_kakao_token);
+      expect(captured_request!.data, {'access_token': 'kakao-access-token'});
+      expect(auth_response.user.id, 'kakao-user-id');
+      expect(auth_response.user.kakao_id, 'kakao-subject');
+      expect(auth_response.access_token, 'app-access-token');
+    });
+
+    test('서버의 Kakao App 불일치 오류 코드와 request_id를 보존한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                response: Response<Map<String, dynamic>>(
+                  requestOptions: options,
+                  statusCode: 401,
+                  data: {
+                    'success': false,
+                    'error': {
+                      'code': 'KAKAO_TOKEN_APP_MISMATCH',
+                      'message': '유효하지 않은 카카오 로그인 정보입니다.',
+                    },
+                    'request_id': 'kakao-request-id',
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      );
+
+      await expectLater(
+        AuthRemoteDataSource(dio).loginWithKakaoToken('foreign-app-token'),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 'KAKAO_TOKEN_APP_MISMATCH')
+              .having(
+                (error) => error.message,
+                'message',
+                '유효하지 않은 카카오 로그인 정보입니다.',
+              )
+              .having(
+                (error) => error.request_id,
+                'request_id',
+                'kakao-request-id',
+              ),
+        ),
+      );
+    });
+  });
+
   group('AuthRemoteDataSource.loginWithGoogleIdToken', () {
     test('정확한 endpoint/body로 ID Token을 보내고 millisecond 만료 시각을 파싱한다', () async {
       final dio = Dio(
@@ -256,6 +354,149 @@ void main() {
       expect(user.id, 'user-id');
       expect(user.name, '변경된 이름');
       expect(user.timezone, 'Asia/Seoul');
+    });
+
+    test('프로필 수정의 구조화 오류 코드와 메시지를 보존한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                response: Response<Map<String, dynamic>>(
+                  requestOptions: options,
+                  statusCode: 409,
+                  data: {
+                    'success': false,
+                    'error': {
+                      'code': 'PHONE_ALREADY_EXISTS',
+                      'message': '이미 사용 중인 휴대폰 번호입니다.',
+                    },
+                    'request_id': 'profile-request-id',
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      );
+
+      await expectLater(
+        AuthRemoteDataSource(dio).updateProfile(phone: '01012345678'),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 'PHONE_ALREADY_EXISTS')
+              .having(
+                (error) => error.message,
+                'message',
+                '이미 사용 중인 휴대폰 번호입니다.',
+              )
+              .having(
+                (error) => error.request_id,
+                'request_id',
+                'profile-request-id',
+              ),
+        ),
+      );
+    });
+  });
+
+  group('AuthRemoteDataSource.completeProfile', () {
+    test('필수 기본 정보와 입력한 선택 근무 정보만 완료 endpoint로 전송한다', () async {
+      final dio = Dio(
+        BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),
+      );
+      RequestOptions? captured_request;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'user_id': 'user-id',
+                    'email': 'user@example.com',
+                    'name': '김간호',
+                    'timezone': 'Asia/Seoul',
+                    'phone': '010-1234-5678',
+                    'job_type': 'NURSE',
+                    'workplace': '제일병원 중환자실',
+                    'requires_profile_setup': false,
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      final user = await AuthRemoteDataSource(dio).completeProfile(
+        name: '김간호',
+        timezone: 'Asia/Seoul',
+        phone: '01012345678',
+        job_type: 'NURSE',
+        workplace: '제일병원 중환자실',
+      );
+
+      expect(captured_request?.method, 'POST');
+      expect(captured_request?.path, ApiConstants.auth_profile_complete);
+      expect(captured_request?.data, {
+        'name': '김간호',
+        'timezone': 'Asia/Seoul',
+        'phone': '01012345678',
+        'job_type': 'NURSE',
+        'workplace': '제일병원 중환자실',
+      });
+      expect(user.phone, '010-1234-5678');
+      expect(user.job_type, 'NURSE');
+      expect(user.workplace, '제일병원 중환자실');
+      expect(user.requires_profile_setup, isFalse);
+    });
+
+    test('선택 근무 정보가 없으면 request body에서 제외한다', () async {
+      final dio = Dio();
+      RequestOptions? captured_request;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                data: {
+                  'success': true,
+                  'data': {
+                    'user_id': 'user-id',
+                    'email': 'user@example.com',
+                    'name': '사용자',
+                    'timezone': 'Asia/Seoul',
+                    'phone': '010-1234-5678',
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      await AuthRemoteDataSource(dio).completeProfile(
+        name: '사용자',
+        timezone: 'Asia/Seoul',
+        phone: '01012345678',
+      );
+
+      expect(captured_request?.data, {
+        'name': '사용자',
+        'timezone': 'Asia/Seoul',
+        'phone': '01012345678',
+      });
     });
   });
 

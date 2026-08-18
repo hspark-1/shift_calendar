@@ -48,6 +48,18 @@ abstract class AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    String? phone,
+    String? job_type,
+    String? workplace,
+  });
+
+  /// 신규 가입 필수·선택 프로필을 원자적으로 저장하고 완료 처리
+  Future<User> completeProfile({
+    required String name,
+    required String timezone,
+    required String phone,
+    String? job_type,
+    String? workplace,
   });
 
   /// 로그아웃
@@ -205,11 +217,34 @@ class AuthRepositoryImpl implements AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    String? phone,
+    String? job_type,
+    String? workplace,
   }) async {
     return await _remote_datasource.updateProfile(
       name: name,
       timezone: timezone,
       profile_image_url: profile_image_url,
+      phone: phone,
+      job_type: job_type,
+      workplace: workplace,
+    );
+  }
+
+  @override
+  Future<User> completeProfile({
+    required String name,
+    required String timezone,
+    required String phone,
+    String? job_type,
+    String? workplace,
+  }) async {
+    return await _remote_datasource.completeProfile(
+      name: name,
+      timezone: timezone,
+      phone: phone,
+      job_type: job_type,
+      workplace: workplace,
     );
   }
 
