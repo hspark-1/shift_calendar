@@ -1,10 +1,12 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
+import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/features/auth/presentation/pages/profile_setup_page.dart';
 
 class _ProfileSetupAuthRepository implements AuthRepository {
@@ -15,6 +17,7 @@ class _ProfileSetupAuthRepository implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) async {
@@ -22,6 +25,7 @@ class _ProfileSetupAuthRepository implements AuthRepository {
       'name': name,
       'timezone': timezone,
       'phone': phone,
+      'profile_image': profile_image?.filename,
       'job_type': job_type,
       'workplace': workplace,
     };
@@ -89,6 +93,8 @@ Future<void> _pumpPage(
   WidgetTester tester,
   _ProfileSetupAuthRepository repository, {
   required VoidCallback on_completed,
+  Future<ProfileImageUpload?> Function()? profile_image_picker,
+  Future<String> Function()? timezone_loader,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -104,6 +110,8 @@ Future<void> _pumpPage(
             timezone: 'Asia/Seoul',
           ),
           on_completed: on_completed,
+          profile_image_picker: profile_image_picker,
+          timezone_loader: timezone_loader ?? () async => 'Asia/Seoul',
         ),
       ),
     ),
@@ -130,6 +138,8 @@ void main() {
     );
     expect(find.text('저장하고 시작하기'), findsOneWidget);
     expect(find.text('완료'), findsNothing);
+    expect(find.byKey(const Key('profile_image_button')), findsOneWidget);
+    expect(find.byKey(const Key('profile_timezone_field')), findsNothing);
 
     final button_bottom = tester
         .getBottomLeft(find.byKey(const Key('profile_setup_submit_button')))
@@ -169,10 +179,47 @@ void main() {
       'name': '김간호',
       'timezone': 'Asia/Seoul',
       'phone': '01012345678',
+      'profile_image': null,
       'job_type': null,
       'workplace': null,
     });
     expect(completed, isTrue);
+  });
+
+  testWidgets('선택한 프로필 이미지를 미리보고 기기 타임존과 함께 가입 요청에 보낸다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    final image = ProfileImageUpload(
+      bytes: base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLhCgAAAABJRU5ErkJggg==',
+      ),
+      filename: 'profile.png',
+      content_type: 'image/png',
+    );
+    await _pumpPage(
+      tester,
+      repository,
+      on_completed: () {},
+      profile_image_picker: () async => image,
+      timezone_loader: () async => 'Asia/Tokyo',
+    );
+
+    await tester.tap(find.byKey(const Key('profile_image_button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Image), findsOneWidget);
+
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '김간호',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.complete_request?['profile_image'], 'profile.png');
+    expect(repository.complete_request?['timezone'], 'Asia/Tokyo');
   });
 
   testWidgets('선택한 직종과 소속 정보를 가입 완료 요청에 포함한다', (tester) async {

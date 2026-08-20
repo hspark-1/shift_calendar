@@ -3,27 +3,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../calendar/presentation/pages/calendar_page.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/profile_image_upload.dart';
 import '../providers/auth_provider.dart';
-
-const List<String> _supported_timezones = [
-  'Asia/Seoul',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Singapore',
-  'America/New_York',
-  'America/Los_Angeles',
-  'America/Chicago',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-];
 
 const List<_JobTypeOption> _job_type_options = [
   _JobTypeOption(value: 'NURSE', label: '간호사 (RN)'),
@@ -32,42 +20,19 @@ const List<_JobTypeOption> _job_type_options = [
   _JobTypeOption(value: 'OTHER', label: '기타'),
 ];
 
-String _getTimezoneDisplayName(String timezone) {
-  switch (timezone) {
-    case 'Asia/Seoul':
-      return '서울 (GMT+9)';
-    case 'Asia/Tokyo':
-      return '도쿄 (GMT+9)';
-    case 'Asia/Shanghai':
-      return '상하이 (GMT+8)';
-    case 'Asia/Singapore':
-      return '싱가포르 (GMT+8)';
-    case 'America/New_York':
-      return '뉴욕 (GMT-5)';
-    case 'America/Los_Angeles':
-      return '로스앤젤레스 (GMT-8)';
-    case 'America/Chicago':
-      return '시카고 (GMT-6)';
-    case 'Europe/London':
-      return '런던 (GMT+0)';
-    case 'Europe/Paris':
-      return '파리 (GMT+1)';
-    case 'Europe/Berlin':
-      return '베를린 (GMT+1)';
-    case 'Australia/Sydney':
-      return '시드니 (GMT+11)';
-    case 'Pacific/Auckland':
-      return '오클랜드 (GMT+13)';
-    default:
-      return timezone;
-  }
-}
-
 class ProfileSetupPage extends ConsumerStatefulWidget {
   final User user;
   final VoidCallback? on_completed;
+  final Future<ProfileImageUpload?> Function()? profile_image_picker;
+  final Future<String> Function()? timezone_loader;
 
-  const ProfileSetupPage({super.key, required this.user, this.on_completed});
+  const ProfileSetupPage({
+    super.key,
+    required this.user,
+    this.on_completed,
+    this.profile_image_picker,
+    this.timezone_loader,
+  });
 
   @override
   ConsumerState<ProfileSetupPage> createState() => _ProfileSetupPageState();
@@ -78,6 +43,8 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   late final TextEditingController _phone_controller;
   late final TextEditingController _workplace_controller;
   late String _selected_timezone;
+  late final Future<void> _timezone_future;
+  ProfileImageUpload? _selected_profile_image;
   String? _selected_job_type;
   bool _has_submitted = false;
   bool _is_loading = false;
@@ -91,6 +58,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       text: widget.user.workplace ?? '',
     );
     _selected_timezone = widget.user.timezone ?? AppConstants.default_timezone;
+    _timezone_future = _loadDeviceTimezone();
     _selected_job_type =
         _job_type_options.any((option) => option.value == widget.user.job_type)
         ? widget.user.job_type
@@ -131,10 +99,55 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       _phone_digits.length >= 10 &&
       _phone_digits.length <= 11;
 
+  Future<void> _loadDeviceTimezone() async {
+    try {
+      final timezone = widget.timezone_loader != null
+          ? await widget.timezone_loader!()
+          : (await FlutterTimezone.getLocalTimezone()).identifier;
+      if (timezone.trim().isNotEmpty) _selected_timezone = timezone;
+    } catch (_) {
+      // 네이티브 조회 실패 시 서버 값 또는 앱 기본값을 유지한다.
+    }
+  }
+
+  Future<void> _pickProfileImage() async {
+    try {
+      final selected_image = widget.profile_image_picker != null
+          ? await widget.profile_image_picker!()
+          : await _pickProfileImageFromGallery();
+      if (!mounted || selected_image == null) return;
+      if (selected_image.bytes.lengthInBytes > 5 * 1024 * 1024) {
+        _showErrorDialog('프로필 이미지는 5MB 이하만 선택할 수 있어요.');
+        return;
+      }
+      setState(() => _selected_profile_image = selected_image);
+    } catch (_) {
+      if (mounted) _showErrorDialog('사진을 불러오지 못했어요. 다시 시도해주세요.');
+    }
+  }
+
+  Future<ProfileImageUpload?> _pickProfileImageFromGallery() async {
+    final selected_file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (selected_file == null) return null;
+    return ProfileImageUpload(
+      bytes: await selected_file.readAsBytes(),
+      filename: selected_file.name,
+      content_type: selected_file.mimeType,
+    );
+  }
+
   Future<void> _handleSave() async {
     if (_is_loading) return;
     setState(() => _has_submitted = true);
     if (!_is_required_input_valid) return;
+
+    await _timezone_future;
+    if (!mounted) return;
 
     final workplace = _workplace_controller.text.trim();
     setState(() => _is_loading = true);
@@ -144,6 +157,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           name: _name_controller.text.trim(),
           timezone: _selected_timezone,
           phone: _phone_digits,
+          profile_image: _selected_profile_image,
           job_type: _selected_job_type,
           workplace: workplace.isEmpty ? null : workplace,
         );
@@ -177,51 +191,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
             child: const Text('확인'),
           ),
         ],
-      ),
-    );
-  }
-
-  Future<void> _showTimezonePicker() async {
-    var draft_timezone = _selected_timezone;
-    final selected_index = _supported_timezones.indexOf(_selected_timezone);
-    await showCupertinoModalPopup<void>(
-      context: context,
-      builder: (popup_context) => Container(
-        height: 320,
-        color: AppTheme.surface_color,
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              _PickerHeader(
-                title: '타임존',
-                onCancel: () => Navigator.of(popup_context).pop(),
-                onDone: () {
-                  setState(() => _selected_timezone = draft_timezone);
-                  Navigator.of(popup_context).pop();
-                },
-              ),
-              Expanded(
-                child: CupertinoPicker(
-                  itemExtent: 42,
-                  scrollController: FixedExtentScrollController(
-                    initialItem: selected_index < 0 ? 0 : selected_index,
-                  ),
-                  onSelectedItemChanged: (index) {
-                    draft_timezone = _supported_timezones[index];
-                  },
-                  children: _supported_timezones
-                      .map(
-                        (timezone) => Center(
-                          child: Text(_getTimezoneDisplayName(timezone)),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -298,31 +267,65 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     final has_image = image_url != null && image_url.isNotEmpty;
     return Row(
       children: [
-        Container(
-          key: const Key('profile_avatar'),
-          width: 72,
-          height: 72,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppTheme.surface_container_color,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppTheme.outline_variant_color),
-          ),
-          child: has_image
-              ? Image.network(
-                  image_url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(
-                    CupertinoIcons.person_fill,
-                    size: 34,
-                    color: AppTheme.outline_color,
-                  ),
-                )
-              : const Icon(
-                  CupertinoIcons.person_fill,
-                  size: 34,
-                  color: AppTheme.outline_color,
+        CupertinoButton(
+          key: const Key('profile_image_button'),
+          minimumSize: Size.zero,
+          padding: EdgeInsets.zero,
+          onPressed: _is_loading ? null : _pickProfileImage,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                key: const Key('profile_avatar'),
+                width: 72,
+                height: 72,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: AppTheme.surface_container_color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.outline_variant_color),
                 ),
+                child: _selected_profile_image != null
+                    ? Image.memory(
+                        _selected_profile_image!.bytes,
+                        fit: BoxFit.cover,
+                      )
+                    : has_image
+                    ? Image.network(
+                        image_url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(
+                          CupertinoIcons.person_fill,
+                          size: 34,
+                          color: AppTheme.outline_color,
+                        ),
+                      )
+                    : const Icon(
+                        CupertinoIcons.person_fill,
+                        size: 34,
+                        color: AppTheme.outline_color,
+                      ),
+              ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary_color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.surface_color, width: 2),
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.camera_fill,
+                    size: 14,
+                    color: CupertinoColors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(width: 16),
         const Expanded(
@@ -412,15 +415,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                 onChanged: (_) {
                   if (_has_submitted) setState(() {});
                 },
-              ),
-              const _RowDivider(),
-              _SelectionRow(
-                row_key: const Key('profile_timezone_field'),
-                label: '타임존',
-                required_field: true,
-                icon: CupertinoIcons.globe,
-                value: _getTimezoneDisplayName(_selected_timezone),
-                onTap: _showTimezonePicker,
               ),
             ],
           ),
@@ -741,7 +735,6 @@ class _ProfileTextFieldRow extends StatelessWidget {
 class _SelectionRow extends StatelessWidget {
   final Key row_key;
   final String label;
-  final bool required_field;
   final IconData icon;
   final String value;
   final bool placeholder;
@@ -753,7 +746,6 @@ class _SelectionRow extends StatelessWidget {
     required this.icon,
     required this.value,
     required this.onTap,
-    this.required_field = false,
     this.placeholder = false,
   });
 
@@ -769,7 +761,7 @@ class _SelectionRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            required_field ? '$label *' : label,
+            label,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -881,52 +873,6 @@ class _PrivacyNotice extends StatelessWidget {
                 color: AppTheme.on_surface_variant_color,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PickerHeader extends StatelessWidget {
-  final String title;
-  final VoidCallback onCancel;
-  final VoidCallback onDone;
-
-  const _PickerHeader({
-    required this.title,
-    required this.onCancel,
-    required this.onDone,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      decoration: const BoxDecoration(
-        color: AppTheme.surface_container_low_color,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
-        ),
-      ),
-      child: Row(
-        children: [
-          CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            onPressed: onCancel,
-            child: const Text('취소'),
-          ),
-          Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            onPressed: onDone,
-            child: const Text('완료'),
           ),
         ],
       ),

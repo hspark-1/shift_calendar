@@ -1,5 +1,27 @@
 # 작업 로그
 
+## 2026-08-20
+
+- [DONE] (CHORE) 회원가입 프로필 이미지·타임존 UI 변경 커밋 및 푸시
+  - 목적: 2026-08-19 구현·문서·테스트 변경을 검증 가능한 하나의 Git 이력으로 정리해 원격 `main`에 반영한다.
+  - 변경: 2026-08-19의 프로필 이미지 선택·미리보기·multipart 전송, 기기 timezone 자동 수집, 패키지·iOS 권한, 테스트·서버 요구·ADR 문서를 하나의 커밋으로 정리해 `origin/main`에 푸시한다.
+  - 영향범위: 회원가입 프로필 이미지 선택, 자동 타임존 수집, multipart 계약, 관련 테스트·문서의 Git 이력.
+  - 파일: 2026-08-19 작업 항목에 기록된 변경 파일 전체와 `_docs/WORKLOG.md`.
+  - 테스트: 인증 영역 `flutter analyze --no-fatal-infos` 진단 0건, 인증 테스트 67건, `plutil -lint ios/Runner/Info.plist`, `git diff --check`가 통과했다. 전체 테스트의 변경 범위 밖 기존 캘린더 750px 경계 overflow 1건은 2026-08-19 항목에 별도 기록했다.
+  - 롤백: 원격 반영 후 필요 시 해당 커밋을 `git revert`한다.
+  - 다음: 서버 multipart/object storage 선배포 후 Stage E2E를 진행한다.
+
+## 2026-08-19
+
+- [DONE] (FE/DOCS) 회원가입 프로필 이미지 설정 및 타임존 입력 제거
+  - 목적: 신규 사용자가 가입 과정에서 프로필 이미지를 설정할 수 있게 하고, 직접 선택할 필요가 없는 타임존 입력은 화면에서 제거한다.
+  - 변경: 가입 화면 아바타에 사진 보관함 선택 버튼과 즉시 미리보기를 추가했다. 선택 시 최대 1024x1024·품질 85를 요청하고 최종 5MB 제한을 적용하며, 이미지가 있으면 `profile_image` multipart part로, 없으면 기존 JSON으로 가입 완료 API를 호출한다. 타임존 행·picker는 제거하고 `flutter_timezone`이 조회한 기기 IANA identifier를 시스템 필드로 전송하되 실패 시 기존 사용자 값/앱 기본값을 유지한다. `ProfileImageUpload` 값 객체, `image_picker`·`flutter_timezone`, iOS 사진 권한 설명을 추가했다. 현재 서버에 업로드 parser/storage가 없음을 코드로 확인해 object storage·검증·오류·배포 요구를 서버 문서에 보완하고 ADR-0025를 기록했다.
+  - 영향범위: 회원가입 프로필 설정 UI, 인증 presentation/repository/datasource의 가입 완료 계약, iOS 사진 보관함 권한, Flutter 의존성, 관련 테스트와 서버 요구·프로젝트 문서. Behavior change: 사용자는 타임존을 직접 고르지 않고 아바타에서 선택 프로필 이미지를 가입 요청에 첨부할 수 있다. 이미지 미선택 JSON 경로는 유지된다.
+  - 파일: `lib/features/auth/presentation/pages/profile_setup_page.dart`, `presentation/providers/auth_provider.dart`, `data/repositories/auth_repository_impl.dart`, `data/datasources/auth_remote_datasource.dart`, `domain/entities/profile_image_upload.dart`, 인증 테스트 5개, `pubspec.yaml`, `pubspec.lock`, `ios/Runner/Info.plist`, `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`, `_docs/PROJECT_CONTEXT.md`, `_docs/DECISIONS.md`, `_docs/WORKLOG.md`
+  - 테스트: 인증 영역 67건과 프로필 화면 5건이 통과했다. JSON/multipart 분기, 파일명·MIME·텍스트 field, 이미지 선택 미리보기, 타임존 행 미노출과 기기 timezone 전달을 검증했다. 인증 코드·테스트 정적 분석 진단 0건, `dart format`, `plutil`, `git diff --check`를 통과했다. 전체 테스트에서는 이번 변경의 병렬 가입 테스트 2건을 timezone loader 주입으로 안정화했으며, 변경 범위 밖의 기존 `calendar_page_test.dart` 750px 경계 RenderFlex 11px overflow 1건만 별도 재현됐다.
+  - 롤백: 이미지 선택 값 객체·multipart 분기·두 패키지·iOS 권한과 관련 UI/테스트/문서를 제거하고 타임존 선택 행·picker 및 기존 완료 요청 계약을 복원한다.
+  - 다음: 서버 담당자가 가입 완료 endpoint의 multipart parser와 object storage 업로드를 Stage에 선배포한 뒤 Android/iOS 권한 허용·거절, 취소, 5MB/MIME 오류, 재시도와 친구·그룹 화면의 CDN 이미지 표시를 E2E 검증한다.
+
 ## 2026-08-17
 
 - [DONE] (FE/DOCS) 가입 프로필 필수·선택 UI 및 서버 계약 정립

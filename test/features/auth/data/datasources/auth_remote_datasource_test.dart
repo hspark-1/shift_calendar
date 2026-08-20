@@ -1,11 +1,14 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/constants/api_constants.dart';
 import 'package:shift_mate/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:shift_mate/features/auth/data/models/apple_auth_models.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
+import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
 
 void main() {
@@ -497,6 +500,56 @@ void main() {
         'timezone': 'Asia/Seoul',
         'phone': '01012345678',
       });
+    });
+
+    test('프로필 이미지가 있으면 multipart 파일과 필수 필드를 전송한다', () async {
+      final dio = Dio();
+      RequestOptions? captured_request;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            captured_request = options;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                data: {
+                  'success': true,
+                  'data': {
+                    'user_id': 'user-id',
+                    'email': 'user@example.com',
+                    'name': '사용자',
+                    'timezone': 'Asia/Seoul',
+                    'phone': '010-1234-5678',
+                    'profile_image_url': 'https://cdn.example.com/profile.png',
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      final user = await AuthRemoteDataSource(dio).completeProfile(
+        name: '사용자',
+        timezone: 'Asia/Seoul',
+        phone: '01012345678',
+        profile_image: ProfileImageUpload(
+          bytes: Uint8List.fromList([1, 2, 3]),
+          filename: 'profile.png',
+          content_type: 'image/png',
+        ),
+      );
+
+      final form_data = captured_request?.data as FormData;
+      expect(Map.fromEntries(form_data.fields), {
+        'name': '사용자',
+        'timezone': 'Asia/Seoul',
+        'phone': '01012345678',
+      });
+      expect(form_data.files.single.key, 'profile_image');
+      expect(form_data.files.single.value.filename, 'profile.png');
+      expect(form_data.files.single.value.contentType?.mimeType, 'image/png');
+      expect(user.profile_image_url, 'https://cdn.example.com/profile.png');
     });
   });
 

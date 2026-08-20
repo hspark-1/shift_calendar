@@ -511,8 +511,13 @@ LoginPage
   사용자 정보를 조회해야 한다. 상세 구현·환경변수·레거시 제거·테스트 계약은
   `_docs/KAKAO_LOGIN_SERVER_REQUEST.md`를 따른다.
 - Express 서버의 일반 프로필 수정 계약은 `POST /api/v1/auth/profile`이고 가입 완료 계약은
-  `POST /api/v1/auth/profile/complete`로 분리한다. 가입 완료에는 이름·타임존·휴대폰이 필수이며
-  직종·소속은 선택이다. 선택값이 없으면 요청에서 생략한다.
+  `POST /api/v1/auth/profile/complete`로 분리한다. 가입 화면의 필수 입력은 이름·휴대폰이며
+  직종·소속·프로필 이미지는 선택이다. 타임존 행은 노출하지 않고 `flutter_timezone`으로 조회한
+  기기 IANA timezone을 시스템 필드로 전송한다. 조회 실패 시 서버 사용자 값 또는 앱 기본값을 쓴다.
+- 가입 화면의 아바타를 누르면 `image_picker`로 사진 한 장을 선택한다. 앱은 최대 1024x1024,
+  품질 85로 요청하고 5MB 초과 결과는 전송하지 않는다. 이미지를 선택하지 않으면 기존 JSON,
+  선택하면 텍스트 필드와 `profile_image` 파일을 포함한 multipart 요청을 같은 완료 endpoint로 보낸다.
+  서버 object storage 계약과 선배포 조건은 `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`를 따른다.
 - 서버 응답의 `requires_profile_setup`을 가입 화면 분기의 정본으로 사용한다. 서버 전환기에는
   해당 필드가 없을 때만 휴대폰 유무로 미완료를 판단해, 앱 종료·재실행 후에도 입력 화면을
   재개한다. OAuth의 `is_new_user`는 계정 생성 여부를 위한 호환 필드다.
@@ -527,8 +532,9 @@ LoginPage
     서버 토큰 교환, 프로필 조회·수정과 로그아웃 HTTP 요청을 담당한다.
     신규 사용자 프로필 완료 시 `completeProfile()`이 전용 POST 요청을 보낸다.
   - `lib/features/auth/presentation/pages/profile_setup_page.dart`: 필수 기본 정보와 선택 근무 정보를
-    한 화면에서 분리하고, 필수값 검증 후 가입 완료 API를 호출한다. 하단 단일 CTA와 스크롤 가능한
-    본문을 사용한다.
+    분리하고, 프로필 이미지 선택·미리보기와 기기 timezone 자동 조회 후 가입 완료 API를 호출한다.
+  - `lib/features/auth/domain/entities/profile_image_upload.dart`: 선택 이미지의 byte, 파일명, MIME type을
+    data 계층까지 전달한다. datasource가 multipart의 `profile_image` part로 변환한다.
   - `test/features/auth/data/datasources/auth_remote_datasource_test.dart`:
     실제 네트워크 대신 Dio 인터셉터로 요청을 가로챈다. 카카오·네이버 SDK Access Token과 Google
     ID Token이 각 `/auth/kakao/token`, `/auth/naver/token`, `/auth/google/token` 요청의 정확한 필드로 전달되는지,

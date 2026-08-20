@@ -6,6 +6,7 @@ import '../../../../core/services/token_service.dart';
 import '../../../../core/push/installation_id_service.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/profile_image_upload.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../services/apple_login_service.dart';
 import '../services/google_login_service.dart';
@@ -58,6 +59,7 @@ abstract class AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   });
@@ -236,6 +238,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) async {
@@ -243,6 +246,7 @@ class AuthRepositoryImpl implements AuthRepository {
       name: name,
       timezone: timezone,
       phone: phone,
+      profile_image: profile_image,
       job_type: job_type,
       workplace: workplace,
     );

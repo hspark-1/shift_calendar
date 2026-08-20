@@ -16,6 +16,7 @@ import '../../data/models/apple_auth_models.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/services/google_login_service.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/profile_image_upload.dart';
 
 /// 인증 상태
 enum AuthStatus {
@@ -270,6 +271,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String name,
     required String timezone,
     required String phone,
+    ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) async {
@@ -280,6 +282,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         name: name,
         timezone: timezone,
         phone: phone,
+        profile_image: profile_image,
         job_type: job_type,
         workplace: workplace,
       );

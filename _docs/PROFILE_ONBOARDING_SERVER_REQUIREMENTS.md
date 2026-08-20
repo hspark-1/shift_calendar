@@ -1,17 +1,18 @@
 # 가입 프로필 완료 API·백엔드 구현 요구사항
 
-작성일: 2026-08-17
+작성일: 2026-08-19
 대상: `shift_calendar_server` Express/Sequelize 서버
 클라이언트 기준: `shift_calendar` Flutter 앱
 
 ## 1. 목적과 출시 전제
 
-가입 프로필을 다음 두 그룹으로 저장한다.
+가입 프로필을 다음 그룹으로 저장한다.
 
-- 기본 정보(필수): 이름, 휴대폰 번호, 타임존
-- 근무 정보(선택): 직종, 소속 병원 및 부서
+- 기본 정보(필수 입력): 이름, 휴대폰 번호
+- 시스템 정보(자동): 기기 IANA 타임존
+- 선택 정보: 프로필 이미지, 직종, 소속 병원 및 부서
 
-Flutter는 신규 `POST /api/v1/auth/profile/complete`를 호출하도록 구현되어 있다. 따라서 **서버와 DB를 먼저 배포하고 endpoint 동작을 Stage에서 확인한 뒤 Flutter를 배포**해야 한다. 서버 배포 전 Flutter 신규 버전을 배포하면 가입 완료가 404로 실패한다.
+Flutter는 신규 `POST /api/v1/auth/profile/complete`를 호출하며 이미지 선택 시 같은 endpoint에 multipart를 보낸다. 따라서 **서버와 DB 및 object storage를 먼저 배포하고 Stage에서 확인한 뒤 Flutter를 배포**해야 한다.
 
 ## 2. 현재 구현에서 확인한 사실
 
@@ -20,6 +21,7 @@ Flutter는 신규 `POST /api/v1/auth/profile/complete`를 호출하도록 구현
 - `users`와 프로필 API에는 `job_type`, `workplace`, 영속적인 가입 완료 시각이 없다.
 - OAuth 응답의 `is_new_user`는 해당 로그인에서 사용자를 새로 생성했는지만 나타낸다. 신규 사용자가 프로필을 완료하지 않고 앱을 종료한 뒤 재접속하면 가입 화면을 재개할 수 있는 영속 상태가 아니다.
 - 기존 `POST /api/v1/auth/profile`은 일반 프로필 수정 계약이므로 유지한다.
+- 현재 서버에는 multipart parser, object storage SDK, 업로드 endpoint가 없고 `profile_image_url` 문자열 저장만 있다. 현 상태로는 Flutter가 보낸 이미지 파일을 처리할 수 없다.
 
 ## 3. DB 변경
 
@@ -64,6 +66,9 @@ Content-Type: application/json
 }
 ```
 
+이미지를 선택하면 같은 텍스트 필드와 `profile_image` 파일 1개를 `multipart/form-data`로 보낸다.
+이미지가 없으면 기존 `application/json` 요청을 계속 허용한다.
+
 필드 계약:
 
 | 필드 | 필수 | 검증·저장 |
@@ -73,12 +78,15 @@ Content-Type: application/json
 | `phone` | 예 | 기존 규칙과 동일하게 숫자 10~11자리 검증 후 정규화 |
 | `job_type` | 아니요 | `NURSE`, `DOCTOR`, `EMT`, `OTHER` 중 하나 |
 | `workplace` | 아니요 | 앞뒤 공백 제거 후 1~100자 |
+| `profile_image` | 아니요 | JPEG/PNG/WebP 파일 1개, 최대 5MB |
 
 - 선택 필드는 요청에서 생략할 수 있고 생략 시 null로 저장한다.
 - 빈 문자열은 선택값 생략과 동일하게 null로 정규화한다.
 - 필수 필드가 없거나 공백뿐이면 저장하지 않고 400을 반환한다.
 - endpoint는 인증 사용자의 같은 값 재전송에 성공하는 idempotent 동작이어야 한다.
 - 필수값 저장과 `profile_completed_at` 기록은 하나의 DB transaction에서 수행한다.
+- 서버는 확장자나 클라이언트 MIME만 믿지 않고 magic byte를 검증한다. SVG/GIF/동영상/실행 파일은 거부한다.
+- 파일은 서버 로컬 디스크가 아니라 환경별 object storage의 UUID key에 저장하고 안정적인 HTTPS URL을 `users.profile_image_url`에 기록한다. 업로드 뒤 DB transaction이 실패하면 새 object를 삭제한다.
 
 ### 성공 응답
 
@@ -95,6 +103,7 @@ Content-Type: application/json
     "phone": "010-1234-5678",
     "job_type": "NURSE",
     "workplace": "제일병원 중환자실",
+    "profile_image_url": "https://cdn.example.com/profiles/user-id/uuid.webp",
     "requires_profile_setup": false
   }
 }
@@ -122,6 +131,8 @@ HTTP 200을 사용한다. `profile_completed_at` 원문은 클라이언트에 �
 | 400 | `INVALID_PHONE` | 휴대폰 형식 오류 |
 | 400 | `INVALID_TIMEZONE` | 지원하지 않는 timezone |
 | 400 | `INVALID_JOB_TYPE` | enum 외 직종 |
+| 400 | `INVALID_PROFILE_IMAGE` | 지원하지 않는 형식 또는 손상 이미지 |
+| 413 | `PROFILE_IMAGE_TOO_LARGE` | 이미지가 5MB 초과 |
 | 401 | `UNAUTHORIZED` | 유효한 앱 access token 없음 |
 | 409 | `PHONE_ALREADY_EXISTS` | 다른 사용자가 정규화된 번호를 사용 중 |
 
@@ -134,6 +145,7 @@ HTTP 200을 사용한다. `profile_completed_at` 원문은 클라이언트에 �
 ```text
 authRoutes
   → authenticate middleware
+  → multipart parser / image validator (파일이 있을 때)
   → request validation middleware
   → AuthController.completeProfile
   → AuthService.completeProfile(transaction)
@@ -145,6 +157,7 @@ authRoutes
 - 이름·전화번호·소속을 request/SQL/application log에 남기지 않는다.
 - `workplace`와 `phone`은 친구 목록, 사용자 검색, 그룹 구성원 응답에 추가하지 않는다. 본인 프로필과 인증 응답에서만 반환한다.
 - endpoint에 기존 인증 route와 같은 rate limit 정책을 적용한다.
+- parser는 메모리/임시 파일 한도와 파일 수 1개를 강제하고 원본 파일명을 storage key로 쓰지 않는다.
 
 ## 8. OpenAPI와 테스트
 
@@ -163,14 +176,16 @@ OpenAPI에 request schema, enum, optional/null 규칙, 성공 사용자 schema�
 - 미완료 기존 사용자는 재로그인해도 true
 - 친구 검색·그룹 응답에서 phone/workplace가 노출되지 않음
 - migration up/down 및 backfill 대상/비대상 검증
+- 이미지 없는 JSON, 이미지 포함 multipart, MIME/magic byte 불일치, 5MB 초과, object 저장 실패 검증
+- DB transaction 실패 시 업로드 object 정리 및 성공 응답 URL의 실제 조회 검증
 
 ## 9. 배포·검증·롤백
 
 1. Stage DB backup 및 중복·비정상 phone/timezone 사전 조회
 2. Stage migration 적용 및 backfill 건수 기록
-3. 서버 endpoint·OpenAPI 배포
+3. 환경별 object storage/CDN·권한·보존 정책 구성 후 서버 endpoint·OpenAPI 배포
 4. 서버 단위/통합 테스트와 네 OAuth 신규·기존 사용자 E2E
-5. Flutter Stage 빌드에서 필수값 검증, 선택값 생략, 앱 종료 후 재개 확인
+5. Flutter Stage 빌드에서 필수값 검증, 이미지 선택/취소/권한 거절/미리보기/CDN 표시, 앱 종료 후 재개 확인
 6. Center DB backup → migration → 서버 배포 → smoke test
 7. 마지막으로 Flutter Production 배포
 
@@ -180,6 +195,7 @@ OpenAPI에 request schema, enum, optional/null 규칙, 성공 사용자 schema�
 
 - [ ] Sequelize model/migration과 DB 제약 적용
 - [ ] `/auth/profile/complete` 인증·validation·service·transaction 구현
+- [ ] multipart parser·이미지 재검증·object storage 업로드 및 실패 정리 구현
 - [ ] 기존 profile 및 모든 OAuth 응답에 `requires_profile_setup` 반영
 - [ ] 일반 프로필 수정의 생략/명시적 null 규칙 구현
 - [ ] 오류 status/code와 unique 경쟁 조건 매핑

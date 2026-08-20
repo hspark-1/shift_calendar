@@ -6,6 +6,7 @@ import 'package:shift_mate/features/auth/data/models/apple_auth_models.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/data/services/google_login_service.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
+import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/features/auth/presentation/providers/auth_provider.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
@@ -79,6 +80,7 @@ class _FakeAuthRepository implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) async {
@@ -86,6 +88,7 @@ class _FakeAuthRepository implements AuthRepository {
       'name': name,
       'timezone': timezone,
       'phone': phone,
+      'profile_image': profile_image?.filename,
       'job_type': job_type,
       'workplace': workplace,
     };
@@ -214,6 +217,7 @@ void main() {
       'name': '김간호',
       'timezone': 'Asia/Seoul',
       'phone': '01012345678',
+      'profile_image': null,
       'job_type': 'NURSE',
       'workplace': '제일병원 중환자실',
     });

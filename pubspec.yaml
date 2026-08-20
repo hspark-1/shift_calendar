@@ -37,6 +37,10 @@ dependencies:
 
   # 날짜/시간
   intl: ^0.20.1
+  flutter_timezone: ^5.1.0
+
+  # 프로필 이미지 선택
+  image_picker: ^1.2.3
 
   # 로컬 저장소
   shared_preferences: ^2.3.4

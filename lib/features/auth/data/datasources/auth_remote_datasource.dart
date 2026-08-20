@@ -9,6 +9,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_error_handler.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/profile_image_upload.dart';
 import '../models/apple_auth_models.dart';
 
 /// Auth Remote DataSource Provider
@@ -237,17 +238,38 @@ class AuthRemoteDataSource {
     required String name,
     required String timezone,
     required String phone,
+    ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) async {
     try {
-      final data = <String, dynamic>{
+      final fields = <String, dynamic>{
         'name': name,
         'timezone': timezone,
         'phone': phone,
       };
-      if (job_type != null) data['job_type'] = job_type;
-      if (workplace != null) data['workplace'] = workplace;
+      if (job_type != null) fields['job_type'] = job_type;
+      if (workplace != null) fields['workplace'] = workplace;
+
+      final Object data;
+      if (profile_image == null) {
+        data = fields;
+      } else {
+        final form_data = FormData.fromMap(fields);
+        form_data.files.add(
+          MapEntry(
+            'profile_image',
+            MultipartFile.fromBytes(
+              profile_image.bytes,
+              filename: profile_image.filename,
+              contentType: profile_image.content_type == null
+                  ? null
+                  : DioMediaType.parse(profile_image.content_type!),
+            ),
+          ),
+        );
+        data = form_data;
+      }
 
       final response = await _dio.post(
         ApiConstants.auth_profile_complete,

@@ -791,6 +791,30 @@
   - 모든 운영 서버가 새 응답을 제공하고 기존 앱 지원 기간이 끝나면 phone 기반 Flutter fallback과
     화면 분기용 `is_new_user` 이름을 정리한다.
 
+## ADR-0025: 가입 이미지는 선택 multipart, 타임존은 기기값 자동 수집으로 처리한다
+
+- 배경(문제)
+  - 가입 화면은 OAuth 이미지를 표시만 했고 서버에는 파일 업로드나 object storage 연동이 없다.
+  - 타임존은 날짜 계산에 필요하지만 사용자가 가입 중 목록에서 직접 선택할 필요는 없다.
+- 선택지(대안)
+  - A. 이미지 URL 입력과 타임존 선택 UI를 제공한다.
+  - B. 이미지를 base64 DB text로 저장하고 고정 타임존을 보낸다.
+  - C. 선택 파일을 가입 완료 endpoint의 선택 multipart part로 보내 object storage에 저장하고,
+    타임존은 기기 IANA 식별자를 자동 조회한다.
+- 결정(무엇을 선택)
+  - C를 선택한다. 이미지가 없으면 JSON, 있으면 `profile_image` 파일 part와 기존 필드를 multipart로 보낸다.
+  - 클라이언트는 최대 1024px·품질 85·최종 5MB 제한을 적용하고 서버는 MIME/magic byte를 재검증한다.
+  - 타임존 UI는 제거하고 기기 IANA identifier를 전송하되 조회 실패 시 기존 사용자 값이나 기본값을 쓴다.
+- 근거(왜)
+  - 기존 URL 기반 사용자·친구·그룹 응답을 유지하면서 파일 내용을 DB에 저장하지 않는다.
+  - 운영체제 timezone을 사용해 불필요한 입력을 줄이고 기존 서버의 필수 날짜 계산 계약을 보존한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - Flutter에 `image_picker`, `flutter_timezone`, iOS 사진 보관함 권한 설명이 추가된다.
+  - 선택 이미지 완료는 서버 multipart와 object storage 구현이 먼저 배포되어야 동작한다.
+- 추후 과제(언제 다시 평가)
+  - Stage에서 권한 거절·선택 취소·용량/MIME·재시도와 실제 CDN 표시를 검증한다.
+  - 일반 설정에서도 이미지 변경이 필요해지면 전용 업로드와 이전 object 정리 정책을 공용화한다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식

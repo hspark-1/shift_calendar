@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/data/services/google_login_service.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
+import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/features/auth/presentation/pages/login_page.dart';
 
 class _PendingGoogleAuthRepository implements AuthRepository {
@@ -60,6 +61,7 @@ class _PendingGoogleAuthRepository implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) => throw UnimplementedError();
