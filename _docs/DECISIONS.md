@@ -574,7 +574,8 @@
 - 결과/영향(좋은 점/트레이드오프)
   - `sign_in_with_apple` 7.0.1, Apple 서비스/모델, 두 public API 계약, iOS entitlement,
     Android callback activity와 관련 테스트가 추가된다.
-  - 신규 사용자는 기존 프로필 설정 흐름을 재사용하고 명시적인 `data.is_new_user`를 우선 사용한다.
+  - 신규·기존 사용자 모두 기존 프로필 설정 흐름을 재사용하되, 화면 분기는
+    `data.requires_profile_setup`으로 결정한다.
   - 서버에는 challenge/authorization 두 테이블과 Apple secret/JWKS/token 교환 구현이 필요하다.
   - 같은 이메일의 기존 사용자는 별도 계정 연결 UI/API가 준비될 때까지 Apple 로그인으로 자동 진입할 수 없다.
 - 추후 과제(언제 다시 평가)
@@ -784,12 +785,13 @@
     필요하다.
   - 서버가 먼저 배포되지 않으면 신규 Flutter 가입 완료 요청은 404가 되므로 배포 순서를 강제한다.
   - 선택 근무 정보는 비워도 가입할 수 있고 추후 일반 프로필 편집에서 추가·삭제할 수 있다.
-  - User 모델과 인증 상태는 기존 `is_new_user` 호환 필드 외에 `requires_profile_setup`을 수용한다.
+  - User 모델과 인증 상태는 `requires_profile_setup`을 수용하며, 화면 분기에서
+    `is_new_user`를 사용하지 않는다.
 - 추후 과제(언제 다시 평가)
   - `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`의 Stage E2E와 migration 완료 조건을 통과한
     뒤 Flutter Production을 배포한다.
-  - 모든 운영 서버가 새 응답을 제공하고 기존 앱 지원 기간이 끝나면 phone 기반 Flutter fallback과
-    화면 분기용 `is_new_user` 이름을 정리한다.
+  - 서버가 `requires_profile_setup` 계약을 변경하거나 가입 완료 정책을 재평가할 때만
+    Flutter 화면 분기 계약을 함께 검토한다.
 
 ## ADR-0025: 가입 이미지는 선택 multipart, 타임존은 기기값 자동 수집으로 처리한다
 
@@ -815,6 +817,68 @@
   - Stage에서 권한 거절·선택 취소·용량/MIME·재시도와 실제 CDN 표시를 검증한다.
   - 일반 설정에서도 이미지 변경이 필요해지면 전용 업로드와 이전 object 정리 정책을 공용화한다.
 
+## ADR-0026: 개인 일정 삭제는 근무 일정 스와이프 UX와 서버 최종 상태를 따른다
+
+- 배경(문제)
+  - 메인 캘린더의 근무 일정은 왼쪽 스와이프로 서버 삭제할 수 있지만 개인 일정은 읽기 전용으로만 표시됐다.
+  - 개인 일정은 여러 날짜 캐시에 같은 `event_id`로 포함될 수 있고, 서버는 이미 삭제됐거나 없는 일정에
+    `404 EVENT_NOT_FOUND`를 반환한다.
+- 선택지(대안)
+  - A. 개인 일정에 별도 상세 화면과 삭제 버튼을 만들고 성공할 때마다 기간 API를 다시 조회한다.
+  - B. 근무 일정과 같은 스와이프 UI를 사용하고 성공 응답 ID를 현재 range 캐시에서 직접 제거한다.
+  - C. API 응답 전에 낙관적으로 제거하고 실패하면 일정을 복원한다.
+- 결정(무엇을 선택)
+  - B를 선택한다. `confirmDismiss`에서 `DELETE /api/v1/events/{event_id}`를 호출하고 `200`이면
+    응답의 ID를 모든 날짜 캐시에서 제거한다.
+  - `404 EVENT_NOT_FOUND`는 서버의 최종 활성 상태가 일정 없음이므로 요청 ID를 로컬에서 제거하고
+    이미 삭제됐음을 안내한다. 기타 오류는 항목을 유지한다.
+- 근거(왜)
+  - 기존 근무 삭제와 같은 조작·실패 복구 방식을 재사용해 선택일 카드의 동작을 일관되게 유지한다.
+  - 서버 확정 전 항목을 제거하지 않아 네트워크·500 오류에서 별도 복원 스냅샷이 필요 없다.
+  - ID 기준 전체 캐시 제거는 다일 일정이 다른 날짜에 남는 문제를 막고 추가 GET을 피한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - 메인 캘린더의 본인 개인 일정에만 chevron과 스와이프 삭제가 추가된다.
+  - 같은 일정 ID의 동시 삭제 요청을 차단하고, `INVALID_EVENT_ID`는 오류 표시 후 범위를 재조회한다.
+  - 친구·그룹 캘린더는 기존처럼 읽기 전용이며 타인 일정 삭제 액션을 노출하지 않는다.
+- 추후 과제(언제 다시 평가)
+  - 개인 일정 상세·편집 화면을 추가하면 삭제 진입점을 공용 notifier/action으로 추출하고 같은 오류 정책을 재사용한다.
+  - Stage에서 본인 일정 `200`, 재삭제 `404`, 네트워크·500 복구와 친구·그룹 조회 제외를 E2E 검증한다.
+
+## ADR-0027: 가입 근무 정보는 업종 중립 자유 입력으로 수집한다
+
+- 배경(문제)
+  - 가입 화면의 직종 선택지는 간호사·의사·응급구조사 중심이고 소속 항목도 병원·부서를 예시로 들어,
+    ShiftMate가 의료계 전용 서비스라는 인상을 줬다.
+  - Flutter와 서버 DB/service는 직종을 `NURSE`, `DOCTOR`, `EMT`, `OTHER` enum으로 제한해 사용자가
+    실제 직종을 직접 입력하고 보존할 수 없었다.
+  - 기본·근무 정보 카드의 decoration과 동일 경계 clip이 겹쳐 하단 outline과 radius가 잘려 보였다.
+- 선택지(대안)
+  - A. 의료계 enum을 유지하고 `기타` 선택 뒤 직접 입력값은 저장하지 않는다.
+  - B. enum에 업종별 선택지를 계속 추가한다.
+  - C. 직종을 선택 20자 자유 문자열로 바꾸고 회사·기관·부서 문구를 사용한다.
+- 결정(무엇을 선택)
+  - C를 선택한다. Flutter는 직종을 텍스트 필드로 받고 trim한 빈 값은 생략하며, 입력값은 그대로
+    `job_type`에 전송한다.
+  - 서버는 `varchar(20)`을 유지하되 enum DB check, TypeScript union, service/route/OpenAPI enum 검증을
+    1~20자 trim 문자열 검증으로 바꾼 뒤 Flutter보다 먼저 배포한다.
+  - 기존 enum 사용자 값은 Flutter에서 한국어 직종명으로 표시하고, 사용자가 다시 저장하면 자유
+    문자열 계약으로 전환한다.
+  - 카드 내부 행은 16px 반경으로 clip하고 1px outline은 foreground에 그린다.
+- 근거(왜)
+  - 자유 문자열은 특정 산업을 제품 정체성으로 고정하지 않고 신규 직종마다 앱·DB enum을 배포할
+    필요가 없다.
+  - 기존 컬럼 길이와 API 필드명을 유지하면 enum 제약만 완화하는 호환 migration으로 전환할 수 있다.
+  - foreground outline은 내부 행 배경과 clip에 가려지지 않아 별도 그림자나 신규 토큰 없이 카드
+    모서리를 보존한다.
+- 결과/영향(좋은 점/트레이드오프)
+  - 가입 화면은 의료·비의료 직종과 회사·기관 정보를 같은 방식으로 입력할 수 있다.
+  - 서버 선배포 전에는 자유 입력값이 기존 `INVALID_JOB_TYPE`으로 거절되므로 배포 순서를 강제한다.
+  - 직종 문자열은 표준화된 enum 통계에 바로 사용할 수 없으며 서버 분석 시 별도 정규화가 필요하다.
+  - 휴대폰은 화면에서 한국 번호 하이픈을 즉시 표시하지만 기존 API에는 숫자만 전송한다.
+- 추후 과제(언제 다시 평가)
+  - 서버 migration·validation·OpenAPI 배포 후 Stage에서 비의료 직종의 가입/재조회 E2E를 검증한다.
+  - 검색·통계용 표준 직군이 필요해지면 사용자 표시 문자열과 별도의 분류 코드를 추가한다.
+
 ## 1. Navigation/Route 구조
 
 ### 라우팅 방식
@@ -828,7 +892,7 @@
 - **인증 상태 기반 분기**: `main.dart`의 `AuthWrapper`에서 처리
   - `AuthStatus.initial`: 스플래시 화면 (`_SplashScreen`)
   - `AuthStatus.authenticated`:
-    - 신규 사용자 (`is_new_user == true`): `ProfileSetupPage`
+    - 가입 프로필 미완료 사용자 (`requires_profile_setup == true`): `ProfileSetupPage`
     - 기존 사용자: `CalendarPage`
   - `AuthStatus.unauthenticated`: `LoginPage`
 
@@ -843,7 +907,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       case AuthStatus.initial:
         return const _SplashScreen();
       case AuthStatus.authenticated:
-        if (authState.is_new_user && authState.user != null) {
+        if (authState.requires_profile_setup && authState.user != null) {
           return ProfileSetupPage(user: authState.user!);
         }
         return const CalendarPage();
@@ -1305,7 +1369,7 @@ Future<bool> loginWithKakao() async {
     state = AuthState(
       status: AuthStatus.authenticated,
       user: authResponse.user,
-      is_new_user: authResponse.is_new_user,
+      requires_profile_setup: authResponse.requires_profile_setup,
     );
     return true;
   } catch (e) {

@@ -93,7 +93,7 @@ void main() {
     expect(notifier.state.last_error, isNull);
   });
 
-  test('생성·수정 결과를 조회 캐시에 직접 반영한다', () {
+  test('생성·수정·삭제 결과를 조회 캐시에 직접 반영한다', () {
     final notifier = CalendarRangeNotifier(
       loader: ({required start_date, required end_date}) async =>
           CalendarRangeData(workShifts: const [], events: const []),
@@ -117,5 +117,31 @@ void main() {
 
     notifier.removeWorkShift(date);
     expect(notifier.state.workShiftFor(date), isNull);
+
+    notifier.removeEvent(event.eventId);
+    expect(notifier.state.eventsFor(date), isEmpty);
+  });
+
+  test('여러 날짜에 걸친 개인 일정 삭제 시 모든 날짜 캐시에서 제거한다', () {
+    final notifier = CalendarRangeNotifier(
+      loader: ({required start_date, required end_date}) async =>
+          CalendarRangeData(workShifts: const [], events: const []),
+    );
+    final event = EventApiModel(
+      eventId: 'event-multi-day',
+      title: '연속 일정',
+      allDay: true,
+      startAt: DateTime(2026, 4, 2),
+      endAt: DateTime(2026, 4, 5),
+      visibilityLevel: 0,
+    );
+
+    notifier.addEvent(event);
+    notifier.removeEvent(event.eventId);
+
+    expect(notifier.state.eventsFor(DateTime(2026, 4, 2)), isEmpty);
+    expect(notifier.state.eventsFor(DateTime(2026, 4, 3)), isEmpty);
+    expect(notifier.state.eventsFor(DateTime(2026, 4, 4)), isEmpty);
+    expect(notifier.state.events_by_date, isEmpty);
   });
 }

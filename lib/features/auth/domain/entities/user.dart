@@ -124,19 +124,18 @@ class AuthResponse with _$AuthResponse {
     required String access_token,
     required String refresh_token,
     required DateTime expires_at,
-    required bool is_new_user,
+    required bool requires_profile_setup,
   }) = _AuthResponse;
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>;
-    // 신규 계약의 명시적 boolean을 우선하고 기존 서버 메시지는 호환용으로만 사용한다.
-    final message = json['message'] as String? ?? '';
-    final isNewUser =
+    // 가입 화면 분기는 서버의 영속 완료 상태만 정본으로 사용한다.
+    final requiresProfileSetup =
         data['requires_profile_setup'] as bool? ??
         json['requires_profile_setup'] as bool? ??
-        data['is_new_user'] as bool? ??
-        json['is_new_user'] as bool? ??
-        message.contains('회원가입');
+        (data['user'] as Map<String, dynamic>)['requires_profile_setup']
+            as bool? ??
+        false;
 
     // expires_at이 int(Unix timestamp) 또는 String(ISO 8601)일 수 있음
     final expiresAtRaw = data['expires_at'];
@@ -155,7 +154,7 @@ class AuthResponse with _$AuthResponse {
       access_token: data['access_token'] as String,
       refresh_token: data['refresh_token'] as String,
       expires_at: expiresAt,
-      is_new_user: isNewUser,
+      requires_profile_setup: requiresProfileSetup,
     );
   }
 }

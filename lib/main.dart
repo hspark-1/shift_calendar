@@ -117,7 +117,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper>
 
   void _openPendingNotificationIfReady(AuthState auth_state) {
     if (auth_state.status != AuthStatus.authenticated ||
-        auth_state.is_new_user ||
+        auth_state.requires_profile_setup ||
         !ref.read(pendingPushNotificationNavigationProvider)) {
       return;
     }
@@ -158,8 +158,8 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper>
 
       case AuthStatus.authenticated:
         // 인증됨
-        if (authState.is_new_user && authState.user != null) {
-          // 신규 가입자: 프로필 설정 페이지
+        if (authState.requires_profile_setup && authState.user != null) {
+          // 서버가 가입 프로필 미완료로 판정한 사용자
           return ProfileSetupPage(user: authState.user!);
         }
         // 기존 회원: 캘린더 페이지

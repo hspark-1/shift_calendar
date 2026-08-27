@@ -663,7 +663,7 @@ mixin _$AuthResponse {
   String get access_token => throw _privateConstructorUsedError;
   String get refresh_token => throw _privateConstructorUsedError;
   DateTime get expires_at => throw _privateConstructorUsedError;
-  bool get is_new_user => throw _privateConstructorUsedError;
+  bool get requires_profile_setup => throw _privateConstructorUsedError;
 
   /// Create a copy of AuthResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -684,7 +684,7 @@ abstract class $AuthResponseCopyWith<$Res> {
     String access_token,
     String refresh_token,
     DateTime expires_at,
-    bool is_new_user,
+    bool requires_profile_setup,
   });
 
   $UserCopyWith<$Res> get user;
@@ -709,7 +709,7 @@ class _$AuthResponseCopyWithImpl<$Res, $Val extends AuthResponse>
     Object? access_token = null,
     Object? refresh_token = null,
     Object? expires_at = null,
-    Object? is_new_user = null,
+    Object? requires_profile_setup = null,
   }) {
     return _then(
       _value.copyWith(
@@ -729,9 +729,9 @@ class _$AuthResponseCopyWithImpl<$Res, $Val extends AuthResponse>
                 ? _value.expires_at
                 : expires_at // ignore: cast_nullable_to_non_nullable
                       as DateTime,
-            is_new_user: null == is_new_user
-                ? _value.is_new_user
-                : is_new_user // ignore: cast_nullable_to_non_nullable
+            requires_profile_setup: null == requires_profile_setup
+                ? _value.requires_profile_setup
+                : requires_profile_setup // ignore: cast_nullable_to_non_nullable
                       as bool,
           )
           as $Val,
@@ -763,7 +763,7 @@ abstract class _$$AuthResponseImplCopyWith<$Res>
     String access_token,
     String refresh_token,
     DateTime expires_at,
-    bool is_new_user,
+    bool requires_profile_setup,
   });
 
   @override
@@ -788,7 +788,7 @@ class __$$AuthResponseImplCopyWithImpl<$Res>
     Object? access_token = null,
     Object? refresh_token = null,
     Object? expires_at = null,
-    Object? is_new_user = null,
+    Object? requires_profile_setup = null,
   }) {
     return _then(
       _$AuthResponseImpl(
@@ -808,9 +808,9 @@ class __$$AuthResponseImplCopyWithImpl<$Res>
             ? _value.expires_at
             : expires_at // ignore: cast_nullable_to_non_nullable
                   as DateTime,
-        is_new_user: null == is_new_user
-            ? _value.is_new_user
-            : is_new_user // ignore: cast_nullable_to_non_nullable
+        requires_profile_setup: null == requires_profile_setup
+            ? _value.requires_profile_setup
+            : requires_profile_setup // ignore: cast_nullable_to_non_nullable
                   as bool,
       ),
     );
@@ -825,7 +825,7 @@ class _$AuthResponseImpl implements _AuthResponse {
     required this.access_token,
     required this.refresh_token,
     required this.expires_at,
-    required this.is_new_user,
+    required this.requires_profile_setup,
   });
 
   @override
@@ -837,11 +837,11 @@ class _$AuthResponseImpl implements _AuthResponse {
   @override
   final DateTime expires_at;
   @override
-  final bool is_new_user;
+  final bool requires_profile_setup;
 
   @override
   String toString() {
-    return 'AuthResponse(user: $user, access_token: $access_token, refresh_token: $refresh_token, expires_at: $expires_at, is_new_user: $is_new_user)';
+    return 'AuthResponse(user: $user, access_token: $access_token, refresh_token: $refresh_token, expires_at: $expires_at, requires_profile_setup: $requires_profile_setup)';
   }
 
   @override
@@ -856,8 +856,8 @@ class _$AuthResponseImpl implements _AuthResponse {
                 other.refresh_token == refresh_token) &&
             (identical(other.expires_at, expires_at) ||
                 other.expires_at == expires_at) &&
-            (identical(other.is_new_user, is_new_user) ||
-                other.is_new_user == is_new_user));
+            (identical(other.requires_profile_setup, requires_profile_setup) ||
+                other.requires_profile_setup == requires_profile_setup));
   }
 
   @override
@@ -867,7 +867,7 @@ class _$AuthResponseImpl implements _AuthResponse {
     access_token,
     refresh_token,
     expires_at,
-    is_new_user,
+    requires_profile_setup,
   );
 
   /// Create a copy of AuthResponse
@@ -885,7 +885,7 @@ abstract class _AuthResponse implements AuthResponse {
     required final String access_token,
     required final String refresh_token,
     required final DateTime expires_at,
-    required final bool is_new_user,
+    required final bool requires_profile_setup,
   }) = _$AuthResponseImpl;
 
   @override
@@ -897,7 +897,7 @@ abstract class _AuthResponse implements AuthResponse {
   @override
   DateTime get expires_at;
   @override
-  bool get is_new_user;
+  bool get requires_profile_setup;
 
   /// Create a copy of AuthResponse
   /// with the given fields replaced by the non-null parameter values.

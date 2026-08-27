@@ -1,5 +1,47 @@
 # 작업 로그
 
+## 2026-08-27
+
+- [DONE] (CHORE) 개인 일정 삭제·프로필 흐름 개선 변경 정리 및 원격 반영
+  - 목적: 작업 트리에 완료된 개인 일정 삭제, 가입 완료 상태 정렬, 프로필 입력 UX 변경을 하나의 검증 가능한 Git 이력으로 정리해 `origin/main`에 반영한다.
+  - 변경: 전체 diff를 검토해 서버 `requires_profile_setup` 정본화, 프로필 설정 키보드/직종/휴대폰/문구/카드 반경 개선, 개인 일정 DELETE·스와이프·캐시 제거를 하나의 커밋 범위로 확정했다. 프로필 이미지·기기 timezone iOS plugin lockfile과 신규 캘린더 서비스 테스트도 누락 없이 포함했다.
+  - 영향범위: 인증 상태·가입 화면 분기, 프로필 설정 입력 UX와 직종 서버 선배포 계약, 본인 개인 일정 삭제 API/화면/range 캐시, 관련 테스트, iOS lockfile과 프로젝트 문서. Behavior change: 가입 화면은 서버의 영속 완료 상태만 사용하고, 자유 직종과 한국 휴대폰 표시를 제공하며, 메인 캘린더의 본인 개인 일정을 왼쪽 스와이프로 삭제할 수 있다.
+  - 파일: 현재 작업 트리의 인증·캘린더 생산 코드 10개, 인증·캘린더 테스트 7개, `ios/Podfile.lock`, `_docs/{PROJECT_CONTEXT,DECISIONS,PROFILE_ONBOARDING_SERVER_REQUIREMENTS,WORKLOG}.md`.
+  - 테스트: 변경 Dart 17개 파일 `flutter analyze` 진단 0건, 인증 72건, 캘린더 서비스·range notifier 6건, 개인 일정 삭제 위젯 3건이 통과했다. `dart format` 변경 없음과 `git diff --check` 통과를 확인했다.
+  - 롤백: 원격 반영 후 필요 시 생성 커밋을 `git revert`한다.
+  - 다음: 서버의 자유 직종 1~20자 계약을 선배포한 뒤 Stage에서 가입 완료 재개·비의료 직종 저장·개인 일정 삭제 200/404/500을 실기기 검증한다.
+
+## 2026-08-26
+
+- [DONE] (FE/DOCS) 프로필 설정 입력 UX·중립 문구·카드 반경 개선
+  - 목적: 프로필 설정 화면에서 키보드를 쉽게 닫고 직종을 직접 입력하며, 의료계에 한정되지 않은 근무 정보 문구와 한국 휴대전화 표시 형식을 제공하고 카드 하단 반경 잘림을 제거한다.
+  - 변경: 화면 배경 탭과 목록 드래그로 현재 포커스를 해제한다. 직종 action sheet를 최대 20자 직접 입력 필드로 바꾸고 기존 enum은 한국어 표시명으로 초기화한다. 소속 문구를 `재직 중인 회사·기관 및 부서`로, 상단 카피를 ShiftMate 환영/일정 관리 안내로 교체했다. 휴대폰 formatter가 입력 중 10·11자리 한국 번호에 하이픈을 즉시 표시하고 `010` 또는 기존 `01[16789]` 형식을 검증하되 API에는 숫자만 보낸다. 정보 카드는 내부를 16px로 clip하고 outline을 foreground에 그려 하단 radius 잘림을 제거했다. 서버 자유 입력 선배포 조건과 ADR-0027을 문서화했다.
+  - 영향범위: 프로필 설정 presentation, 가입 완료 `job_type` 입력 계약, 위젯 테스트, 가입 서버 요구·프로젝트 문서. Behavior change: 직종은 enum 선택이 아니라 선택 자유 문자열이 되며 화면의 휴대전화 번호는 하이픈 형식으로 표시된다. 현재 서버 enum 제약이 유지된 환경에서는 자유 직종이 거절되므로 서버 migration/service/OpenAPI를 Flutter보다 먼저 배포해야 한다.
+  - 롤백: 이번 프로필 설정 UI·formatter·테스트·문서 변경을 함께 되돌린다.
+  - 파일: `lib/features/auth/presentation/pages/profile_setup_page.dart`, `test/features/auth/presentation/pages/profile_setup_page_test.dart`, `_docs/{PROJECT_CONTEXT,DECISIONS,PROFILE_ONBOARDING_SERVER_REQUIREMENTS,WORKLOG}.md`.
+  - 테스트: 프로필 formatter/위젯 10건과 인증 전체 72건이 통과했다. 인증 코드·테스트 정적 분석 진단 0건, `dart format`, `git diff --check`를 통과했다.
+  - 다음: 서버의 `ck_users_job_type`, TypeScript union, service/route/OpenAPI enum을 1~20자 자유 문자열로 먼저 전환한 뒤 Stage에서 비의료 직종 가입·재조회와 iOS/Android 키보드·카드 모서리를 실기기 확인한다.
+
+- [DONE] (FE) 개인 일정 삭제 API 연결 및 근무 일정과 동일한 삭제 UX 적용
+  - 목적: 서버의 개인 일정 삭제 계약을 Flutter에 연결하고, 캘린더에서 개인 일정을 근무 일정과 동일한 스와이프 흐름으로 삭제할 수 있게 한다.
+  - 변경: `CalendarService.deleteEvent()`가 body 없이 `DELETE /api/v1/events/{event_id}`를 호출하고 성공 응답 ID를 반환하도록 연결했다. 메인 캘린더 개인 일정에 근무 일정과 같은 chevron·왼쪽 스와이프·둥근 삭제 배경을 적용하고 `confirmDismiss`에서 API를 호출한다. `200`은 응답 ID를 다일 일정의 모든 날짜 캐시에서 제거하며, `404 EVENT_NOT_FOUND`는 요청 ID를 제거하고 이미 삭제 안내를 표시한다. `400 INVALID_EVENT_ID`는 안내 후 현재 범위를 재조회하고, `500`·네트워크 오류는 항목을 유지한다. 같은 ID의 요청 중복 실행을 차단하고 친구·그룹 읽기 전용 UI는 유지했다. ADR-0026에 삭제 상태 정책을 기록했다.
+  - 영향범위: 개인 일정 삭제 API, 메인 캘린더 선택일 개인 일정 스와이프 UI, range 캐시 mutation, 관련 테스트·프로젝트 문서. Behavior change: 본인 개인 일정은 근무 일정과 동일하게 왼쪽 스와이프로 서버 삭제할 수 있다. 친구·그룹의 타인 일정은 계속 삭제할 수 없다.
+  - 롤백: 이번 작업의 개인 일정 삭제 연결 및 UI·테스트·문서 변경을 함께 되돌린다.
+  - 파일: `lib/features/calendar/{data/services/calendar_service.dart,application/calendar_range_notifier.dart,presentation/pages/calendar_page.dart,presentation/widgets/calendar_schedule_card.dart}`, 캘린더 서비스·notifier·페이지 테스트, `_docs/{PROJECT_CONTEXT,DECISIONS,WORKLOG}.md`.
+  - 테스트: 신규 서비스 2건, notifier 4건, 개인 일정 삭제 위젯 3건이 통과했다. 캘린더 페이지 전체에서는 신규 삭제 테스트를 포함한 12건이 통과했고 변경 범위 밖 기존 `750px 경계 화면은 기존 월 보기를 유지한다`의 RenderFlex 11px overflow 1건만 기존과 동일하게 실패했다. 변경 대상 정적 분석 진단 0건, `dart format`, `git diff --check`를 통과했다.
+  - 다음: Stage에서 본인 일정 삭제 `200`, 같은 ID 재삭제 `404`, 네트워크·500 재시도, 삭제 후 개인·친구·그룹 캘린더 재조회 제외를 실제 계정으로 확인한다.
+
+## 2026-08-22
+
+- [DONE] (FE) 서버 가입 완료 정본 기반 인증·프로필 설정 흐름 정렬
+  - 목적: 서버의 `requires_profile_setup`을 가입 화면 분기 정본으로 사용하고, 프로필 완료 JSON/multipart 계약 및 오류 처리를 Flutter에서 일관되게 적용한다.
+  - 변경: OAuth 인증 응답과 `AuthState`의 화면 분기 필드를 `requires_profile_setup`으로 통일했다. 로그인 페이지·앱 재시작 복구·푸시 pending 이동은 이 영속 완료 상태만 사용하며, 서버의 `is_new_user`는 더 이상 Flutter 화면 상태나 분기 조건에 사용하지 않는다. 기존 프로필 설정의 JSON/multipart 업로드·기기 timezone 전송·구조화 오류 전달 구현은 서버 ADR-0033/OpenAPI와 일치함을 확인하고 회귀 테스트를 갱신했다.
+  - 영향범위: OAuth 로그인 후 화면 분기, 앱 재시작 인증 복구, 가입 프로필 완료 요청과 오류 UX.
+  - 롤백: 이번 변경 커밋을 revert해 기존 인증 상태 필드와 화면 분기 로직으로 복구한다.
+  - 파일: `lib/{main.dart,features/auth/domain/entities/user.dart,features/auth/presentation/{providers/auth_provider.dart,pages/login_page.dart}}`, 생성 `user.freezed.dart`, 인증 테스트와 `_docs/{PROJECT_CONTEXT,DECISIONS,WORKLOG}.md`.
+  - 테스트: 인증 datasource·repository·provider·로그인/프로필 설정 위젯 테스트 전체 42건 통과, `flutter analyze lib/features/auth lib/main.dart` 진단 0건, `dart format`, `git diff --check` 통과.
+  - 다음: Stage 서버 배포 뒤 JSON·multipart 프로필 완료와 앱 종료 후 가입 재개 E2E를 확인한다.
+
 ## 2026-08-20
 
 - [DONE] (CHORE) 회원가입 프로필 이미지·타임존 UI 변경 커밋 및 푸시

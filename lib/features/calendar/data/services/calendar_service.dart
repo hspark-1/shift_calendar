@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -76,6 +78,21 @@ class CalendarService {
       );
     } on DioException catch (e) {
       throw handleApiError(e);
+    }
+  }
+
+  /// 개인 일정 삭제
+  ///
+  /// 엔드포인트: DELETE /api/v1/events/:event_id
+  /// 인증: 필요
+  Future<String> deleteEvent(String event_id) async {
+    try {
+      final response = await _dio.delete('${ApiConstants.events}/$event_id');
+      final response_data = response.data as Map<String, dynamic>;
+      final data = response_data['data'] as Map<String, dynamic>;
+      return data['event_id'] as String;
+    } on DioException catch (error) {
+      throw handleApiError(error);
     }
   }
 

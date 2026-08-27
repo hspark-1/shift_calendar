@@ -150,4 +150,17 @@ class CalendarRangeNotifier extends StateNotifier<CalendarRangeState> {
       }),
     );
   }
+
+  void removeEvent(String event_id) {
+    final updated = <DateTime, List<EventApiModel>>{};
+    for (final entry in state.events_by_date.entries) {
+      final remaining_events = entry.value
+          .where((event) => event.eventId != event_id)
+          .toList(growable: false);
+      if (remaining_events.isNotEmpty) {
+        updated[entry.key] = List<EventApiModel>.unmodifiable(remaining_events);
+      }
+    }
+    state = state.copyWith(events_by_date: Map.unmodifiable(updated));
+  }
 }

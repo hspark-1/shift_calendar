@@ -275,7 +275,7 @@ void main() {
                     'access_token': 'app-access-token',
                     'refresh_token': 'app-refresh-token',
                     'expires_at': expires_at.millisecondsSinceEpoch,
-                    'is_new_user': true,
+                    'requires_profile_setup': true,
                   },
                 },
               ),
@@ -295,7 +295,7 @@ void main() {
       expect(auth_response.user.id, 'google-user-id');
       expect(auth_response.user.google_id, 'google-subject');
       expect(auth_response.expires_at, expires_at);
-      expect(auth_response.is_new_user, isTrue);
+      expect(auth_response.requires_profile_setup, isTrue);
     });
 
     test('AuthToken JSON의 정수 expires_at도 Unix epoch milliseconds로 파싱한다', () {
@@ -631,7 +631,7 @@ void main() {
                     'access_token': 'app-access-token',
                     'refresh_token': 'app-refresh-token',
                     'expires_at': '2026-08-06T01:00:00.000Z',
-                    'is_new_user': true,
+                    'requires_profile_setup': true,
                   },
                 },
               ),
@@ -664,10 +664,10 @@ void main() {
         'family_name': '홍',
       });
       expect(auth_response.user.apple_id, 'apple-subject');
-      expect(auth_response.is_new_user, isTrue);
+      expect(auth_response.requires_profile_setup, isTrue);
     });
 
-    test('명시적인 is_new_user boolean을 성공 메시지보다 우선한다', () {
+    test('requires_profile_setup이 가입 화면 분기 정본이다', () {
       final response = AuthResponse.fromJson({
         'success': true,
         'message': '회원가입이 완료되었습니다.',
@@ -680,11 +680,12 @@ void main() {
           'access_token': 'app-access-token',
           'refresh_token': 'app-refresh-token',
           'expires_at': '2026-08-06T01:00:00.000Z',
-          'is_new_user': false,
+          'is_new_user': true,
+          'requires_profile_setup': false,
         },
       });
 
-      expect(response.is_new_user, isFalse);
+      expect(response.requires_profile_setup, isFalse);
     });
   });
 }

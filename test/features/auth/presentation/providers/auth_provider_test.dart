@@ -136,7 +136,7 @@ void main() {
     expect(container.read(authProvider).error, isNull);
   });
 
-  test('Google 성공 응답의 is_new_user를 인증 상태에 유지한다', () async {
+  test('Google 성공 응답의 requires_profile_setup을 인증 상태에 유지한다', () async {
     final repository = _FakeAuthRepository()
       ..google_login_response = AuthResponse(
         user: const User(
@@ -148,7 +148,7 @@ void main() {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
         expires_at: DateTime.utc(2026, 8, 11),
-        is_new_user: true,
+        requires_profile_setup: true,
       );
     final container = ProviderContainer(overrides: _overrides(repository));
     addTearDown(container.dispose);
@@ -161,7 +161,7 @@ void main() {
     expect(success, isTrue);
     expect(state.status, AuthStatus.authenticated);
     expect(state.user?.google_id, 'google-subject');
-    expect(state.is_new_user, isTrue);
+    expect(state.requires_profile_setup, isTrue);
     expect(state.error, isNull);
   });
 
@@ -183,7 +183,7 @@ void main() {
     await container.read(authProvider.notifier).checkAuthStatus();
 
     expect(container.read(authProvider).status, AuthStatus.authenticated);
-    expect(container.read(authProvider).is_new_user, isTrue);
+    expect(container.read(authProvider).requires_profile_setup, isTrue);
   });
 
   test('가입 완료 성공 시 선택 정보를 전달하고 설정 필요 상태를 해제한다', () async {
@@ -222,7 +222,7 @@ void main() {
       'workplace': '제일병원 중환자실',
     });
     expect(container.read(authProvider).user, completed_user);
-    expect(container.read(authProvider).is_new_user, isFalse);
+    expect(container.read(authProvider).requires_profile_setup, isFalse);
     expect(container.read(authProvider).is_loading, isFalse);
   });
 

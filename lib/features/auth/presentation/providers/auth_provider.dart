@@ -41,14 +41,14 @@ enum AccountDeletionResult {
 class AuthState {
   final AuthStatus status;
   final User? user;
-  final bool is_new_user;
+  final bool requires_profile_setup;
   final String? error;
   final bool is_loading;
 
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
-    this.is_new_user = false,
+    this.requires_profile_setup = false,
     this.error,
     this.is_loading = false,
   });
@@ -56,14 +56,15 @@ class AuthState {
   AuthState copyWith({
     AuthStatus? status,
     User? user,
-    bool? is_new_user,
+    bool? requires_profile_setup,
     String? error,
     bool? is_loading,
   }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
-      is_new_user: is_new_user ?? this.is_new_user,
+      requires_profile_setup:
+          requires_profile_setup ?? this.requires_profile_setup,
       error: error,
       is_loading: is_loading ?? this.is_loading,
     );
@@ -111,7 +112,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.authenticated,
           user: user,
-          is_new_user:
+          requires_profile_setup:
               user.requires_profile_setup ??
               (user.phone == null || user.phone!.trim().isEmpty),
         );
@@ -135,7 +136,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         status: AuthStatus.authenticated,
         user: authResponse.user,
-        is_new_user: authResponse.is_new_user,
+        requires_profile_setup: authResponse.requires_profile_setup,
       );
 
       return true;
@@ -160,7 +161,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         status: AuthStatus.authenticated,
         user: authResponse.user,
-        is_new_user: authResponse.is_new_user,
+        requires_profile_setup: authResponse.requires_profile_setup,
       );
 
       return true;
@@ -185,7 +186,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         status: AuthStatus.authenticated,
         user: authResponse.user,
-        is_new_user: authResponse.is_new_user,
+        requires_profile_setup: authResponse.requires_profile_setup,
       );
 
       return true;
@@ -213,7 +214,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         status: AuthStatus.authenticated,
         user: authResponse.user,
-        is_new_user: authResponse.is_new_user,
+        requires_profile_setup: authResponse.requires_profile_setup,
       );
 
       return true;
@@ -252,7 +253,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = state.copyWith(
         user: updatedUser,
-        is_new_user: false,
+        requires_profile_setup: false,
         is_loading: false,
       );
 
@@ -289,7 +290,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = state.copyWith(
         user: updated_user,
-        is_new_user: false,
+        requires_profile_setup: false,
         is_loading: false,
       );
       return true;

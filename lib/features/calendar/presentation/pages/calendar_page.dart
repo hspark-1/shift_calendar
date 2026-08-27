@@ -59,6 +59,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   // 근무 추가 모드 시작 시 초기 스케줄 상태 저장 (변경사항 추적용)
   Map<DateTime, String?>? _initial_schedules;
 
+  // 개인 일정 삭제 요청 중복 실행 방지
+  final Set<String> _deleting_event_ids = {};
+
   bool get _isShortScreen => MediaQuery.sizeOf(context).height < 750;
 
   CalendarFormat get _visibleCalendarFormat =>
@@ -613,6 +616,25 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     );
   }
 
+  void _showInformationDialog({
+    required String title,
+    required String message,
+  }) {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('확인'),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 근무 추가 모드 종료 (변경사항 저장)
   /// 기존에 저장되어 있는 데이터는 신경쓰지 않고, 현재 _schedules만 서버로 전송
   Future<void> _completeShiftAddMode() async {
@@ -738,6 +760,47 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         _showErrorDialog(_getErrorMessage(e));
       }
       return false;
+    }
+  }
+
+  /// 개인 일정 삭제 API 호출 및 현재 캘린더 캐시 반영
+  Future<bool> _confirmDeleteEvent(EventApiModel event) async {
+    final event_id = event.eventId;
+    if (_deleting_event_ids.contains(event_id)) return false;
+
+    _deleting_event_ids.add(event_id);
+    try {
+      final calendar_service = ref.read(calendarServiceProvider);
+      final deleted_event_id = await calendar_service.deleteEvent(event_id);
+      if (!mounted) return false;
+
+      ref.read(calendarRangeProvider.notifier).removeEvent(deleted_event_id);
+      return true;
+    } on ApiException catch (error) {
+      if (!mounted) return false;
+
+      if (error.code == 'EVENT_NOT_FOUND') {
+        ref.read(calendarRangeProvider.notifier).removeEvent(event_id);
+        _showInformationDialog(title: '일정 삭제', message: '이미 삭제된 일정입니다.');
+        return true;
+      }
+
+      if (error.code == 'INVALID_EVENT_ID') {
+        _showErrorDialog('일정 정보가 올바르지 않습니다.');
+        ref.invalidate(calendarRangeProvider);
+        await _loadCalendarData(_focused_day);
+        return false;
+      }
+
+      _showErrorDialog(_getErrorMessage(error));
+      return false;
+    } catch (error) {
+      if (mounted) {
+        _showErrorDialog(_getErrorMessage(error));
+      }
+      return false;
+    } finally {
+      _deleting_event_ids.remove(event_id);
     }
   }
 
@@ -937,6 +1000,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       events: dayEvents,
       holiday_name: holiday_name,
       work_shift_item_builder: _buildWorkShiftItem,
+      event_item_builder: _buildEventItem,
       footer: _buildAddPersonalEventButton(),
     );
   }
@@ -1117,9 +1181,31 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: _RoundedDeleteDismissible(
         dismissible_key: Key('${workShift.workShiftId}_$index'),
+        delete_background_key: const ValueKey('work-shift-delete-background'),
         confirm_dismiss: (_) => _confirmDeleteWorkShift(_selected_day),
         child: CalendarWorkShiftItem(
           work_shift: workShift,
+          include_margin: false,
+          trailing: Icon(
+            CupertinoIcons.chevron_left,
+            size: 14,
+            color: AppTheme.outline_variant_color,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 개인 일정 아이템 위젯
+  Widget _buildEventItem(EventApiModel event, int index) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: _RoundedDeleteDismissible(
+        dismissible_key: ValueKey('event-${event.eventId}-$index'),
+        delete_background_key: const ValueKey('event-delete-background'),
+        confirm_dismiss: (_) => _confirmDeleteEvent(event),
+        child: CalendarEventItem(
+          event,
           include_margin: false,
           trailing: Icon(
             CupertinoIcons.chevron_left,
@@ -1135,11 +1221,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 class _RoundedDeleteDismissible extends StatefulWidget {
   const _RoundedDeleteDismissible({
     required this.dismissible_key,
+    required this.delete_background_key,
     required this.confirm_dismiss,
     required this.child,
   });
 
   final Key dismissible_key;
+  final Key delete_background_key;
   final Future<bool> Function(DismissDirection direction) confirm_dismiss;
   final Widget child;
 
@@ -1173,7 +1261,7 @@ class _RoundedDeleteDismissibleState extends State<_RoundedDeleteDismissible> {
           background: Align(
             alignment: Alignment.centerRight,
             child: Container(
-              key: const ValueKey('work-shift-delete-background'),
+              key: widget.delete_background_key,
               width: reveal_width,
               height: double.infinity,
               alignment: Alignment.centerRight,

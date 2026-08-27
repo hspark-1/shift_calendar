@@ -13,12 +13,83 @@ import '../../domain/entities/user.dart';
 import '../../domain/entities/profile_image_upload.dart';
 import '../providers/auth_provider.dart';
 
-const List<_JobTypeOption> _job_type_options = [
-  _JobTypeOption(value: 'NURSE', label: '간호사 (RN)'),
-  _JobTypeOption(value: 'DOCTOR', label: '의사 (MD)'),
-  _JobTypeOption(value: 'EMT', label: '응급구조사 (EMT)'),
-  _JobTypeOption(value: 'OTHER', label: '기타'),
-];
+const Map<String, String> _legacy_job_type_labels = {
+  'NURSE': '간호사',
+  'DOCTOR': '의사',
+  'EMT': '응급구조사',
+  'OTHER': '기타',
+};
+
+class KoreanMobilePhoneInputFormatter extends TextInputFormatter {
+  static String format(String value) {
+    final all_digits = value.replaceAll(RegExp('[^0-9]'), '');
+    final digits = all_digits.length > 11
+        ? all_digits.substring(0, 11)
+        : all_digits;
+
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 7) {
+      return '${digits.substring(0, 3)}-${digits.substring(3)}';
+    }
+    if (digits.length <= 10) {
+      return '${digits.substring(0, 3)}-${digits.substring(3, 6)}-'
+          '${digits.substring(6)}';
+    }
+    return '${digits.substring(0, 3)}-${digits.substring(3, 7)}-'
+        '${digits.substring(7)}';
+  }
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue old_value,
+    TextEditingValue new_value,
+  ) {
+    final formatted_text = format(new_value.text);
+    final base_offset = _formattedOffset(
+      formatted_text,
+      _digitCountBefore(new_value.text, new_value.selection.baseOffset),
+    );
+    final extent_offset = _formattedOffset(
+      formatted_text,
+      _digitCountBefore(new_value.text, new_value.selection.extentOffset),
+    );
+
+    return TextEditingValue(
+      text: formatted_text,
+      selection: TextSelection(
+        baseOffset: base_offset,
+        extentOffset: extent_offset,
+      ),
+    );
+  }
+
+  int _digitCountBefore(String value, int offset) {
+    if (offset < 0) return value.replaceAll(RegExp('[^0-9]'), '').length;
+    final safe_offset = offset.clamp(0, value.length);
+    return value
+        .substring(0, safe_offset)
+        .replaceAll(RegExp('[^0-9]'), '')
+        .length;
+  }
+
+  int _formattedOffset(String value, int digit_count) {
+    if (digit_count <= 0) return 0;
+    var seen_digits = 0;
+    for (var index = 0; index < value.length; index += 1) {
+      if (_isDigit(value.codeUnitAt(index))) seen_digits += 1;
+      if (seen_digits == digit_count) {
+        var offset = index + 1;
+        while (offset < value.length && !_isDigit(value.codeUnitAt(offset))) {
+          offset += 1;
+        }
+        return offset;
+      }
+    }
+    return value.length;
+  }
+
+  bool _isDigit(int code_unit) => code_unit >= 48 && code_unit <= 57;
+}
 
 class ProfileSetupPage extends ConsumerStatefulWidget {
   final User user;
@@ -41,11 +112,11 @@ class ProfileSetupPage extends ConsumerStatefulWidget {
 class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   late final TextEditingController _name_controller;
   late final TextEditingController _phone_controller;
+  late final TextEditingController _job_type_controller;
   late final TextEditingController _workplace_controller;
   late String _selected_timezone;
   late final Future<void> _timezone_future;
   ProfileImageUpload? _selected_profile_image;
-  String? _selected_job_type;
   bool _has_submitted = false;
   bool _is_loading = false;
 
@@ -53,22 +124,27 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   void initState() {
     super.initState();
     _name_controller = TextEditingController(text: widget.user.name);
-    _phone_controller = TextEditingController(text: widget.user.phone ?? '');
+    _phone_controller = TextEditingController(
+      text: KoreanMobilePhoneInputFormatter.format(widget.user.phone ?? ''),
+    );
+    _job_type_controller = TextEditingController(
+      text:
+          _legacy_job_type_labels[widget.user.job_type] ??
+          widget.user.job_type ??
+          '',
+    );
     _workplace_controller = TextEditingController(
       text: widget.user.workplace ?? '',
     );
     _selected_timezone = widget.user.timezone ?? AppConstants.default_timezone;
     _timezone_future = _loadDeviceTimezone();
-    _selected_job_type =
-        _job_type_options.any((option) => option.value == widget.user.job_type)
-        ? widget.user.job_type
-        : null;
   }
 
   @override
   void dispose() {
     _name_controller.dispose();
     _phone_controller.dispose();
+    _job_type_controller.dispose();
     _workplace_controller.dispose();
     super.dispose();
   }
@@ -87,17 +163,19 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   String? get _phone_error {
     if (!_has_submitted) return null;
     if (_phone_digits.isEmpty) return '휴대폰 번호를 입력해주세요.';
-    if (_phone_digits.length < 10 || _phone_digits.length > 11) {
-      return '휴대폰 번호 10~11자리를 확인해주세요.';
+    if (!_is_valid_korean_mobile_phone) {
+      return '한국 휴대폰 번호 형식을 확인해주세요.';
     }
     return null;
   }
 
+  bool get _is_valid_korean_mobile_phone =>
+      RegExp(r'^(?:010[0-9]{8}|01[16789][0-9]{7,8})$').hasMatch(_phone_digits);
+
   bool get _is_required_input_valid =>
       _name_controller.text.trim().isNotEmpty &&
       _name_controller.text.trim().length <= 50 &&
-      _phone_digits.length >= 10 &&
-      _phone_digits.length <= 11;
+      _is_valid_korean_mobile_phone;
 
   Future<void> _loadDeviceTimezone() async {
     try {
@@ -149,6 +227,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     await _timezone_future;
     if (!mounted) return;
 
+    final job_type = _job_type_controller.text.trim();
     final workplace = _workplace_controller.text.trim();
     setState(() => _is_loading = true);
     final success = await ref
@@ -158,7 +237,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           timezone: _selected_timezone,
           phone: _phone_digits,
           profile_image: _selected_profile_image,
-          job_type: _selected_job_type,
+          job_type: job_type.isEmpty ? null : job_type,
           workplace: workplace.isEmpty ? null : workplace,
         );
 
@@ -195,68 +274,38 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     );
   }
 
-  Future<void> _showJobTypePicker() async {
-    final selected_value = await showCupertinoModalPopup<String?>(
-      context: context,
-      builder: (popup_context) => CupertinoActionSheet(
-        title: const Text('직종 선택'),
-        message: const Text('선택하지 않아도 가입할 수 있어요.'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(popup_context).pop(''),
-            child: const Text('선택하지 않음'),
-          ),
-          ..._job_type_options.map(
-            (option) => CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(popup_context).pop(option.value),
-              child: Text(option.label),
-            ),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(popup_context).pop(),
-          child: const Text('취소'),
-        ),
-      ),
-    );
-    if (!mounted || selected_value == null) return;
-    setState(() {
-      _selected_job_type = selected_value.isEmpty ? null : selected_value;
-    });
-  }
-
-  String get _selected_job_type_label {
-    for (final option in _job_type_options) {
-      if (option.value == _selected_job_type) return option.label;
-    }
-    return '선택하지 않음';
-  }
-
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: const CupertinoNavigationBar(middle: Text('프로필 설정')),
       child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                key: const Key('profile_setup_scroll_view'),
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                children: [
-                  _buildIntro(),
-                  const SizedBox(height: 28),
-                  _buildBasicSection(),
-                  const SizedBox(height: 28),
-                  _buildWorkSection(),
-                  const SizedBox(height: 24),
-                  const _PrivacyNotice(),
-                ],
+        child: GestureDetector(
+          key: const Key('profile_setup_keyboard_dismiss_area'),
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  key: const Key('profile_setup_scroll_view'),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                  children: [
+                    _buildIntro(),
+                    const SizedBox(height: 28),
+                    _buildBasicSection(),
+                    const SizedBox(height: 28),
+                    _buildWorkSection(),
+                    const SizedBox(height: 24),
+                    const _PrivacyNotice(),
+                  ],
+                ),
               ),
-            ),
-            _buildBottomAction(),
-          ],
+              _buildBottomAction(),
+            ],
+          ),
         ),
       ),
     );
@@ -333,7 +382,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '내 정보를 확인해주세요',
+                'ShiftMate에 오신 걸 환영해요',
                 style: TextStyle(
                   fontSize: 21,
                   fontWeight: FontWeight.w700,
@@ -342,7 +391,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
               ),
               SizedBox(height: 5),
               Text(
-                '필수 정보만 입력하면 바로\nShiftMate를 시작할 수 있어요.',
+                '프로필을 설정하고 나만의\n일정 관리를 시작해보세요.',
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.45,
@@ -375,10 +424,8 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           ),
         ),
         const SizedBox(height: 12),
-        Container(
+        _ProfileInformationCard(
           key: const Key('basic_information_card'),
-          decoration: AppTheme.cardDecoration(),
-          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               _ReadonlyEmailRow(email: widget.user.email),
@@ -404,13 +451,10 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                 required_field: true,
                 icon: CupertinoIcons.phone_fill,
                 controller: _phone_controller,
-                placeholder: '숫자 10~11자리',
+                placeholder: '010-1234-5678',
                 keyboard_type: TextInputType.phone,
-                text_input_action: TextInputAction.done,
-                input_formatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(11),
-                ],
+                text_input_action: TextInputAction.next,
+                input_formatters: [KoreanMobilePhoneInputFormatter()],
                 error_text: _phone_error,
                 onChanged: (_) {
                   if (_has_submitted) setState(() {});
@@ -435,27 +479,26 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
         const SizedBox(height: 10),
         const _OptionalNotice(),
         const SizedBox(height: 12),
-        Container(
+        _ProfileInformationCard(
           key: const Key('work_information_card'),
-          decoration: AppTheme.cardDecoration(),
-          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              _SelectionRow(
-                row_key: const Key('profile_job_type_field'),
+              _ProfileTextFieldRow(
+                field_key: const Key('profile_job_type_field'),
                 label: '직종',
                 icon: CupertinoIcons.briefcase_fill,
-                value: _selected_job_type_label,
-                placeholder: _selected_job_type == null,
-                onTap: _showJobTypePicker,
+                controller: _job_type_controller,
+                placeholder: '예: 간호사, 개발자, 디자이너',
+                text_input_action: TextInputAction.next,
+                max_length: 20,
               ),
               const _RowDivider(),
               _ProfileTextFieldRow(
                 field_key: const Key('profile_workplace_field'),
-                label: '소속 병원 및 부서',
+                label: '재직 중인 회사·기관 및 부서',
                 icon: CupertinoIcons.building_2_fill,
                 controller: _workplace_controller,
-                placeholder: '예: 제일병원 중환자실',
+                placeholder: '예: ShiftMate 프로덕트팀',
                 text_input_action: TextInputAction.done,
                 max_length: 100,
               ),
@@ -504,12 +547,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       ),
     );
   }
-}
-
-class _JobTypeOption {
-  final String value;
-  final String label;
-  const _JobTypeOption({required this.value, required this.label});
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -732,67 +769,22 @@ class _ProfileTextFieldRow extends StatelessWidget {
   }
 }
 
-class _SelectionRow extends StatelessWidget {
-  final Key row_key;
-  final String label;
-  final IconData icon;
-  final String value;
-  final bool placeholder;
-  final VoidCallback onTap;
+class _ProfileInformationCard extends StatelessWidget {
+  final Widget child;
 
-  const _SelectionRow({
-    required this.row_key,
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.onTap,
-    this.placeholder = false,
-  });
+  const _ProfileInformationCard({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoButton(
-      key: row_key,
-      padding: const EdgeInsets.fromLTRB(14, 10, 10, 11),
-      minimumSize: const Size.fromHeight(68),
-      borderRadius: BorderRadius.zero,
-      onPressed: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.on_surface_variant_color,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Row(
-            children: [
-              Icon(icon, size: 18, color: AppTheme.outline_color),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: placeholder
-                        ? AppTheme.outline_color
-                        : AppTheme.on_surface_color,
-                  ),
-                ),
-              ),
-              const Icon(
-                CupertinoIcons.chevron_down,
-                size: 17,
-                color: AppTheme.on_surface_variant_color,
-              ),
-            ],
-          ),
-        ],
+    return Container(
+      foregroundDecoration: BoxDecoration(
+        borderRadius: AppTheme.card_border_radius,
+        border: Border.all(color: AppTheme.outline_variant_color, width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: AppTheme.card_border_radius,
+        clipBehavior: Clip.antiAlias,
+        child: ColoredBox(color: AppTheme.surface_color, child: child),
       ),
     );
   }

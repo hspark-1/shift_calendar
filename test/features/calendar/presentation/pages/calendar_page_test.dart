@@ -10,6 +10,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
 import 'package:shift_mate/core/utils/korean_holidays.dart';
+import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
 import 'package:shift_mate/features/calendar/data/models/shift_type_api_model.dart';
 import 'package:shift_mate/features/calendar/data/models/work_shift_api_model.dart';
@@ -24,10 +25,18 @@ import 'package:shift_mate/features/friend/presentation/providers/notification_p
 import 'package:table_calendar/table_calendar.dart';
 
 class _FakeCalendarService extends CalendarService {
-  _FakeCalendarService({this.work_shifts = const []}) : super(Dio());
+  _FakeCalendarService({
+    this.work_shifts = const [],
+    this.events = const [],
+    this.delete_error,
+  }) : super(Dio());
 
   final List<WorkShiftApiModel> work_shifts;
+  final List<EventApiModel> events;
+  final Object? delete_error;
   int request_count = 0;
+  int delete_request_count = 0;
+  String? deleted_event_id;
 
   @override
   Future<CalendarRangeResponse> getCalendarRange({
@@ -37,8 +46,16 @@ class _FakeCalendarService extends CalendarService {
     request_count += 1;
     return CalendarRangeResponse(
       success: true,
-      data: CalendarRangeData(workShifts: work_shifts, events: const []),
+      data: CalendarRangeData(workShifts: work_shifts, events: events),
     );
+  }
+
+  @override
+  Future<String> deleteEvent(String event_id) async {
+    delete_request_count += 1;
+    deleted_event_id = event_id;
+    if (delete_error != null) throw delete_error!;
+    return event_id;
   }
 }
 
@@ -75,6 +92,19 @@ DateTime _firstWeekdayOfMonth(DateTime date, int weekday) {
       (weekday - first_day.weekday + DateTime.daysPerWeek) %
       DateTime.daysPerWeek;
   return first_day.add(Duration(days: day_offset));
+}
+
+EventApiModel _eventForToday({String event_id = 'event-delete-test'}) {
+  final now = DateTime.now();
+  final start_at = DateTime(now.year, now.month, now.day, 18);
+  return EventApiModel(
+    eventId: event_id,
+    title: '삭제할 개인 일정',
+    allDay: false,
+    startAt: start_at,
+    endAt: start_at.add(const Duration(hours: 1)),
+    visibilityLevel: 0,
+  );
 }
 
 void main() {
@@ -699,6 +729,128 @@ void main() {
       tester.getBottomRight(last_day_selection).dy,
       lessThanOrEqualTo(tester.getBottomLeft(calendar).dy),
     );
+  });
+
+  testWidgets('개인 일정을 왼쪽으로 스와이프하면 삭제 API 호출 후 즉시 제거한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final event = _eventForToday();
+    final calendar_service = _FakeCalendarService(events: [event]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          calendarServiceProvider.overrideWithValue(calendar_service),
+          notificationProvider.overrideWith(
+            (ref) => _FakeNotificationNotifier(),
+          ),
+        ],
+        child: const CupertinoApp(home: CalendarPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    for (var wait_count = 0; wait_count < 50; wait_count++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    final event_item = find.byKey(const ValueKey('event-event-delete-test-0'));
+    expect(event_item, findsOneWidget);
+
+    await tester.drag(event_item, const Offset(-360, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(calendar_service.delete_request_count, 1);
+    expect(calendar_service.deleted_event_id, event.eventId);
+    expect(find.text(event.title), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('이미 삭제된 개인 일정은 로컬에서 제거하고 안내한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final event = _eventForToday();
+    final calendar_service = _FakeCalendarService(
+      events: [event],
+      delete_error: ApiException(
+        code: 'EVENT_NOT_FOUND',
+        message: '일정을 찾을 수 없습니다.',
+        statusCode: 404,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          calendarServiceProvider.overrideWithValue(calendar_service),
+          notificationProvider.overrideWith(
+            (ref) => _FakeNotificationNotifier(),
+          ),
+        ],
+        child: const CupertinoApp(home: CalendarPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    for (var wait_count = 0; wait_count < 50; wait_count++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    await tester.drag(
+      find.byKey(const ValueKey('event-event-delete-test-0')),
+      const Offset(-360, 0),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(calendar_service.delete_request_count, 1);
+    expect(find.text(event.title), findsNothing);
+    expect(find.text('이미 삭제된 일정입니다.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('개인 일정 삭제 서버 오류 시 항목을 유지하고 오류를 안내한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final event = _eventForToday();
+    final calendar_service = _FakeCalendarService(
+      events: [event],
+      delete_error: ApiException(
+        code: 'INTERNAL_SERVER_ERROR',
+        message: '일정을 삭제하지 못했습니다.',
+        statusCode: 500,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          calendarServiceProvider.overrideWithValue(calendar_service),
+          notificationProvider.overrideWith(
+            (ref) => _FakeNotificationNotifier(),
+          ),
+        ],
+        child: const CupertinoApp(home: CalendarPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    for (var wait_count = 0; wait_count < 50; wait_count++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    await tester.drag(
+      find.byKey(const ValueKey('event-event-delete-test-0')),
+      const Offset(-360, 0),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(calendar_service.delete_request_count, 1);
+    expect(find.text(event.title), findsOneWidget);
+    expect(find.text('일정을 삭제하지 못했습니다.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('근무 일정 부분 스와이프 시 노출 폭 전체에 radius를 적용한다', (tester) async {

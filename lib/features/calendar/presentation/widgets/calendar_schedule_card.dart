@@ -9,6 +9,7 @@ import '../../data/models/work_shift_api_model.dart';
 
 typedef WorkShiftItemBuilder =
     Widget Function(WorkShiftApiModel work_shift, int index);
+typedef EventItemBuilder = Widget Function(EventApiModel event, int index);
 
 class CalendarScheduleCard extends StatelessWidget {
   const CalendarScheduleCard({
@@ -18,6 +19,7 @@ class CalendarScheduleCard extends StatelessWidget {
     required this.events,
     this.holiday_name,
     this.work_shift_item_builder,
+    this.event_item_builder,
     this.footer,
   });
 
@@ -26,6 +28,7 @@ class CalendarScheduleCard extends StatelessWidget {
   final List<EventApiModel> events;
   final String? holiday_name;
   final WorkShiftItemBuilder? work_shift_item_builder;
+  final EventItemBuilder? event_item_builder;
   final Widget? footer;
 
   @override
@@ -56,7 +59,15 @@ class CalendarScheduleCard extends StatelessWidget {
                           if (work_shift != null)
                             work_shift_item_builder?.call(work_shift!, 0) ??
                                 CalendarWorkShiftItem(work_shift: work_shift!),
-                          ...events.map(CalendarEventItem.new),
+                          ...List.generate(
+                            events.length,
+                            (index) =>
+                                event_item_builder?.call(
+                                  events[index],
+                                  index,
+                                ) ??
+                                CalendarEventItem(events[index]),
+                          ),
                         ],
                       ),
                     ),
@@ -248,9 +259,16 @@ class CalendarWorkShiftItem extends StatelessWidget {
 }
 
 class CalendarEventItem extends StatelessWidget {
-  const CalendarEventItem(this.event, {super.key});
+  const CalendarEventItem(
+    this.event, {
+    super.key,
+    this.trailing,
+    this.include_margin = true,
+  });
 
   final EventApiModel event;
+  final Widget? trailing;
+  final bool include_margin;
 
   @override
   Widget build(BuildContext context) {
@@ -258,8 +276,7 @@ class CalendarEventItem extends StatelessWidget {
         ? '종일'
         : '${DateFormat('HH:mm', 'ko_KR').format(event.startAt)} - ${DateFormat('HH:mm', 'ko_KR').format(event.endAt)}';
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    final item = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.primary_color.withValues(alpha: 0.08),
@@ -327,8 +344,15 @@ class CalendarEventItem extends StatelessWidget {
               ],
             ),
           ),
+          if (trailing != null) trailing!,
         ],
       ),
+    );
+
+    if (!include_margin) return item;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: item,
     );
   }
 }

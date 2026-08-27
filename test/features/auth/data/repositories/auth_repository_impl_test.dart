@@ -43,7 +43,7 @@ class _FakeAuthRemoteDataSource extends AuthRemoteDataSource {
     access_token: 'app-access-token',
     refresh_token: 'app-refresh-token',
     expires_at: DateTime.utc(2026, 8, 7),
-    is_new_user: true,
+    requires_profile_setup: true,
   );
 
   @override

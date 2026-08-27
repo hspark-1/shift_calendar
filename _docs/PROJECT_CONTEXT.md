@@ -512,19 +512,27 @@ LoginPage
   `_docs/KAKAO_LOGIN_SERVER_REQUEST.md`를 따른다.
 - Express 서버의 일반 프로필 수정 계약은 `POST /api/v1/auth/profile`이고 가입 완료 계약은
   `POST /api/v1/auth/profile/complete`로 분리한다. 가입 화면의 필수 입력은 이름·휴대폰이며
-  직종·소속·프로필 이미지는 선택이다. 타임존 행은 노출하지 않고 `flutter_timezone`으로 조회한
-  기기 IANA timezone을 시스템 필드로 전송한다. 조회 실패 시 서버 사용자 값 또는 앱 기본값을 쓴다.
+  직종·재직 중인 회사/기관 및 부서·프로필 이미지는 선택이다. 직종은 특정 업종 enum을 고르는
+  방식이 아니라 최대 20자의 자유 문자열을 직접 입력한다. 서버는 기존
+  `NURSE/DOCTOR/EMT/OTHER` check와 enum validation을 제거한 뒤 Flutter보다 먼저 배포해야 한다.
+  타임존 행은 노출하지 않고 `flutter_timezone`으로 조회한 기기 IANA timezone을 시스템 필드로
+  전송한다. 조회 실패 시 서버 사용자 값 또는 앱 기본값을 쓴다.
 - 가입 화면의 아바타를 누르면 `image_picker`로 사진 한 장을 선택한다. 앱은 최대 1024x1024,
   품질 85로 요청하고 5MB 초과 결과는 전송하지 않는다. 이미지를 선택하지 않으면 기존 JSON,
   선택하면 텍스트 필드와 `profile_image` 파일을 포함한 multipart 요청을 같은 완료 endpoint로 보낸다.
   서버 object storage 계약과 선배포 조건은 `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`를 따른다.
-- 서버 응답의 `requires_profile_setup`을 가입 화면 분기의 정본으로 사용한다. 서버 전환기에는
-  해당 필드가 없을 때만 휴대폰 유무로 미완료를 판단해, 앱 종료·재실행 후에도 입력 화면을
-  재개한다. OAuth의 `is_new_user`는 계정 생성 여부를 위한 호환 필드다.
+- 서버 응답의 `requires_profile_setup`만 가입 화면 분기의 정본으로 사용한다. OAuth의
+  `is_new_user`는 계정 생성 여부를 위한 서버 호환 필드이며 Flutter 화면 상태에 보관하거나
+  분기 조건으로 사용하지 않는다. 따라서 앱 종료·재실행 뒤에도 서버의 영속 완료 상태로
+  입력 화면을 재개한다.
 - `../design/signup input personal data/code.html`은 프로필 설정의 UI/UX 검토용 HTML 시안이다.
   기본 정보는 `필수` 배지와 필수 표시를 사용하고, 근무 정보는 `선택` 배지 및
   `지금 입력하지 않아도 괜찮아요` 안내를 항상 노출한다. 선택 근무 정보가 비어 있어도
-  하단의 단일 `저장하고 시작하기` 동작을 막지 않는다. Flutter 화면과 클라이언트 계약은 구현됐고,
+  하단의 단일 `저장하고 시작하기` 동작을 막지 않는다. 화면 배경 탭과 목록 드래그는 현재 입력
+  포커스를 해제한다. 휴대폰은 숫자만 받아 입력 중 한국 형식(`010-1234-5678`, 10자리 번호는
+  `01X-XXX-XXXX`)으로 하이픈을 표시하지만 API에는 숫자만 보낸다. 기본·근무 정보 카드는 내부
+  행을 16px로 클립한 뒤 테두리를 foreground에 그려 하단 모서리와 outline이 잘리지 않게 한다.
+  Flutter 화면과 클라이언트 계약은 구현됐고,
   서버의 DB/API/응답 변경과 선배포 조건은 `_docs/PROFILE_ONBOARDING_SERVER_REQUIREMENTS.md`를
   정본으로 따른다.
 - 파일 역할/의존성/사용 예:
@@ -532,7 +540,8 @@ LoginPage
     서버 토큰 교환, 프로필 조회·수정과 로그아웃 HTTP 요청을 담당한다.
     신규 사용자 프로필 완료 시 `completeProfile()`이 전용 POST 요청을 보낸다.
   - `lib/features/auth/presentation/pages/profile_setup_page.dart`: 필수 기본 정보와 선택 근무 정보를
-    분리하고, 프로필 이미지 선택·미리보기와 기기 timezone 자동 조회 후 가입 완료 API를 호출한다.
+    분리하고, 배경 탭 키보드 해제, 직종 자유 입력, 휴대폰 실시간 하이픈 표시, 카드 반경 보존,
+    프로필 이미지 선택·미리보기와 기기 timezone 자동 조회 후 가입 완료 API를 호출한다.
   - `lib/features/auth/domain/entities/profile_image_upload.dart`: 선택 이미지의 byte, 파일명, MIME type을
     data 계층까지 전달한다. datasource가 multipart의 `profile_image` part로 변환한다.
   - `test/features/auth/data/datasources/auth_remote_datasource_test.dart`:
@@ -542,7 +551,8 @@ LoginPage
     메서드·경로·선택값 생략·응답 파싱을 검증한다. 카카오 App ID 불일치 응답과 프로필 구조화
     오류의 코드·메시지·request ID 보존도 검증한다.
   - `test/features/auth/presentation/pages/profile_setup_page_test.dart`: 390x844 화면에서 필수·선택
-    위계, 단일 CTA, 필수 검증과 선택값 생략/전달을 검증한다.
+    위계, 단일 CTA, 입력 밖 포커스 해제, 휴대폰 formatter·검증·숫자 전송, 직종 자유 입력,
+    업종 중립 문구, 카드 클립·foreground outline과 선택값 생략/전달을 검증한다.
   - `build.yaml`: Freezed/json_serializable 입력을 실제 annotation 파일로 제한해 Dart SDK와
     analyzer 언어 버전 차이로 사용하지 않는 builder가 전체 소스를 분석하는 실패를 피한다.
     entity나 `@freezed` 모델을 새 위치에 추가하면 include 목록도 함께 갱신한다.
@@ -682,8 +692,8 @@ LoginPage
   Flutter가 직접 호출하지 않는다.
 - challenge 응답이 플랫폼별 `client_id`와 `redirect_uri`를 제공한다. 앱에 Apple Service ID나
   callback을 하드코딩하지 않는다.
-- `AuthResponse`는 `data.is_new_user` boolean을 우선 파싱하고 기존 서버 메시지 판정은 하위 호환
-  fallback으로만 유지한다.
+- `AuthResponse`는 `data.requires_profile_setup`을 파싱해 인증 상태와 화면 분기에 전달한다.
+  서버 메시지나 `is_new_user`는 가입 완료 여부를 추론하는 fallback으로 사용하지 않는다.
 - iOS `Runner.entitlements`와 Xcode target에 Sign in with Apple capability를 선언한다.
   실제 실행에는 Apple Developer App ID capability와 갱신된 provisioning profile이 필요하다.
 - Android manifest는 plugin의 `signinwithapple://callback` activity를 등록하며 기존 MainActivity의
@@ -749,7 +759,7 @@ CalendarPage
 - 로그인/로그아웃으로 계정이 바뀌면 근무 타입, 수정 응답 표시 업데이트, 근무 템플릿 설정,
   메인·친구 캘린더 range, 친구, 알림 Provider 캐시를 무효화한다.
 
-### 개인 일정 생성/표시 흐름
+### 개인 일정 생성/표시/삭제 흐름
 
 ```
 CalendarPage
@@ -758,6 +768,14 @@ CalendarPage
   → POST /api/v1/events
   → EventApiModel
   → 선택 날짜 일정 목록에 즉시 반영
+```
+
+```
+CalendarPage 개인 일정 왼쪽 스와이프
+  → CalendarService.deleteEvent(event_id)
+  → DELETE /api/v1/events/{event_id}
+  → CalendarRangeNotifier.removeEvent(event_id)
+  → 모든 날짜 캐시에서 즉시 제거
 ```
 
 - 메인 캘린더 선택일 카드는 달력 아래 남은 `Expanded` 하단 슬롯을 채운다. 일정이 가용 높이를
@@ -770,6 +788,13 @@ CalendarPage
   현재 노출 폭을 계산하고, 그 폭 자체를 가진 12px radius 삭제 배경을 오른쪽 정렬해 부분 스와이프
   중에도 노출 영역의 양쪽 모서리가 둥글게 보이게 한다. 삭제 API는 기존처럼 `confirmDismiss`에서
   호출하며 실패 시 항목을 원래 위치로 복원한다.
+- 본인 개인 일정도 근무 일정과 같은 왼쪽 스와이프, chevron, 삭제 배경을 사용한다. 삭제 요청은
+  body 없이 `DELETE /api/v1/events/{event_id}`로 보내고 요청 중 같은 ID의 중복 실행을 막는다.
+  `200`이면 응답의 `data.event_id`를 기준으로 다일 일정을 포함한 모든 날짜 캐시에서 제거한다.
+  `404 EVENT_NOT_FOUND`도 서버 활성 상태가 이미 삭제된 것이므로 요청 ID를 로컬에서 제거하고
+  `이미 삭제된 일정입니다.`를 안내한다. `500`·네트워크 오류는 항목을 유지해 재시도할 수 있게 하며,
+  `400 INVALID_EVENT_ID`는 오류 안내 후 현재 월 범위를 다시 조회한다. 친구·그룹 캘린더는 읽기
+  전용이므로 타인 일정 삭제 액션을 제공하지 않는다.
 - 입력 필수값은 `title`, `all_day`, `start_at`, `end_at`, `visibility_level`이다.
 - 선택값은 `place`, `memo`이며, 빈 문자열은 요청에서 제외한다.
 - `owner_user_id`, `created_by_user_id`는 서버가 인증 사용자 기준으로 채운다.
@@ -782,6 +807,7 @@ CalendarPage
   `friend_level >= events.visibility_level` 조건을 적용한다.
 - API 서버 요청 문서는 기능별 가이드에 둔다.
   - 개인 일정 생성: `_docs/EVENT_API_GUIDE.md`
+  - 개인 일정 삭제: `../shift_calendar_server/_docs/EVENT_DELETION_FRONTEND_API_GUIDE.md`
   - 근무 타입 기준 색상·농도 영속화 계획:
     `_docs/SHIFT_TYPE_COLOR_METADATA_API_GUIDE.md`
 - 파일 역할/의존성/사용 예:
@@ -797,6 +823,14 @@ CalendarPage
     종료일의 선후 관계를 자동 보정하며, 시간은 기존 `Duration` 상태와 저장 검증 흐름을 유지한다.
   - `_docs/EVENT_API_GUIDE.md`: 개인 일정 생성 API, 입력 필수/선택값,
     공개 레벨 규칙, 서버 DDL 확인 요청을 정리한 서버 구현 문서다.
+  - `test/features/calendar/data/services/calendar_service_test.dart`:
+    개인 일정 삭제가 body 없는 정확한 DELETE path를 사용하고 성공 응답 ID와
+    `EVENT_NOT_FOUND` 구조화 오류를 보존하는지 검증한다.
+  - `test/features/calendar/application/calendar_range_notifier_test.dart`:
+    생성·근무 저장·삭제 mutation과 다일 개인 일정 삭제 시 모든 날짜 캐시 제거를 검증한다.
+  - `test/features/calendar/presentation/pages/calendar_page_test.dart`:
+    개인 일정 스와이프 삭제의 `200` 즉시 제거, `404` 제거·안내, `500` 항목 유지·재시도를
+    메인 캘린더 위젯에서 검증한다.
   - `_docs/SHIFT_TYPE_COLOR_METADATA_API_GUIDE.md`: 근무 타입 색상 설정의 기준 색상과
     농도를 재진입 시 복원하기 위한 API 계약, Express 변경 지점, PostgreSQL
     expand/backfill/enforce migration, 배포·검증·롤백 순서를 정리한 구현 전 계획 문서다.

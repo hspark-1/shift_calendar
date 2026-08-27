@@ -43,8 +43,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (success) {
       final authState = ref.read(authProvider);
 
-      if (authState.is_new_user) {
-        // 신규 가입: 추가 정보 입력 페이지로
+      if (authState.requires_profile_setup) {
+        // 가입 프로필 미완료: 추가 정보 입력 페이지로
         Navigator.of(context).pushReplacement(
           CupertinoPageRoute(
             builder: (context) => ProfileSetupPage(user: authState.user!),
@@ -83,8 +83,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (success) {
       final authState = ref.read(authProvider);
 
-      if (authState.is_new_user) {
-        // 신규 가입: 추가 정보 입력 페이지로
+      if (authState.requires_profile_setup) {
+        // 가입 프로필 미완료: 추가 정보 입력 페이지로
         Navigator.of(context).pushReplacement(
           CupertinoPageRoute(
             builder: (context) => ProfileSetupPage(user: authState.user!),
@@ -123,7 +123,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (success) {
       final authState = ref.read(authProvider);
 
-      if (authState.is_new_user) {
+      if (authState.requires_profile_setup) {
         Navigator.of(context).pushReplacement(
           CupertinoPageRoute(
             builder: (context) => ProfileSetupPage(user: authState.user!),
@@ -161,7 +161,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (success) {
       final authState = ref.read(authProvider);
 
-      if (authState.is_new_user) {
+      if (authState.requires_profile_setup) {
         Navigator.of(context).pushReplacement(
           CupertinoPageRoute(
             builder: (context) => ProfileSetupPage(user: authState.user!),

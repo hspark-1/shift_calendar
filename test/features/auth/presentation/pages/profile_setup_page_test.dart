@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shift_mate/core/theme/app_theme.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
@@ -120,6 +121,26 @@ Future<void> _pumpPage(
 }
 
 void main() {
+  test('휴대폰 formatter는 입력 길이에 맞춰 하이픈을 즉시 배치한다', () {
+    final formatter = KoreanMobilePhoneInputFormatter();
+
+    TextEditingValue format(String value) {
+      return formatter.formatEditUpdate(
+        TextEditingValue.empty,
+        TextEditingValue(
+          text: value,
+          selection: TextSelection.collapsed(offset: value.length),
+        ),
+      );
+    }
+
+    expect(format('010').text, '010');
+    expect(format('0101').text, '010-1');
+    expect(format('0101234567').text, '010-123-4567');
+    expect(format('01012345678').text, '010-1234-5678');
+    expect(format('010-12a34-56789').text, '010-1234-5678');
+  });
+
   testWidgets('필수 기본 정보와 선택 근무 정보를 구분하고 하단 완료 버튼을 고정한다', (tester) async {
     await _pumpPage(tester, _ProfileSetupAuthRepository(), on_completed: () {});
 
@@ -140,11 +161,82 @@ void main() {
     expect(find.text('완료'), findsNothing);
     expect(find.byKey(const Key('profile_image_button')), findsOneWidget);
     expect(find.byKey(const Key('profile_timezone_field')), findsNothing);
+    expect(find.text('ShiftMate에 오신 걸 환영해요'), findsOneWidget);
+    expect(find.textContaining('나만의\n일정 관리를 시작해보세요.'), findsOneWidget);
+    expect(find.text('재직 중인 회사·기관 및 부서'), findsOneWidget);
+    expect(find.text('소속 병원 및 부서'), findsNothing);
 
     final button_bottom = tester
         .getBottomLeft(find.byKey(const Key('profile_setup_submit_button')))
         .dy;
     expect(button_bottom, lessThanOrEqualTo(844));
+  });
+
+  testWidgets('화면의 입력 영역 밖을 누르면 키보드 포커스를 해제한다', (tester) async {
+    await _pumpPage(tester, _ProfileSetupAuthRepository(), on_completed: () {});
+
+    final name_field = _textFieldInside(const Key('profile_name_field'));
+    await tester.tap(name_field);
+    await tester.pump();
+
+    final editable_text = find.descendant(
+      of: name_field,
+      matching: find.byType(EditableText),
+    );
+    expect(
+      tester.widget<EditableText>(editable_text).focusNode.hasFocus,
+      isTrue,
+    );
+
+    await tester.tap(find.text('기본 정보'));
+    await tester.pump();
+
+    expect(
+      tester.widget<EditableText>(editable_text).focusNode.hasFocus,
+      isFalse,
+    );
+  });
+
+  testWidgets('휴대폰 번호를 한국 형식으로 표시하고 API에는 숫자만 전달한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    await _pumpPage(tester, repository, on_completed: () {});
+
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '홍길동',
+    );
+    final phone_field = _textFieldInside(const Key('profile_phone_field'));
+    await tester.enterText(phone_field, '01012345678');
+    await tester.pump();
+
+    expect(
+      tester.widget<CupertinoTextField>(phone_field).controller?.text,
+      '010-1234-5678',
+    );
+
+    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
+    await tester.pumpAndSettle();
+
+    expect(repository.complete_request?['phone'], '01012345678');
+  });
+
+  testWidgets('한국 휴대폰 번호가 아니면 저장을 막고 형식 오류를 표시한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    await _pumpPage(tester, repository, on_completed: () {});
+
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '홍길동',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '0212345678',
+    );
+    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
+    await tester.pump();
+
+    expect(find.text('한국 휴대폰 번호 형식을 확인해주세요.'), findsOneWidget);
+    expect(repository.complete_request, isNull);
   });
 
   testWidgets('필수값이 없으면 저장하지 않고 이름과 휴대폰 오류를 표시한다', (tester) async {
@@ -222,7 +314,7 @@ void main() {
     expect(repository.complete_request?['timezone'], 'Asia/Tokyo');
   });
 
-  testWidgets('선택한 직종과 소속 정보를 가입 완료 요청에 포함한다', (tester) async {
+  testWidgets('직접 입력한 직종과 회사 정보를 가입 완료 요청에 포함한다', (tester) async {
     final repository = _ProfileSetupAuthRepository();
     await _pumpPage(tester, repository, on_completed: () {});
 
@@ -239,18 +331,49 @@ void main() {
       const Offset(0, -320),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('profile_job_type_field')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('간호사 (RN)'));
-    await tester.pumpAndSettle();
+    await tester.enterText(
+      _textFieldInside(const Key('profile_job_type_field')),
+      '서비스 기획자',
+    );
     await tester.enterText(
       _textFieldInside(const Key('profile_workplace_field')),
-      '제일병원 중환자실',
+      'ShiftMate 프로덕트팀',
     );
     await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
     await tester.pumpAndSettle();
 
-    expect(repository.complete_request?['job_type'], 'NURSE');
-    expect(repository.complete_request?['workplace'], '제일병원 중환자실');
+    expect(repository.complete_request?['job_type'], '서비스 기획자');
+    expect(repository.complete_request?['workplace'], 'ShiftMate 프로덕트팀');
+  });
+
+  testWidgets('기본·근무 정보 카드는 둥근 모서리를 클립하고 테두리를 위에 그린다', (tester) async {
+    await _pumpPage(tester, _ProfileSetupAuthRepository(), on_completed: () {});
+
+    for (final card_key in const [
+      Key('basic_information_card'),
+      Key('work_information_card'),
+    ]) {
+      final card = find.byKey(card_key);
+      final clip = find.descendant(of: card, matching: find.byType(ClipRRect));
+      final outer_container = find.descendant(
+        of: card,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container && widget.foregroundDecoration != null,
+        ),
+      );
+
+      expect(clip, findsOneWidget);
+      expect(
+        tester.widget<ClipRRect>(clip).borderRadius,
+        AppTheme.card_border_radius,
+      );
+      expect(outer_container, findsOneWidget);
+      final decoration =
+          tester.widget<Container>(outer_container).foregroundDecoration
+              as BoxDecoration;
+      expect(decoration.borderRadius, AppTheme.card_border_radius);
+      expect(decoration.border, isNotNull);
+    }
   });
 }

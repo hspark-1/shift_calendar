@@ -1,6 +1,7 @@
 # 가입 프로필 완료 API·백엔드 구현 요구사항
 
 작성일: 2026-08-19
+최종 수정일: 2026-08-26
 대상: `shift_calendar_server` Express/Sequelize 서버
 클라이언트 기준: `shift_calendar` Flutter 앱
 
@@ -10,18 +11,20 @@
 
 - 기본 정보(필수 입력): 이름, 휴대폰 번호
 - 시스템 정보(자동): 기기 IANA 타임존
-- 선택 정보: 프로필 이미지, 직종, 소속 병원 및 부서
+- 선택 정보: 프로필 이미지, 자유 입력 직종, 재직 중인 회사·기관 및 부서
 
-Flutter는 신규 `POST /api/v1/auth/profile/complete`를 호출하며 이미지 선택 시 같은 endpoint에 multipart를 보낸다. 따라서 **서버와 DB 및 object storage를 먼저 배포하고 Stage에서 확인한 뒤 Flutter를 배포**해야 한다.
+Flutter는 `POST /api/v1/auth/profile/complete`를 호출하며 이미지 선택 시 같은 endpoint에 multipart를 보낸다. 직종 자유 입력 전환은 **서버 DB 제약과 service/OpenAPI 검증을 먼저 배포하고 Stage에서 확인한 뒤 Flutter를 배포**해야 한다.
 
 ## 2. 현재 구현에서 확인한 사실
 
 - `users.phone`은 nullable·unique이며 서버 `POST /api/v1/auth/profile`이 이미 입력을 받는다.
 - 현재 서버는 숫자 10~11자리 휴대폰을 하이픈 형식으로 정규화하고 `INVALID_PHONE`, `PHONE_ALREADY_EXISTS`를 반환한다.
-- `users`와 프로필 API에는 `job_type`, `workplace`, 영속적인 가입 완료 시각이 없다.
+- 2026-08-26 확인 기준 서버에는 `job_type`, `workplace`, `profile_completed_at`, JSON/multipart
+  가입 완료 endpoint와 object storage 연동이 구현돼 있다. 다만 `users.job_type`은 `varchar(20)`이고 DB check와
+  `profileService.normalizeJobType()`이 `NURSE`, `DOCTOR`, `EMT`, `OTHER`만 허용한다.
+  Flutter의 직종 직접 입력값을 보존하려면 이 enum 제한을 먼저 제거해야 한다.
 - OAuth 응답의 `is_new_user`는 해당 로그인에서 사용자를 새로 생성했는지만 나타낸다. 신규 사용자가 프로필을 완료하지 않고 앱을 종료한 뒤 재접속하면 가입 화면을 재개할 수 있는 영속 상태가 아니다.
 - 기존 `POST /api/v1/auth/profile`은 일반 프로필 수정 계약이므로 유지한다.
-- 현재 서버에는 multipart parser, object storage SDK, 업로드 endpoint가 없고 `profile_image_url` 문자열 저장만 있다. 현 상태로는 Flutter가 보낸 이미지 파일을 처리할 수 없다.
 
 ## 3. DB 변경
 
@@ -35,12 +38,14 @@ ALTER TABLE users
 
 ALTER TABLE users
   ADD CONSTRAINT ck_users_job_type
-    CHECK (job_type IS NULL OR job_type IN ('NURSE', 'DOCTOR', 'EMT', 'OTHER')),
+    CHECK (job_type IS NULL OR (char_length(btrim(job_type)) BETWEEN 1 AND 20)),
   ADD CONSTRAINT ck_users_workplace
     CHECK (workplace IS NULL OR (char_length(btrim(workplace)) BETWEEN 1 AND 100));
 ```
 
 - 기존 `phone` 컬럼과 unique 제약은 재사용한다.
+- 기존 enum check가 이미 배포된 환경은 후속 migration에서 `ck_users_job_type`을 제거한 뒤
+  위 길이 check로 다시 생성한다. `job_type varchar(20)` 컬럼과 기존 값은 유지한다.
 - 기존 사용자 backfill은 `name`이 비어 있지 않고, 유효한 `timezone`과 `phone`이 모두 있는 사용자만 `profile_completed_at = COALESCE(created_at, now())`로 설정한다.
 - 위 조건을 충족하지 않는 기존 사용자는 null로 유지해 다음 인증 시 가입 프로필 화면으로 보낸다.
 - migration은 컬럼 추가 → 제약 추가 → 조건부 backfill 순서로 실행한다.
@@ -61,8 +66,8 @@ Content-Type: application/json
   "name": "김간호",
   "timezone": "Asia/Seoul",
   "phone": "01012345678",
-  "job_type": "NURSE",
-  "workplace": "제일병원 중환자실"
+  "job_type": "서비스 기획자",
+  "workplace": "ShiftMate 프로덕트팀"
 }
 ```
 
@@ -76,7 +81,7 @@ Content-Type: application/json
 | `name` | 예 | 앞뒤 공백 제거 후 1~50자 |
 | `timezone` | 예 | 서버가 지원하는 IANA timezone allowlist 값 |
 | `phone` | 예 | 기존 규칙과 동일하게 숫자 10~11자리 검증 후 정규화 |
-| `job_type` | 아니요 | `NURSE`, `DOCTOR`, `EMT`, `OTHER` 중 하나 |
+| `job_type` | 아니요 | 앞뒤 공백 제거 후 자유 문자열 1~20자 |
 | `workplace` | 아니요 | 앞뒤 공백 제거 후 1~100자 |
 | `profile_image` | 아니요 | JPEG/PNG/WebP 파일 1개, 최대 5MB |
 
@@ -101,8 +106,8 @@ Content-Type: application/json
     "name": "김간호",
     "timezone": "Asia/Seoul",
     "phone": "010-1234-5678",
-    "job_type": "NURSE",
-    "workplace": "제일병원 중환자실",
+    "job_type": "서비스 기획자",
+    "workplace": "ShiftMate 프로덕트팀",
     "profile_image_url": "https://cdn.example.com/profiles/user-id/uuid.webp",
     "requires_profile_setup": false
   }
@@ -130,7 +135,7 @@ HTTP 200을 사용한다. `profile_completed_at` 원문은 클라이언트에 �
 | 400 | `VALIDATION_ERROR` | 필수값 누락, 길이 위반 |
 | 400 | `INVALID_PHONE` | 휴대폰 형식 오류 |
 | 400 | `INVALID_TIMEZONE` | 지원하지 않는 timezone |
-| 400 | `INVALID_JOB_TYPE` | enum 외 직종 |
+| 400 | `INVALID_JOB_TYPE` | 문자열이 아니거나 공백뿐이거나 20자 초과인 직종 |
 | 400 | `INVALID_PROFILE_IMAGE` | 지원하지 않는 형식 또는 손상 이미지 |
 | 413 | `PROFILE_IMAGE_TOO_LARGE` | 이미지가 5MB 초과 |
 | 401 | `UNAUTHORIZED` | 유효한 앱 access token 없음 |
@@ -155,6 +160,8 @@ authRoutes
 - controller에서 직접 모델을 수정하지 않고 validation과 transaction 로직을 service로 이동한다.
 - 사용자 조회 시 soft-delete/계정 상태 정책을 기존 인증 흐름과 동일하게 적용한다.
 - 이름·전화번호·소속을 request/SQL/application log에 남기지 않는다.
+- `profileService`의 `JobType` enum type과 `job_types.includes()` 검증을 제거하고 trim한
+  1~20자 문자열만 허용한다. User model·route validator·OpenAPI enum도 같은 계약으로 바꾼다.
 - `workplace`와 `phone`은 친구 목록, 사용자 검색, 그룹 구성원 응답에 추가하지 않는다. 본인 프로필과 인증 응답에서만 반환한다.
 - endpoint에 기존 인증 route와 같은 rate limit 정책을 적용한다.
 - parser는 메모리/임시 파일 한도와 파일 수 1개를 강제하고 원본 파일명을 storage key로 쓰지 않는다.
@@ -168,7 +175,8 @@ OpenAPI에 request schema, enum, optional/null 규칙, 성공 사용자 schema�
 - 필수 세 필드만 전송해 200 및 `requires_profile_setup=false`
 - 근무 정보까지 전송해 trim·저장·응답 확인
 - 선택 필드 생략/빈 문자열이 null로 저장됨
-- 필수 누락, 잘못된 전화번호/timezone/job type, 길이 초과가 각각 구조화 오류 반환
+- 필수 누락, 잘못된 전화번호/timezone, 공백·20자 초과 job type, workplace 길이 초과가 각각 구조화 오류 반환
+- 의료·비의료 직종 자유 문자열이 저장·조회되고 기존 `NURSE/DOCTOR/EMT/OTHER` 값도 계속 조회됨
 - 정규화 후 중복 전화번호가 409 반환
 - 같은 요청 재전송이 성공하고 완료 시각이 불필요하게 변경되지 않음
 - transaction 실패 시 사용자 필드와 완료 시각이 함께 rollback
@@ -193,7 +201,7 @@ OpenAPI에 request schema, enum, optional/null 규칙, 성공 사용자 schema�
 
 ## 10. 완료 조건
 
-- [ ] Sequelize model/migration과 DB 제약 적용
+- [ ] Sequelize model/migration과 자유 입력 직종 DB 길이 제약 적용
 - [ ] `/auth/profile/complete` 인증·validation·service·transaction 구현
 - [ ] multipart parser·이미지 재검증·object storage 업로드 및 실패 정리 구현
 - [ ] 기존 profile 및 모든 OAuth 응답에 `requires_profile_setup` 반영
