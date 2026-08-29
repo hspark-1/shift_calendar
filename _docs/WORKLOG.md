@@ -1,5 +1,16 @@
 # 작업 로그
 
+## 2026-08-29
+
+- [DONE] (FE/DOCS) Production FCM 원인 확정 후 불필요한 진단 변경 정리
+  - 목적: 실제 원인인 Production Firebase Project ID 불일치와 무관한 APNs/token lifecycle 코드·테스트·문서를 제거하고 필요한 환경 설정만 남긴다.
+  - 변경: `AppDelegate`의 APNs token override, push coordinator의 token single-flight·진단 로그, 이에 종속된 단위 테스트·ADR·운영 설명을 모두 원복했다. Production Firebase는 확인된 실제 Project ID `shift-mate-b9e32`만 필수로 남기고, FCM에 불필요하며 Console에서 확인되지 않은 Storage bucket은 빈 값으로 정리했다.
+  - 영향범위: Production Firebase compile-time 설정과 푸시 운영 문서. 푸시 runtime 코드의 최종 tracked diff는 없다.
+  - 파일: `.env`, `_docs/{PUSH_NOTIFICATION_GUIDE,WORKLOG}.md`
+  - 테스트: `flutter analyze --no-fatal-infos lib/main.dart lib/core/push test/core/push` 진단 0건, `flutter test test/core/push` 4건 통과, Production `.env`를 주입한 `flutter build ios --release --no-codesign` 성공, `git diff --check` 통과.
+  - 롤백: `.env`의 Production Project ID와 푸시 가이드의 Production 식별자 설명을 이전 값으로 되돌린다.
+  - 다음: CI/App Store 빌드 secret에도 Production Project ID `shift-mate-b9e32`를 반영하고 TestFlight에서 FCM token과 `/devices/current` 200을 확인한다.
+
 ## 2026-08-27
 
 - [DONE] (CHORE) 개인 일정 삭제·프로필 흐름 개선 변경 정리 및 원격 반영

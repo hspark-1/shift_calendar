@@ -40,6 +40,14 @@ FIREBASE_PROD_STORAGE_BUCKET
 
 실제 값은 Firebase Console에서 각 환경 앱을 등록한 후 로컬/CI secret으로 주입합니다. 저장소에는 임의 project ID, API key, `google-services.json`, `GoogleService-Info.plist`, APNs key를 커밋하지 않습니다. 현재 구현은 명시적 `FirebaseOptions`로 native default app을 초기화하므로 설정이 없으면 앱은 정상 실행하되 push 기능만 비활성화합니다.
 
+Production Firebase의 표시 이름은 `shift-mate`지만 실제 Google Cloud/Firebase Project ID는
+`shift-mate-b9e32`입니다. `FIREBASE_PROD_PROJECT_ID`에는 표시 이름이 아니라 서비스 계정 이메일과
+Firebase 일반 설정에 표시되는 실제 Project ID를 사용합니다. API key가 속한 project와 이 값이
+다르면 token 발급이 실패합니다. `FIREBASE_PROD_STORAGE_BUCKET`은 FCM에 필요하지 않으므로
+Firebase Storage를 사용하지 않는 현재는 빈 값으로 둡니다. 추후 사용할 때 Firebase Console의
+Storage에서 확인한 bucket 값만 주입합니다. 로컬 `.env`와 CI/App Store 빌드 secret을 함께
+동기화해야 합니다.
+
 ## 3. 앱 흐름
 
 ```text
