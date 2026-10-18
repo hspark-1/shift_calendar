@@ -39,6 +39,14 @@
   `../design/design prompt/flutter_fe_development_prompt_shift_harmony.md`)를 따른다.
 - 앱 구조는 기존 Flutter Cupertino 기반을 유지하고, Material 3 전환은 하지 않는다.
 - 공용 색/타이포/반경/보더 토큰은 `lib/core/theme/app_theme.dart`에 둔다.
+- Cafe24 폰트는 사용자 요청으로 재활성화했다. 본문·버튼·탭·피커는
+  `AppTheme.default_font_family` (`Cafe24SsurroundAir`), 공용 제목은
+  `AppTheme.heading_font_family` (`Cafe24Ssurround`)를 사용한다.
+- `assets/fonts/Cafe24SsurroundAir-v1.1.ttf`와 `Cafe24Ssurround-v2.0.ttf`는
+  pubspec에 별도 family로 등록된 본문/제목 자산이다. 사용 예는 `body_large`/`heading_small`이다.
+  `License-Ssurround.pdf`와 `License-SsurroundAir.pdf`는 라이선스 원본 보관용이며 runtime 의존성은 없다.
+- ADR-0028 구성을 재적용하며 ADR-0029의 해제 상태는 종료했다.
+  기존 fontWeight는 유지하므로 굵은 본문도 Air를 사용하고 필요하면 굵기를 합성한다.
 - 핵심 토큰:
   - 배경: `#F8F9FB`
   - Primary: `#0061A4`
@@ -1131,6 +1139,11 @@ NotificationPage
   `TARGET_BUILD_DIR`과 실제 `flutter run` 산출 경로가 달라지지 않도록, VS Code 실행은
   `XCODE_XCCONFIG_FILE=.vscode/xcode_build_location.xcconfig`를 전달한다. 이 파일은
   `SYMROOT`만 프로젝트의 `build/ios`로 한정하며 Xcode 전역 설정은 변경하지 않는다.
+- CLI Release 설치 시 `build/ios/iphoneos/Runner.app`이 이전 Debug 산출물로 남을 수 있다.
+  2026-10-14 실행에서는 Release 빌드 성공 후 해당 경로의 Debug 엔진이 실행되었다.
+  실제 AOT 산출물인 `build/ios/Release-iphoneos/Runner.app`을 확인하고
+  `xcrun devicectl device install app --device <UDID> build/ios/Release-iphoneos/Runner.app`으로
+  직접 설치한 뒤 `device process launch --device <UDID> com.hspark.shiftmate`로 실행했다.
 - CocoaPods 의존성이 있는 iOS 앱은 Xcode에서 `ios/Runner.xcworkspace`를 연다.
   `Runner.xcodeproj`만 열면 Pods target이 빌드 그래프에 포함되지 않아
   `Framework 'Pods_Runner' not found`가 발생할 수 있다.

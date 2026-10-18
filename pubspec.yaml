@@ -87,3 +87,11 @@ flutter:
   assets:
     - assets/icons/
     - .env
+
+  fonts:
+    - family: Cafe24Ssurround
+      fonts:
+        - asset: assets/fonts/Cafe24Ssurround-v2.0.ttf
+    - family: Cafe24SsurroundAir
+      fonts:
+        - asset: assets/fonts/Cafe24SsurroundAir-v1.1.ttf

@@ -342,7 +342,7 @@ class _ShiftCustomColorPickerPageState
           key: const Key('shift_custom_color_hex_display'),
           style: _scaledTextStyle(AppTheme.heading_small).copyWith(
             color: AppTheme.on_surface_color,
-            fontFamily: 'Inter',
+            fontFamily: AppTheme.default_font_family,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -474,9 +474,10 @@ class _ShiftCustomColorPickerPageState
               SizedBox(width: _scaled(16)),
               Text(
                 '#',
-                style: _scaledTextStyle(
-                  AppTheme.body_medium,
-                ).copyWith(color: AppTheme.outline_color, fontFamily: 'Inter'),
+                style: _scaledTextStyle(AppTheme.body_medium).copyWith(
+                  color: AppTheme.outline_color,
+                  fontFamily: AppTheme.default_font_family,
+                ),
               ),
               SizedBox(width: _scaled(8)),
               Expanded(
@@ -495,7 +496,7 @@ class _ShiftCustomColorPickerPageState
                   ],
                   style: _scaledTextStyle(AppTheme.body_large).copyWith(
                     color: AppTheme.on_surface_color,
-                    fontFamily: 'Inter',
+                    fontFamily: AppTheme.default_font_family,
                     fontWeight: FontWeight.w500,
                   ),
                   padding: EdgeInsets.symmetric(vertical: _scaled(10)),
@@ -570,7 +571,7 @@ class _ShiftCustomColorPickerPageState
               key: Key('shift_custom_color_${label.toLowerCase()}_value'),
               style: _scaledTextStyle(AppTheme.body_medium).copyWith(
                 color: AppTheme.on_surface_color,
-                fontFamily: 'Inter',
+                fontFamily: AppTheme.default_font_family,
                 fontWeight: FontWeight.w500,
               ),
             ),

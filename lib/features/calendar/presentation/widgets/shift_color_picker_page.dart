@@ -334,7 +334,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
                     _hex_value,
                     key: const Key('shift_color_hex_label'),
                     style: _scaledTextStyle(AppTheme.body_medium).copyWith(
-                      fontFamily: 'Inter',
+                      fontFamily: AppTheme.default_font_family,
                       color: AppTheme.on_surface_variant_color,
                       fontWeight: FontWeight.w600,
                       letterSpacing: _scaled(1.4),

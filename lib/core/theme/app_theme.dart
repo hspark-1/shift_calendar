@@ -36,9 +36,13 @@ class AppTheme {
   static const double spacing_lg = 24;
   static const double spacing_xl = 32;
 
+  /// 앱 기본 폰트와 제목 폰트
+  static const String default_font_family = 'Cafe24SsurroundAir';
+  static const String heading_font_family = 'Cafe24Ssurround';
+
   /// 텍스트 스타일
   static const TextStyle heading_large = TextStyle(
-    fontFamily: 'Plus Jakarta Sans',
+    fontFamily: heading_font_family,
     fontSize: 32,
     fontWeight: FontWeight.w700,
     height: 1.25,
@@ -48,7 +52,7 @@ class AppTheme {
   );
 
   static const TextStyle heading_medium = TextStyle(
-    fontFamily: 'Plus Jakarta Sans',
+    fontFamily: heading_font_family,
     fontSize: 24,
     fontWeight: FontWeight.w600,
     height: 1.33,
@@ -58,7 +62,7 @@ class AppTheme {
   );
 
   static const TextStyle heading_small = TextStyle(
-    fontFamily: 'Plus Jakarta Sans',
+    fontFamily: heading_font_family,
     fontSize: 20,
     fontWeight: FontWeight.w600,
     height: 1.4,
@@ -68,7 +72,7 @@ class AppTheme {
   );
 
   static const TextStyle body_large = TextStyle(
-    fontFamily: 'Plus Jakarta Sans',
+    fontFamily: default_font_family,
     fontSize: 16,
     fontWeight: FontWeight.normal,
     height: 1.5,
@@ -78,7 +82,7 @@ class AppTheme {
   );
 
   static const TextStyle body_medium = TextStyle(
-    fontFamily: 'Plus Jakarta Sans',
+    fontFamily: default_font_family,
     fontSize: 14,
     fontWeight: FontWeight.normal,
     height: 1.43,
@@ -88,7 +92,7 @@ class AppTheme {
   );
 
   static const TextStyle body_small = TextStyle(
-    fontFamily: 'Inter',
+    fontFamily: default_font_family,
     fontSize: 12,
     fontWeight: FontWeight.w500,
     height: 1.33,
@@ -162,34 +166,52 @@ class AppTheme {
     return (lighter_luminance + 0.05) / (darker_luminance + 0.05);
   }
 
-  /// Cupertino 테마 데이터
-  static CupertinoThemeData get lightTheme {
-    return const CupertinoThemeData(
-      brightness: Brightness.light,
-      primaryColor: primary_color,
-      scaffoldBackgroundColor: background_color,
-      barBackgroundColor: surface_color,
-      textTheme: CupertinoTextThemeData(
-        primaryColor: on_surface_color,
-        textStyle: body_large,
-        navTitleTextStyle: heading_small,
-        navLargeTitleTextStyle: heading_large,
+  /// Cupertino의 기존 크기와 색상을 유지하며 폰트를 연결한다.
+  static CupertinoTextThemeData _buildTextTheme(Color text_color) {
+    final defaults = CupertinoTextThemeData(primaryColor: text_color);
+    return defaults.copyWith(
+      textStyle: body_large,
+      navTitleTextStyle: heading_small,
+      navLargeTitleTextStyle: heading_large,
+      actionTextStyle: defaults.actionTextStyle.copyWith(
+        fontFamily: default_font_family,
+      ),
+      actionSmallTextStyle: defaults.actionSmallTextStyle.copyWith(
+        fontFamily: default_font_family,
+      ),
+      tabLabelTextStyle: defaults.tabLabelTextStyle.copyWith(
+        fontFamily: default_font_family,
+      ),
+      navActionTextStyle: defaults.navActionTextStyle.copyWith(
+        fontFamily: default_font_family,
+      ),
+      pickerTextStyle: defaults.pickerTextStyle.copyWith(
+        fontFamily: default_font_family,
+      ),
+      dateTimePickerTextStyle: defaults.dateTimePickerTextStyle.copyWith(
+        fontFamily: default_font_family,
       ),
     );
   }
 
+  /// Cupertino 테마 데이터
+  static CupertinoThemeData get lightTheme {
+    return CupertinoThemeData(
+      brightness: Brightness.light,
+      primaryColor: primary_color,
+      scaffoldBackgroundColor: background_color,
+      barBackgroundColor: surface_color,
+      textTheme: _buildTextTheme(on_surface_color),
+    );
+  }
+
   static CupertinoThemeData get darkTheme {
-    return const CupertinoThemeData(
+    return CupertinoThemeData(
       brightness: Brightness.dark,
       primaryColor: primary_color,
       scaffoldBackgroundColor: dark_background_color,
       barBackgroundColor: dark_surface_color,
-      textTheme: CupertinoTextThemeData(
-        primaryColor: CupertinoColors.white,
-        textStyle: body_large,
-        navTitleTextStyle: heading_small,
-        navLargeTitleTextStyle: heading_large,
-      ),
+      textTheme: _buildTextTheme(CupertinoColors.white),
     );
   }
 }

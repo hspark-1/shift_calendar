@@ -1,5 +1,54 @@
 # 작업 로그
 
+## 2026-10-18
+
+- [DONE] (CHORE) Cafe24 폰트 작업 정리 및 Git 반영
+  - 목적: 본문 Air·제목 Ssurround 최종 적용 상태를 검증하고 커밋·푸시한다.
+  - 변경: 폰트 자산·라이선스, pubspec 등록, Cupertino 텍스트 및 색상 선택 화면 폰트 연결, ADR·프로젝트 문서와 실기기 설치 기록을 함께 정리한다.
+  - 영향범위: 앱 타이포·폰트 번들·프로젝트 문서.
+  - 롤백: 생성 커밋을 git revert한다.
+  - 테스트: 관련 Dart 3개 정적 분석 진단 0건, 기존 색상 선택 위젯 테스트 16건 통과, git diff --check 통과.
+  - 결과: 최종 적용 상태와 10월 14일 실기기 검증 이력을 하나의 커밋으로 정리한다. 커밋 메시지: `feat: Cafe24 기본 폰트 및 제목 폰트 적용`.
+
+## 2026-10-14
+
+- [DONE] (FE/OPS) Cafe24 재적용 및 릴리즈 설치
+  - 목적: 사용자 요청으로 본문 Air·제목 Ssurround 구성을 재적용한다.
+  - 변경: pubspec 폰트 등록, 공용 테마와 색상 선택 화면 연결 복원.
+  - 영향범위: 앱 타이포·폰트 번들·지정 iPhone. Behavior change: Cafe24 표시 재활성화.
+  - 롤백: ADR-0029의 적용 해제를 다시 수행한다.
+  - 테스트: 변경 Dart 3개 분석 진단 0건, dart format 완료, Release 빌드 성공(24.5초), 두 폰트 번들 등록·원본 일치 확인, 지정 iPhone 설치·실행 성공, git diff --check 통과.
+
+- [DONE] (FE/OPS) Cafe24 폰트 적용 해제 및 릴리즈 재설치
+  - 목적: 사용자 요청에 따라 폰트 적용 전 표시로 복구한다.
+  - 변경: 테마·색상 선택 화면·pubspec의 이번 폰트 변경을 복구하고 기존 TTF·라이선스는 비활성 보관한다.
+  - 영향범위: 앱 타이포와 번들. Behavior change: Cafe24 사용 해제.
+  - 롤백: ADR-0028의 폰트 등록과 테마 연결을 재적용한다.
+  - 테스트: 관련 Dart 3개 정적 분석 진단 0건, 서명된 Release 빌드 성공(26.4초), Release FontManifest에 Cafe24 family 없음 확인, 지정 iPhone devicectl 설치·실행 성공, git diff --check 통과.
+
+- [DONE] (OPS) 지정 iPhone 릴리즈 설치
+  - 목적: 사용자 요청에 따라 디버그를 종료하고 릴리즈 앱을 설치한다.
+  - 변경: `.env` define과 기존 iOS 빌드 경로 설정으로 release 실행.
+  - 영향범위: `00008130-00124C6A1E12001C` 기기 앱, Release의 Production API/Firebase 설정.
+  - 롤백: 같은 기기에 기존 debug 실행 명령으로 재설치한다.
+  - 테스트: Release Xcode 빌드 성공(50.6초). 기본 iphoneos 경로가 기존 Debug 산출물을 가리켜 디버그 엔진 오류가 발생했으므로, AOT App.framework(8,631,488 bytes)가 있는 `build/ios/Release-iphoneos/Runner.app`을 devicectl로 직접 설치·실행 완료. 디버그 세션 및 조사 중단점 정리 완료.
+
+- [DONE] (FE) 실기기 폰트 미적용 제보 조사
+  - 목적: 실기기에서 기본 폰트가 적용되지 않아 보이는 원인을 확인한다.
+  - 변경: 빌드 폰트 자산·화면 스타일·실행 상태를 확인했으며 사용자 적용 확인으로 추가 수정 없이 종료했다.
+  - 영향범위: 폰트와 iOS 개발 실행 상태.
+  - 롤백: 조사 기록만 추가했으며 생산 코드 변경은 없다.
+  - 테스트: iOS 앱 FontManifest에 두 폰트 등록 확인. 사용자가 실기기 폰트 적용을 확인하여 추가 수정 없이 조사를 종료했다.
+
+- [DONE] (FE/DOCS) Cafe24 기본 폰트 적용
+  - 목적: 제공된 폰트를 앱에 포함하고 본문 Air·제목 Ssurround를 공용 테마에 적용한다.
+  - 변경: TTF 등록, Cupertino 기본 텍스트 및 화면별 폰트 지정 통일.
+  - 영향범위: 앱 텍스트 타이포와 폰트 번들. Behavior change: 글꼴과 글자 폭이 변경된다.
+  - 파일: `assets/fonts/`, `pubspec.yaml`, `lib/core/theme/app_theme.dart`, 색상 선택 화면 2개, 프로젝트 문서.
+  - 롤백: 이번 폰트 자산·pubspec·테마·화면·문서 변경을 함께 되돌린다.
+  - 테스트: 변경 Dart 3개 정적 분석 진단 0건, 기존 색상 선택 위젯 테스트 16건 통과, FontManifest의 두 family와 번들 TTF 원본 일치 확인, dart format 및 git diff --check 통과. 실기기 시각 검증은 미실행.
+  - 다음: 앱 완전 재시작 후 실기기에서 한글·숫자·텍스트 배율별 줄바꿈을 확인한다.
+
 ## 2026-08-29
 
 - [DONE] (FE/DOCS) Production FCM 원인 확정 후 불필요한 진단 변경 정리
