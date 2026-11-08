@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/profile_image.dart';
 import '../../../calendar/presentation/pages/calendar_page.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/profile_image_upload.dart';
@@ -340,10 +341,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                         fit: BoxFit.cover,
                       )
                     : has_image
-                    ? Image.network(
-                        image_url,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(
+                    ? ProfileImage(
+                        image_url: image_url,
+                        fallback: const Icon(
                           CupertinoIcons.person_fill,
                           size: 34,
                           color: AppTheme.outline_color,

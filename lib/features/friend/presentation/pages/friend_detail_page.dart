@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/profile_image.dart';
 import '../../data/models/friend_model.dart';
 import '../providers/friend_provider.dart';
 
@@ -121,20 +122,17 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
                 offset: const Offset(0, 2),
               ),
             ],
-            image: widget.friend.profileImageUrl != null
-                ? DecorationImage(
-                    image: NetworkImage(widget.friend.profileImageUrl!),
-                    fit: BoxFit.cover,
-                  )
-                : null,
           ),
-          child: widget.friend.profileImageUrl == null
-              ? const Icon(
-                  CupertinoIcons.person_fill,
-                  size: 40,
-                  color: AppTheme.outline_color,
-                )
-              : null,
+          child: ClipOval(
+            child: ProfileImage(
+              image_url: widget.friend.profileImageUrl ?? '',
+              fallback: const Icon(
+                CupertinoIcons.person_fill,
+                size: 40,
+                color: AppTheme.outline_color,
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         Text(

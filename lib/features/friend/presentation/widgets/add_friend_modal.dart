@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/profile_image.dart';
 import '../../data/models/friend_model.dart';
 import '../providers/friend_provider.dart';
 
@@ -334,20 +335,17 @@ class _AddFriendModalState extends ConsumerState<AddFriendModal> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppTheme.surface_container_color,
-                  image: user.profileImageUrl != null
-                      ? DecorationImage(
-                          image: NetworkImage(user.profileImageUrl!),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
                 ),
-                child: user.profileImageUrl == null
-                    ? const Icon(
-                        CupertinoIcons.person_fill,
-                        size: 30,
-                        color: AppTheme.outline_color,
-                      )
-                    : null,
+                child: ClipOval(
+                  child: ProfileImage(
+                    image_url: user.profileImageUrl ?? '',
+                    fallback: const Icon(
+                      CupertinoIcons.person_fill,
+                      size: 30,
+                      color: AppTheme.outline_color,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 18),
               Expanded(

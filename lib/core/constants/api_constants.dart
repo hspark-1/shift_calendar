@@ -12,9 +12,16 @@ class ApiConstants {
   /// 기본 API URL (운영/Center 환경)
   static const String base_url_prod = 'https://api.shiftmate.co.kr/api/v1';
 
-  /// 현재 사용 중인 base URL
-  /// Debug 모드에서는 개발 환경, Release 모드에서는 운영 환경 사용
-  static String get base_url => kDebugMode ? base_url_dev : base_url_prod;
+  /// 로컬 디버그 서버 URL
+  static const String base_url_local = 'http://172.30.1.14:3000/api/v1';
+
+  static const bool _use_local_api = bool.fromEnvironment('USE_LOCAL_API');
+
+  /// Debug는 기본 Stage, USE_LOCAL_API=true이면 로컬 서버를 사용한다.
+  /// Profile/Release는 항상 운영 서버를 사용한다.
+  static String get base_url => kDebugMode
+      ? (_use_local_api ? base_url_local : base_url_dev)
+      : base_url_prod;
 
   /// API 타임아웃 (초)
   static const int connection_timeout = 30;

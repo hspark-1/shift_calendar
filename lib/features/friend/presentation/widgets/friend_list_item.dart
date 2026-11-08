@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/profile_image.dart';
 import '../../data/models/friend_model.dart';
 
 /// 친구 리스트 아이템 위젯
@@ -65,20 +66,17 @@ class FriendListItem extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppTheme.surface_container_color,
-        image: friend.profileImageUrl != null
-            ? DecorationImage(
-                image: NetworkImage(friend.profileImageUrl!),
-                fit: BoxFit.cover,
-              )
-            : null,
       ),
-      child: friend.profileImageUrl == null
-          ? const Icon(
-              CupertinoIcons.person_fill,
-              size: 24,
-              color: AppTheme.outline_color,
-            )
-          : null,
+      child: ClipOval(
+        child: ProfileImage(
+          image_url: friend.profileImageUrl ?? '',
+          fallback: const Icon(
+            CupertinoIcons.person_fill,
+            size: 24,
+            color: AppTheme.outline_color,
+          ),
+        ),
+      ),
     );
   }
 

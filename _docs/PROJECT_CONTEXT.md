@@ -1,14 +1,83 @@
 # 프로젝트 컨텍스트
 
+## 잔여 작업 전체 보존 (2026-11-08)
+
+- 후속 사용자 요청으로 업데이트 기능 커밋에서 제외했던 프로필 이미지 인증·계정 전환 캐시 무효화, 로컬 API 디버그, iPhone 전용 설정, 출시/개인정보 문서 및 스크린샷도 이번 커밋 범위에 포함한다. 빌드 2에 포함된 기존 프로필 이미지 수정 등의 소스를 함께 보존한다.
+- 영향: 보호된 프로필 이미지 요청과 개발 실행 옵션, iPhone 지원 범위 및 출시 전달 자료. 각 기능의 동작·검증·파일 역할은 아래 관련 절과 ADR-0030~0034, 출시 체크리스트를 참조한다. 환경 파일·서명 비밀값·Archive/IPA는 Git에 추가하지 않는다.
+- 롤백: 이번 잔여 변경 커밋을 일반 `git revert`로 되돌린다. 서버 배포·앱 업로드·심사 제출 상태는 그대로다.
+
 ## 서버 API 호환 버전·필수 업데이트
 
 - [APP_VERSION_SERVER_HANDOFF.md](APP_VERSION_SERVER_HANDOFF.md)는 서버 담당자 전달용 코드 반영·초기 env·실제 HTTP 수용 기준·배포 순서·롤백·결과 회신 가이드다. 서버 기능 커밋 90ece07 및 앱 정책 계약에 의존한다. 사용 예: 서버 담당자에게 가이드와 전달 패치를 넘기고 배포 결과를 회신받는다. 메시지 전송·운영 배포는 수행하지 않았다.
 
-- 재빌드 완료: Archive·IPA 1.0.0(2), 앱 내부 호환 번호 1. 현재 작업 트리 전체 테스트 206 pass·1 skip 및 변경 파일 분석 진단 0건, 서버 선택 테스트 23건·TypeScript 통과. IPA의 새 게이트/API 경로·스토어 플러그인·운영 API·배포 서명/권한·무결성을 검증했다. 빌드 2에는 작업 당시 미커밋 프로필 이미지 수정 등도 포함되며 이번 업데이트 기능만의 커밋과 소스 범위가 다르다. 이전 빌드 1은 `build/ios/releases/1.0.0-1/`로 보존했다. 서버 커밋 `90ece07`은 origin 기능 브랜치로 push했고 전달 패치를 준비했다. 서버 배포·앱 업로드·심사 제출은 미수행이다.
+- 재빌드 완료: Archive·IPA 1.0.0(2), 앱 내부 호환 번호 1. 현재 작업 트리 전체 테스트 206 pass·1 skip 및 변경 파일 분석 진단 0건, 서버 선택 테스트 23건·TypeScript 통과. IPA의 새 게이트/API 경로·스토어 플러그인·운영 API·배포 서명/권한·무결성을 검증했다. 빌드 2에는 작업 당시 미커밋 프로필 이미지 수정 등도 포함되며 업데이트 기능 선별 커밋과 소스 범위가 달랐다. 후속 요청에 따라 이 잔여 소스도 별도 커밋 범위에 포함한다. 이전 빌드 1은 `build/ios/releases/1.0.0-1/`로 보존했다. 서버 커밋 `90ece07`은 origin 기능 브랜치로 push했고 전달 패치를 준비했다. 서버 배포·앱 업로드·심사 제출은 미수행이다.
 
 - 사용자 확정(2026-11-08): App Store 버전/빌드 번호와 별도인 앱 내부 `AppConstants.api_compatibility_version=1`을 서버 최소값과 비교하고, 최소값 미만이면 업데이트 전까지 이용을 차단한다. Apple ID `6831957246`은 스토어 이동용이다. 현재 사용자 표시 버전은 1.0.0, 새 빌드 번호는 2다.
 - `CupertinoApp.builder → AppUpdateGate → AppUpdateController → AppUpdateRepository(Dio/SharedPreferences) → GET /app/version-policy` 흐름이다. 시작/복귀에 5초 내 확인하고 이미 확인된 차단은 장애에도 유지한다. 캐시 없는 최초 실패는 허용한다. 앱 전역 domain state는 ProviderScope 수명, 스토어 버튼 상태는 UI state다.
 - 신규 feature/테스트의 파일 역할·의존성·사용 예, FE/BE 계약·선택 env·운영 적용 순서·rollback은 [APP_VERSION_POLICY.md](APP_VERSION_POLICY.md), 결정은 ADR-0035를 참조한다. 서버 구현은 develop 기반 `codex/app-compatibility-policy` 작업이며 실제 배포는 미수행이다. 서버 최소값을 올리기 전에 해당 내부 호환 번호를 지원하는 앱을 스토어에 먼저 공개해야 한다.
+
+## App Store 출시 준비 문서
+
+- 2026-11-08 스크린샷 폰트 검증: Figma 실제 홍보 텍스트는 Noto Sans KR Black/Medium/Regular 32개. 공식 SIL OFL 1.1·FAQ 및 앱 화면의 Cafe24 Ssurround/Air 로컬 라이선스 네 페이지 확인 결과, 제작 PNG의 상업 홍보 사용이 허용된다. 이미지 안의 폰트 출처 표기·별도 구매는 필요하지 않다. 폰트 파일 자체 재배포 시 라이선스 동봉은 별도 조건이며, 앱 바이너리 동봉 상태·전체 콘텐츠 권리 검증은 이번 범위 밖이다. 근거·조건·검증은 출시 체크리스트의 폰트 라이선스 확인 절을 참조한다.
+
+- 2026-11-08 빌드 완료: 후속 첨부 화면에서 심사 로그인 정보 및 보조 계정 메모 입력 확인(비밀번호 미기록). Xcode 27.1(27A9275)·iOS SDK 27.1·Flutter 3.38.5/Dart 3.10.4로 `build/ios/archive/Runner.xcarchive` 및 `build/ios/ipa/ShiftMate.ipa` 1.0.0(1) 생성. Release 운영 API·Production OAuth/Firebase·iPhone 전용·배포 서명/권한·IPA 무결성 검증 완료, 기존 테스트 196 pass·1 skip. 전체 정적 분석은 기존 info 33건(error/warning 0). 기본 LaunchImage 안내 1건 유지. 산출물 역할·의존성·명령·SHA-256·롤백은 출시 체크리스트의 제출용 빌드 결과를 참조한다. Connect 업로드·Apple 서버 검증·실기기 실행·심사 제출은 미수행이며, 과거 Xcode 16.2 및 빌드 미생성 상태는 당시 이력이다.
+
+- 2026-11-08 심사 계정 후속 보고: `shiftmate.review1@gmail.com`, `shiftmate.review2@gmail.com` 두 Google 계정 생성 및 ShiftMate 회원가입 완료(사용자 보고). 친구·그룹 연결, 예시 근무표, 제출 빌드 접속 서버에서의 로그인 및 Connect 계정 정보 저장은 미확인이다. 비밀번호는 저장소에 기록하지 않는다. 아래의 Google 심사 계정 준비 대기 설명 중 생성·가입 단계만 이번 보고로 대체한다.
+
+- 2026-11-08 최신 사용자 보고: Connect에 저작권 `2026 박현서`, 심사 연락처, 설명·홍보 문구·키워드·지원/개인정보 URL·심사 메모를 저장했고 무료·대한민국 한정 및 iPhone 스크린샷 4장 등록을 확인했다. Codex 직접 포털 검증은 아니다. Google 심사 계정·제출용 빌드·개인정보 설문·연령 등급·콘텐츠 권리 확인이 남아 있다. 현재 승인 후 자동 출시이며 최종 제출 전 재확인한다. 심사는 미제출이다. 아래 과거 기록의 포털 미입력 상태는 이번 명시 항목에 한해 대체하며, 공개 개인정보 페이지 최종 검증 완료로 확대하지 않는다. 심사용 연락처 입력은 공개 지원 이메일 변경을 뜻하지 않는다.
+
+- 2026-11-08: 실제 앱 첨부 화면으로 [Figma 출시 스크린샷](https://www.figma.com/design/bkMSAJCfP2X28FuyNJu1Ej?node-id=2-2) 4종을 제작했다. `artifacts/app_store_screenshots/`의 두 규격 폴더(1290×2796, 1179×2556)는 제출용 RGB PNG 각 4장, `preview.png`는 구성 확인용, `ShiftMate_AppStore_Screenshots.zip`은 전달용 묶음이다. 원본 `../design/KakaoTalk_Photo_2026-11-08-19-29-18 001.png`~`004.png`와 Figma 편집본에 의존하며 앱 런타임 의존성은 없다. 사용 예: ZIP 해제 후 해당 규격의 01~04 이미지를 Connect에 등록한다. 문구·원본 매핑·검증·롤백은 아래 출시 체크리스트의 2026-11-08 제작 결과를 참조한다. 실제 Connect 등록·심사 제출은 미수행.
+
+- [`APP_STORE_RELEASE_CHECKLIST.md`](APP_STORE_RELEASE_CHECKLIST.md): 첨부 체크리스트 전체와 심사 준비 진행 상태·근거·다음 작업을 관리한다.
+- 의존성: 이 문서의 앱 식별자, iOS Xcode 설정, Apple Developer / App Store Connect 실제 상태.
+- 사용 예: 계정·서명·심사 자료 검증을 완료할 때 체크 상태와 날짜별 증거를 갱신한다. 등록·결제는 사용자 확인 완료이며 포털 활성화·배포 서명은 별도 검증한다.
+
+- 출시 문서 상단의 「2번 준비」는 구현 근거에 맞춘 한국어 등록 문구, 아이콘 검사 결과, iPhone 촬영 계획 및 후속 iPad 지원 과제와 공개 URL 미결 항목을 포함한다. 포털 등록 완료와 로컬 초안을 구분한다.
+
+## App Store 공개 페이지 전달 파일
+
+- [`app_store_web/FE_PRIVACY_CONTRACT_REPLY.md`](app_store_web/FE_PRIVACY_CONTRACT_REPLY.md): BE-05 화면·상태·DTO·오류·SDK 경계 FE 회신안. 기존 인증 코드와 BE 제안에 의존한다. 합의 후 계약 테스트/구현 기준으로 사용하며 현재 후보 필드를 전송하지 않는다.
+
+
+- [`app_store_web/PRIVACY_ACTION_PLAN.md`](app_store_web/PRIVACY_ACTION_PLAN.md): 문서 수정 완료·FE/BE 프로그램 요청·운영 확인을 ID/담당/완료 기준으로 나눈 작업표. API·운영 결과 회신 후 상태를 갱신한다.
+- [`app_store_web/BACKEND_PRIVACY_REQUEST.md`](app_store_web/BACKEND_PRIVACY_REQUEST.md): 서버 담당자 전달용 이미지 삭제·탈퇴 감시·기기/작업 정리·가입 계약 요청서. 코드 근거와 수용 기준·운영 회신 양식을 포함하며 직접 전송하지 않았다.
+
+
+- `_docs/app_store_web/support.html`: 확정된 지원 이메일·문의 방법·탈퇴 요청 경로를 제공하는 독립 HTML. 외부 자산·빌드·API 의존성 없음. 사용 예: 서버 `/support` 응답.
+- `_docs/app_store_web/PRIVACY_POLICY.md`: 운영자가 채택한 보관 정책·실제 코드 근거 기반 개인정보처리방침 편집 정본. 2026-10-18 시행 v1.0 공개 문안으로 정리했다.
+- `_docs/app_store_web/privacy.html`: 위 MD와 동일 본문의 단일 HTML. 검토 배너·개발 메모를 제거했다. 실제 계약/국외 이전 고지 대조와 공개 재게시·제출은 별도다. 두 파일을 함께 갱신하고 최종 HTML을 서버 `/privacy` 응답으로 사용한다.
+- [`app_store_web/PRIVACY_REVIEW.md`](app_store_web/PRIVACY_REVIEW.md): 코드 근거·실제 URL 응답·운영 확정 목록. 서버 담당자의 공개 전 검토에 사용하며 웹에 게시하지 않는다.
+- [`app_store_web/DEPLOY_GUIDE.md`](app_store_web/DEPLOY_GUIDE.md): 서버 담당자용 Nginx·파일 배치·검증·롤백 및 정책 확정 체크리스트. 서버 환경에 맞춰 적용하며 실제 배포는 담당자가 수행한다.
+
+### 개인정보 운영 정책 채택 (ADR-0032)
+
+- 최신 사용자 확정: 최초 시행일 2026-10-18, 일반 로그/DB 백업 30일·문의 완료 후 1년 삭제 적용 완료, 이미지 별도 백업 없음. 개인정보 MD/HTML은 공개 문체 v1.0으로 갱신. 계정별 외부 처리/국외 이전 고지의 완결성은 실제 계약 대조 필요. 서버 재게시·심사 제출 미수행.
+
+
+- BE-05 최신 상태: 구현·검증 완료(2026-10-18 사용자 명시 확인). 이전 미구현/합의 대기 설명은 당시 이력이다. Codex 직접 코드/테스트 검증은 아니며 제안 DTO를 실제 계약으로 확정하지 않는다. 다른 운영 검증 대기 항목에는 이 완료 상태를 확대 적용하지 않는다.
+
+
+- 최신 사용자 전달: BE-01~04 main 코드 배포 완료. 기존 배포 미확인 기록을 대체한다. 실삭제·cleanup·호스트 timer/SMTP·로그/백업/메일 보관 설정은 별도 검증 대기.
+- AWS 개인 계정·개인용 Gmail 확인 완료. S3 서울·복제/CDN 없음에 더해 버전 관리 off 확인. 프로필 사진 별도 백업은 미확인. 시행일은 조건부 제안으로 미확정.
+
+
+- 최신 사용자 정정: ‘모두 완료’ 답변 철회. BE-01~04는 구현 및 DB migration/S3 조회 권한 준비 보고가 있으나 운영 배포·파기·감시·보관 설정은 미검증/미완료.
+- 국내 홈서버 수동 Stage·운영 DB 백업 존재 보고. 최대 보관 기간·30일 순환 삭제·정기 백업·복원 시험 미확인. 이미지 별도 백업 유무도 미확인. 시행/개정일과 AWS/Gmail 계정 유형은 미확정. 상세 증거 상태는 PRIVACY_REVIEW의 최신 운영 상태 표를 우선 적용한다.
+
+
+- 2026-10-18 사용자 정정: 프로필 이미지는 AWS S3 저장. API·DB 홈서버 운영과 분리한다. 이미지 서울 리전 ap-northeast-2·복제/CDN 없음 사용자 확인. 별도 백업 위치·계약 법인·실제 파기는 미확인. 기존 이미지까지 국내 홈서버 설명을 대체한다.
+
+
+- BE-01~04 결과 전달서 수신 및 인접 서버 c1af0f7 핵심 소스 확인: 관리 이미지 파기·탈퇴 감시·기기 cleanup·retention 강제 구현. 실제 홈서버 적용은 대기다.
+- BE 보고의 추가 승인 정책: 무연결 비활성 기기 30일 경과 후 정기 정리, 완료 탈퇴/종료 푸시 30일, 미완료 7일 초과 경보·30일 이내 운영자 최종 조치. 실제 일일 cleanup 주기와 예외는 운영 절차를 따른다.
+- BE-05는 합의 전 제안. 신규 API·DB·가입 필드·연령 차단·SDK 호출 순서 변경은 아직 수행하지 않았다.
+
+
+- 개인정보처리자·보호 담당자: 박현서. 연락처 `sspp8585@gmail.com`.
+- 사용자 채택: 탈퇴 처리 목표 7일 이내, 일반 서버/Nginx 로그 최대 30일, 백업 최대 30일 순환 삭제, 문의 처리 완료 후 1년. 법정 의무 기록은 별도 적용. 운영 설정 구현 완료를 뜻하지 않는다.
+- 만 14세 미만 가입·이용 미허용 정책. 가입 제한의 실제 구현·운영은 후속 확인 필요.
+- 분석·충돌 수집 SDK는 도구 미정·현재 미도입. 도입 전에 정책·App Privacy를 갱신한다. 기존 FCM·Gmail의 외부 처리는 별도다.
+- 공개 지원 URL: `https://www.shiftmate.co.kr/support`(2026-10-18 GET 200 확인). `/privacy`는 최초 확인에서 404였으나 후속 GET 200으로 검토본 공개 확인. 최종 정책 확정·재게시가 필요하다.
 
 ## 프로젝트 개요
 
@@ -32,6 +101,18 @@
 - **로컬 저장소**: Flutter Secure Storage, Shared Preferences
 - **푸시**: Firebase Core/Messaging, Flutter Local Notifications
 - **코드 생성**: Freezed, JSON Serializable
+
+### 최초 App Store 출시 범위
+
+- 2026-10-18 사용자 확정: 대한민국 한정, 무료, 앱 내 결제 없음(ADR-0031).
+- 공개 고객 문의 이메일: `sspp8585@gmail.com`.
+- 서비스는 앱으로 제공하며 지원·개인정보처리방침은 기존 `shiftmate.co.kr` 도메인에 정적 HTML로 제공할 방향이다. 실제 www 호스트의 `/support`·`/privacy`는 GET 200 확인했으며 정책의 공개 최종 내용은 별도 검증 대상이다. 2026-11-08 사용자 보고로 App Store Connect 무료·대한민국 한정 설정 및 지원/개인정보 URL 저장 완료를 확인했다.
+
+### iOS 지원 기기
+
+- 최초 출시는 iPhone 전용이다(2026-10-18 사용자 결정, ADR-0030).
+- `ios/Runner.xcodeproj/project.pbxproj`의 Debug/Profile/Release `TARGETED_DEVICE_FAMILY = 1`을 사용한다.
+- iPad 네이티브 지원·UI 검증·전용 스크린샷은 후속 업데이트 과제다. iPhone 앱의 iPad 호환 실행 차단을 뜻하지 않는다.
 
 ### 앱 브랜드 및 플랫폼 식별자
 
@@ -1658,3 +1739,22 @@ WHERE ws.deleted_at IS NULL
    ALTER DATABASE your_db_name SET timezone TO 'UTC';
    ========================================================= */
 $$
+
+## 로컬 API 디버그 실행 (2026-11-08)
+
+- VS Code/Cursor에서 `ShiftMate (debug local)`을 선택하면 `USE_LOCAL_API=true`가 전달되어
+  `http://172.30.1.14:3000/api/v1`로 연결한다. 기존 `ShiftMate (debug)`는 Stage를 유지한다.
+- CLI: `flutter run --debug --dart-define-from-file=.env --dart-define=USE_LOCAL_API=true`.
+- `lib/core/constants/api_constants.dart`는 Debug에서만 로컬 옵션을 적용한다.
+  Profile/Release는 운영 API, Kakao/Firebase는 기존 빌드 모드별 설정을 유지한다.
+  로컬 서버의 OAuth 설정은 Stage 앱 키와 일치해야 한다.
+- Android Debug manifest에서 HTTP를 허용한다. iOS는 기존 ATS HTTP 허용 설정을 사용한다.
+- 기기에서 해당 LAN 주소로 접근할 수 있어야 한다. 실제 기기 연결·로그인 검증은 별도다.
+- 롤백: 로컬 실행 구성, API 옵션, Android Debug HTTP 허용 변경을 되돌린다.
+
+### 프로필 이미지 표시 (2026-11-08)
+
+- `lib/core/widgets/profile_image.dart`: 설정·가입·친구 목록/상세·검색에서 공유하는 이미지 위젯과 autoDispose byte Provider. Dio/Riverpod에 의존한다. 사용 예: `ProfileImage(image_url: url, fallback: Icon(CupertinoIcons.person_fill))`.
+- 현재 API와 origin이 같고 `/api/v1/profile-images/:user_id`인 URL(서버 상대 경로 포함)만 기존 Dio로 조회한다. Bearer 첨부와 토큰 갱신을 재사용하고 인증 요청의 redirect는 따르지 않는다. 외부 OAuth 이미지는 토큰 없이 Image.network로 표시한다.
+- Behavior change: 보호 이미지 GET에도 인증을 적용한다. 로딩·실패·빈 URL은 호출부 기본 아이콘을 유지한다. 구독 해제 시 요청을 취소하며 계정 전환/로그아웃에서 이미지 Provider를 무효화한다.
+- `test/core/widgets/profile_image_test.dart`: secure storage 모의 토큰과 Dio adapter로 상대 URL·Bearer·redirect 차단·이미지 표시 및 빈 URL을 검증한다. 실제 서버 연결을 수행하지 않는다.

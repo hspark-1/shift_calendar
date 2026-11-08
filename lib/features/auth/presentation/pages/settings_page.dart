@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/profile_image.dart';
 import '../../domain/entities/user.dart';
 import '../../../calendar/presentation/pages/shift_template_settings_page.dart';
 import '../providers/auth_provider.dart';
@@ -409,11 +410,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           child: ClipOval(
             child: has_profile_image
-                ? Image.network(
-                    profile_image_url,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack_trace) =>
-                        _buildProfileFallback(),
+                ? ProfileImage(
+                    image_url: profile_image_url,
+                    fallback: _buildProfileFallback(),
                   )
                 : _buildProfileFallback(),
           ),
