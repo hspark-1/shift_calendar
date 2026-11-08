@@ -1,5 +1,15 @@
 # 프로젝트 컨텍스트
 
+## 서버 API 호환 버전·필수 업데이트
+
+- [APP_VERSION_SERVER_HANDOFF.md](APP_VERSION_SERVER_HANDOFF.md)는 서버 담당자 전달용 코드 반영·초기 env·실제 HTTP 수용 기준·배포 순서·롤백·결과 회신 가이드다. 서버 기능 커밋 90ece07 및 앱 정책 계약에 의존한다. 사용 예: 서버 담당자에게 가이드와 전달 패치를 넘기고 배포 결과를 회신받는다. 메시지 전송·운영 배포는 수행하지 않았다.
+
+- 재빌드 완료: Archive·IPA 1.0.0(2), 앱 내부 호환 번호 1. 현재 작업 트리 전체 테스트 206 pass·1 skip 및 변경 파일 분석 진단 0건, 서버 선택 테스트 23건·TypeScript 통과. IPA의 새 게이트/API 경로·스토어 플러그인·운영 API·배포 서명/권한·무결성을 검증했다. 빌드 2에는 작업 당시 미커밋 프로필 이미지 수정 등도 포함되며 이번 업데이트 기능만의 커밋과 소스 범위가 다르다. 이전 빌드 1은 `build/ios/releases/1.0.0-1/`로 보존했다. 서버 커밋 `90ece07`은 origin 기능 브랜치로 push했고 전달 패치를 준비했다. 서버 배포·앱 업로드·심사 제출은 미수행이다.
+
+- 사용자 확정(2026-11-08): App Store 버전/빌드 번호와 별도인 앱 내부 `AppConstants.api_compatibility_version=1`을 서버 최소값과 비교하고, 최소값 미만이면 업데이트 전까지 이용을 차단한다. Apple ID `6831957246`은 스토어 이동용이다. 현재 사용자 표시 버전은 1.0.0, 새 빌드 번호는 2다.
+- `CupertinoApp.builder → AppUpdateGate → AppUpdateController → AppUpdateRepository(Dio/SharedPreferences) → GET /app/version-policy` 흐름이다. 시작/복귀에 5초 내 확인하고 이미 확인된 차단은 장애에도 유지한다. 캐시 없는 최초 실패는 허용한다. 앱 전역 domain state는 ProviderScope 수명, 스토어 버튼 상태는 UI state다.
+- 신규 feature/테스트의 파일 역할·의존성·사용 예, FE/BE 계약·선택 env·운영 적용 순서·rollback은 [APP_VERSION_POLICY.md](APP_VERSION_POLICY.md), 결정은 ADR-0035를 참조한다. 서버 구현은 develop 기반 `codex/app-compatibility-policy` 작업이며 실제 배포는 미수행이다. 서버 최소값을 올리기 전에 해당 내부 호환 번호를 지원하는 앱을 스토어에 먼저 공개해야 한다.
+
 ## 프로젝트 개요
 
 **ShiftMate**는 교대 근무 일정 관리 및 공유를 위한 Flutter 모바일 애플리케이션입니다.

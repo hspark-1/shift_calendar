@@ -187,6 +187,7 @@ class ApiClient {
   /// 인증이 필요없는 엔드포인트인지 확인
   static bool _isPublicEndpoint(String path) {
     const publicEndpoints = [
+      ApiConstants.app_version_policy,
       ApiConstants.auth_kakao_token,
       ApiConstants.auth_naver_token,
       ApiConstants.auth_google_token,

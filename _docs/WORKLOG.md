@@ -1,5 +1,23 @@
 # 작업 로그
 
+## 2026-11-08
+
+- [TODO] (GIT/DOCS) 작업 커밋·푸시 및 서버 담당자 전달 가이드 작성
+  - 목적: 완료한 기능을 원격 저장소에 보존하고 서버 적용 작업을 전달 가능하게 정리한다.
+  - 변경: 사용자 선택으로 업데이트 기능·서버 가이드만 분리하고 기존 프로필 이미지·로컬 디버그·출시 자료는 제외. 서버 기능 90ece07 origin/codex/app-compatibility-policy push 완료. APP_VERSION_SERVER_HANDOFF 가이드 작성, FE 선택 스냅샷 검증·커밋/푸시 진행 중.
+  - 영향범위: Git 기록·원격 기능 브랜치·관련 문서. 운영 배포·심사 제출 미수행.
+  - 롤백: 일반 revert로 변경을 되돌리며 원격 강제 push는 사용하지 않는다.
+  - 테스트: 선택한 커밋 스냅샷에서 정적 분석 진단 0건·전체 테스트 204 pass/1 skip. 기존 작업 트리의 206 pass와 별도로 검증했다. 잠금 파일 일치·가이드 상대 링크/코드블록·자격증명 패턴 미포함·패치 역방향 적용 검사·서버 원격 HEAD=90ece07 확인 및 git diff --cached --check 통과.
+
+- [DONE] (FE/BE/BUILD) 서버 최소 지원 버전 기반 업데이트 안내 및 재빌드
+  - 목적: 서버 변경으로 호환되지 않는 구버전 앱의 사용자를 스토어 업데이트로 안내한다.
+  - 변경: 사용자 확정대로 앱 내부 API 호환 번호 1과 서버 최소 정수를 비교(스토어 버전·빌드와 독립). 공개 정책 API, 시작/복귀 전역 게이트·환경/플랫폼 캐시·스토어 이동/실패 재시도, url_launcher 6.3.2, OpenAPI·설정표·운영/롤백 문서 및 ADR 추가. 새 iOS 1.0.0(2) 빌드 생성. 이전 빌드 1 보존.
+  - 영향범위: 버전 정책 조회·앱 진입 흐름·관련 문서·빌드 산출물. 실제 서버 배포·심사 제출은 별도다.
+  - 롤백: 버전 정책 비활성화 또는 이번 게이트 연결·API 추가만 되돌린다.
+  - 테스트: 변경 파일 analyzer 진단 0건, Flutter 전체 206 pass·1 skip. 서버 TypeScript build 및 신규 HTTP/설정 5개+기존 환경/Google/푸시를 합쳐 23개 통과. 최소값 경계·플랫폼/URL·무인증·캐시 격리/손상/장애·중복 조회·dispose·스토어 실패·복귀·상세/다이얼로그 차단·작은 화면 검증. IPA ZIP CRC·Apple Distribution deep/strict·App Store profile·production 권한·1.0.0(2)/iPhone/SDK·AOT 새 게이트/정책 API/운영 API/Store ID·스토어 플러그인 및 git diff --check 통과. 기본 LaunchImage 안내 유지. url_launcher 6.3.3의 SDK 비호환은 6.3.2 고정으로 해결.
+  - 결과: `build/ios/ipa/ShiftMate.ipa`, SHA-256 `9ea369145c838bbb64052e52bd373a6ca970bb4ac5dd33f5ca3368aa9174332f`. 서버는 기존 main을 보존한 develop 기반 `codex/app-compatibility-policy` 로컬 커밋 `90ece07` 및 전달 패치로 준비. 상세 역할/명령/영향/롤백은 APP_VERSION_POLICY·출시 체크리스트 기록.
+  - 다음: 서버 API 실제 배포·실기기 Store 이동/복귀·Connect 업로드. 지원 앱 스토어 공개 뒤 최소 호환 번호 인상. 서버 배포·원격 push·앱 업로드·심사 제출 미수행.
+
 ## 2026-10-18
 
 - [DONE] (CHORE) Cafe24 폰트 작업 정리 및 Git 반영

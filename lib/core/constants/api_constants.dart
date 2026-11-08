@@ -21,6 +21,8 @@ class ApiConstants {
   static const int receive_timeout = 30;
 
   /// API 엔드포인트
+  static const String app_version_policy = '/app/version-policy';
+
   static const String auth_login = '/auth/login';
   static const String auth_register = '/auth/register';
   static const String auth_refresh = '/auth/refresh';

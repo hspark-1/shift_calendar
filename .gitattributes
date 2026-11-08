@@ -1,0 +1,2 @@
+# Unified patches require single-space context lines and a mail signature separator.
+artifacts/app_update_backend/*.patch -whitespace

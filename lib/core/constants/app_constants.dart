@@ -12,6 +12,9 @@ class AppConstants {
   /// 앱 버전
   static const String app_version = '1.0.0';
 
+  /// 서버 API 호환 규격. 스토어 버전·빌드 번호와 독립적으로 관리한다.
+  static const int api_compatibility_version = 1;
+
   /// 카카오 Stage Native App Key (--dart-define으로 전달)
   static const String _kakao_stage_native_app_key = String.fromEnvironment(
     'KAKAO_NATIVE_APP_KEY_STAGE',

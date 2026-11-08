@@ -18,6 +18,7 @@ import 'features/calendar/presentation/pages/calendar_page.dart';
 import 'features/friend/presentation/pages/notification_page.dart';
 import 'core/push/push_coordinator.dart';
 import 'core/push/push_providers.dart';
+import 'features/app_update/presentation/app_update_gate.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -77,6 +78,7 @@ class ShiftMateApp extends StatelessWidget {
       title: AppConstants.app_name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      builder: (context, child) => AppUpdateGate(child: child!),
       home: const AuthWrapper(),
     );
   }
