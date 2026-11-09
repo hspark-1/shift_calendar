@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/privacy_policy.dart';
 import '../../../../core/widgets/profile_image.dart';
 import '../../domain/entities/user.dart';
 import '../../../calendar/presentation/pages/shift_template_settings_page.dart';
@@ -13,7 +14,12 @@ import 'login_page.dart';
 
 /// 설정 페이지
 class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({super.key});
+  final PrivacyPolicyLauncher launch_privacy_policy;
+
+  const SettingsPage({
+    super.key,
+    this.launch_privacy_policy = launchPrivacyPolicy,
+  });
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -321,6 +327,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: CupertinoIcons.question_circle,
                   title: '고객 센터',
                   onTap: () => _showFeatureUnavailableAlert('고객 센터'),
+                ),
+                _buildSettingsRow(
+                  icon: CupertinoIcons.doc_text,
+                  title: '개인정보처리방침',
+                  onTap: () => openPrivacyPolicy(
+                    context,
+                    launcher: widget.launch_privacy_policy,
+                  ),
                 ),
                 _buildSettingsRow(
                   icon: CupertinoIcons.info_circle,

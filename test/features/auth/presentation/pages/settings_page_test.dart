@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
+import 'package:shift_mate/core/utils/privacy_policy.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
@@ -78,8 +79,9 @@ class _SettingsAuthRepository implements AuthRepository {
 
 Future<void> _pumpSettings(
   WidgetTester tester,
-  _SettingsAuthRepository repository,
-) async {
+  _SettingsAuthRepository repository, {
+  PrivacyPolicyLauncher launch_privacy_policy = launchPrivacyPolicy,
+}) async {
   final container = ProviderContainer(
     overrides: [authRepositoryProvider.overrideWithValue(repository)],
   );
@@ -89,7 +91,9 @@ Future<void> _pumpSettings(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const CupertinoApp(home: SettingsPage()),
+      child: CupertinoApp(
+        home: SettingsPage(launch_privacy_policy: launch_privacy_policy),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -105,6 +109,58 @@ Future<void> _scrollToDeleteAccount(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('로그인 상태에서 설정의 정책 링크를 열고 설정 화면을 유지한다', (tester) async {
+    Uri? opened_url;
+    await _pumpSettings(
+      tester,
+      _SettingsAuthRepository(),
+      launch_privacy_policy: (url) async {
+        opened_url = url;
+        return true;
+      },
+    );
+    await tester.scrollUntilVisible(
+      find.text('개인정보처리방침'),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.tap(find.text('개인정보처리방침'));
+    await tester.pumpAndSettle();
+
+    expect(opened_url, Uri.parse('https://www.shiftmate.co.kr/privacy'));
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(LoginPage), findsNothing);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+  });
+
+  testWidgets('설정 정책 열기 실패 후 안내를 닫고 재시도한다', (tester) async {
+    var request_count = 0;
+    await _pumpSettings(
+      tester,
+      _SettingsAuthRepository(),
+      launch_privacy_policy: (_) async => ++request_count > 1,
+    );
+    await tester.scrollUntilVisible(
+      find.text('개인정보처리방침'),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.tap(find.text('개인정보처리방침'));
+    await tester.pumpAndSettle();
+    expect(find.text('페이지 열기 실패'), findsOneWidget);
+    expect(
+      find.textContaining('https://www.shiftmate.co.kr/privacy'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('개인정보처리방침'));
+    await tester.pumpAndSettle();
+    expect(request_count, 2);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(find.byType(SettingsPage), findsOneWidget);
+  });
+
   testWidgets('로그아웃과 회원 탈퇴 버튼을 함께 표시한다', (tester) async {
     await _pumpSettings(tester, _SettingsAuthRepository());
     await _scrollToDeleteAccount(tester);

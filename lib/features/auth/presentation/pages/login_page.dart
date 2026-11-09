@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/privacy_policy.dart';
 import '../../../calendar/presentation/pages/calendar_page.dart';
 import '../providers/auth_provider.dart';
 import 'profile_setup_page.dart';
@@ -12,10 +13,12 @@ import 'profile_setup_page.dart';
 /// 소셜 로그인 페이지
 class LoginPage extends ConsumerStatefulWidget {
   final bool apple_login_enabled;
+  final PrivacyPolicyLauncher launch_privacy_policy;
 
   const LoginPage({
     super.key,
     this.apple_login_enabled = AppConstants.apple_login_enabled,
+    this.launch_privacy_policy = launchPrivacyPolicy,
   });
 
   @override
@@ -369,13 +372,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Widget _buildTermsText() {
-    return Text(
-      '로그인 시 이용약관 및 개인정보처리방침에 동의합니다.',
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 12,
-        color: CupertinoColors.systemGrey.resolveFrom(context),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '로그인 시 이용약관 및 개인정보처리방침에 동의합니다.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            color: CupertinoColors.systemGrey.resolveFrom(context),
+          ),
+        ),
+        CupertinoButton(
+          key: const Key('privacy_policy_link'),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          minimumSize: const Size(44, 44),
+          onPressed: () => openPrivacyPolicy(
+            context,
+            launcher: widget.launch_privacy_policy,
+          ),
+          child: const Text(
+            '개인정보처리방침 보기',
+            style: TextStyle(
+              fontSize: 12,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

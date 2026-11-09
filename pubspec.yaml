@@ -1,7 +1,7 @@
 name: shift_mate
 description: "교대 근무 일정 관리 및 공유 앱"
 publish_to: "none"
-version: 1.0.0+2
+version: 1.0.0+4
 
 environment:
   sdk: ^3.10.4

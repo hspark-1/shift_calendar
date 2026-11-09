@@ -17,6 +17,16 @@
 
 ## 흐름과 상태 수명
 
+### 로컬 실기기 구버전 테스트
+
+- `DEBUG_API_COMPATIBILITY_VERSION`은 Debug 빌드에서만 앱 내부 호환 번호를 덮어쓴다. 기본값은 1이며 0~2147483647 범위 밖의 값은 1로 복구한다. Profile/Release는 이 옵션과 관계없이 1을 사용한다. `.env`에 테스트 번호를 저장하지 않는다.
+- VS Code/Cursor 실행 구성 `ShiftMate (debug local update test v0)`는 `USE_LOCAL_API=true`와 테스트 번호 0을 전달한다. API는 `http://172.30.1.14:3000/api/v1`, OAuth/Firebase는 기존 Debug Stage 설정을 사용한다. iPhone과 서버의 LAN 접근이 필요하다.
+- 로컬 서버 `APP_UPDATE_IOS_MIN_COMPATIBILITY_VERSION=1` 설정 후 프로세스를 실행한다. 공개 정책 응답에서 최소값 1을 확인하고 앱 번호 0의 차단·업데이트 버튼·앱 복귀·다시 확인을 검증한다. 서버값 0에서는 비활성화되므로 음수 앱 번호로 강제 테스트하지 않는다.
+- CLI: `flutter run --debug --dart-define-from-file=.env --dart-define=USE_LOCAL_API=true --dart-define=DEBUG_API_COMPATIBILITY_VERSION=0 -d <iPhone ID>`.
+- 복구: 기본 `ShiftMate (debug local)` 구성으로 완전히 재실행하면 앱 번호가 1로 돌아온다. 로컬 최소값도 0으로 복원할 수 있다. 운영 서버 정책과 기존 제출용 IPA는 이 테스트로 변경하지 않는다.
+- 파일 역할: `AppConstants`는 빌드 모드 제한·번호를 제공하며 기존 Controller 기본값에 의존성을 전달한다. `test/core/constants/app_constants_test.dart`는 `EXPECTED_API_COMPATIBILITY_VERSION`과 실제 빌드 결과를 비교한다. 검증 예: 테스트 번호 0/예상값 0, 음수 번호/예상 기본값 1로 각각 `flutter test`를 실행한다.
+- 2026-11-08 검증: 사용자가 로컬 API를 실행한 뒤 공개 정책 200·최소값 1을 확인했다. iPhone 테스트 번호 0에서 ‘업데이트가 필요해요’ 화면 표시를 사용자가 확인했다. Store 버튼·복귀·정상 번호 복구는 아직 미확인이다. 서버 공개 Stage/운영의 초기 최소값은 조회 당시 0이었다.
+
 ```text
 CupertinoApp.builder → AppUpdateGate (Navigator 전체를 감쌈)
   → AppUpdateController.check()

@@ -352,6 +352,114 @@ void main() {
     expect(find.byType(CupertinoActivityIndicator), findsNothing);
   });
 
+  testWidgets('로그인 전 개인정보처리방침 링크로 공개 정책 URL을 연다', (tester) async {
+    Uri? opened_url;
+    await tester.pumpWidget(
+      ProviderScope(
+        child: CupertinoApp(
+          home: LoginPage(
+            launch_privacy_policy: (url) async {
+              opened_url = url;
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('privacy_policy_link')));
+    await tester.pumpAndSettle();
+
+    expect(opened_url, Uri.parse('https://www.shiftmate.co.kr/privacy'));
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(find.byKey(const Key('google_login_button')), findsOneWidget);
+  });
+
+  for (final throws_exception in [false, true]) {
+    testWidgets('정책 링크 열기 실패 안내 및 재시도 (예외: $throws_exception)', (tester) async {
+      var request_count = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: CupertinoApp(
+            home: LoginPage(
+              launch_privacy_policy: (_) async {
+                request_count++;
+                if (throws_exception) {
+                  throw PlatformException(code: 'open_failed');
+                }
+                return false;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('privacy_policy_link')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('페이지 열기 실패'), findsOneWidget);
+      expect(find.text('로그인 실패'), findsNothing);
+      expect(request_count, 1);
+      await tester.tap(find.text('확인'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('privacy_policy_link')));
+      await tester.pumpAndSettle();
+      expect(request_count, 2);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('작은 화면과 큰 글자에서도 정책 링크에 접근할 수 있다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var opened = false;
+    await tester.pumpWidget(
+      ProviderScope(
+        child: CupertinoApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: LoginPage(
+              apple_login_enabled: true,
+              launch_privacy_policy: (_) async {
+                opened = true;
+                return true;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final link = find.byKey(const Key('privacy_policy_link'));
+    await tester.ensureVisible(link);
+    await tester.pumpAndSettle();
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+    expect(opened, isTrue);
+    for (final key in ['google', 'apple', 'kakao', 'naver']) {
+      expect(find.byKey(Key('${key}_login_button')), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('정책 열기 대기 중 화면이 사라지면 실패 안내를 띄우지 않는다', (tester) async {
+    final pending_launch = Completer<bool>();
+    await tester.pumpWidget(
+      ProviderScope(
+        child: CupertinoApp(
+          home: LoginPage(launch_privacy_policy: (_) => pending_launch.future),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('privacy_policy_link')));
+    await tester.pumpWidget(const CupertinoApp(home: SizedBox.shrink()));
+    pending_launch.complete(false);
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   test('소셜 로그인 원형 이미지 네 개의 규격을 유지한다', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
 
