@@ -15,11 +15,15 @@ import 'package:shift_mate/features/auth/presentation/providers/auth_provider.da
 class _SettingsAuthRepository implements AuthRepository {
   Object? delete_account_error;
   int delete_account_count = 0;
+  int update_count = 0;
 
   static const user = User(
     id: 'user-id',
     email: 'user@example.com',
     name: '사용자',
+    phone: '010-1234-5678',
+    timezone: 'Asia/Seoul',
+    requires_profile_setup: false,
   );
 
   @override
@@ -61,10 +65,14 @@ class _SettingsAuthRepository implements AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    ProfileImageUpload? profile_image,
     String? phone,
     String? job_type,
     String? workplace,
-  }) => throw UnimplementedError();
+  }) async {
+    update_count += 1;
+    return user.copyWith(name: name ?? user.name);
+  }
 
   @override
   Future<User> completeProfile({
@@ -109,6 +117,44 @@ Future<void> _scrollToDeleteAccount(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('설정 프로필 편집 저장은 설정으로 돌아와 새 이름을 표시한다', (tester) async {
+    final repository = _SettingsAuthRepository();
+    await _pumpSettings(tester, repository);
+    await tester.tap(find.byKey(const Key('edit_profile_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('프로필 수정'), findsOneWidget);
+    final name_field = find.descendant(
+      of: find.byKey(const Key('profile_name_field')),
+      matching: find.byType(CupertinoTextField),
+    );
+    await tester.enterText(name_field, '새 이름');
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(repository.update_count, 1);
+    expect(find.text('새 이름'), findsOneWidget);
+    expect(find.text('설정'), findsOneWidget);
+    expect(find.text('프로필 수정'), findsNothing);
+  });
+
+  testWidgets('프로필 편집에서 저장하지 않고 뒤로 가면 기존 정보를 유지한다', (tester) async {
+    final repository = _SettingsAuthRepository();
+    await _pumpSettings(tester, repository);
+    await tester.tap(find.byKey(const Key('edit_profile_button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('profile_name_field')),
+        matching: find.byType(CupertinoTextField),
+      ),
+      '저장 안 한 이름',
+    );
+    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
+    await tester.pumpAndSettle();
+    expect(repository.update_count, 0);
+    expect(find.text('사용자'), findsOneWidget);
+    expect(find.text('저장 안 한 이름'), findsNothing);
+  });
+
   testWidgets('로그인 상태에서 설정의 정책 링크를 열고 설정 화면을 유지한다', (tester) async {
     Uri? opened_url;
     await _pumpSettings(

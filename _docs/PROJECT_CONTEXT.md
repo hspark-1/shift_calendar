@@ -1,5 +1,25 @@
 # 프로젝트 컨텍스트
 
+## 설정 프로필 수정 (2026-11-10)
+
+- 진입: 인증된 사용자가 설정의 프로필 카드 → `ProfileSetupPage.edit(user: user)`를 `CupertinoPageRoute`로 push한다. 저장 성공은 현재 route를 pop해 기존 설정으로 복귀한다. 별도 analytics 시스템은 추가하지 않는다.
+- 가입 화면과 이름·전화·직종·소속 입력/사진 선택·미리보기 UI를 공유한다. 편집은 현재 값을 초기화하고 이메일을 읽기 전용으로 표시한다. 가입 안내·CTA는 편집 문구로 바꾼다.
+- 흐름: `ProfileSetupPage.edit` → `AuthNotifier.updateProfile` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → `POST /api/v1/auth/profile`. 가입 완료 endpoint를 호출하지 않는다.
+- 편집 UI state(입력 controller·사진 bytes·로딩)는 화면이 소유하고 dispose한다. 최신 사용자 domain state는 기존 `authProvider`가 관리한다. 저장 성공 시 서버 완료 boolean을 보존하고 사진 업로드 성공 시 `profileImageBytesProvider`를 무효화한다.
+- Behavior change: 설정 프로필 카드의 준비 중 안내를 실제 편집으로 대체한다. 변경 필드만 보내며 변경 없는 저장은 API를 호출하지 않는다. 선택 직종/소속을 비우면 빈 문자열을 보내 서버에서 null로 지운다. 레거시 직종 코드는 한글로 표시하지만 미수정 값은 다시 보내지 않는다. 편집은 저장된 타임존을 바꾸지 않으며 기존 전화는 미수정 시 재검증/전송하지 않는다.
+- 사진은 기존 1024px·품질 85·최종 5MB 제한을 공유한다. 사진이 없으면 JSON, 있으면 multipart `profile_image` 파일을 전송한다. 저장 중 입력/뒤로가기/중복 저장을 막고 실패 시 입력·미리보기를 유지하며 서버 오류를 다이얼로그로 표시한다. 사진 선택 중에도 중복 선택/저장을 막는다.
+- 기존 Dio 토큰 갱신 후 재시도에서 finalized multipart를 clone해 사진/필드를 다시 보낼 수 있게 한다. 다른 설정 메뉴는 변경하지 않는다.
+- **서버 선행 조건**: 로컬 서버 코드는 일반 수정에 multipart parser가 없고 직종 enum 제한이 남아 있다. 사진 수정·자유 직종은 서버 반영 및 Stage/운영 인수 전 사용 가능으로 간주하지 않는다. 확인한 것은 로컬 소스이며 원격 배포 상태는 미확인이다. 상세 요청은 [PROFILE_EDIT_SERVER_HANDOFF.md](PROFILE_EDIT_SERVER_HANDOFF.md).
+- 파일 역할/의존성/사용 예:
+  - `lib/features/auth/presentation/pages/profile_setup_page.dart`: 가입/편집을 명시적인 생성자로 구분한 공용 입력 화면. Riverpod·기존 User·image_picker에 의존. 가입은 `ProfileSetupPage(user: user)`, 편집은 `ProfileSetupPage.edit(user: user)`.
+  - `lib/features/auth/presentation/pages/settings_page.dart`: 기존 사용자 프로필 카드에서 편집 route push. 성공 후 authProvider 갱신으로 카드도 다시 표시한다.
+  - auth datasource/repository/provider: 선택 `ProfileImageUpload`를 일반 수정까지 전달하고 공용 multipart 변환을 가입/편집에서 재사용한다. 예: `updateProfile(profile_image: image, workplace: '')`.
+  - `lib/core/network/api_client.dart`: 기존 인증·갱신 경로에서 multipart 재전송을 지원한다.
+  - 기존 auth 페이지/provider/datasource 테스트: 초기값·부분 저장·삭제·취소·실패 재시도·사진 bytes/캐시·401 재전송과 가입 회귀를 모의 검증한다. login 테스트 fake는 선택 이미지 인자 계약만 맞춘다.
+  - `_docs/PROFILE_EDIT_SERVER_HANDOFF.md`: 서버 수정 위치·계약·DB/env·OpenAPI·정리/실패/롤백·인수 체크리스트. 서버 코드를 읽은 근거와 구현 요청을 구분한다. 사용 예: 서버 작업 이슈 첨부.
+- 롤백: 이번 편집 생성자/설정 연결/일반 수정 이미지 전달·재전송 변경을 되돌린다. 서버 배포 후 자유 직종 데이터가 있으면 enum 제약을 강제 복구하지 않는다.
+- 검증: 전체 Flutter 테스트 227 pass·기존 skip 1, 변경 Dart 12개 분석 진단 0건·포맷 변경 0건. 실제 서버/S3·실기기 사진 변경은 서버 인수 후 확인한다.
+
 ## 미커밋 변경 정리·재검증 (2026-11-09)
 
 - Debug 전용 호환 번호 테스트 옵션·실행 구성, 로그인/설정의 개인정보처리방침 공용 링크, 빌드 1.0.0+4 및 출시 진행 문서의 기존 변경 14개 파일을 검토해 로컬 커밋으로 보존한다. 상세 파일 역할·의존성·사용 예·Behavior change는 아래 관련 절과 ADR-0036을 따른다. 추가 앱 코드 변경은 없다.
@@ -505,7 +525,7 @@
     로그아웃, 회원 탈퇴이다. 회원 탈퇴는 로그아웃 아래의 별도 destructive 액션으로 노출하고,
     일정·근무표·친구·그룹 정보 삭제와 복구 불가를 최종 확인한 뒤만 요청한다.
     요청 중에는 로그아웃과 탈퇴 버튼을 모두 비활성화해 중복 요청을 막는다.
-    프로필 편집, 기본 알림 설정, 다크 모드, 언어 및 지역, 글꼴 크기, 비밀번호 변경,
+    프로필 편집은 상단 2026-11-10 절의 실제 편집 route를 사용한다. 기본 알림 설정, 다크 모드, 언어 및 지역, 글꼴 크기, 비밀번호 변경,
     로그인 생체 인증, 공지사항, 고객 센터는 `_showFeatureUnavailableAlert()`로
     "준비 중인 기능" alert를 표시하고 상태를 변경하지 않는다. 버전 정보는
     `AppConstants.app_version`을 표시한다.

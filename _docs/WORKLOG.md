@@ -1,5 +1,33 @@
 # 작업 로그
 
+## 2026-11-10
+
+- [TODO] (GIT/QA/DOCS) 현재 변경사항 검토·정리 및 커밋·푸시
+  - 목적: 사용자 요청에 따라 기존 작업물을 검토·검증하고 원격 저장소에 보존한다.
+  - 변경: 프로필 편집·사진 변경과 서버 요청서의 기존 변경 16개 파일을 검토한다. 별도 기기 진단 TODO는 미완료 상태로 보존한다.
+  - 영향범위: 현재 Flutter 저장소 변경과 검증 문서. 서버 구현·배포·스토어 작업은 포함하지 않는다.
+  - 테스트: `flutter test --no-pub --reporter expanded --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` 전체 227 pass·기존 skip 1. 변경 Dart 12개 `dart analyze` 진단 0건, `dart format --output=none --set-exit-if-changed` 변경 0건. staged/unstaged diff 검사 통과. Flutter SDK 캐시 쓰기 제한 후 검증 명령을 권한을 받아 재실행해 정상 종료했다.
+  - 진행: 기존 구현·관련 테스트·문서를 직접 검토했으며 추가 앱 코드 수정은 없다. `git fetch origin` 후 원격 충돌 없음·기존 로컬 커밋 `9516c5a` 1개 선행 상태 확인. 프로필 편집 변경을 커밋하고 이전 로컬 커밋과 함께 일반 push한 뒤 완료 결과를 기록한다. 서버 배포·실기기 사진 교체는 기존 후속 인수 항목으로 유지한다.
+  - 롤백: 정리 커밋을 일반 git revert로 되돌린다.
+
+- [TODO] (DEV/QA) VS Code의 지정 iPhone 미표시 원인 확인
+  - 목적: Flutter CLI에 표시된 `00008030-0015756A266B802E`가 VS Code 기기 선택에 없는 원인을 확인한다.
+  - 변경: 우선 Xcode/Flutter 기기 탐색과 VS Code SDK·daemon 로그를 읽어 비교한다. 기존 staged 프로필 수정 작업은 유지한다.
+  - 영향범위: 로컬 개발 도구 진단 및 필요한 복구. 앱/서버 동작은 변경하지 않는다.
+  - 테스트: 동일 UDID의 Xcode·Flutter·VS Code 탐색 결과 비교 예정.
+  - 롤백: 진단만 수행한 경우 불필요하며 도구 설정 변경이 필요하면 변경·복구 방법을 기록한다.
+
+- [DONE] (FE/DOCS) 설정 프로필 수정·사진 변경 클라이언트 및 서버 요청서 준비
+  - 목적: 설정의 프로필 편집 진입점을 실제 저장 기능으로 연결한다. 다른 미구현 설정 메뉴는 요청 범위에서 제외한다.
+  - 변경: `ProfileSetupPage.edit`가 기존 입력 UI·검증·사진 선택/미리보기를 재사용한다. 일반 수정 API에 변경 필드만 JSON/선택 이미지 multipart로 보내며 저장 후 설정의 사용자 정보·이미지 cache를 갱신한다. 선택값 빈 문자열 삭제, 저장 중 입력/뒤로가기/중복 요청 방지, 실패 후 재시도를 제공한다. Dio 401 갱신 후 multipart clone 재전송을 추가했다.
+  - 근거: Flutter auth/profile 흐름, ADR-0024~0025, 인접 서버 authRoutes/authController/profileService 직접 확인. 일반 수정은 JSON·선택값 빈 문자열 삭제를 지원하며 사진 업로드는 가입 완료에만 존재하고 직종은 현재 4개 코드로 제한된다.
+  - 영향범위: 프로필 편집 UI·인증 상태·관련 테스트·문서. 사용자 답변에 따라 사진 변경도 포함하고 서버 수정은 직접 수행하지 않으며 요청 문서를 준비한다.
+  - 파일: `lib/features/auth/presentation/pages/{profile_setup_page,settings_page}.dart`, auth provider/repository/datasource·image upload entity, `lib/core/network/api_client.dart`, 기존 auth 테스트 5개 및 `_docs/{PROJECT_CONTEXT,DECISIONS,PROFILE_EDIT_SERVER_HANDOFF}.md`.
+  - 테스트: `flutter test --no-pub --reporter expanded --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` 전체 227 pass·1 skip(기존 skip 유지). 초기값/이름만 전송/선택값 삭제/전화 검증/변경 없는 저장/사진 미리보기·전송/실패 재시도/중복 저장 방지/설정 복귀·취소/가입 완료 boolean 보존/동일 URL cache 재조회 및 실제 Dio adapter의 multipart header·401 갱신 후 파일/필드 동일 재전송을 검증했다. 변경 Dart 12개 분석 진단 0건·포맷 변경 0건, diff 검사 통과. 최초 추가 테스트의 MIME 헤더 대소문자 기대값을 HTTP 규칙에 맞게 수정한 뒤 전체 통과했다. SDK cache 쓰기 제한은 검증 명령만 승인된 권한으로 재실행했다.
+  - 결과: Flutter 코드·모의 테스트 및 서버 요청 자료 준비 완료. ADR-0037 추가. 서버 일반 수정에 사진 parser/저장 처리와 자유 직종 DB/model/service/route/OpenAPI 확장이 필요하다. 확인한 것은 로컬 서버 코드이며 실제 Stage/운영의 배포 상태와 실기기 사진 교체는 미확인이다. 서버 코드 수정·배포·담당자 메시지 발송·새 빌드 업로드·커밋/푸시는 수행하지 않았다.
+  - 다음: [서버 요청서](PROFILE_EDIT_SERVER_HANDOFF.md)를 담당자에게 전달하고 서버 테스트·Stage 실기기 인수 및 운영 선배포 후 Flutter 새 빌드를 제출한다.
+  - 롤백: 이번 프로필 편집 진입점 및 저장 관련 변경만 되돌린다.
+
 ## 2026-11-09
 
 - [DONE] (GIT/QA/DOCS) 미커밋 변경 확인 및 커밋 정리

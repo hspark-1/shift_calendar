@@ -51,6 +51,7 @@ class _PendingGoogleAuthRepository implements AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    ProfileImageUpload? profile_image,
     String? phone,
     String? job_type,
     String? workplace,

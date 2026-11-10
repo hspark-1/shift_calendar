@@ -1,6 +1,7 @@
 // ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/features/auth/data/models/apple_auth_models.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
@@ -9,6 +10,7 @@ import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/features/auth/presentation/providers/auth_provider.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
+import 'package:shift_mate/core/widgets/profile_image.dart';
 import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
 import 'package:shift_mate/features/calendar/presentation/providers/shift_types_provider.dart';
 
@@ -22,6 +24,8 @@ class _FakeAuthRepository implements AuthRepository {
   User? profile;
   User? completed_profile;
   Map<String, String?>? completed_profile_request;
+  User? updated_profile;
+  Object? update_error;
 
   @override
   Future<bool> isLoggedIn() async => is_logged_in;
@@ -70,10 +74,14 @@ class _FakeAuthRepository implements AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    ProfileImageUpload? profile_image,
     String? phone,
     String? job_type,
     String? workplace,
-  }) => throw UnimplementedError();
+  }) async {
+    if (update_error != null) throw update_error!;
+    return updated_profile!;
+  }
 
   @override
   Future<User> completeProfile({
@@ -103,6 +111,76 @@ List<Override> _overrides(_FakeAuthRepository repository) => [
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('일반 수정은 가입 완료 상태를 강제로 바꾸지 않고 서버 응답을 따른다', () async {
+    const user = User(
+      id: 'user-id',
+      email: 'user@example.com',
+      name: '기존 이름',
+      requires_profile_setup: true,
+    );
+    final repository = _FakeAuthRepository()
+      ..is_logged_in = true
+      ..profile = user
+      ..updated_profile = user.copyWith(name: '새 이름');
+    final container = ProviderContainer(overrides: _overrides(repository));
+    addTearDown(container.dispose);
+    final notifier = container.read(authProvider.notifier);
+    await notifier.checkAuthStatus();
+    expect(await notifier.updateProfile(name: '새 이름'), isTrue);
+    expect(container.read(authProvider).user?.name, '새 이름');
+    expect(container.read(authProvider).requires_profile_setup, isTrue);
+    expect(container.read(authProvider).status, AuthStatus.authenticated);
+  });
+
+  test('사진 변경 성공은 같은 URL의 이미지 캐시를 다시 조회하고 실패는 이전 프로필을 유지한다', () async {
+    const user = User(
+      id: 'user-id',
+      email: 'user@example.com',
+      name: '기존 이름',
+      requires_profile_setup: false,
+    );
+    final repository = _FakeAuthRepository()
+      ..is_logged_in = true
+      ..profile = user
+      ..updated_profile = user.copyWith(name: '새 이름');
+    var load_count = 0;
+    final container = ProviderContainer(
+      overrides: [
+        ..._overrides(repository),
+        profileImageBytesProvider.overrideWith((ref, url) async {
+          load_count += 1;
+          return Uint8List(0);
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      profileImageBytesProvider('same-url'),
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    await container.read(profileImageBytesProvider('same-url').future);
+    final notifier = container.read(authProvider.notifier);
+    await notifier.checkAuthStatus();
+    final image = ProfileImageUpload(
+      bytes: Uint8List(1),
+      filename: 'profile.png',
+    );
+    expect(await notifier.updateProfile(profile_image: image), isTrue);
+    await container.read(profileImageBytesProvider('same-url').future);
+    expect(load_count, 2);
+    repository.update_error = ApiException(
+      code: 'PROFILE_IMAGE_STORAGE_UNAVAILABLE',
+      message: '잠시 후 다시 시도해주세요.',
+      statusCode: 503,
+    );
+    expect(await notifier.updateProfile(profile_image: image), isFalse);
+    expect(container.read(authProvider).user?.name, '새 이름');
+    expect(container.read(authProvider).error, '잠시 후 다시 시도해주세요.');
+    expect(container.read(authProvider).is_loading, isFalse);
+    expect(load_count, 2);
+  });
 
   test('Apple 사용자 취소는 로그인 오류로 노출하지 않는다', () async {
     final repository = _FakeAuthRepository()

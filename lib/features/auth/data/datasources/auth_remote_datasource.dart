@@ -206,6 +206,7 @@ class AuthRemoteDataSource {
     String? name,
     String? timezone,
     String? profile_image_url,
+    ProfileImageUpload? profile_image,
     String? phone,
     String? job_type,
     String? workplace,
@@ -221,7 +222,10 @@ class AuthRemoteDataSource {
       if (job_type != null) data['job_type'] = job_type;
       if (workplace != null) data['workplace'] = workplace;
 
-      final response = await _dio.post(ApiConstants.auth_profile, data: data);
+      final response = await _dio.post(
+        ApiConstants.auth_profile,
+        data: _profileRequestData(data, profile_image),
+      );
 
       if (response.data['success'] == true) {
         return User.fromJson(response.data['data'] as Map<String, dynamic>);
@@ -251,29 +255,9 @@ class AuthRemoteDataSource {
       if (job_type != null) fields['job_type'] = job_type;
       if (workplace != null) fields['workplace'] = workplace;
 
-      final Object data;
-      if (profile_image == null) {
-        data = fields;
-      } else {
-        final form_data = FormData.fromMap(fields);
-        form_data.files.add(
-          MapEntry(
-            'profile_image',
-            MultipartFile.fromBytes(
-              profile_image.bytes,
-              filename: profile_image.filename,
-              contentType: profile_image.content_type == null
-                  ? null
-                  : DioMediaType.parse(profile_image.content_type!),
-            ),
-          ),
-        );
-        data = form_data;
-      }
-
       final response = await _dio.post(
         ApiConstants.auth_profile_complete,
-        data: data,
+        data: _profileRequestData(fields, profile_image),
       );
 
       if (response.data['success'] == true) {
@@ -284,6 +268,27 @@ class AuthRemoteDataSource {
     } on DioException catch (error) {
       throw handleApiError(error);
     }
+  }
+
+  Object _profileRequestData(
+    Map<String, dynamic> fields,
+    ProfileImageUpload? profile_image,
+  ) {
+    if (profile_image == null) return fields;
+    final form_data = FormData.fromMap(fields);
+    form_data.files.add(
+      MapEntry(
+        'profile_image',
+        MultipartFile.fromBytes(
+          profile_image.bytes,
+          filename: profile_image.filename,
+          contentType: profile_image.content_type == null
+              ? null
+              : DioMediaType.parse(profile_image.content_type!),
+        ),
+      ),
+    );
+    return form_data;
   }
 
   /// 카카오 로그아웃

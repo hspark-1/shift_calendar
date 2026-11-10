@@ -166,6 +166,8 @@ class ApiClient {
             if (new_token != null) {
               options.headers['Authorization'] = 'Bearer $new_token';
               options.extra['auth_retry_attempted'] = true;
+              final request_data = options.data;
+              if (request_data is FormData) options.data = request_data.clone();
 
               try {
                 final retryResponse = await dio.fetch(options);

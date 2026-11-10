@@ -1,10 +1,12 @@
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
@@ -12,6 +14,10 @@ import 'package:shift_mate/features/auth/presentation/pages/profile_setup_page.d
 
 class _ProfileSetupAuthRepository implements AuthRepository {
   Map<String, String?>? complete_request;
+  Map<String, Object?>? update_request;
+  int update_count = 0;
+  Object? update_error;
+  Completer<User>? pending_update;
 
   @override
   Future<User> completeProfile({
@@ -77,11 +83,37 @@ class _ProfileSetupAuthRepository implements AuthRepository {
     String? name,
     String? timezone,
     String? profile_image_url,
+    ProfileImageUpload? profile_image,
     String? phone,
     String? job_type,
     String? workplace,
-  }) => throw UnimplementedError();
+  }) async {
+    update_count += 1;
+    update_request = {
+      'name': name,
+      'timezone': timezone,
+      'phone': phone,
+      'profile_image_url': profile_image_url,
+      'profile_image': profile_image,
+      'job_type': job_type,
+      'workplace': workplace,
+    };
+    if (update_error != null) throw update_error!;
+    if (pending_update != null) return pending_update!.future;
+    return _existing_user.copyWith(name: name ?? _existing_user.name);
+  }
 }
+
+const _existing_user = User(
+  id: 'user-id',
+  email: 'user@example.com',
+  name: '기존 이름',
+  phone: '010-1234-5678',
+  timezone: 'America/New_York',
+  job_type: 'NURSE',
+  workplace: '기존 소속',
+  requires_profile_setup: false,
+);
 
 Finder _textFieldInside(Key key) {
   return find.descendant(
@@ -120,7 +152,217 @@ Future<void> _pumpPage(
   await tester.pumpAndSettle();
 }
 
+Future<void> _pumpEditPage(
+  WidgetTester tester,
+  _ProfileSetupAuthRepository repository, {
+  User user = _existing_user,
+  VoidCallback? on_completed,
+  Future<ProfileImageUpload?> Function()? profile_image_picker,
+}) async {
+  await tester.binding.setSurfaceSize(const Size(390, 844));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+      child: CupertinoApp(
+        home: ProfileSetupPage.edit(
+          user: user,
+          on_completed: on_completed ?? () {},
+          profile_image_picker: profile_image_picker,
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  testWidgets('편집은 기존 정보·레거시 직종을 표시하고 이름 변경만 전송한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    var completed = false;
+    await _pumpEditPage(
+      tester,
+      repository,
+      on_completed: () => completed = true,
+    );
+    expect(find.text('프로필 수정'), findsOneWidget);
+    expect(find.text('변경사항 저장'), findsOneWidget);
+    expect(find.text('저장하고 시작하기'), findsNothing);
+    expect(find.text('user@example.com'), findsOneWidget);
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            _textFieldInside(const Key('profile_phone_field')),
+          )
+          .controller!
+          .text,
+      '010-1234-5678',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '새 이름',
+    );
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(repository.update_request, {
+      'name': '새 이름',
+      'timezone': null,
+      'phone': null,
+      'profile_image_url': null,
+      'profile_image': null,
+      'job_type': null,
+      'workplace': null,
+    });
+    expect(repository.complete_request, isNull);
+    expect(completed, isTrue);
+  });
+
+  testWidgets('변경 없는 저장은 요청하지 않고 편집을 완료한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    var completed = false;
+    await _pumpEditPage(
+      tester,
+      repository,
+      on_completed: () => completed = true,
+    );
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(repository.update_count, 0);
+    expect(completed, isTrue);
+  });
+
+  testWidgets('선택 정보를 비우면 빈 문자열을 보내고 자유 입력 직종을 저장한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    await _pumpEditPage(tester, repository);
+    await tester.drag(
+      find.byKey(const Key('profile_setup_scroll_view')),
+      const Offset(0, -320),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            _textFieldInside(const Key('profile_job_type_field')),
+          )
+          .controller!
+          .text,
+      '간호사',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_job_type_field')),
+      '',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_workplace_field')),
+      '',
+    );
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(repository.update_request?['job_type'], '');
+    expect(repository.update_request?['workplace'], '');
+    await tester.enterText(
+      _textFieldInside(const Key('profile_job_type_field')),
+      '서비스 기획자',
+    );
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(repository.update_request?['job_type'], '서비스 기획자');
+  });
+
+  testWidgets('편집은 변경한 휴대폰만 검증하고 숫자로 전송한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    await _pumpEditPage(tester, repository);
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '0212345678',
+    );
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pump();
+    expect(repository.update_count, 0);
+    expect(find.text('한국 휴대폰 번호 형식을 확인해주세요.'), findsOneWidget);
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01099998888',
+    );
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(repository.update_request?['phone'], '01099998888');
+  });
+
+  testWidgets('편집 사진 선택은 미리보기 후 일반 수정 요청에 첨부한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    final selected_image = ProfileImageUpload(
+      bytes: base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLhCgAAAABJRU5ErkJggg==',
+      ),
+      filename: 'new-profile.png',
+      content_type: 'image/png',
+    );
+    await _pumpEditPage(
+      tester,
+      repository,
+      profile_image_picker: () async => selected_image,
+    );
+    await tester.tap(find.byKey(const Key('profile_image_button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(Image), findsOneWidget);
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(repository.update_request?['profile_image'], same(selected_image));
+    expect(repository.complete_request, isNull);
+  });
+
+  testWidgets('저장 실패는 입력을 유지하고 재시도하며 진행 중 중복 저장을 막는다', (tester) async {
+    final repository = _ProfileSetupAuthRepository()
+      ..update_error = ApiException(
+        code: 'PHONE_ALREADY_EXISTS',
+        message: '이미 사용 중인 번호입니다.',
+        statusCode: 409,
+      );
+    await _pumpEditPage(tester, repository);
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '새 이름',
+    );
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('이미 사용 중인 번호입니다.'), findsOneWidget);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            _textFieldInside(const Key('profile_name_field')),
+          )
+          .controller!
+          .text,
+      '새 이름',
+    );
+    repository.update_error = null;
+    repository.pending_update = Completer<User>();
+    await tester.tap(find.text('변경사항 저장'));
+    await tester.pump();
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('profile_setup_submit_button')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            _textFieldInside(const Key('profile_name_field')),
+          )
+          .enabled,
+      isFalse,
+    );
+    expect(repository.update_count, 2);
+    repository.pending_update!.complete(_existing_user.copyWith(name: '새 이름'));
+    await tester.pumpAndSettle();
+  });
+
   test('휴대폰 formatter는 입력 길이에 맞춰 하이픈을 즉시 배치한다', () {
     final formatter = KoreanMobilePhoneInputFormatter();
 

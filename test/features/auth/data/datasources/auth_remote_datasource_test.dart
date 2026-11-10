@@ -1,9 +1,12 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shift_mate/core/network/api_client.dart';
 import 'package:shift_mate/core/constants/api_constants.dart';
 import 'package:shift_mate/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:shift_mate/features/auth/data/models/apple_auth_models.dart';
@@ -11,7 +14,82 @@ import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
 
+class _ProfileUploadAdapter implements HttpClientAdapter {
+  final bool require_refresh;
+  final requests =
+      <({String path, String? auth, String? content_type, String body})>[];
+  int profile_request_count = 0;
+
+  _ProfileUploadAdapter({this.require_refresh = false});
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final bytes = await requestStream!.fold<List<int>>(
+      [],
+      (result, chunk) => result..addAll(chunk),
+    );
+    requests.add((
+      path: options.path,
+      auth: options.headers['Authorization'] as String?,
+      content_type: options.contentType,
+      body: utf8.decode(bytes, allowMalformed: true),
+    ));
+    if (options.path == ApiConstants.auth_refresh) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'access_token': 'new-token',
+            'refresh_token': 'new-refresh-token',
+            'expires_at': DateTime.now()
+                .add(const Duration(hours: 1))
+                .toIso8601String(),
+          },
+        }),
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      );
+    }
+    profile_request_count += 1;
+    if (require_refresh && profile_request_count == 1) {
+      return ResponseBody.fromString(
+        jsonEncode({'success': false}),
+        401,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      );
+    }
+    return ResponseBody.fromString(
+      jsonEncode({
+        'success': true,
+        'data': {
+          'user_id': 'user-id',
+          'email': 'user@example.com',
+          'name': '사용자',
+          'profile_image_url': '/api/v1/profile-images/user-id',
+          'requires_profile_setup': false,
+        },
+      }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('AuthRemoteDataSource.deleteAccount', () {
     test('DELETE /auth/account에 boolean confirmation true를 전송한다', () async {
       final dio = Dio(
@@ -312,6 +390,116 @@ void main() {
   });
 
   group('AuthRemoteDataSource.updateProfile', () {
+    test('이미지만 변경해도 일반 수정 endpoint에 인증된 multipart 파일을 보낸다', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'access_token': 'test-token',
+        'expires_at': DateTime.now()
+            .add(const Duration(hours: 1))
+            .toIso8601String(),
+      });
+      final adapter = _ProfileUploadAdapter();
+      final dio = ApiClient.createDio()..httpClientAdapter = adapter;
+      addTearDown(dio.close);
+      final user = await AuthRemoteDataSource(dio).updateProfile(
+        profile_image: ProfileImageUpload(
+          bytes: Uint8List.fromList([1, 2, 3]),
+          filename: 'profile.png',
+          content_type: 'image/png',
+        ),
+      );
+      final request = adapter.requests.single;
+      expect(request.path, ApiConstants.auth_profile);
+      expect(request.auth, 'Bearer test-token');
+      expect(
+        request.content_type,
+        startsWith('multipart/form-data; boundary='),
+      );
+      expect(
+        request.body,
+        contains('name="profile_image"; filename="profile.png"'),
+      );
+      expect(request.body.toLowerCase(), contains('content-type: image/png'));
+      expect(request.body, isNot(contains('name="phone"')));
+      expect(request.body, isNot(contains('name="timezone"')));
+      expect(user.profile_image_url, '/api/v1/profile-images/user-id');
+    });
+
+    test('선택 필드를 지우는 빈 문자열을 JSON과 multipart 모두 유지한다', () async {
+      for (final has_image in [false, true]) {
+        final dio = Dio();
+        RequestOptions? request;
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              request = options;
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  data: {
+                    'success': true,
+                    'data': {
+                      'user_id': 'user-id',
+                      'email': 'user@example.com',
+                      'name': '사용자',
+                    },
+                  },
+                ),
+              );
+            },
+          ),
+        );
+        await AuthRemoteDataSource(dio).updateProfile(
+          job_type: '',
+          workplace: '',
+          profile_image: has_image
+              ? ProfileImageUpload(
+                  bytes: Uint8List.fromList([1]),
+                  filename: 'profile.png',
+                )
+              : null,
+        );
+        final data = request!.data;
+        expect(data is FormData ? Map.fromEntries(data.fields) : data, {
+          'job_type': '',
+          'workplace': '',
+        });
+        dio.close();
+      }
+    });
+
+    test('사진 전송 후 401이면 토큰 갱신 뒤 같은 파일과 필드를 다시 전송한다', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'access_token': 'old-token',
+        'refresh_token': 'refresh-token',
+        'expires_at': DateTime.now()
+            .add(const Duration(hours: 1))
+            .toIso8601String(),
+      });
+      final adapter = _ProfileUploadAdapter(require_refresh: true);
+      final dio = ApiClient.createDio()..httpClientAdapter = adapter;
+      addTearDown(dio.close);
+      await AuthRemoteDataSource(dio).updateProfile(
+        workplace: '',
+        profile_image: ProfileImageUpload(
+          bytes: Uint8List.fromList([1, 2, 3]),
+          filename: 'profile.png',
+          content_type: 'image/png',
+        ),
+      );
+      expect(adapter.requests.map((request) => request.path), [
+        ApiConstants.auth_profile,
+        ApiConstants.auth_refresh,
+        ApiConstants.auth_profile,
+      ]);
+      expect(adapter.requests.first.auth, 'Bearer old-token');
+      expect(adapter.requests.last.auth, 'Bearer new-token');
+      expect(adapter.requests.last.body, adapter.requests.first.body);
+      expect(
+        adapter.requests.last.body,
+        contains('name="workplace"\r\n\r\n\r\n'),
+      );
+    });
+
     test('POST /auth/profile로 전달된 프로필 필드만 전송한다', () async {
       final dio = Dio(
         BaseOptions(baseUrl: 'https://stage-api.shiftmate.co.kr/api/v1'),

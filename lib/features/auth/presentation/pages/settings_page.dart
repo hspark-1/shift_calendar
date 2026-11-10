@@ -11,6 +11,7 @@ import '../../domain/entities/user.dart';
 import '../../../calendar/presentation/pages/shift_template_settings_page.dart';
 import '../providers/auth_provider.dart';
 import 'login_page.dart';
+import 'profile_setup_page.dart';
 
 /// 설정 페이지
 class SettingsPage extends ConsumerStatefulWidget {
@@ -358,7 +359,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildProfileCard(User user) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _showFeatureUnavailableAlert('프로필 편집'),
+      key: const Key('edit_profile_button'),
+      onTap: _is_processing
+          ? null
+          : () => Navigator.of(context).push(
+              CupertinoPageRoute<void>(
+                builder: (_) => ProfileSetupPage.edit(user: user),
+              ),
+            ),
       child: Container(
         padding: EdgeInsets.all(_scaled(24)),
         decoration: AppTheme.cardDecoration(radius: _scaled(16)),

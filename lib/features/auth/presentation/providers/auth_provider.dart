@@ -237,6 +237,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? name,
     String? timezone,
     String? profile_image_url,
+    ProfileImageUpload? profile_image,
     String? phone,
     String? job_type,
     String? workplace,
@@ -248,14 +249,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         name: name,
         timezone: timezone,
         profile_image_url: profile_image_url,
+        profile_image: profile_image,
         phone: phone,
         job_type: job_type,
         workplace: workplace,
       );
 
+      if (profile_image != null) _ref.invalidate(profileImageBytesProvider);
       state = state.copyWith(
         user: updatedUser,
-        requires_profile_setup: false,
+        requires_profile_setup:
+            updatedUser.requires_profile_setup ?? state.requires_profile_setup,
         is_loading: false,
       );
 

@@ -94,6 +94,7 @@ class KoreanMobilePhoneInputFormatter extends TextInputFormatter {
 
 class ProfileSetupPage extends ConsumerStatefulWidget {
   final User user;
+  final bool is_editing;
   final VoidCallback? on_completed;
   final Future<ProfileImageUpload?> Function()? profile_image_picker;
   final Future<String> Function()? timezone_loader;
@@ -104,7 +105,15 @@ class ProfileSetupPage extends ConsumerStatefulWidget {
     this.on_completed,
     this.profile_image_picker,
     this.timezone_loader,
-  });
+  }) : is_editing = false;
+
+  const ProfileSetupPage.edit({
+    super.key,
+    required this.user,
+    this.on_completed,
+    this.profile_image_picker,
+  }) : is_editing = true,
+       timezone_loader = null;
 
   @override
   ConsumerState<ProfileSetupPage> createState() => _ProfileSetupPageState();
@@ -115,11 +124,15 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   late final TextEditingController _phone_controller;
   late final TextEditingController _job_type_controller;
   late final TextEditingController _workplace_controller;
+  late final String _initial_job_type_text;
   late String _selected_timezone;
   late final Future<void> _timezone_future;
   ProfileImageUpload? _selected_profile_image;
   bool _has_submitted = false;
   bool _is_loading = false;
+  bool _is_picking_image = false;
+
+  bool get _is_busy => _is_loading || _is_picking_image;
 
   @override
   void initState() {
@@ -128,17 +141,18 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     _phone_controller = TextEditingController(
       text: KoreanMobilePhoneInputFormatter.format(widget.user.phone ?? ''),
     );
-    _job_type_controller = TextEditingController(
-      text:
-          _legacy_job_type_labels[widget.user.job_type] ??
-          widget.user.job_type ??
-          '',
-    );
+    _initial_job_type_text =
+        _legacy_job_type_labels[widget.user.job_type] ??
+        widget.user.job_type ??
+        '';
+    _job_type_controller = TextEditingController(text: _initial_job_type_text);
     _workplace_controller = TextEditingController(
       text: widget.user.workplace ?? '',
     );
     _selected_timezone = widget.user.timezone ?? AppConstants.default_timezone;
-    _timezone_future = _loadDeviceTimezone();
+    _timezone_future = widget.is_editing
+        ? Future<void>.value()
+        : _loadDeviceTimezone();
   }
 
   @override
@@ -163,6 +177,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
   String? get _phone_error {
     if (!_has_submitted) return null;
+    if (widget.is_editing && !_has_phone_changed) return null;
     if (_phone_digits.isEmpty) return '휴대폰 번호를 입력해주세요.';
     if (!_is_valid_korean_mobile_phone) {
       return '한국 휴대폰 번호 형식을 확인해주세요.';
@@ -173,10 +188,15 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   bool get _is_valid_korean_mobile_phone =>
       RegExp(r'^(?:010[0-9]{8}|01[16789][0-9]{7,8})$').hasMatch(_phone_digits);
 
+  bool get _has_phone_changed =>
+      _phone_digits !=
+      (widget.user.phone ?? '').replaceAll(RegExp('[^0-9]'), '');
+
   bool get _is_required_input_valid =>
       _name_controller.text.trim().isNotEmpty &&
       _name_controller.text.trim().length <= 50 &&
-      _is_valid_korean_mobile_phone;
+      ((widget.is_editing && !_has_phone_changed) ||
+          _is_valid_korean_mobile_phone);
 
   Future<void> _loadDeviceTimezone() async {
     try {
@@ -190,6 +210,8 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   }
 
   Future<void> _pickProfileImage() async {
+    if (_is_busy) return;
+    setState(() => _is_picking_image = true);
     try {
       final selected_image = widget.profile_image_picker != null
           ? await widget.profile_image_picker!()
@@ -202,6 +224,8 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       setState(() => _selected_profile_image = selected_image);
     } catch (_) {
       if (mounted) _showErrorDialog('사진을 불러오지 못했어요. 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _is_picking_image = false);
     }
   }
 
@@ -221,26 +245,54 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   }
 
   Future<void> _handleSave() async {
-    if (_is_loading) return;
+    if (_is_busy) return;
     setState(() => _has_submitted = true);
     if (!_is_required_input_valid) return;
 
+    setState(() => _is_loading = true);
+    FocusManager.instance.primaryFocus?.unfocus();
     await _timezone_future;
     if (!mounted) return;
 
     final job_type = _job_type_controller.text.trim();
     final workplace = _workplace_controller.text.trim();
-    setState(() => _is_loading = true);
-    final success = await ref
-        .read(authProvider.notifier)
-        .completeProfileSetup(
-          name: _name_controller.text.trim(),
-          timezone: _selected_timezone,
-          phone: _phone_digits,
-          profile_image: _selected_profile_image,
-          job_type: job_type.isEmpty ? null : job_type,
-          workplace: workplace.isEmpty ? null : workplace,
-        );
+    final notifier = ref.read(authProvider.notifier);
+    final bool success;
+    if (widget.is_editing) {
+      final name = _name_controller.text.trim();
+      final changed_name = name != widget.user.name ? name : null;
+      final changed_phone = _has_phone_changed ? _phone_digits : null;
+      final changed_job_type = job_type != _initial_job_type_text
+          ? job_type
+          : null;
+      final changed_workplace = workplace != (widget.user.workplace ?? '')
+          ? workplace
+          : null;
+      final has_changes =
+          changed_name != null ||
+          changed_phone != null ||
+          changed_job_type != null ||
+          changed_workplace != null ||
+          _selected_profile_image != null;
+      success =
+          !has_changes ||
+          await notifier.updateProfile(
+            name: changed_name,
+            phone: changed_phone,
+            job_type: changed_job_type,
+            workplace: changed_workplace,
+            profile_image: _selected_profile_image,
+          );
+    } else {
+      success = await notifier.completeProfileSetup(
+        name: _name_controller.text.trim(),
+        timezone: _selected_timezone,
+        phone: _phone_digits,
+        profile_image: _selected_profile_image,
+        job_type: job_type.isEmpty ? null : job_type,
+        workplace: workplace.isEmpty ? null : workplace,
+      );
+    }
 
     if (!mounted) return;
     setState(() => _is_loading = false);
@@ -252,6 +304,10 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
     if (widget.on_completed != null) {
       widget.on_completed!();
+      return;
+    }
+    if (widget.is_editing) {
+      Navigator.of(context).pop();
       return;
     }
     Navigator.of(context).pushReplacement(
@@ -277,35 +333,41 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      backgroundColor: AppTheme.background_color,
-      navigationBar: const CupertinoNavigationBar(middle: Text('프로필 설정')),
-      child: SafeArea(
-        child: GestureDetector(
-          key: const Key('profile_setup_keyboard_dismiss_area'),
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  key: const Key('profile_setup_scroll_view'),
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                  children: [
-                    _buildIntro(),
-                    const SizedBox(height: 28),
-                    _buildBasicSection(),
-                    const SizedBox(height: 28),
-                    _buildWorkSection(),
-                    const SizedBox(height: 24),
-                    const _PrivacyNotice(),
-                  ],
+    return PopScope(
+      canPop: !_is_loading,
+      child: CupertinoPageScaffold(
+        backgroundColor: AppTheme.background_color,
+        navigationBar: CupertinoNavigationBar(
+          middle: Text(widget.is_editing ? '프로필 수정' : '프로필 설정'),
+          automaticallyImplyLeading: !_is_loading,
+        ),
+        child: SafeArea(
+          child: GestureDetector(
+            key: const Key('profile_setup_keyboard_dismiss_area'),
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    key: const Key('profile_setup_scroll_view'),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                    children: [
+                      _buildIntro(),
+                      const SizedBox(height: 28),
+                      _buildBasicSection(),
+                      const SizedBox(height: 28),
+                      _buildWorkSection(),
+                      const SizedBox(height: 24),
+                      const _PrivacyNotice(),
+                    ],
+                  ),
                 ),
-              ),
-              _buildBottomAction(),
-            ],
+                _buildBottomAction(),
+              ],
+            ),
           ),
         ),
       ),
@@ -321,7 +383,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           key: const Key('profile_image_button'),
           minimumSize: Size.zero,
           padding: EdgeInsets.zero,
-          onPressed: _is_loading ? null : _pickProfileImage,
+          onPressed: _is_busy ? null : _pickProfileImage,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -377,22 +439,24 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           ),
         ),
         const SizedBox(width: 16),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ShiftMate에 오신 걸 환영해요',
-                style: TextStyle(
+                widget.is_editing ? '내 프로필을 수정해요' : 'ShiftMate에 오신 걸 환영해요',
+                style: const TextStyle(
                   fontSize: 21,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.on_surface_color,
                 ),
               ),
-              SizedBox(height: 5),
+              const SizedBox(height: 5),
               Text(
-                '프로필을 설정하고 나만의\n일정 관리를 시작해보세요.',
-                style: TextStyle(
+                widget.is_editing
+                    ? '사진과 정보를 변경한 뒤\n저장해주세요.'
+                    : '프로필을 설정하고 나만의\n일정 관리를 시작해보세요.',
+                style: const TextStyle(
                   fontSize: 14,
                   height: 1.45,
                   color: AppTheme.on_surface_variant_color,
@@ -416,9 +480,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           required_section: true,
         ),
         const SizedBox(height: 6),
-        const Text(
-          '계정 생성과 서비스 이용에 필요한 정보예요.',
-          style: TextStyle(
+        Text(
+          widget.is_editing ? '이메일은 변경할 수 없어요.' : '계정 생성과 서비스 이용에 필요한 정보예요.',
+          style: const TextStyle(
             fontSize: 13,
             color: AppTheme.on_surface_variant_color,
           ),
@@ -431,6 +495,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
               _ReadonlyEmailRow(email: widget.user.email),
               const _RowDivider(),
               _ProfileTextFieldRow(
+                enabled: !_is_busy,
                 field_key: const Key('profile_name_field'),
                 label: '이름',
                 required_field: true,
@@ -446,6 +511,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
               ),
               const _RowDivider(),
               _ProfileTextFieldRow(
+                enabled: !_is_busy,
                 field_key: const Key('profile_phone_field'),
                 label: '휴대폰 번호',
                 required_field: true,
@@ -477,13 +543,23 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           badge: '선택',
         ),
         const SizedBox(height: 10),
-        const _OptionalNotice(),
+        if (widget.is_editing)
+          const Text(
+            '선택 정보는 비워서 삭제할 수 있어요.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.on_surface_variant_color,
+            ),
+          )
+        else
+          const _OptionalNotice(),
         const SizedBox(height: 12),
         _ProfileInformationCard(
           key: const Key('work_information_card'),
           child: Column(
             children: [
               _ProfileTextFieldRow(
+                enabled: !_is_busy,
                 field_key: const Key('profile_job_type_field'),
                 label: '직종',
                 icon: CupertinoIcons.briefcase_fill,
@@ -494,6 +570,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
               ),
               const _RowDivider(),
               _ProfileTextFieldRow(
+                enabled: !_is_busy,
                 field_key: const Key('profile_workplace_field'),
                 label: '재직 중인 회사·기관 및 부서',
                 icon: CupertinoIcons.building_2_fill,
@@ -526,21 +603,23 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           key: const Key('profile_setup_submit_button'),
           padding: EdgeInsets.zero,
           borderRadius: BorderRadius.circular(14),
-          onPressed: _is_loading ? null : _handleSave,
+          onPressed: _is_busy ? null : _handleSave,
           child: _is_loading
               ? const CupertinoActivityIndicator(color: CupertinoColors.white)
-              : const Row(
+              : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '저장하고 시작하기',
-                      style: TextStyle(
+                      widget.is_editing ? '변경사항 저장' : '저장하고 시작하기',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(width: 6),
-                    Icon(CupertinoIcons.arrow_right, size: 18),
+                    if (!widget.is_editing) ...[
+                      const SizedBox(width: 6),
+                      const Icon(CupertinoIcons.arrow_right, size: 18),
+                    ],
                   ],
                 ),
         ),
@@ -670,6 +749,7 @@ class _ReadonlyEmailRow extends StatelessWidget {
 }
 
 class _ProfileTextFieldRow extends StatelessWidget {
+  final bool enabled;
   final Key field_key;
   final String label;
   final bool required_field;
@@ -684,6 +764,7 @@ class _ProfileTextFieldRow extends StatelessWidget {
   final ValueChanged<String>? onChanged;
 
   const _ProfileTextFieldRow({
+    this.enabled = true,
     required this.field_key,
     required this.label,
     required this.icon,
@@ -732,6 +813,7 @@ class _ProfileTextFieldRow extends StatelessWidget {
               const SizedBox(width: 9),
               Expanded(
                 child: CupertinoTextField(
+                  enabled: enabled,
                   controller: controller,
                   placeholder: placeholder,
                   keyboardType: keyboard_type,
