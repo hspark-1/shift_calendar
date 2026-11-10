@@ -2,12 +2,13 @@
 
 ## 2026-11-10
 
-- [TODO] (GIT/QA/DOCS) 현재 변경사항 검토·정리 및 커밋·푸시
+- [DONE] (GIT/QA/DOCS) 현재 변경사항 검토·정리 및 커밋·푸시
   - 목적: 사용자 요청에 따라 기존 작업물을 검토·검증하고 원격 저장소에 보존한다.
   - 변경: 프로필 편집·사진 변경과 서버 요청서의 기존 변경 16개 파일을 검토한다. 별도 기기 진단 TODO는 미완료 상태로 보존한다.
   - 영향범위: 현재 Flutter 저장소 변경과 검증 문서. 서버 구현·배포·스토어 작업은 포함하지 않는다.
   - 테스트: `flutter test --no-pub --reporter expanded --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` 전체 227 pass·기존 skip 1. 변경 Dart 12개 `dart analyze` 진단 0건, `dart format --output=none --set-exit-if-changed` 변경 0건. staged/unstaged diff 검사 통과. Flutter SDK 캐시 쓰기 제한 후 검증 명령을 권한을 받아 재실행해 정상 종료했다.
-  - 진행: 기존 구현·관련 테스트·문서를 직접 검토했으며 추가 앱 코드 수정은 없다. `git fetch origin` 후 원격 충돌 없음·기존 로컬 커밋 `9516c5a` 1개 선행 상태 확인. 프로필 편집 변경을 커밋하고 이전 로컬 커밋과 함께 일반 push한 뒤 완료 결과를 기록한다. 서버 배포·실기기 사진 교체는 기존 후속 인수 항목으로 유지한다.
+  - 결과: 기존 구현·관련 테스트·문서를 직접 검토했으며 추가 앱 코드 수정은 없다. 16개 파일을 `44595b6` (`feat: 설정 프로필 편집 및 사진 변경 추가`)으로 커밋하고, 이전 로컬 커밋 `9516c5a`와 함께 origin/main에 일반 push했다. push 성공 및 로컬 HEAD=origin/main=`44595b6e1540bd1d5cb499909b0ed830fb90805e`를 확인했다. 이번 완료 기록은 후속 문서 커밋으로 보존한다. 새 설계·정책 변경이 없어 기존 ADR-0037을 유지한다.
+  - 다음: 서버 배포·실기기 사진 교체는 기존 후속 인수 항목으로 유지하며 별도 iPhone 진단 TODO도 미완료 상태로 보존한다.
   - 롤백: 정리 커밋을 일반 git revert로 되돌린다.
 
 - [TODO] (DEV/QA) VS Code의 지정 iPhone 미표시 원인 확인
