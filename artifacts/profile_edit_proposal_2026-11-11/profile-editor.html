@@ -1,0 +1,154 @@
+<style>
+  #sm-profile-preview { padding:24px 8px; }
+  #sm-profile {
+    color-scheme:light; --sm-bg:#f8f9fb; --sm-surface:#ffffff; --sm-text:#191c1e;
+    --sm-secondary:#414750; --sm-blue:#0061a4; --sm-line:#c1c7d2; --sm-soft:#f2f4f6;
+    --sm-error:#b3261e; --sm-radius:12px; --sm-gap:24px;
+    width:100%; max-width:390px; margin:0 auto; background:var(--sm-bg); color:var(--sm-text);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    font-size:16px; line-height:1.5; border:1px solid var(--sm-line); border-radius:24px; overflow:hidden;
+  }
+  #sm-profile * { box-sizing:border-box; }
+  #sm-profile button, #sm-profile input { font:inherit; }
+  #sm-profile button { touch-action:manipulation; }
+  #sm-profile .sm-nav { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; padding:12px 12px 0; min-height:64px; }
+  #sm-profile .sm-title { margin:0; text-align:center; font-size:18px; font-weight:600; }
+  #sm-profile .sm-back { width:44px; height:44px; border:0; color:var(--sm-blue); background:transparent; display:grid; place-items:center; }
+  #sm-profile .sm-content { padding:20px 20px 24px; }
+  #sm-profile .sm-identity { display:flex; gap:16px; align-items:center; margin-bottom:var(--sm-gap); }
+  #sm-profile .sm-avatar { width:72px; height:72px; flex-shrink:0; border-radius:50%; background:var(--sm-soft); color:var(--sm-secondary); display:grid; place-items:center; overflow:hidden; border:1px solid var(--sm-line); }
+  #sm-profile .sm-avatar svg { width:32px; height:32px; }
+  #sm-profile .sm-avatar img { width:100%; height:100%; object-fit:cover; }
+  #sm-profile .sm-person-name { font-size:20px; font-weight:600; overflow-wrap:anywhere; }
+  #sm-profile .sm-photo { display:flex; align-items:center; gap:6px; min-height:44px; padding:0; border:0; color:var(--sm-blue); background:transparent; font-size:14px; }
+  #sm-profile .sm-photo svg { width:16px; height:16px; }
+  #sm-profile .sm-section { margin:0 0 var(--sm-gap); padding:0; border:0; min-width:0; }
+  #sm-profile .sm-section legend { padding:0; margin-bottom:12px; font-size:16px; font-weight:600; }
+  #sm-profile .sm-optional { margin-left:6px; color:var(--sm-secondary); font-size:14px; font-weight:400; }
+  #sm-profile .sm-field + .sm-field { margin-top:16px; }
+  #sm-profile label { display:block; font-size:14px; margin-bottom:8px; color:var(--sm-secondary); }
+  #sm-profile input:not([type=file]) { width:100%; min-height:52px; padding:12px 14px; border:1px solid var(--sm-line); border-radius:var(--sm-radius); color:var(--sm-text); background:var(--sm-surface); }
+  #sm-profile input:focus-visible { outline:2px solid var(--sm-blue); outline-offset:2px; }
+  #sm-profile input[aria-invalid=true] { border-color:var(--sm-error); }
+  #sm-profile .sm-error { color:var(--sm-error); font-size:14px; margin:6px 0 0; }
+  #sm-profile .sm-note { color:var(--sm-secondary); font-size:14px; margin:10px 0 0; }
+  #sm-profile .sm-account { padding:16px; border-radius:16px; background:var(--sm-soft); overflow-wrap:anywhere; }
+  #sm-profile .sm-account-label { color:var(--sm-secondary); font-size:14px; display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  #sm-profile .sm-account-label svg { width:14px; height:14px; }
+  #sm-profile .sm-account p { margin:4px 0 0; font-size:14px; color:var(--sm-secondary); }
+  #sm-profile .sm-footer { padding:12px 20px 24px; border-top:1px solid var(--sm-line); background:var(--sm-bg); }
+  #sm-profile .sm-save { width:100%; min-height:52px; border:0; border-radius:var(--sm-radius); color:var(--sm-surface); background:var(--sm-blue); font-weight:600; }
+  #sm-profile .sm-save:disabled { background:#e0e3e5; color:var(--sm-secondary); }
+  #sm-profile button:active { opacity:.75; }
+  #sm-profile .sm-status { color:var(--sm-secondary); font-size:14px; margin:0 0 8px; }
+  #sm-profile [hidden] { display:none!important; }
+  @media(max-width:360px) { #sm-profile .sm-content { padding:16px; } #sm-profile .sm-footer { padding-inline:16px; } }
+</style>
+<div id="sm-profile-preview" class="viz-dotted-background">
+  <article id="sm-profile" aria-label="ShiftMate 프로필 수정 제안">
+    <header class="sm-nav">
+      <button type="button" class="sm-back cursor-interaction" aria-label="편집 취소"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+      <h2 class="sm-title">프로필 수정</h2><span></span>
+    </header>
+    <form id="sm-profile-form" novalidate>
+      <main class="sm-content">
+        <div class="sm-identity">
+          <div class="sm-avatar" aria-label="프로필 사진"><i data-lucide="user-round" aria-hidden="true"></i></div>
+          <div><div class="sm-person-name">김하루</div><button class="sm-photo cursor-interaction" type="button"><i data-lucide="camera" aria-hidden="true"></i>사진 변경</button></div>
+          <input id="sm-photo-file" type="file" accept="image/*" hidden>
+        </div>
+        <fieldset class="sm-section"><legend>기본 정보</legend>
+          <div class="sm-field"><label for="sm-name">이름 · 필수</label><input id="sm-name" value="김하루" maxlength="50" autocomplete="name" required aria-describedby="sm-name-error"><p class="sm-error" id="sm-name-error" role="alert" hidden></p></div>
+          <div class="sm-field"><label for="sm-phone">휴대폰 번호 · 필수</label><input id="sm-phone" value="010-1234-5678" inputmode="tel" autocomplete="tel" required aria-describedby="sm-phone-error"><p class="sm-error" id="sm-phone-error" role="alert" hidden></p></div>
+        </fieldset>
+        <fieldset class="sm-section"><legend>근무 정보<span class="sm-optional">선택</span></legend>
+          <div class="sm-field"><label for="sm-job">직종</label><input id="sm-job" value="간호사" maxlength="20" placeholder="예: 간호사, 개발자"></div>
+          <div class="sm-field"><label for="sm-workplace">소속 · 부서</label><input id="sm-workplace" value="하루병원 응급실" maxlength="100" placeholder="예: 회사·기관 및 부서" autocomplete="organization"></div>
+          <p class="sm-note">비워두고 저장하면 근무 정보가 삭제돼요.</p>
+        </fieldset>
+        <section class="sm-account" aria-label="계정 정보">
+          <div class="sm-account-label"><i data-lucide="lock-keyhole" aria-hidden="true"></i>이메일 계정</div>
+          <div>haru@example.com</div><p>로그인에 사용하는 이메일은 변경할 수 없어요.</p>
+        </section>
+      </main>
+      <footer class="sm-footer"><p class="sm-status" role="status" hidden></p><button class="sm-save cursor-interaction" type="submit" disabled>변경사항 저장</button></footer>
+    </form>
+  </article>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('sm-profile');
+  const form = document.getElementById('sm-profile-form');
+  const field_ids = ['sm-name', 'sm-phone', 'sm-job', 'sm-workplace'];
+  const fields = field_ids.map(field_id => document.getElementById(field_id));
+  const original_values = fields.map(field => field.value);
+  const save_button = root.querySelector('.sm-save');
+  const status = root.querySelector('.sm-status');
+  const person_name = root.querySelector('.sm-person-name');
+  const avatar = root.querySelector('.sm-avatar');
+  const initial_avatar = avatar.innerHTML;
+  let photo_changed = false;
+  function isDirty() { return photo_changed || fields.some((field, index) => field.value !== original_values[index]); }
+  function render() {
+    save_button.disabled = !isDirty();
+    person_name.textContent = fields[0].value.trim() || '내 프로필';
+  }
+  function showError(field_index, message) {
+    const error = document.getElementById(field_ids[field_index] + '-error');
+    error.hidden = !message; error.textContent = message;
+    fields[field_index].setAttribute('aria-invalid', message ? 'true' : 'false');
+  }
+  function validateField(field_index) {
+    if (field_index === 0) showError(0, fields[0].value.trim() ? '' : '이름을 입력해주세요.');
+    if (field_index === 1) {
+      const phone_digits = fields[1].value.replace(/[^0-9]/g, '');
+      showError(1, /^(?:010[0-9]{8}|01[16789][0-9]{7,8})$/.test(phone_digits) ? '' : '휴대폰 번호 형식을 확인해주세요.');
+    }
+  }
+  fields.forEach((field, index) => {
+    field.addEventListener('input', () => { status.hidden = true; if (field.getAttribute('aria-invalid') === 'true') validateField(index); render(); });
+    if (index < 2) field.addEventListener('blur', () => validateField(index));
+  });
+  root.querySelector('.sm-photo').addEventListener('click', () => document.getElementById('sm-photo-file').click());
+  document.getElementById('sm-photo-file').addEventListener('change', event => {
+    const selected_file = event.target.files[0];
+    if (!selected_file) return;
+    if (!selected_file.type.startsWith('image/') || selected_file.size > 5 * 1024 * 1024) {
+      status.hidden = false; status.textContent = '5MB 이하의 이미지를 선택해주세요.'; return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = document.createElement('img'); image.src = reader.result; image.alt = '선택한 프로필 사진';
+      avatar.replaceChildren(image); photo_changed = true; render();
+    };
+    reader.readAsDataURL(selected_file);
+  });
+  form.addEventListener('submit', event => {
+    event.preventDefault(); validateField(0); validateField(1);
+    const invalid_field = fields.find(field => field.getAttribute('aria-invalid') === 'true');
+    if (invalid_field) { invalid_field.focus(); return; }
+    if (!isDirty()) return;
+    status.hidden = false; status.textContent = '변경된 모습을 확인했어요. 디자인 시안에서는 실제 저장되지 않아요.';
+  });
+  root.querySelector('.sm-back').addEventListener('click', () => {
+    fields.forEach((field, index) => { field.value = original_values[index]; });
+    photo_changed = false; avatar.innerHTML = initial_avatar;
+    document.getElementById('sm-photo-file').value = '';
+    showError(0, ''); showError(1, ''); status.hidden = false; status.textContent = '편집 전 예시로 돌아왔어요.';
+    if (globalThis.lucide) globalThis.lucide.createIcons(); render();
+  });
+  render();
+  if (globalThis.Tweak) {
+    const design_state = { input_radius:12, section_gap:24, avatar_size:72 };
+    function renderDesign() {
+      root.style.setProperty('--sm-radius', design_state.input_radius + 'px');
+      root.style.setProperty('--sm-gap', design_state.section_gap + 'px');
+      avatar.style.width = design_state.avatar_size + 'px'; avatar.style.height = design_state.avatar_size + 'px';
+    }
+    const tweak = new Tweak({ container:root, onChange:renderDesign });
+    tweak.addSlider(design_state, 'input_radius', { label:'입력 모서리', min:8, max:16, unit:'px' });
+    tweak.addSlider(design_state, 'section_gap', { label:'섹션 간격', min:16, max:32, step:4, unit:'px' });
+    tweak.addSlider(design_state, 'avatar_size', { label:'프로필 사진', min:64, max:88, step:8, unit:'px' });
+  }
+})();
+</script>

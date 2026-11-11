@@ -154,7 +154,11 @@ void main() {
       ),
       '저장 안 한 이름',
     );
-    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('profile_edit_back_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('변경사항을 버릴까요?'), findsOneWidget);
+    await tester.tap(find.text('변경사항 버리기'));
     await tester.pumpAndSettle();
     expect(repository.update_count, 0);
     expect(find.text('사용자'), findsOneWidget);
