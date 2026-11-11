@@ -1,5 +1,11 @@
 # 프로젝트 컨텍스트
 
+## 누적 작업별 커밋·푸시 검증 (2026-11-11)
+
+- 기존 변경을 디자인 검토·공통 내비게이션/설정/그룹 UI·색상·근무 타입·프로필·개인 일정의 6개 커밋으로 나눠 origin/main에 푸시했다. 커밋별 컨텍스트·ADR·작업 기록과 시안/검증 산출물을 포함했고 앱 코드 추가 변경은 없다. 기존 ADR의 대체 안내와 아래 상세 UI/라우팅 설명의 정합성은 후속 문서 커밋으로 보존한다.
+- 전체 Flutter 285 pass·기존 skip 1, 변경 Dart 51개 분석 진단 0건·포맷 변경 0건. 인덱스를 별도 디렉터리로 내보내 후속 기능 없이 내비게이션 14개·색상/기존 폼 40개·근무 타입 24개·프로필 30개가 통과했고, 그룹 플래그 활성 회귀 2개도 통과했다. 코드 원본/최종 인덱스 일치·측정 JSON 10개 파싱·diff 검사를 확인했다.
+- 커밋 식별자·원격 일치 결과·검증 한계는 WORKLOG의 같은 날짜 완료 항목을 참조한다. 새 설계/정책은 추가하지 않았으며 실기기·원격 서버 인수는 기존 후속 과제로 유지한다. 롤백은 각 작업 커밋을 의존성 역순으로 git revert한다.
+
 ## 개인 일정 슬라이드업 모달과 인라인 공개 레벨 (2026-11-11)
 
 - 목적/정책: 모달/공개 조절은 ADR-0047, 후속 본문 끌기/확인 없는 닫기는 ADR-0048을 따른다. CalendarPage의 기존 showCupertinoModalPopup(root, barrierDismissible=false)과 생성 콜백을 그대로 사용하고 기존 캘린더/탭을 dim 배경으로 남긴다. 본문/저장·모의/실서버 계약은 ADR-0046과 같다.
@@ -144,11 +150,11 @@
 ## 설정 프로필 수정 (2026-11-10)
 
 - 진입: 인증된 사용자가 설정의 프로필 카드 → `ProfileSetupPage.edit(user: user)`를 `CupertinoPageRoute`로 push한다. 저장 성공은 현재 route를 pop해 기존 설정으로 복귀한다. 별도 analytics 시스템은 추가하지 않는다.
-- 가입 화면과 이름·전화·직종·소속 입력/사진 선택·미리보기 UI를 공유한다. 편집은 현재 값을 초기화하고 이메일을 읽기 전용으로 표시한다. 가입 안내·CTA는 편집 문구로 바꾼다.
+- 가입 화면과 이름·전화·직종·소속 입력/검증·사진 선택·미리보기·저장 로직을 공유한다. 후속 ADR-0043은 편집 표시를 분리해 현재 값으로 초기화하고 이메일을 읽기 전용 계정 영역으로 배치한다. 최신 규격/편집 UX는 상단 재설계 구현 절을 따른다.
 - 흐름: `ProfileSetupPage.edit` → `AuthNotifier.updateProfile` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → `POST /api/v1/auth/profile`. 가입 완료 endpoint를 호출하지 않는다.
 - 편집 UI state(입력 controller·사진 bytes·로딩)는 화면이 소유하고 dispose한다. 최신 사용자 domain state는 기존 `authProvider`가 관리한다. 저장 성공 시 서버 완료 boolean을 보존하고 사진 업로드 성공 시 `profileImageBytesProvider`를 무효화한다.
-- Behavior change: 설정 프로필 카드의 준비 중 안내를 실제 편집으로 대체한다. 변경 필드만 보내며 변경 없는 저장은 API를 호출하지 않는다. 선택 직종/소속을 비우면 빈 문자열을 보내 서버에서 null로 지운다. 레거시 직종 코드는 한글로 표시하지만 미수정 값은 다시 보내지 않는다. 편집은 저장된 타임존을 바꾸지 않으며 기존 전화는 미수정 시 재검증/전송하지 않는다.
-- 사진은 기존 1024px·품질 85·최종 5MB 제한을 공유한다. 사진이 없으면 JSON, 있으면 multipart `profile_image` 파일을 전송한다. 저장 중 입력/뒤로가기/중복 저장을 막고 실패 시 입력·미리보기를 유지하며 서버 오류를 다이얼로그로 표시한다. 사진 선택 중에도 중복 선택/저장을 막는다.
+- Behavior change: 설정 프로필 카드의 준비 중 안내를 실제 편집으로 대체한다. 변경 필드만 보내며 변경이 없으면 저장을 비활성화해 API를 호출하지 않는다. 선택 직종/소속을 비우면 빈 문자열을 보내 서버에서 null로 지운다. 레거시 직종 코드는 한글로 표시하지만 미수정 값은 다시 보내지 않는다. 편집은 저장된 타임존을 바꾸지 않으며 기존 전화는 미수정 시 재검증/전송하지 않는다.
+- 사진은 기존 1024px·품질 85·최종 5MB 제한을 공유한다. 사진이 없으면 JSON, 있으면 multipart `profile_image` 파일을 전송한다. 편집은 저장/사진 선택 중 입력·뒤로가기·중복 작업을 막는다. 저장 실패는 입력·미리보기를 유지하고 하단 서버 오류/다시 저장을 표시하며 사진 선택 실패·제한 초과는 기존 다이얼로그를 사용한다.
 - 기존 Dio 토큰 갱신 후 재시도에서 finalized multipart를 clone해 사진/필드를 다시 보낼 수 있게 한다. 다른 설정 메뉴는 변경하지 않는다.
 - **서버 선행 조건**: 로컬 서버 코드는 일반 수정에 multipart parser가 없고 직종 enum 제한이 남아 있다. 사진 수정·자유 직종은 서버 반영 및 Stage/운영 인수 전 사용 가능으로 간주하지 않는다. 확인한 것은 로컬 소스이며 원격 배포 상태는 미확인이다. 상세 요청은 [PROFILE_EDIT_SERVER_HANDOFF.md](PROFILE_EDIT_SERVER_HANDOFF.md).
 - 파일 역할/의존성/사용 예:
@@ -470,11 +476,10 @@
     8% primary tint 배경·2px primary dark outline, 날짜·근무 배지 셀의 레이아웃 예외,
     확장/compact 보기의
     마지막 행 선택 사각형이 달력 경계 안에 포함되는지 검증한다.
-  - `lib/features/calendar/presentation/widgets/bottom_action_bar.dart`: 공용 하단 footer.
-    기본 메인/근무 추가 구성에서는 친구·시간, 오늘, 알림 이동 액션과 미읽음 알림 배지를
-    표시한다. 화면이 `BottomActionBarItem` 목록을 주입하면 같은 surface·상단 outline·pill
-    스타일로 화면 전용 액션과 선택 상태를 표시하며, 친구 탭은 이 방식으로 친구 리스트와
-    그룹 방을 전환한다.
+  - `lib/core/navigation/main_tab_page.dart`: 인증 후 공통 하단 탭(캘린더·친구·알림).
+    탭별 Navigator와 지연 생성 IndexedStack으로 날짜·목록·상세 탐색 이력을 보존한다.
+    오늘 이동은 달력 헤더의 명시적 버튼이며 탭 재선택은 날짜를 초기화하지 않는다.
+    `bottom_action_bar.dart`는 참조 없는 기존 ShiftAddPage용 레거시 위젯으로 남고 현재 메인/친구에서는 사용하지 않는다.
   - `test/features/calendar/presentation/widgets/shift_type_button_test.dart`:
     `ShiftTypeSelectionGrid`가 320x128 영역에서 타입 1~10개를 스크롤/오버플로우 없이 표시하는지,
     10개를 5개씩 2행으로 배치하는지, 선택 코드를 콜백으로 전달하는지, 옅은 근무 색상에서
@@ -497,114 +502,52 @@
     `ShiftTemplateSettingsPage`에서 편집/삭제 액션을 주입받아 사용한다. 원형 배지의 코드는
     저장된 근무 색상 명도에 따라 어두운색 또는 흰색을 선택해 낮은 농도에서도 읽을 수 있게 한다.
   - `lib/features/calendar/presentation/widgets/shift_type_form_modal.dart`: 근무 타입 추가/편집 화면.
-    `../design/shift_type-setting/code.html` 시안과 친구 설정 화면의 컴팩트한 구조를 기준으로
-    좌측 화살표/중앙 제목/우측 `완료` 내비게이션, 원형 코드 미리보기, 색상 변경 pill,
-    코드·이름 카드와 근무 시간 카드를 표시한다. 앱 설정 화면의 `_settings_scale = 0.8`과
-    같은 본문 배율을 사용해 상단 내비게이션 바는 공통 치수를 유지하고, 미리보기는 76.8px,
-    코드·이름 및 시간 행은 44.8px, 본문 기본 글자는 12.8px로 표시한다. 카드 반경·아이콘·
-    내부 간격·안내 문구도 같은 비율로 축소한다. 코드는 최대 3자와 대문자로 제한하고 입력값을
-    원형 미리보기에 즉시 반영한다. 대문자 변환은 컨트롤러 값을 입력 중 다시 쓰지 않고
-    `TextInputFormatter`에서 처리해 키보드 입력 연결과 포커스를 유지한다. 입력 중에는 중복
-    UI를 표시하지 않으며, 키보드 완료 액션이나 다른 영역 이동으로 코드 필드의 포커스가
-    빠진 뒤 호출 화면이 전달한 현재 템플릿의 `existingTypes`와 대소문자 구분 없이 비교한다.
-    편집 중인 타입 자체는 비교에서 제외한다. 입력 완료된 코드가 중복이면
-    코드 입력 글자색은 기본 본문 색상으로 유지하고 코드 입력 행의 영역 테두리와
-    `이미 사용 중인 코드입니다.` 안내를 accent red로 표시한다. 이때 `완료`를 비활성화하며,
-    코드 필드에 다시 포커스를 두는 것만으로 오류 UI를 갱신하지 않아 첫 탭에 키보드 입력 연결을
-    복원한다. 사용자가 코드를 실제로 수정하면 기존 테두리·안내를 제거하고 다음 편집 완료 시점에
-    다시 검사한다. 중복 상태는 `ValueNotifier`로 관리하되 코드 `CupertinoTextField`는 안정적인
-    자식으로 계속 마운트하고, 오류 테두리는 입력 필드와 분리된 포인터 비활성 오버레이로 그려
-    오류 UI 변경 중에도 `EditableText`의 플랫폼 입력 연결을 유지한다.
-    이 검사는 로컬 사전 검증이고 최종 저장 시 기존 검증과 서버 `DUPLICATE_CODE` 처리는 유지한다.
-    색상 변경은 `ShiftColorPickerPage`를 전체 화면으로 열고,
-    사용자가 `적용`으로 반환한 최종 색상·기준 색상·정수 농도를 폼 상태에 함께 반영한다.
-    편집 진입 시 `ShiftTypeApiModel.baseColor`와 `colorIntensity`를 선택 화면 초기값으로 전달해
-    저장된 농도를 복원한다. 생성 요청은 `base_color`·`color_intensity`를 항상 함께 보내고,
-    편집에서 색상을 적용하지 않았다면 두 필드를 모두 생략해 기존 서버 값을 유지한다.
-    시작·종료 시간 동시 유무 검증과 시간 요청 계약은 유지한다. 설정된 시간 옆 삭제
-    액션은 18px `CupertinoIcons.xmark_circle_fill`과 accent red를 사용하며 누른 행의 시간만 비운다.
-    한쪽 시간만 남은 중간 편집 상태는 허용하지만 완료 시에는 기존 동시 유무 검증으로 저장을 막는다.
-    삭제 버튼의 36px 슬롯·18px 아이콘·12px 외부 여백에서 계산한
-    21px 우측 시각 inset을 코드·이름 입력과 아이콘 없는 시간 선택 텍스트에도 적용해 모든 우측
-    콘텐츠의 끝을 같은 세로선에 맞춘다.
-    원형 코드 미리보기의 글자색은 선택 근무 색상과의 대비율로 정해, 색상 농도를 낮춰 배경이
-    surface에 가까워져도 코드가 함께 옅어져 보이지 않게 한다.
-    코드·이름 입력은 각각 전용 `FocusNode`를 사용하며 처음 포커스를 받을 때 기존 텍스트의
-    끝으로 커서를 이동한다. 키보드의 완료 액션은 코드→이름→시작 시간 순으로 이동하고,
-    시작 시간 시트에서 `선택한 시간 적용`을 누르면 종료 시간 시트를 연다. 종료 시간 적용 후에는
-    텍스트 포커스를 남기지 않는다. 시간 시트 취소 시에는 다음 단계로 자동 이동하지 않는다.
-    폼 본문 바깥을 터치하거나 스크롤하면 현재 텍스트 포커스를 해제해 키보드를 닫는다.
-    `CupertinoPageRoute`로 진입하며, 본문은 `SafeArea(bottom: false)`와 내부 bottom padding을
-    함께 사용해 안내 문구가 홈 인디케이터/화면 끝에 붙어 잘려 보이지 않게 한다. 시작·종료 시간은
-    개인 일정과 같은 공용 `TimePickerSheet`를 열며, 기존 `TimeOfDay` 폼 상태와 시트의 `Duration`
-    결과를 변환해 `HH:mm:ss` API 요청 계약을 유지한다.
+    상단 뒤로가기, 52px 코드/이름/시간 요약 → 이름 → 표시 코드 → 표시 색상 → 시간 지정과 하단 저장이다.
+    구체적인 반응형/시간 스위치/오류/포커스 정책은 상단 근무 타입 편집 재설계 구현 절과 ADR-0041을 따른다.
+    기존 `CupertinoPageRoute`, 공용 `TimePickerSheet`, `HH:mm:ss` 요청과 코드 최대 3자/대문자 변환을 유지한다.
+    중복은 입력 중 표시하지 않고 코드 포커스 이탈/저장 시 현재 템플릿 existingTypes와 대소문자 무관 비교하며
+    편집 중인 자기 자신을 제외한다. 중복 notifier/포인터 비활성 오류 오버레이로 플랫폼 입력 연결을 유지한다.
+    색상 행은 ShiftColorPickerPage의 완료 결과만 반영하며 최종색·기준색·정수 농도를 함께 보존한다.
+    생성은 base_color/color_intensity를 함께 전송하고 색상 무변경 편집은 둘 다 생략한다.
+    onCreate/onUpdate 콜백 성공 후에만 닫고 실패는 입력을 보존한다. 콜백 없는 테스트 호스트에는 DTO를 반환한다.
+    UI state와 controller/focus/scroll/notifier는 화면이 소유·dispose한다.
   - `lib/features/calendar/presentation/widgets/shift_color_picker_page.dart`: 근무 타입 색상 선택 화면.
-    `../design/shift-color-pick/code.html` 시안을 Cupertino 구조로 구현한다. 상단 내비게이션 바는
-    커스텀 색상 선택 화면과 동일한 좌측 화살표/중앙 제목/우측 `적용` 조합을 사용하고,
-    앱 설정·근무 타입 편집 화면과 같은 `_body_scale = 0.8`을 적용해 76.8px 선택 색상 미리보기,
-    41.6px 프리셋 원과 축소된 HEX·색상명·카드·간격·슬라이더를 표시한다. 본문은 12개 프리셋,
-    색상 농도 카드, 커스텀 색상 버튼 순서로 구성하며 프리셋 제목 옆 별도 개수 안내는 표시하지
-    않는다. 커스텀 색상 버튼은
-    `ShiftCustomColorPickerPage`를 전체 화면으로 연다. 프리셋 행과 커스텀 버튼은 최소 44px
-    터치 영역을 유지한다. 프리셋 또는 커스텀 색상을 화면 내부 상태로만 편집하고, 좌측 화살표는
-    값을 반환하지 않으며 우측 `적용`만 `ShiftColorSelection`의 최종 색상·기준 색상·정수 농도를
-    호출 화면으로 반환한다. 상단 미리보기는
-    공용 surface·outline·radius 카드 안에서 별도 편집 배지 없이 선택 색상 원을 왼쪽에 두고,
-    세로 구분선 오른쪽 정보 열에 `선택한 색상` 안내·색상명·HEX pill을 배치한다. 색상명은
-    디자인 기준 24px, 본문 배율 적용 후 19.2px 고정 슬롯 안에 한 줄로 렌더링해 이름별 폰트
-    fallback line metrics가 달라도 프리셋·농도·커스텀 섹션의 Y 좌표가 바뀌지 않게 한다.
+    좌측 뒤로가기/중앙 제목/우측 `완료`와 선택 미리보기→12개 프리셋→`선택한 색상 조절`을 제공한다.
+    공통 16/14 타이포와 반경 16, 64px 미리보기, 52px 프리셋을 사용한다. 좁은 화면·큰 글자에서는
+    미리보기를 세로로 배치하며 색상명 슬롯은 최소 24px에서 내용에 맞게 확장한다.
+    뒤로가기는 값을 반환하지 않으며 완료만 최종 색상·기준 색상·정수 농도의 `ShiftColorSelection`을 반환한다.
     색상 농도는 서버 계약의 고정 흰색 `#FFFFFFFF`와 선택한 기준 색상을 정수 0~100 퍼센트로
     혼합하고 alpha를 항상 1로 고정한다. 각 RGB 채널을 서버와 같은 식으로 반올림해 테마 변경과
     무관하게 최종 색상을 일치시킨다. 0%는 불투명 흰색, 100%는 불투명 원본 색이며 중간값은
-    배경이 비치지 않는 옅은 색이다. 농도 카드는 한글 제목·설명, 퍼센트 pill, 양끝 색상 미리보기와 전체 너비
-    `CupertinoSlider`를 제공한다. 슬라이더 핸들을 기존처럼 드래그할 수 있고, 트랙의 임의 위치를
-    탭하거나 핸들이 없는 위치에서 바로 가로 드래그를 시작해도 해당 농도로 이동한다.
+    배경이 비치지 않는 옅은 색이다. 계산/선택값은 `shift_color_selection.dart`에 공유한다.
   - `lib/features/calendar/presentation/widgets/shift_custom_color_picker_page.dart`: 커스텀 근무 색상
-    선택 전체 화면. `../design/custom-color-pick/code.html` 시안을 Cupertino 구조와 0.8 본문
-    밀도로 구현한다. 선택 색상 미리보기·HEX 표시/6자리 입력, `CustomPainter`의 sweep/radial
-    gradient 색상 휠, Red/Green/Blue 0~255 슬라이더, 최대 6개 최근 색상 단축 선택을 제공한다.
-    휠과 RGB 컨트롤은 같은 카드의 반응형 `Row`에서 휠을 왼쪽, RGB를 오른쪽에 배치한다.
-    390px 화면에서 휠은 약 172px이며 최대 176px이고, RGB 슬라이더는 세로만 0.8 배율로 축소해
-    우측 열의 가로 폭을 유지한다. 본문 `ListView`에는 `NeverScrollableScrollPhysics`를 적용해
-    사용자 세로 드래그에도 최초 위치를 유지한다. HEX 입력과 화면·카드 외부 여백은 기존 위치를
-    유지한다.
-    색상 휠 좌표는 중심 거리와 각도를 HSV 채도·색조로 변환하고, 모든 입력은 단일
-    불투명 `Color` 상태를 통해 미리보기·HEX·RGB·휠 마커에 즉시 동기화한다. `ShiftColorPickerPage`
-    가 `CupertinoPageRoute`로 열며, 뒤로가기는 값을 반환하거나 최근 기록을 저장하지 않고 `적용`만
-    선택 색상을 반환한다. 완료 색상은 기존 `shared_preferences` 의존성을 사용해
-    `shift_custom_recent_colors_v1` 문자열 목록에 6자리 RGB HEX로 저장한다. 최신 색상을 맨 앞에
-    두고 중복은 기존 위치에서 제거하며 최대 6개만 유지한다. 진입 시 유효한 값만 복원하고
-    중복·잘못된 값·초과 항목은 정규화하며, 기록이 없으면 빈 상태를 표시한다.
-  - `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`: 근무 타입 편집 화면의
-    좌측 화살표/우측 완료 헤더와 본문 80% 치수, 컴팩트 카드 구조와 76.8px 미리보기,
-    3자 대문자 코드 동기화와 조합 입력 중 컨트롤러 미재할당, 신규·수정 코드가 기존 코드
-    접두어와 같아지는 입력 중에도 중복 UI를 표시하지 않고 포커스·키보드 입력 연결을 유지하는지,
-    편집 대상 자체를 제외한 대소문자 무관 코드 중복을 입력 완료 후 기본 글자색과 accent red
-    테두리로 표시하고 완료를 비활성화하는지, 중복 표시 상태에서 키보드를 닫은 뒤 코드 필드를
-    처음 탭해도 키보드가 열리고 실제 코드 수정 후에도 입력 연결이 유지되는지,
-    코드·이름·시간 선택·삭제 아이콘의 우측 좌표 일치, 시간 개별 삭제,
-    코드→이름→시작 시간→종료 시간 포커스 이동, 최초 포커스의 커서 끝 이동, 본문 터치 키보드 닫기,
-    옅은 근무 색상 미리보기의 어두운 코드 전경색, 저장된 기준 색상·50% 농도 복원,
-    색상 적용 후 메타데이터 수정 요청, 색상 무변경 편집의 필드 생략, 생성 요청의 기본
-    기준 색상·100% 농도와 뒤로가기 폐기 계약, 기존 액션 시트 대신 전체 화면 색상 선택 페이지로
-    진입하고 선택값을 반영하는 흐름을 검증한다.
+    선택 전체 화면. 상단 최종 색상 미리보기와 스크롤 가능한 기준 HEX→휠→RGB→농도→최근 색상을 제공한다.
+    입력 컨트롤은 기준색, 고정 미리보기는 최종색이며 농도 0%에서도 기준색을 잃지 않는다.
+    휠 원 내부는 즉시 제스처를 소유하고, 농도 트랙은 탭/가로 드래그·접근성 조절을 지원한다.
+    작은 화면·큰 글자는 스크롤하며 키보드가 열리면 고정 미리보기를 접는다. 저장 중 입력/뒤로가기/중복 완료를 막는다.
+    완료 시 유효한 6자리 HEX를 검사하고 `ShiftColorSelection`으로 기준색/농도/최종색을 반환한다.
+    뒤로가기는 결과/최근 기록을 저장하지 않는다. 최근 색상의 v2 메타데이터와 v1 호환 규칙은 상단 농도 통합 절을 따른다.
+  - `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`: 작은 미리보기/하단 저장,
+    이름→코드 포커스, 3자 대문자·조합 입력·중복 시 플랫폼 입력 연결, 대비색과 공용 색상/시간 페이지 왕복,
+    기준색/농도 복원과 요청 생략, 시간 지정 해제의 명시적 null·재활성 복원·시간 쌍 오류,
+    다음 날/분 단위 간격/동일 시간 0시간, 필수 입력 인접 오류와 포커스·취소 폐기를 검증한다.
   - `test/features/calendar/presentation/providers/shift_template_settings_provider_test.dart`:
     근무 타입 수정 요청이 진행되는 동안 설정 상태를 공용 로딩으로 전환하지 않는지, 서버 PUT 응답
     모델을 설정 목록에 그대로 반영하는지, 같은 응답을 기존 `shiftTypesProvider` GET 캐시 위에
     합성해 근무 입력용 표시 목록을 갱신하는지 검증한다. 가짜 템플릿/근무 타입 서비스를 주입해
     실제 네트워크 없이 Provider 상태 전이를 재현한다.
   - `test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart`: 색상 선택 화면의
-    좌측 화살표/우측 적용 헤더와 본문 80% 치수, surface 카드 안의 선택 원→구분선→색상명/HEX
-    좌우 좌표·정보 세로 순서와 편집 아이콘 미노출, 프리셋→색상 농도→커스텀 순서와 프리셋
+    뒤로가기/완료 헤더와 공통 폼 크기, surface 카드 안의 선택 원→구분선→색상명/HEX
+    좌우 좌표·정보 세로 순서와 편집 아이콘 미노출, 프리셋→선택한 색상 조절 순서와 프리셋
     개수 문구 미노출, 모든 프리셋의
     색상명 슬롯 높이·스크롤 오프셋·각 섹션 Y 좌표 불변,
     고정 흰색 혼합의 0·50·100% 계산, 저장된 기준 색상·농도 초기 복원,
-    농도 트랙 탭·임의 위치 드래그 이동, 적용 시 최종 색상·기준 색상·농도 반환과
+    커스텀 왕복/취소/재진입의 기준색·농도 보존, 적용 시 최종 색상·기준 색상·농도 반환과
     뒤로가기 폐기, 전체 화면 커스텀 색상 적용을 검증한다.
   - `test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart`: 커스텀 색상
-    화면의 80% 치수와 사용자 세로 드래그 차단, 같은 카드 안의 휠 왼쪽·RGB 오른쪽 좌표 관계와 RGB
-    슬라이더의 가로 1.0/세로 0.8 배율, HEX·RGB·색상 휠·최근 색상 간 동기화, 완료 색상
-    반환과 뒤로가기 폐기, 로컬 최근 색상의 빈 상태·복원·최신순 저장·중복 제거·6개 상한을 검증한다.
+    화면의 공통 치수와 세로 스크롤, 같은 카드 안의 휠 위·RGB 아래 배치,
+    축소 없는 슬라이더, HEX·RGB·색상 휠·최근 색상 간 동기화, 완료 색상
+    반환과 뒤로가기 폐기, 기준색과 최종색의 분리/0·50·100% 농도/트랙 탭·드래그, 로컬 최근 색상의 메타데이터·v1 복구·빈 상태·최신순·중복 제거·6개 상한을 검증한다.
   - `lib/features/auth/presentation/pages/login_page.dart`: 비인증 사용자의 로그인 화면.
     `AuthNotifier`의 카카오·네이버·Google·Apple 로그인 콜백과 공용 로딩 표시를 제공한다.
     Apple 버튼은 서버와 Apple Developer 설정이 준비된 빌드에서만
@@ -653,13 +596,12 @@
     state 불일치, 사용자 취소와 지원 불가 처리를 실제 플랫폼 채널 없이 검증한다.
   - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
     시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션,
-    정적 토글, 별도 로그아웃 버튼을 Cupertino 커스텀 위젯으로 구현한다. 설정 화면 내부에는
+    준비 중 상태, 별도 로그아웃 버튼을 Cupertino 위젯으로 구현한다. 설정 화면 내부에는
     하단 내비게이션을 두지 않고, 메인 캘린더에서 push된 페이지로 뒤로가기를 제공한다.
     상단 `설정` 헤더와 뒤로가기는 `CupertinoPageScaffold.navigationBar`에 두어 메인
     캘린더의 `CupertinoNavigationBar`와 route 전환 시 같은 헤더 transition을 타게 한다.
     프로필/설정 섹션/로그아웃 버튼만 본문 `ListView`에서 스크롤한다.
-    다른 화면보다 크게 보이지 않도록 설정 화면 전용 `_settings_scale = 0.8`을 사용해
-    프로필, 섹션, 행, 아이콘, 토글, 로그아웃 버튼 치수를 축소한다. 섹션 카드는
+    전체 축소 대신 본문 16/설명 14와 최소 높이 56의 행을 사용한다. 큰 글자는 행 안에서 줄바꿈한다. 섹션 카드는
     행 배경/구분선을 `ClipRRect`로 먼저 클리핑하고, `foregroundDecoration`이 primary
     tint 1px outline을 마지막에 그려 같은 크기의 내부 surface가 border를 덮지 않게 한다.
     실제 구현된 항목은 `ShiftTemplateSettingsPage`로 이동하는 근무 패턴 설정,
@@ -667,8 +609,7 @@
     일정·근무표·친구·그룹 정보 삭제와 복구 불가를 최종 확인한 뒤만 요청한다.
     요청 중에는 로그아웃과 탈퇴 버튼을 모두 비활성화해 중복 요청을 막는다.
     프로필 편집은 상단 2026-11-10 절의 실제 편집 route를 사용한다. 기본 알림 설정, 다크 모드, 언어 및 지역, 글꼴 크기, 비밀번호 변경,
-    로그인 생체 인증, 공지사항, 고객 센터는 `_showFeatureUnavailableAlert()`로
-    "준비 중인 기능" alert를 표시하고 상태를 변경하지 않는다. 버전 정보는
+    로그인 생체 인증, 공지사항, 고객 센터는 `준비 중`을 직접 표시하며 동작·화살표·가짜 토글을 제공하지 않는다. 버전 정보는
     `AppConstants.app_version`을 표시한다.
 
 ### 아키텍처 개요
@@ -733,7 +674,7 @@ AuthWrapper 인증 상태
 - 설치 UUID는 `InstallationIdService`가 secure storage에 만들고 logout 후에도 유지합니다.
 - logout 요청에는 installation ID를 선택 필드로 보내 서버의 사용자-기기 귀속을 해제하며 local pending route와 중복 ID 상태는 지웁니다.
 - foreground는 Firebase 자동 표시를 끄고 `shiftmate_high` local notification을 사용합니다. background/종료 상태 표시는 OS가 처리합니다.
-- schema v1과 `destination=NOTIFICATIONS`만 수용하고 모든 탭은 세부 화면 대신 `NotificationPage`로 이동합니다.
+- schema v1과 `destination=NOTIFICATIONS`만 수용하고 모든 알림 탭 이벤트는 세부 화면 대신 MainTabPage의 알림 탭(`NotificationPage`)으로 이동합니다.
 - Debug는 Stage Firebase/API, Profile/Release는 Production Firebase/API를 사용합니다. 설정 값은 `--dart-define`으로 주입하며 없으면 push만 비활성화합니다.
 - 파일 역할·환경 변수·실기기 인수는 `_docs/PUSH_NOTIFICATION_GUIDE.md`, 결정 근거는 ADR-0018을 정본으로 사용합니다.
 
@@ -1061,7 +1002,9 @@ CalendarPage 개인 일정 왼쪽 스와이프
   → 모든 날짜 캐시에서 즉시 제거
 ```
 
-- 메인 캘린더 선택일 카드는 달력 아래 남은 `Expanded` 하단 슬롯을 채운다. 일정이 가용 높이를
+- 메인 캘린더 선택일 카드는 하단 탭 위 16px(`AppTheme.spacing_md`) 여백을 제외한 달력 아래 남은
+  `Expanded` 하단 슬롯을 채운다(2026-11-11 사용자 피드백 반영). 근무 설정 카드도 같은 슬롯/간격을
+  사용한다. 작은 화면·큰 글자의 기존 스크롤 배치는 목록 끝에서 같은 16px 여백을 유지한다. 일정이 가용 높이를
   넘을 때만 목록을 내부 스크롤한다. `일정 추가하기...`는 카드 하단의 구분선 없는 primary 인셋
   액션으로 표시하며 개인 일정 추가 모달을 띄운다.
 - 선택일 카드의 공휴일명은 날짜 아래에 별도 줄을 만들지 않고 날짜 오른쪽 하단에 한 줄 accent red
@@ -1096,14 +1039,12 @@ CalendarPage 개인 일정 왼쪽 스와이프
 - 파일 역할/의존성/사용 예:
   - `lib/features/calendar/presentation/widgets/personal_event_form_modal.dart`:
     개인 일정 입력 모달. `CalendarPage`에서 `showCupertinoModalPopup`으로 호출하고
-    저장 시 `CreateEventRequest`를 반환한다. 모달은 전체 화면 고정 높이로 표시하고,
-    키보드 표시 시 모달 자체를 리사이즈하지 않는다. 리스트가 맨 위에 있을 때 아래로
-    스와이프하면 닫힌다. 기본 정보/일시/공개 설정은 디자인 시안 기반 카드형 섹션으로
-    구성한다. 장소 행은 선택 시 입력 다이얼로그를 띄워 `place` 값을 편집하고, 반복 행은
-    현재 API 미지원으로 `안 함` 고정 안내만 제공한다. 공개 레벨은 0~5 세그먼트 트랙에서
-    탭 또는 좌우 드래그로 선택한다. 시작일/종료일은 공용 `DatePickerSheet`, 시작시간/종료시간은
-    공용 `TimePickerSheet`에서 선택한다. 날짜 선택 결과가 기존 반대편 날짜를 넘어가면 시작일과
-    종료일의 선후 관계를 자동 보정하며, 시간은 기존 `Duration` 상태와 저장 검증 흐름을 유지한다.
+    저장 시 `CreateEventRequest`를 반환한다. 최신 UI/입력 정책은 ADR-0047/0048과 상단 구현 절을 따른다.
+    전체 화면에서 제목·일시·공개 범위·선택 장소/메모를 편집하고 키보드 위 하단 저장을 사용한다.
+    인라인 공개 방식과0~5 정수 슬라이더/숫자 탭을 사용한다. 나만 보기는 is_private boolean으로 전송한다.
+    시작일/종료일은 공용 `DatePickerSheet`, 시작시간/종료시간은 공용 `TimePickerSheet`를 재사용한다.
+    날짜가 반대편을 넘으면 기존 선후 보정을 유지한다. 시간은 `Duration` 상태와 검증을 유지한다.
+    저장 중 이탈/입력은 막고 실패 시 입력을 보존한다. 그 외 손잡이/본문 최상단 아래 끌기·닫기/OS 복귀는 폐기 확인 없이 닫는다.
   - `_docs/EVENT_API_GUIDE.md`: 개인 일정 생성 API, 입력 필수/선택값,
     공개 레벨 규칙, 서버 DDL 확인 요청을 정리한 서버 구현 문서다.
   - `test/features/calendar/data/services/calendar_service_test.dart`:
@@ -1234,23 +1175,20 @@ FriendListPage
     시트 노출을 검증한다. 설정 저장 후 친구 목록 GET을 다시 호출하고 서버 응답의 최신 `can_view`로
     설정 화면에 재진입하는지도 검증한다.
 
-### 친구·그룹 방 footer, 실제 그룹 API와 미리보기 fallback
+### 친구·그룹 상단 세그먼트, 실제 그룹 API와 미리보기 fallback
 
 ```
-FriendListPage footer
-  → 친구 리스트 | 그룹 방 리스트
+MainTabPage 친구 탭 → FriendListPage 상단 세그먼트
+  → 친구 | 그룹 목록
   → GROUP_API_ENABLED=true: GroupRoomListView → GroupCalendarPage
   → GROUP_API_ENABLED=false: `우리 병동` 카드 → GroupCalendarPreviewPage
 ```
 
-- 친구 탭은 메인 화면과 같은 `BottomActionBar`를 화면 하단에 고정하고 `친구 리스트`,
-  `그룹 방` 두 항목을 표시한다. 선택 항목은 8% primary tint, primary dark outline과
-  굵은 텍스트로 구분한다.
-- `친구 리스트`를 선택하면 기존 API 기반 친구 목록·새로고침·빈 상태·친구 추가 액션을
-  그대로 사용한다. `그룹 방`을 선택하면 내비게이션 제목을 `그룹 방`으로 바꾸고 친구 추가
-  액션을 숨긴 뒤, 본문의 중복 `그룹 방` 제목 없이 현재 더미 데이터에 대응하는 `우리 병동`
-  카드와 4명 겹침 아바타를 바로 표시한다. 친구 목록 상단의 기존 그룹 미리보기 아이콘은
-  footer/목록 경로로 대체한다.
+- 친구 탭은 상단 `CupertinoSlidingSegmentedControl`로 친구/그룹을 전환한다. 하단은 공통 세 탭을 유지한다.
+- 두 목록은 IndexedStack으로 상태·스크롤 위치를 보존하고 그룹 목록은 처음 선택할 때 생성한다.
+  그룹 선택 시 제목은 `그룹 방`, 친구 추가 액션은 숨기고 미리보기 또는 실제 목록을 표시한다.
+- 그룹 생성은 root 전체 화면에서 저장 후 group_id를 반환한다. 친구 탭은 목록 갱신 후 내부 Navigator로 새 그룹을 연다.
+  그룹 수정·초대도 root 폼에서 처리하고 완료 시 기존 탐색 화면으로 복귀한다.
 - 실제 그룹 API는 기본 비활성 rollout gate 뒤에 구현되어 있다. `GROUP_API_ENABLED=true`면
   그룹 목록·생성·상세·캘린더·초대·그룹 알림을 사용하고, false면 기존 Flutter 전용 미리보기를
   표시한다. `GROUP_P1_ENABLED=true`는 Stage P1 확인 후에만 수정·멤버 관리·탈퇴·소유권·삭제
@@ -1305,7 +1243,7 @@ FriendListPage footer
     인원 순환, 하루 2~3개 일정, 근무색 점의 개수·색상, 내비게이션 멤버 수, full-width
     background calendar와 무경계, 하단 선택일 surface 영역의 반경·outline·헤더 구분선·안전 여백,
     선택일 tint/outline과 주말 의미 색상, 구성원 카드의 근무색 바·16px radius·이름/근무 시간/
-    개인 일정 순서, 월/2주 반응형 렌더링, 0명 날짜의 휴무 상세, footer의 친구/그룹 방 양방향
+    개인 일정 순서, 월/2주 반응형 렌더링, 0명 날짜의 휴무 상세, 상단 세그먼트의 친구/그룹 양방향
     전환, 그룹 방 목록 카드 진입 경로와 390px 화면 오버플로 부재를 검증한다.
   - `_docs/GROUP_API_SERVER_REQUEST.md`: 더미 그룹 방을 실제 서버 데이터로 전환하기 위한 구현
     요청서다. 최종 단일 캘린더 DDL을 기준으로 `groups`·`group_members`·`group_invitations`
@@ -1399,7 +1337,7 @@ NotificationPage
 - `lib/core/push/device_remote_datasource.dart`: 인증 기기 API와 safe response parsing
 - `lib/core/push/push_coordinator.dart`: 권한, APNs/FCM token, lifecycle, local banner, persistent dedupe
 - `lib/core/push/push_providers.dart`: Riverpod coordinator와 pending navigation 상태
-- UI state는 `pendingPushNotificationNavigationProvider`가 소유하고, 서버 알림 domain state와 미읽음 개수는 기존 `notificationProvider`가 소유합니다.
+- 푸시의 보류 여부는 `pendingPushNotificationNavigationProvider`, 현재 탭/탐색 이력은 MainTabPage가 소유하고, 서버 알림 domain state와 미읽음 개수는 기존 `notificationProvider`가 소유합니다.
 - 기기 동기화의 로딩/실패 UI는 표시하지 않으며 오류는 민감값 없이 runtime type만 debug log에 남깁니다.
 - Android 최소 버전은 API 24입니다. `flutter_local_notifications 22.2.0`이 API 24를 선언하므로 계획의 API 23을 강제 override하지 않습니다.
 
