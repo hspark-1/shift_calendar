@@ -4,46 +4,9 @@ import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import 'shift_custom_color_picker_page.dart';
+import 'shift_color_selection.dart';
 
-const double _body_scale = 0.8;
-const double _cupertino_slider_track_inset = 22;
-
-double _scaled(double value) => value * _body_scale;
-
-TextStyle _scaledTextStyle(TextStyle style) {
-  return style.copyWith(fontSize: (style.fontSize ?? 14) * _body_scale);
-}
-
-class ShiftColorSelection {
-  final int final_color;
-  final int base_color;
-  final int color_intensity;
-
-  const ShiftColorSelection({
-    required this.final_color,
-    required this.base_color,
-    required this.color_intensity,
-  });
-}
-
-int _mixColorChannel(int channel, int color_intensity) {
-  return (255 + (channel - 255) * color_intensity / 100).round();
-}
-
-Color calculateShiftColor(Color base_color, int color_intensity) {
-  final normalized_intensity = color_intensity.clamp(0, 100).toInt();
-  final argb = base_color.toARGB32();
-  final red = (argb >> 16) & 0xff;
-  final green = (argb >> 8) & 0xff;
-  final blue = argb & 0xff;
-
-  return Color.fromARGB(
-    255,
-    _mixColorChannel(red, normalized_intensity),
-    _mixColorChannel(green, normalized_intensity),
-    _mixColorChannel(blue, normalized_intensity),
-  );
-}
+export 'shift_color_selection.dart';
 
 class ShiftColorPickerPage extends StatefulWidget {
   final Color initial_color;
@@ -129,19 +92,22 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
   }
 
   Future<void> _openCustomColorPicker() async {
-    final custom_color = await Navigator.of(context).push<Color>(
+    final custom_color = await Navigator.of(context).push<ShiftColorSelection>(
       CupertinoPageRoute(
-        builder: (context) =>
-            ShiftCustomColorPickerPage(initial_color: _selected_color),
+        builder: (context) => ShiftCustomColorPickerPage(
+          initial_color: _selected_color,
+          initial_base_color: _base_color,
+          initial_color_intensity: _color_intensity,
+        ),
       ),
     );
 
     if (custom_color == null || !mounted) return;
 
     setState(() {
-      _base_color = custom_color.withValues(alpha: 1);
-      _color_name = '커스텀 색상';
-      _color_intensity = 100;
+      _base_color = Color(custom_color.base_color);
+      _color_name = _presetNameForColor(_base_color) ?? '커스텀 색상';
+      _color_intensity = custom_color.color_intensity;
     });
   }
 
@@ -153,26 +119,6 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
         color_intensity: _color_intensity,
       ),
     );
-  }
-
-  void _setColorIntensity(double value) {
-    final next_intensity = (value.clamp(0.0, 1.0) * 100).round();
-    if (next_intensity == _color_intensity) return;
-
-    setState(() {
-      _color_intensity = next_intensity;
-    });
-  }
-
-  void _updateColorIntensityFromPosition(
-    Offset local_position,
-    double slider_width,
-  ) {
-    final track_width = slider_width - (_cupertino_slider_track_inset * 2);
-    if (track_width <= 0) return;
-
-    final track_position = local_position.dx - _cupertino_slider_track_inset;
-    _setColorIntensity(track_position / track_width);
   }
 
   @override
@@ -211,7 +157,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           onPressed: _completeSelection,
           child: Text(
-            '적용',
+            '완료',
             style: AppTheme.body_large.copyWith(
               color: AppTheme.primary_color,
               fontWeight: FontWeight.w700,
@@ -222,19 +168,12 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
       child: SafeArea(
         bottom: false,
         child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            _scaled(32),
-            16,
-            bottom_safe_area + _scaled(40),
-          ),
+          padding: EdgeInsets.fromLTRB(16, 32, 16, bottom_safe_area + 40),
           children: [
             _buildPreview(),
-            SizedBox(height: _scaled(40)),
+            SizedBox(height: 40),
             _buildPresetSection(),
-            SizedBox(height: _scaled(24)),
-            _buildColorIntensityCard(),
-            SizedBox(height: _scaled(24)),
+            SizedBox(height: 24),
             _buildCustomColorButton(),
           ],
         ),
@@ -243,108 +182,76 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
   }
 
   Widget _buildPreview() {
+    final swatch = AnimatedContainer(
+      key: const Key('shift_color_preview'),
+      duration: const Duration(milliseconds: 180),
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: _selected_color,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppTheme.outline_variant_color),
+      ),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '선택한 색상',
+          key: const Key('shift_color_selected_label'),
+          style: AppTheme.body_medium,
+        ),
+        const SizedBox(height: 4),
+        ConstrainedBox(
+          key: const Key('shift_color_name_slot'),
+          constraints: const BoxConstraints(minHeight: 24),
+          child: Text(
+            _color_name,
+            key: const Key('shift_color_name_label'),
+            style: AppTheme.body_large.copyWith(
+              color: AppTheme.primary_dark_color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$_hex_value · 농도 $_color_intensity%',
+          key: const Key('shift_color_hex_label'),
+          style: AppTheme.body_medium,
+        ),
+      ],
+    );
     return Container(
       key: const Key('shift_color_preview_card'),
-      padding: EdgeInsets.all(_scaled(20)),
-      decoration: AppTheme.cardDecoration(
-        radius: _scaled(AppTheme.card_radius),
-      ),
-      child: Row(
-        key: const Key('shift_color_preview_section'),
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            key: const Key('shift_color_preview'),
-            duration: const Duration(milliseconds: 180),
-            width: _scaled(96),
-            height: _scaled(96),
-            decoration: BoxDecoration(
-              color: _selected_color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppTheme.outline_variant_color,
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: CupertinoColors.black.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: _scaled(16)),
-          Container(
-            key: const Key('shift_color_preview_divider'),
-            width: 1,
-            height: _scaled(56),
-            color: AppTheme.outline_variant_color,
-          ),
-          SizedBox(width: _scaled(16)),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.cardDecoration(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 280 ||
+              MediaQuery.textScalerOf(context).scale(16) > 20) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '선택한 색상',
-                  key: const Key('shift_color_selected_label'),
-                  style: _scaledTextStyle(AppTheme.body_small).copyWith(
-                    color: AppTheme.on_surface_variant_color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: _scaled(4)),
-                SizedBox(
-                  key: const Key('shift_color_name_slot'),
-                  height: _scaled(24),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _color_name,
-                      key: const Key('shift_color_name_label'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _scaledTextStyle(AppTheme.body_large).copyWith(
-                        color: AppTheme.primary_dark_color,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: _scaled(6)),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: _scaled(12),
-                    vertical: _scaled(5),
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface_container_low_color,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppTheme.outline_variant_color.withValues(
-                        alpha: 0.45,
-                      ),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    _hex_value,
-                    key: const Key('shift_color_hex_label'),
-                    style: _scaledTextStyle(AppTheme.body_medium).copyWith(
-                      fontFamily: AppTheme.default_font_family,
-                      color: AppTheme.on_surface_variant_color,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: _scaled(1.4),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+              children: [swatch, const SizedBox(height: 16), details],
+            );
+          }
+          return Row(
+            key: const Key('shift_color_preview_section'),
+            children: [
+              swatch,
+              const SizedBox(width: 16),
+              Container(
+                key: const Key('shift_color_preview_divider'),
+                width: 1,
+                height: 56,
+                color: AppTheme.outline_variant_color,
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: details),
+            ],
+          );
+        },
       ),
     );
   }
@@ -355,26 +262,25 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
       children: [
         Text(
           '프리셋 색상',
-          style: _scaledTextStyle(AppTheme.body_large).copyWith(
+          style: AppTheme.body_large.copyWith(
             color: AppTheme.on_surface_variant_color,
             fontWeight: FontWeight.w700,
           ),
         ),
-        SizedBox(height: _scaled(16)),
+        SizedBox(height: 16),
         Container(
           key: const Key('shift_color_preset_card'),
-          padding: EdgeInsets.all(_scaled(24)),
-          decoration: AppTheme.cardDecoration(
-            radius: _scaled(AppTheme.card_radius),
-          ),
+          padding: EdgeInsets.all(16),
+          decoration: AppTheme.cardDecoration(radius: AppTheme.card_radius),
           child: GridView.builder(
+            padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              mainAxisExtent: 44,
-              mainAxisSpacing: _scaled(24),
-              crossAxisSpacing: _scaled(16),
+              mainAxisExtent: 52,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
             ),
             itemCount: _presets.length,
             itemBuilder: (context, index) {
@@ -396,8 +302,8 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
                     child: AnimatedContainer(
                       key: Key('shift_color_swatch_$index'),
                       duration: const Duration(milliseconds: 140),
-                      width: _scaled(52),
-                      height: _scaled(52),
+                      width: 52,
+                      height: 52,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: preset.color,
@@ -413,7 +319,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
                           ? Icon(
                               CupertinoIcons.check_mark,
                               color: check_color,
-                              size: _scaled(22),
+                              size: 22,
                             )
                           : null,
                     ),
@@ -429,27 +335,25 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
 
   Widget _buildCustomColorButton() {
     return Container(
-      decoration: AppTheme.cardDecoration(
-        radius: _scaled(AppTheme.card_radius),
-      ),
+      decoration: AppTheme.cardDecoration(radius: AppTheme.card_radius),
       child: CupertinoButton(
         key: const Key('shift_color_custom_button'),
         minimumSize: const Size(double.infinity, 44),
-        padding: EdgeInsets.symmetric(horizontal: _scaled(16)),
-        borderRadius: BorderRadius.circular(_scaled(AppTheme.card_radius)),
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        borderRadius: BorderRadius.circular(AppTheme.card_radius),
         onPressed: _openCustomColorPicker,
         child: Row(
           children: [
             Icon(
               CupertinoIcons.paintbrush,
-              size: _scaled(24),
+              size: 24,
               color: AppTheme.on_surface_variant_color,
             ),
-            SizedBox(width: _scaled(12)),
+            SizedBox(width: 12),
             Expanded(
               child: Text(
-                '커스텀 색상 선택',
-                style: _scaledTextStyle(AppTheme.body_large).copyWith(
+                '선택한 색상 조절',
+                style: AppTheme.body_large.copyWith(
                   color: AppTheme.on_surface_color,
                   fontWeight: FontWeight.w600,
                 ),
@@ -457,161 +361,10 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
             ),
             Icon(
               CupertinoIcons.chevron_right,
-              size: _scaled(18),
+              size: 18,
               color: AppTheme.outline_color,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildColorIntensityCard() {
-    final intensity_percentage = _color_intensity;
-
-    return Container(
-      key: const Key('shift_color_intensity_card'),
-      padding: EdgeInsets.fromLTRB(
-        _scaled(16),
-        _scaled(16),
-        _scaled(16),
-        _scaled(14),
-      ),
-      decoration: AppTheme.cardDecoration(
-        radius: _scaled(AppTheme.card_radius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '색상 농도',
-                      style: _scaledTextStyle(AppTheme.body_large).copyWith(
-                        color: AppTheme.on_surface_color,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: _scaled(2)),
-                    Text(
-                      '불투명하게 색을 옅게 조절해요',
-                      style: _scaledTextStyle(AppTheme.body_small).copyWith(
-                        color: AppTheme.on_surface_variant_color,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: _scaled(12)),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: _scaled(10),
-                  vertical: _scaled(5),
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface_container_low_color,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: AppTheme.outline_variant_color,
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  '$intensity_percentage%',
-                  key: const Key('shift_color_intensity_label'),
-                  style: _scaledTextStyle(AppTheme.body_medium).copyWith(
-                    color: AppTheme.primary_dark_color,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: _scaled(12)),
-          Row(
-            children: [
-              _buildIntensityEndpoint(
-                key: const Key('shift_color_intensity_light_endpoint'),
-                color: AppTheme.surface_color,
-                semantics_label: '가장 옅은 색상',
-              ),
-              SizedBox(width: _scaled(8)),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return GestureDetector(
-                      key: const Key('shift_color_intensity_gesture_area'),
-                      behavior: HitTestBehavior.opaque,
-                      onTapDown: (details) {
-                        _updateColorIntensityFromPosition(
-                          details.localPosition,
-                          constraints.maxWidth,
-                        );
-                      },
-                      onHorizontalDragStart: (details) {
-                        _updateColorIntensityFromPosition(
-                          details.localPosition,
-                          constraints.maxWidth,
-                        );
-                      },
-                      onHorizontalDragUpdate: (details) {
-                        _updateColorIntensityFromPosition(
-                          details.localPosition,
-                          constraints.maxWidth,
-                        );
-                      },
-                      child: SizedBox(
-                        height: 44,
-                        child: IgnorePointer(
-                          child: CupertinoSlider(
-                            key: const Key('shift_color_intensity_slider'),
-                            value: _color_intensity / 100,
-                            min: 0,
-                            max: 1,
-                            divisions: 100,
-                            activeColor: AppTheme.primary_color,
-                            onChanged: _setColorIntensity,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(width: _scaled(8)),
-              _buildIntensityEndpoint(
-                key: const Key('shift_color_intensity_original_endpoint'),
-                color: _base_color,
-                semantics_label: '원본 색상',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIntensityEndpoint({
-    required Key key,
-    required Color color,
-    required String semantics_label,
-  }) {
-    return Semantics(
-      label: semantics_label,
-      child: AnimatedContainer(
-        key: key,
-        duration: const Duration(milliseconds: 140),
-        width: _scaled(28),
-        height: _scaled(28),
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.outline_variant_color, width: 1),
         ),
       ),
     );

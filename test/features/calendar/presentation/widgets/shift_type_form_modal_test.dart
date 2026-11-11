@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
 import 'package:shift_mate/features/calendar/data/models/shift_type_api_model.dart';
 import 'package:shift_mate/features/calendar/presentation/widgets/shift_color_picker_page.dart';
@@ -692,6 +693,7 @@ void main() {
   });
 
   testWidgets('저장된 기준 색상과 농도를 선택 화면에서 복원해 수정 요청으로 반환한다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -708,10 +710,22 @@ void main() {
     await tester.tap(find.byKey(const Key('shift_type_color_button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('50%'), findsOneWidget);
-    expect(find.text('#A1AADC'), findsOneWidget);
+    expect(find.textContaining('농도 50%'), findsOneWidget);
+    expect(find.textContaining('#A1AADC'), findsOneWidget);
     expect(find.text('나이트 인디고'), findsOneWidget);
 
+    await tester.tap(find.byKey(const Key('shift_color_custom_button')));
+    await tester.pumpAndSettle();
+    tester
+        .widget<CupertinoSlider>(
+          find.byKey(const Key('shift_color_intensity_slider')),
+        )
+        .onChanged!(0.25);
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('shift_custom_color_complete_button')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_color_complete_button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_type_complete_button')));
@@ -720,9 +734,9 @@ void main() {
     expect(saved_request, isNotNull);
     expect(saved_request?.color, isNull);
     expect(saved_request?.baseColor, const Color(0xFF4355B8).toARGB32());
-    expect(saved_request?.colorIntensity, 50);
+    expect(saved_request?.colorIntensity, 25);
     expect(saved_request?.toJson()['base_color'], '#FF4355B8');
-    expect(saved_request?.toJson()['color_intensity'], 50);
+    expect(saved_request?.toJson()['color_intensity'], 25);
     expect(saved_request?.toJson().containsKey('color'), isFalse);
   });
 

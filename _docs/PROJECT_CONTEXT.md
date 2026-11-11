@@ -9,6 +9,20 @@
 - 파일 역할/의존성/사용 예: 기존 `main_tab_page.dart`는 글라스 바와 선택 표시, `app_theme.dart`는 공통 내비게이션 색상/치수, 설정/근무 패턴 페이지는 공통 헤더 재질을 사용한다. 신규 `artifacts/glass_navigation_2026-11-11/render_test.dart`는 기존 design_update 렌더러의 공개 모의 repository/notifier·번들 폰트·실제 페이지로 PNG와 `measurements.json`을 만든다. 루트에서 `flutter test --no-pub artifacts/glass_navigation_2026-11-11/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 재생성한다. 각 PNG는 같은 이름의 화면/조건 캡처이며 JSON은 크기·글자배율·접근성 조건·바/배지 좌표·카드 간격·예외를 기록한다. 계정/알림 수는 예시다. [캘린더](../artifacts/glass_navigation_2026-11-11/calendar.png), [설정 헤더](../artifacts/glass_navigation_2026-11-11/settings.png), [큰 글자](../artifacts/glass_navigation_2026-11-11/text2.png).
 - 검증/한계/롤백: 최종 수치는 WORKLOG 완료 항목을 따른다. 앱은 기존 라이트 테마이며 dark_navigation 캡처는 하단 재질/전경만 확인한다(앱 전체 다크 모드 도입 아님). 모의 위젯 렌더로 실제 기기의 프레임 성능·VoiceOver·OS 투명도 줄이기 연동을 검증하지 않았다. 이번 테마/바/두 헤더·렌더/문서 변경만 되돌리면 직전 디자인으로 복구한다.
 
+## 커스텀 색상 선택 재디자인 (2026-11-11)
+
+- 프리셋 여백 보정: 카드 내부 GridView의 패딩은 0으로 명시해 safe-area가 중첩되지 않도록 한다. 카드의 16px 패딩만 적용하며, 렌더러가 첫/마지막 행의 위아래 간격(테두리 포함 각각 17px)을 측정한다. 수정 전 아래쪽에 추가되던 34px을 제거했다.
+- 농도 통합 완료(ADR-0040): 사용자 승인에 따라 프리셋 화면은 선택/완료와 `선택한 색상 조절` 진입만 제공한다. 농도 슬라이더는 커스텀의 RGB 아래에 있다. HEX/RGB/휠은 기준 색상을 편집하고 농도는 별도 유지한다. 상단 고정 `적용될 색상`은 흰색 혼합 후 최종 RGB를 표시하며 키보드가 열리면 접어 입력 공간을 확보한다. 프리셋 새 선택은 100%, 커스텀 완료/재진입은 기준색/농도를 보존하고 취소는 원래 선택을 유지한다.
+- 최근 색상: `shift_custom_recent_selections_v2`에 기준 HEX/정수 농도의 JSON 문자열 목록을 저장한다. 유효 값만 복원하며 최종 RGB 기준 중복 제거·최신순·최대 6개다. v2에 유효 기록이 없으면 v1 RGB를 기준색/100%로 복원한다. 완료 시 v1에도 최종 HEX를 기록해 이전 버전과 호환한다. API/DB의 base_color/color_intensity 및 불투명 흰색 혼합 계약은 변경하지 않는다.
+- 신규 `lib/features/calendar/presentation/widgets/shift_color_selection.dart`: 두 선택 화면이 공유하는 결과값 `ShiftColorSelection`과 `calculateShiftColor`를 기존 프리셋 파일에서 이동했다. 의존성은 dart:ui이며 예: `calculateShiftColor(const Color(0xFF4355B8), 50)` → `0xFFA1AADC`. 기존 프리셋 파일도 이 파일을 export해 호출부 호환성을 유지한다. 커스텀 route 반환형도 Color에서 ShiftColorSelection으로 바꿨다.
+- 최신 검증 산출물 `artifacts/custom_color_intensity_2026-11-11/render_test.dart`: Flutter test/SharedPreferences 모의 저장소/번들 폰트에 의존하며 프리셋과 농도 50% 커스텀의 10개 PNG/measurements.json을 생성한다. 루트에서 `flutter test --no-pub artifacts/custom_color_intensity_2026-11-11/render_test.dart`로 재생성한다. [프리셋](../artifacts/custom_color_intensity_2026-11-11/preset.png), [RGB와 농도](../artifacts/custom_color_intensity_2026-11-11/intensity_bottom.png). 이전 디자인 폴더는 해당 작업 시점 기록이다.
+
+- 후속 제스처 수정(ADR-0039): `ShiftCustomColorPickerPage` 내부 `_ColorWheelPanGestureRecognizer`가 휠 원 내부 누름을 즉시 수락한다. 첫 손가락으로 원 밖까지 이동해도 드래그가 유지되며, 원 밖 모서리/주변 여백에서 시작하면 기존 ListView가 스크롤한다. 종료/취소 시 기본 PanGestureRecognizer의 추적 정리를 사용하므로 전역 스크롤 잠금 state는 없다. 색상 값 계산은 기존 함수를 사용한다. 기존 페이지 테스트에 실제 포인터 드래그/취소/다중 터치 회귀 4개를 추가했다.
+- 사용자 재디자인 요청으로 `ShiftCustomColorPickerPage`만 후속 정리했다. 56px 모서리 둥근 미리보기와 HEX 입력을 상단 카드로 묶고, 색상 휠 아래 RGB를 `채널 문자 / 가로폭을 채운 슬라이더 / 숫자` 한 행씩 배치한다. RGB의 접근성 이름은 빨강/초록/파랑이며 값 계산·6자리 코드 검증·완료/취소 계약은 그대로다.
+- 최근 색상은 44px 버튼을 줄바꿈하며 선택 체크·접근성 선택 상태·눌림 반응을 제공한다. 작은 화면은 세로 스크롤, 큰 글자는 미리보기/코드 입력을 세로로 분리하며 가로·태블릿의 본문 최대 너비는 480이다. 동작 줄이기 설정에서 휠 마커 애니메이션을 생략한다. UI state·SharedPreferences 저장 키/최대 6개/중복 제거 정책은 유지한다.
+- 검증 산출물: `artifacts/custom_color_redesign_2026-11-11/render_test.dart`는 Flutter test·SharedPreferences 모의 저장소·번들 폰트를 사용하는 전용 렌더러다. 저장소 루트에서 `flutter test --no-pub artifacts/custom_color_redesign_2026-11-11/render_test.dart`로 재생성한다. 같은 폴더의 PNG 8개와 `measurements.json`은 일반/작은 화면/큰 글자/키보드 inset/가로/태블릿 캡처와 예외 기록이다. [최신 화면](../artifacts/custom_color_redesign_2026-11-11/normal.png). 이전 전체 화면 비교 이미지는 재디자인 전 기록으로 보존한다.
+- 영향/롤백: 커스텀 화면·기존 회귀 테스트·전용 렌더러·문서만 변경했다. 이번 후속 변경만 되돌리면 직전 공통 UI로 복구된다. API/DB/라우팅/저장 형식 변경 없음. 실제 OS 키보드·VoiceOver는 미확인이고 앱의 기존 라이트 테마 범위에서 검증했다.
+
 ## 공통 폼·고정 하단 탭 구현 (2026-11-10 착수, 11-11 완료)
 
 - 목적/상태: 사용자가 수정 방향을 승인해 앱에 반영했다. 정책은 ADR-0038, 화면별 범위는 [수정 방향서](UI_DESIGN_DIRECTION_2026-11-10.md), 결과 이미지는 [화면 비교](../artifacts/design_update_2026-11-10/comparison.png)를 참조한다.

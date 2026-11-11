@@ -1,0 +1,50 @@
+{
+  "normal": {
+    "size": "390.0x844.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "framework_errors": []
+  },
+  "small": {
+    "size": "320.0x568.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "framework_errors": []
+  },
+  "small_bottom": {
+    "size": "320.0x568.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "framework_errors": []
+  },
+  "large_text": {
+    "size": "390.0x844.0",
+    "scale": 2.0,
+    "keyboard_inset": 0.0,
+    "framework_errors": []
+  },
+  "small_large_text": {
+    "size": "320.0x568.0",
+    "scale": 2.0,
+    "keyboard_inset": 0.0,
+    "framework_errors": []
+  },
+  "keyboard": {
+    "size": "320.0x568.0",
+    "scale": 1.0,
+    "keyboard_inset": 240.0,
+    "framework_errors": []
+  },
+  "landscape": {
+    "size": "844.0x390.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "framework_errors": []
+  },
+  "tablet": {
+    "size": "768.0x1024.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "framework_errors": []
+  }
+}
