@@ -129,6 +129,7 @@ class GroupRepositoryImpl implements GroupRepository {
       start_at: DateTime.parse(json['start_at'] as String).toUtc(),
       end_at: DateTime.parse(json['end_at'] as String).toUtc(),
       visibility_level: json['visibility_level'] as int,
+      is_private: json['is_private'] as bool? ?? false,
     );
   }
 

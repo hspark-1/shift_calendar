@@ -286,42 +286,32 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 개인 일정 추가 모달 표시
   Future<void> _showPersonalEventModal() async {
     final initialDate = _normalizeDate(_selected_day ?? DateTime.now());
-    final request = await showCupertinoModalPopup<CreateEventRequest>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => PersonalEventFormModal(initialDate: initialDate),
-    );
-
-    if (request == null || !mounted) return;
-
-    showCupertinoDialog<void>(
+    await showCupertinoModalPopup<CreateEventRequest>(
       context: context,
       barrierDismissible: false,
-      builder: (context) =>
-          const CupertinoAlertDialog(content: CupertinoActivityIndicator()),
+      builder: (context) => PersonalEventFormModal(
+        initialDate: initialDate,
+        onSave: (request) async {
+          try {
+            final event = await ref
+                .read(calendarServiceProvider)
+                .createEvent(request);
+            if (!mounted) return null;
+            final event_date = _normalizeDate(event.startAt);
+            ref.read(calendarRangeProvider.notifier).addEvent(event);
+            setState(() {
+              _selected_day = event_date;
+              _focused_day = event_date;
+            });
+            _loadCalendarData(event_date);
+            _loadHolidays(event_date.year, month: event_date.month);
+            return null;
+          } catch (error) {
+            return _getErrorMessage(error);
+          }
+        },
+      ),
     );
-
-    try {
-      final calendarService = ref.read(calendarServiceProvider);
-      final event = await calendarService.createEvent(request);
-
-      if (mounted) {
-        Navigator.pop(context);
-        final eventDate = _normalizeDate(event.startAt);
-        ref.read(calendarRangeProvider.notifier).addEvent(event);
-        setState(() {
-          _selected_day = eventDate;
-          _focused_day = eventDate;
-        });
-        _loadCalendarData(eventDate);
-        _loadHolidays(eventDate.year, month: eventDate.month);
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        _showErrorDialog(_getErrorMessage(e));
-      }
-    }
   }
 
   @override

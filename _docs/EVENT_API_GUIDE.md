@@ -28,12 +28,17 @@
 | --- | --- | --- | --- |
 | 장소 | `place` | `events.place` | 빈 문자열이면 보내지 않음 |
 | 메모 | `memo` | `events.memo` | 빈 문자열이면 보내지 않음 |
+| 나만 보기 | `is_private` | `events.is_private` | JSON boolean. 서버 생략 기본 false, Flutter는 true/false를 명시 전송 |
 
-### 현재 화면 표시만 있는 값
+### 화면 동작과 나만 보기 (2026-11-11)
 
-| 화면 필드 | 처리 |
-| --- | --- |
-| 반복 | 현재 API/DB 필드가 없어 `안 함` 고정으로 표시하고 요청에는 포함하지 않음 |
+- 캘린더 위 슬라이드업 모달에서 제목 → 시작/종료 행 → 공개 범위 → 접을 수 있는 장소·메모 → 하단 저장 순서다(ADR-0047/0048). 손잡이·본문 스크롤 최상단 아래 끌기·닫기/OS 복귀는 작성 내용 폐기 확인 없이 닫는다. 저장 중 닫기 차단·키보드 위 저장을 제공한다.
+- 반복은 현재 API/DB 필드가 없어 폼에서 제거했다. 시작 전 알림·참석자·일정별 색상도 전송하지 않는다.
+- 공개 방식은 인라인 친구에게 공개/나만 보기 세그먼트로 고른다. 친구 공개에서만0~5 정수 슬라이더/숫자 탭과 의미 설명을 제공한다. 0은 열람 허용된 모든 친구이며 전체 인터넷 공개를 의미하지 않는다. 레벨5도 나만 보기가 아니다. private 전환 시 이전 레벨을 보존한다.
+- 나만 보기를 선택하면 `is_private: true`, 친구 공개는 false를 명시 전송한다. private여도 visibility_level 필수0~5를 유지하며 선택 전 레벨을 보존한다. 응답 is_private 생략은 false로 파싱하여 구형 공개 응답과 호환한다.
+- private 생성 응답이 true가 아니면 CalendarService는 EVENT_PRIVACY_NOT_CONFIRMED로 성공 처리를 중단한다. 생성 후 확인이므로 서버 저장을 되돌리거나 타인 필터를 대체하지 않는다. 자동 재요청하지 않으며 일정 목록에서 실제 공개 범위를 확인하도록 안내한다.
+- 서버 배포 완료는 사용자 보고와 인접 서버 EVENT_PRIVACY_GUIDE 기록 기준이다. 로컬 모델/route/service/뷰 필터와 대조해 활성화했다. [나만 보기 서버 요청서](PERSONAL_EVENT_PRIVACY_SERVER_HANDOFF.md)의 상단 현황과 서버 정본 가이드를 함께 참고한다. 실제 원격 인증 사용자별/실기기 인수는 별도다.
+- 필수 입력은 인접 오류/첫 오류 이동, 서버 오류는 입력을 유지한 하단 다시 저장으로 처리한다. 저장 중 중복 입력/이탈은 막지만, 그 외 닫기는 작성 내용 확인 없이 즉시 처리한다.
 
 ### 서버가 채우는 값
 
@@ -46,6 +51,7 @@
 
 ## 공개 레벨 규칙
 
+- `is_private=true`는 레벨/열람 허용/그룹 역할보다 우선하며 소유자만 조회한다. 본인 조회에는 유지하고 친구·타인 그룹의 DB view에서 전체 행을 제외한다.
 - 일정마다 `events.visibility_level`을 저장한다.
 - 내 일정을 친구가 조회할 때 서버는 아래 조건을 통과한 일정만 반환한다.
   - `friend_level_settings.owner_user_id = 내 user_id`
@@ -148,6 +154,7 @@ CREATE TABLE IF NOT EXISTS events (
   updated_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz,
   deleted_by_user_id uuid,
+  is_private boolean NOT NULL DEFAULT false,
   CONSTRAINT fk_events_owner FOREIGN KEY (owner_user_id) REFERENCES users(user_id),
   CONSTRAINT fk_events_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(user_id),
   CONSTRAINT fk_events_deleted_by FOREIGN KEY (deleted_by_user_id) REFERENCES users(user_id),
@@ -164,18 +171,25 @@ ON events(owner_user_id, visibility_level, start_at)
 WHERE deleted_at IS NULL;
 ```
 
-`v_visible_events_for_friend`는 최종 DDL의 조건을 유지해야 합니다.
+아래는 구조 참고용이며 배포 DB에 재실행하지 않습니다. 실제 정본/증분 migration은 인접 서버
+`migrations/final_schema.sql`, `migrations/add_event_privacy.sql`을 따릅니다. 기존 view의 컬럼 순서와
+권한을 보존하기 위해 `e.*` 대신 기존14개 컬럼·viewer_user_id·is_private 순서를 명시합니다.
 
 ```sql
 CREATE OR REPLACE VIEW v_visible_events_for_friend AS
 SELECT
-  e.*,
-  fls.friend_user_id AS viewer_user_id
+  e.event_id, e.owner_user_id, e.created_by_user_id,
+  e.title, e.memo, e.place, e.all_day, e.start_at, e.end_at,
+  e.visibility_level, e.created_at, e.updated_at,
+  e.deleted_at, e.deleted_by_user_id,
+  fls.friend_user_id AS viewer_user_id,
+  e.is_private
 FROM events e
 JOIN friend_level_settings fls
   ON fls.owner_user_id = e.owner_user_id
  AND fls.can_view = true
 WHERE e.deleted_at IS NULL
+  AND e.is_private = false
   AND EXISTS (
     SELECT 1
     FROM friendships f

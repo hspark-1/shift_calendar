@@ -383,6 +383,7 @@ class GroupCalendarEvent {
     required this.start_at,
     required this.end_at,
     required this.visibility_level,
+    this.is_private = false,
   });
 
   final String owner_user_id;
@@ -394,6 +395,7 @@ class GroupCalendarEvent {
   final DateTime start_at;
   final DateTime end_at;
   final int visibility_level;
+  final bool is_private;
 }
 
 class GroupCalendarRange {

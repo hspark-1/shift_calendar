@@ -12,6 +12,7 @@ class EventApiModel {
   final DateTime startAt;
   final DateTime endAt;
   final int visibilityLevel;
+  final bool isPrivate;
 
   EventApiModel({
     required this.eventId,
@@ -22,6 +23,7 @@ class EventApiModel {
     required this.startAt,
     required this.endAt,
     required this.visibilityLevel,
+    this.isPrivate = false,
   });
 
   factory EventApiModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,7 @@ class EventApiModel {
       startAt: DateTime.parse(json['start_at'] as String).toLocal(),
       endAt: DateTime.parse(json['end_at'] as String).toLocal(),
       visibilityLevel: json['visibility_level'] as int,
+      isPrivate: json['is_private'] as bool? ?? false,
     );
   }
 }
@@ -83,6 +86,7 @@ class CreateEventRequest {
   final DateTime startAt;
   final DateTime endAt;
   final int visibilityLevel;
+  final bool isPrivate;
 
   CreateEventRequest({
     required this.title,
@@ -92,6 +96,7 @@ class CreateEventRequest {
     required this.startAt,
     required this.endAt,
     required this.visibilityLevel,
+    this.isPrivate = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -103,6 +108,7 @@ class CreateEventRequest {
       'start_at': startAt.toUtc().toIso8601String(),
       'end_at': endAt.toUtc().toIso8601String(),
       'visibility_level': visibilityLevel,
+      'is_private': isPrivate,
     };
   }
 }

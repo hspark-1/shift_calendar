@@ -1,0 +1,226 @@
+<div id="sm-event-proposal" class="viz-dotted-background">
+  <section class="sm-phone" aria-label="개인 일정 추가 화면 제안">
+    <header class="sm-header">
+      <button class="sm-back" type="button" aria-label="뒤로가기"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+      <h1>개인 일정 추가</h1>
+      <span class="sm-header-space" aria-hidden="true"></span>
+    </header>
+    <form class="sm-form" novalidate>
+      <main class="sm-scroll">
+        <div class="sm-title-block">
+          <label for="sm-event-title">일정 제목 <span class="sm-required">*</span></label>
+          <input id="sm-event-title" class="sm-title-input" placeholder="예: 친구와 저녁 약속" autocomplete="off" required aria-describedby="sm-title-error">
+          <p id="sm-title-error" class="sm-error" hidden></p>
+        </div>
+        <section class="sm-card" aria-labelledby="sm-when-heading">
+          <div class="sm-card-heading"><h2 id="sm-when-heading"><i data-lucide="calendar-days" aria-hidden="true"></i>날짜와 시간</h2></div>
+          <label class="sm-switch-row" for="sm-event-all-day"><span>종일</span><input id="sm-event-all-day" type="checkbox" role="switch"></label>
+          <div class="sm-date-group">
+            <div class="sm-date-time-row">
+              <div class="sm-field"><label for="sm-event-start-date">시작일</label><input id="sm-event-start-date" type="date" value="2026-11-11" required></div>
+              <div class="sm-field sm-time-field"><label for="sm-event-start-time">시작 시간</label><input id="sm-event-start-time" type="time" value="09:00" required></div>
+            </div>
+            <div class="sm-date-time-row">
+              <div class="sm-field"><label for="sm-event-end-date">종료일</label><input id="sm-event-end-date" type="date" value="2026-11-11" required></div>
+              <div class="sm-field sm-time-field"><label for="sm-event-end-time">종료 시간</label><input id="sm-event-end-time" type="time" value="10:00" required></div>
+            </div>
+          </div>
+          <p class="sm-time-summary" id="sm-duration" aria-live="polite">11월 11일 (수) · 1시간</p>
+          <p id="sm-time-error" class="sm-error" hidden></p>
+        </section>
+        <section class="sm-card" aria-labelledby="sm-privacy-heading">
+          <div class="sm-card-heading"><h2 id="sm-privacy-heading"><i data-lucide="users" aria-hidden="true"></i>공개 범위</h2></div>
+          <label class="sm-visually-hidden" for="sm-event-level">일정을 볼 수 있는 친구</label>
+          <select id="sm-event-level" aria-describedby="sm-visibility-description">
+            <option value="0">열람 허용된 모든 친구 · 레벨 0</option>
+            <option value="1">친구 레벨 1 이상</option>
+            <option value="2">친구 레벨 2 이상</option>
+            <option value="3">친구 레벨 3 이상</option>
+            <option value="4">친구 레벨 4 이상</option>
+            <option value="5">친구 레벨 5 이상</option>
+          </select>
+          <p class="sm-help" id="sm-visibility-description" aria-live="polite">내 캘린더 열람을 허용한 모든 친구가 이 일정을 볼 수 있어요.</p>
+        </section>
+        <details class="sm-card sm-details">
+          <summary><span><i data-lucide="text" aria-hidden="true"></i>장소·메모 <small>선택</small></span><i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+          <div class="sm-detail-fields">
+            <div class="sm-field"><label for="sm-event-place">장소</label><input id="sm-event-place" placeholder="예: 강남역 2번 출구" autocomplete="off"></div>
+            <div class="sm-field"><label for="sm-event-memo">메모</label><textarea id="sm-event-memo" rows="3" placeholder="기억할 내용을 적어두세요"></textarea></div>
+          </div>
+        </details>
+      </main>
+      <footer class="sm-footer">
+        <p id="sm-save-status" role="status" hidden></p>
+        <button class="sm-save" type="submit">일정 저장</button>
+      </footer>
+    </form>
+    <dialog class="sm-discard-dialog" aria-labelledby="sm-discard-title">
+      <h2 id="sm-discard-title">작성 중인 내용을 버릴까요?</h2>
+      <div class="sm-dialog-actions"><button type="button" class="sm-continue">계속 작성</button><button type="button" class="sm-discard">내용 버리기</button></div>
+    </dialog>
+  </section>
+</div>
+<style>
+  #sm-event-proposal { --sm-background: #f8f9fb; --sm-surface: #fff; --sm-input: #f2f4f6; --sm-primary: #0061a4; --sm-ink: #191c1e; --sm-secondary: #414750; --sm-border: #c1c7d2; --sm-error: #b3261e; --sm-on-primary: #fff; --sm-radius: 16px; --sm-gap: 24px; padding: 24px 10px; color-scheme: light; }
+  #sm-event-proposal * { box-sizing: border-box; }
+  #sm-event-proposal .sm-phone { width: 100%; max-width: 390px; height: 830px; margin: auto; overflow: hidden; position: relative; border: 1px solid var(--sm-border); border-radius: 28px; background: var(--sm-background); color: var(--sm-ink); font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; container-type: inline-size; }
+  #sm-event-proposal h1, #sm-event-proposal h2, #sm-event-proposal p { margin: 0; }
+  #sm-event-proposal button, #sm-event-proposal input, #sm-event-proposal select, #sm-event-proposal textarea { font: inherit; color: inherit; }
+  #sm-event-proposal button { touch-action: manipulation; }
+  #sm-event-proposal button:active { opacity: .72; }
+  #sm-event-proposal [hidden] { display: none !important; }
+  #sm-event-proposal .sm-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; min-height: 64px; padding: 8px 12px; background: var(--sm-surface); border-bottom: 1px solid var(--sm-border); }
+  #sm-event-proposal .sm-header h1 { font-size: 20px; font-weight: 600; }
+  #sm-event-proposal .sm-back, #sm-event-proposal .sm-header-space { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+  #sm-event-proposal .sm-back { border: 0; background: transparent; color: var(--sm-primary); }
+  #sm-event-proposal .sm-back svg { width: 26px; height: 26px; }
+  #sm-event-proposal .sm-form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  #sm-event-proposal .sm-scroll { flex: 1; overflow-y: auto; padding: 24px 20px; display: flex; flex-direction: column; gap: var(--sm-gap); scroll-padding: 20px; }
+  #sm-event-proposal .sm-scroll > * { flex-shrink: 0; }
+  #sm-event-proposal .sm-title-block > label, #sm-event-proposal .sm-field > label { display: block; color: var(--sm-secondary); font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  #sm-event-proposal .sm-required { color: var(--sm-error); }
+  #sm-event-proposal input:not([type=checkbox]), #sm-event-proposal textarea, #sm-event-proposal select { display: block; width: 100%; min-width: 0; min-height: 52px; padding: 12px; border: 1px solid var(--sm-border); border-radius: 12px; background: var(--sm-input); }
+  #sm-event-proposal input::placeholder, #sm-event-proposal textarea::placeholder { color: var(--sm-secondary); opacity: 1; }
+  #sm-event-proposal input.sm-title-input { font-size: 22px; font-weight: 500; min-height: 60px; background: var(--sm-surface); }
+  #sm-event-proposal .sm-card { background: var(--sm-surface); border: 1px solid var(--sm-border); border-radius: var(--sm-radius); padding: 16px; }
+  #sm-event-proposal .sm-card-heading { margin-bottom: 16px; }
+  #sm-event-proposal h2 { font-size: 18px; font-weight: 600; }
+  #sm-event-proposal .sm-card-heading h2 { display: flex; align-items: center; gap: 8px; }
+  #sm-event-proposal .sm-card-heading svg, #sm-event-proposal summary svg { width: 20px; height: 20px; color: var(--sm-secondary); flex-shrink: 0; }
+  #sm-event-proposal .sm-switch-row { display: flex; justify-content: space-between; align-items: center; min-height: 48px; gap: 12px; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--sm-border); }
+  #sm-event-proposal input[type=checkbox] { appearance: none; width: 52px; height: 32px; margin: 8px 0; border: 1px solid var(--sm-secondary); border-radius: 24px; background: var(--sm-input); flex-shrink: 0; position: relative; }
+  #sm-event-proposal input[type=checkbox]::after { content: ''; position: absolute; width: 24px; height: 24px; top: 3px; left: 3px; background: var(--sm-secondary); border-radius: 50%; transition: transform 140ms ease; }
+  #sm-event-proposal input[type=checkbox]:checked { background: var(--sm-primary); border-color: var(--sm-primary); }
+  #sm-event-proposal input[type=checkbox]:checked::after { transform: translateX(20px); background: var(--sm-on-primary); }
+  #sm-event-proposal .sm-date-group { display: flex; flex-direction: column; gap: 16px; }
+  #sm-event-proposal .sm-date-time-row { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 12px; }
+  #sm-event-proposal .sm-date-time-row.sm-all-day { grid-template-columns: minmax(0, 1fr); }
+  #sm-event-proposal input[type=date], #sm-event-proposal input[type=time] { padding: 10px 8px; font-size: 16px; }
+  #sm-event-proposal .sm-time-summary { margin-top: 16px; color: var(--sm-primary); font-size: 14px; font-weight: 500; }
+  #sm-event-proposal .sm-help { color: var(--sm-secondary); font-size: 14px; margin-top: 12px; }
+  #sm-event-proposal .sm-error { color: var(--sm-error); font-size: 14px; margin-top: 8px; }
+  #sm-event-proposal .sm-details { padding: 0; }
+  #sm-event-proposal summary { padding: 16px; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 8px; list-style: none; }
+  #sm-event-proposal summary::-webkit-details-marker { display: none; }
+  #sm-event-proposal summary > span { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  #sm-event-proposal summary small { font-size: 14px; font-weight: 400; color: var(--sm-secondary); }
+  #sm-event-proposal .sm-details[open] summary > svg { transform: rotate(180deg); }
+  #sm-event-proposal .sm-detail-fields { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+  #sm-event-proposal textarea { resize: vertical; }
+  #sm-event-proposal .sm-footer { flex-shrink: 0; padding: 12px 20px 20px; background: var(--sm-surface); border-top: 1px solid var(--sm-border); }
+  #sm-event-proposal .sm-save { width: 100%; min-height: 52px; padding: 12px; border: 0; border-radius: 12px; background: var(--sm-primary); color: var(--sm-on-primary); font-weight: 600; }
+  #sm-event-proposal #sm-save-status { font-size: 14px; color: var(--sm-secondary); margin-bottom: 8px; }
+  #sm-event-proposal .sm-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #sm-event-proposal .sm-discard-dialog { max-width: min(320px, 90vw); padding: 24px; border: 1px solid var(--sm-border); border-radius: 16px; color: var(--sm-ink); background: var(--sm-surface); }
+  #sm-event-proposal .sm-discard-dialog::backdrop { background: rgba(25, 28, 30, .45); }
+  #sm-event-proposal .sm-dialog-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  #sm-event-proposal .sm-dialog-actions button { min-height: 48px; padding: 12px; background: var(--sm-input); border: 1px solid var(--sm-border); border-radius: 12px; }
+  #sm-event-proposal .sm-dialog-actions .sm-discard { color: var(--sm-error); }
+  @container (max-width: 340px) { #sm-event-proposal .sm-scroll { padding-left: 16px; padding-right: 16px; } #sm-event-proposal .sm-date-time-row { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { #sm-event-proposal input[type=checkbox]::after { transition: none; } }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('sm-event-proposal');
+  const field = name => root.querySelector('#sm-event-' + name);
+  const title_input = field('title');
+  const start_date = field('start-date');
+  const start_time = field('start-time');
+  const end_date = field('end-date');
+  const end_time = field('end-time');
+  const all_day = field('all-day');
+  const level = field('level');
+  const title_error = root.querySelector('#sm-title-error');
+  const time_error = root.querySelector('#sm-time-error');
+  const duration_label = root.querySelector('#sm-duration');
+  const status = root.querySelector('#sm-save-status');
+  const discard_dialog = root.querySelector('.sm-discard-dialog');
+  const remembered_state = globalThis.openai?.widgetState?.modelContent || {};
+  all_day.checked = remembered_state.all_day === true;
+  level.value = /^[0-5]$/.test(String(remembered_state.visibility_level)) ? String(remembered_state.visibility_level) : '0';
+  let dirty = false;
+  const day_ms = 86400000;
+  function getTime(date_string, time_string) { return new Date(date_string + 'T' + time_string + ':00').getTime(); }
+  function getDay(date_string) { return Date.parse(date_string + 'T00:00:00Z'); }
+  function formatDuration(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return (hours ? hours + '시간' : '') + (hours && remainder ? ' ' : '') + (remainder ? remainder + '분' : '');
+  }
+  function render() {
+    root.querySelectorAll('.sm-time-field').forEach(element => element.hidden = all_day.checked);
+    root.querySelectorAll('.sm-date-time-row').forEach(element => element.classList.toggle('sm-all-day', all_day.checked));
+    const selected_level = Number(level.value);
+    root.querySelector('#sm-visibility-description').textContent = selected_level === 0
+      ? '내 캘린더 열람을 허용한 모든 친구가 이 일정을 볼 수 있어요.'
+      : '내 캘린더 열람을 허용한 친구 중, 내가 지정한 친구 레벨이 ' + selected_level + ' 이상인 친구가 볼 수 있어요.';
+    const start_timestamp = getTime(start_date.value, start_time.value);
+    const end_timestamp = getTime(end_date.value, end_time.value);
+    const valid_dates = Number.isFinite(getDay(start_date.value)) && Number.isFinite(getDay(end_date.value));
+    const valid_times = Number.isFinite(start_timestamp) && Number.isFinite(end_timestamp);
+    const valid = valid_dates && (all_day.checked ? end_date.value >= start_date.value : valid_times && end_timestamp > start_timestamp);
+    time_error.hidden = valid;
+    time_error.textContent = all_day.checked ? '종료일은 시작일과 같거나 이후여야 합니다.' : '종료 시각은 시작 시각보다 늦어야 합니다.';
+    if (!valid) { duration_label.textContent = '날짜와 시간을 확인해주세요.'; return false; }
+    const date_label = new Date(getDay(start_date.value)).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' });
+    duration_label.textContent = all_day.checked
+      ? '종일 · ' + ((getDay(end_date.value) - getDay(start_date.value)) / day_ms + 1) + '일'
+      : date_label + ' · ' + formatDuration(Math.round((end_timestamp - start_timestamp) / 60000));
+    return true;
+  }
+  function rememberChoice() {
+    const host = globalThis.openai;
+    if (host?.setWidgetState) host.setWidgetState({ modelContent: { all_day: all_day.checked, visibility_level: Number(level.value) }, privateContent: null }).catch(() => {});
+  }
+  root.querySelector('.sm-form').addEventListener('input', () => {
+    dirty = true;
+    status.hidden = true;
+    if (title_input.value.trim()) { title_error.hidden = true; title_input.removeAttribute('aria-invalid'); }
+    render();
+  });
+  all_day.addEventListener('change', rememberChoice);
+  level.addEventListener('change', rememberChoice);
+  root.querySelector('.sm-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const valid = render();
+    if (!title_input.value.trim()) {
+      title_error.hidden = false;
+      title_error.textContent = '일정 제목을 입력해주세요.';
+      title_input.setAttribute('aria-invalid', 'true');
+      title_input.focus();
+      title_input.scrollIntoView({ block: 'center' });
+      return;
+    }
+    if (!valid) { end_date.focus(); end_date.scrollIntoView({ block: 'center' }); return; }
+    status.hidden = false;
+    status.textContent = '시안 확인 완료 · 실제 일정은 저장되지 않았습니다.';
+  });
+  root.querySelector('.sm-back').addEventListener('click', () => {
+    if (dirty) discard_dialog.showModal();
+    else { status.hidden = false; status.textContent = '변경한 내용이 없습니다.'; }
+  });
+  root.querySelector('.sm-continue').addEventListener('click', () => discard_dialog.close());
+  root.querySelector('.sm-discard').addEventListener('click', () => {
+    root.querySelector('.sm-form').reset();
+    title_error.hidden = true;
+    title_input.removeAttribute('aria-invalid');
+    status.hidden = true;
+    dirty = false;
+    render();
+    rememberChoice();
+    discard_dialog.close();
+  });
+  const design_state = { radius: 16, section_gap: 24 };
+  function renderDesign() {
+    root.style.setProperty('--sm-radius', design_state.radius + 'px');
+    root.style.setProperty('--sm-gap', design_state.section_gap + 'px');
+  }
+  render();
+  renderDesign();
+  if (globalThis.Tweak) {
+    const tweak = new Tweak({ container: root.querySelector('.sm-phone'), onChange: renderDesign });
+    tweak.addSlider(design_state, 'radius', { label: '카드 모서리', min: 8, max: 24, unit: 'px' });
+    tweak.addSlider(design_state, 'section_gap', { label: '섹션 간격', min: 16, max: 32, step: 4, unit: 'px' });
+  }
+})();
+</script>

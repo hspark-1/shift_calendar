@@ -1,0 +1,152 @@
+{
+  "normal": {
+    "size": "390.0x844.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 742.0,
+    "save_bottom": 794.0,
+    "framework_errors": []
+  },
+  "details": {
+    "size": "390.0x844.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 742.0,
+    "save_bottom": 794.0,
+    "focused_field_bottom": 689.0,
+    "framework_errors": []
+  },
+  "all_day": {
+    "size": "390.0x844.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 742.0,
+    "save_bottom": 794.0,
+    "framework_errors": []
+  },
+  "save_error": {
+    "size": "390.0x844.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 742.0,
+    "save_bottom": 794.0,
+    "framework_errors": []
+  },
+  "small": {
+    "size": "320.0x568.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 466.0,
+    "save_bottom": 518.0,
+    "framework_errors": []
+  },
+  "small_details": {
+    "size": "320.0x568.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 466.0,
+    "save_bottom": 518.0,
+    "focused_field_bottom": 413.0,
+    "framework_errors": []
+  },
+  "phone375": {
+    "size": "375.0x812.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 710.0,
+    "save_bottom": 762.0,
+    "framework_errors": []
+  },
+  "large_text": {
+    "size": "390.0x844.0",
+    "scale": 2.0,
+    "keyboard_inset": 0.0,
+    "save_height": 76.0,
+    "save_top": 718.0,
+    "save_bottom": 794.0,
+    "framework_errors": []
+  },
+  "large_text_details": {
+    "size": "390.0x844.0",
+    "scale": 2.0,
+    "keyboard_inset": 0.0,
+    "save_height": 76.0,
+    "save_top": 718.0,
+    "save_bottom": 794.0,
+    "focused_field_bottom": 665.0,
+    "framework_errors": []
+  },
+  "small_large_details": {
+    "size": "320.0x568.0",
+    "scale": 2.0,
+    "keyboard_inset": 0.0,
+    "save_height": 76.0,
+    "save_top": 442.0,
+    "save_bottom": 518.0,
+    "focused_field_bottom": 389.0,
+    "framework_errors": []
+  },
+  "keyboard_title": {
+    "size": "320.0x568.0",
+    "scale": 1.0,
+    "keyboard_inset": 240.0,
+    "save_height": 52.0,
+    "save_top": 226.0,
+    "save_bottom": 278.0,
+    "focused_field_bottom": 202.0,
+    "framework_errors": []
+  },
+  "keyboard_memo": {
+    "size": "390.0x844.0",
+    "scale": 1.0,
+    "keyboard_inset": 300.0,
+    "save_height": 52.0,
+    "save_top": 442.0,
+    "save_bottom": 494.0,
+    "focused_field_bottom": 389.0,
+    "framework_errors": []
+  },
+  "landscape": {
+    "size": "844.0x390.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 288.0,
+    "save_bottom": 340.0,
+    "framework_errors": []
+  },
+  "tablet": {
+    "size": "768.0x1024.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 922.0,
+    "save_bottom": 974.0,
+    "framework_errors": []
+  },
+  "visibility": {
+    "size": "390.0x844.0",
+    "scale": 1.0,
+    "keyboard_inset": 0.0,
+    "save_height": 52.0,
+    "save_top": 742.0,
+    "save_bottom": 794.0,
+    "framework_errors": []
+  },
+  "visibility_large": {
+    "size": "320.0x568.0",
+    "scale": 2.0,
+    "keyboard_inset": 0.0,
+    "save_height": 76.0,
+    "save_top": 442.0,
+    "save_bottom": 518.0,
+    "framework_errors": []
+  }
+}

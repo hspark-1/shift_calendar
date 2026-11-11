@@ -6,6 +6,8 @@ import 'package:shift_mate/features/group/data/repositories/group_repository_imp
 import 'package:shift_mate/features/group/domain/entities/group_models.dart';
 
 class _FakeGroupRemoteDataSource implements GroupRemoteDataSource {
+  _FakeGroupRemoteDataSource({this.event_private});
+  final bool? event_private;
   String? requested_start_date;
   String? requested_end_date;
 
@@ -70,6 +72,7 @@ class _FakeGroupRemoteDataSource implements GroupRemoteDataSource {
             'start_at': '2026-08-01T15:30:00.000Z',
             'end_at': '2026-08-01T16:30:00.000Z',
             'visibility_level': 1,
+            if (event_private != null) 'is_private': event_private,
           },
         ],
       },
@@ -99,6 +102,19 @@ void main() {
     expect(result.events.single.owner_user_id, 'owner');
     expect(result.events.single.start_at.isUtc, isTrue);
     expect(result.events.single.start_at, DateTime.utc(2026, 8, 1, 15, 30));
+    expect(result.events.single.is_private, false);
+  });
+
+  test('그룹 응답의 본인 private 일정을 보존한다', () async {
+    final result =
+        await GroupRepositoryImpl(
+          _FakeGroupRemoteDataSource(event_private: true),
+        ).getGroupCalendarRange(
+          group_id: 'group-1',
+          start_date: DateTime(2026, 11, 1),
+          end_date: DateTime(2026, 11, 30),
+        );
+    expect(result.events.single.is_private, true);
   });
 
   test('알 수 없는 서버 enum은 안전한 unknown 값으로 파싱한다', () {

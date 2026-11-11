@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_error_handler.dart';
+import '../../../../core/network/api_exception.dart';
 import '../models/event_api_model.dart';
 
 /// CalendarService Provider
@@ -73,9 +74,15 @@ class CalendarService {
         ApiConstants.events,
         data: request.toJson(),
       );
-      return EventApiModel.fromJson(
-        response.data['data'] as Map<String, dynamic>,
-      );
+      final data = response.data['data'] as Map<String, dynamic>;
+      if (request.isPrivate && data['is_private'] != true) {
+        throw ApiException(
+          code: 'EVENT_PRIVACY_NOT_CONFIRMED',
+          message: '비공개 저장 결과를 확인하지 못했어요. 일정 목록에서 공개 범위를 확인해주세요.',
+          statusCode: response.statusCode,
+        );
+      }
+      return EventApiModel.fromJson(data);
     } on DioException catch (e) {
       throw handleApiError(e);
     }
