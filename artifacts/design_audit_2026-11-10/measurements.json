@@ -1,0 +1,105 @@
+{
+  "login": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "settings": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": [],
+    "real_switch_count": 0,
+    "biometric_label_font_size": 12.8
+  },
+  "profile_edit": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "color_picker": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "custom_color": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": [],
+    "recent_label_built": true,
+    "recent_label_rect": "Rect.fromLTRB(16.0, 608.3, 108.6, 627.3)",
+    "scroll_extent": 0.0,
+    "scroll_pixels_after_drag": 0.0,
+    "scroll_pixels_before_drag": 0.0
+  },
+  "custom_color_small": {
+    "size": "320.0x568.0",
+    "text_scale": 1.0,
+    "framework_errors": [],
+    "recent_label_built": false,
+    "scroll_extent": 147.4000000000001,
+    "scroll_pixels_after_drag": 0.0,
+    "scroll_pixels_before_drag": 0.0
+  },
+  "custom_color_text2": {
+    "size": "390.0x844.0",
+    "text_scale": 2.0,
+    "framework_errors": [],
+    "recent_label_built": true,
+    "recent_label_rect": "Rect.fromLTRB(16.0, 680.0, 201.3, 718.0)",
+    "scroll_extent": 0.0,
+    "scroll_pixels_after_drag": 0.0,
+    "scroll_pixels_before_drag": 0.0
+  },
+  "friend_detail": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "friend_list": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "group_create": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "group_edit": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "shift_type_form": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": [],
+    "color_button_size": "Size(101.9, 28.8)",
+    "time_label_font_size": 12.8
+  },
+  "personal_event_form": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": []
+  },
+  "bottom_bar": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": [],
+    "gesture_sizes": [
+      "Size(88.8, 36.0)",
+      "Size(44.0, 44.0)",
+      "Size(88.8, 36.0)",
+      "Size(390.0, 47.0)"
+    ]
+  },
+  "notification_card": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "framework_errors": [],
+    "button_sizes": [
+      "Size(57.8, 34.0)",
+      "Size(57.8, 34.0)"
+    ]
+  }
+}

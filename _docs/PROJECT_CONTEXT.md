@@ -1,5 +1,29 @@
 # 프로젝트 컨텍스트
 
+## 화면·하단 내비게이션 수정 방향 (2026-11-10)
+
+- 목적/상태: 사용자가 앞선 검토 결과에 공감하고 하단 바까지 포함한 수정 방향을 요청했다. [수정 방향서](UI_DESIGN_DIRECTION_2026-11-10.md)의 방향을 사용자 후속 요청으로 구현했다. 최신 동작은 상단 구현 절과 ADR-0038을 따른다.
+- 제안: 캘린더·친구·알림 고정 탭, 오늘 액션의 달력 헤더 이동, 친구/그룹 상단 세그먼트, 화면 전체 0.8 배율 대신 역할별 크기, 설정·폼·색상·그룹 수정·알림의 통일. 인증/푸시 진입과 탭 상태 보존도 적용 범위에 포함한다.
+- 파일 역할/의존성/사용 예: 방향서는 기존 검토 보고서·AppTheme·현재 진입 코드에 근거한 화면별 변경안과 후속 검증 조건이다. 구현 시 해당 화면 절과 완료 조건을 체크리스트로 사용한다.
+- 검증/영향/롤백: 코드 진입점·기존 정책 대조 및 문서 검사. 방향 수립 당시에는 문서만 변경했으며 후속 구현·검증 결과는 상단 구현 절을 따른다. 롤백은 방향서와 이번 컨텍스트/로그 항목만 제거한다.
+
+## 전체 화면 디자인 검토 (2026-11-10)
+
+- 사용자 요청으로 앱 내부 일관성과 일반적인 모바일 UI 관례를 동일 비중으로 검토했다. 19개 페이지 정의와 관련 폼/공용 UI 코드를 확인하고, 실제 Flutter 위젯의 15개 렌더링 사례를 비교했다.
+- 결과: [디자인 검토 보고서](UI_DESIGN_AUDIT_2026-11-10.md)에 작은 화면의 커스텀 색상 하단 접근 불가, 미구현 설정의 활성 토글 표현, 화면별 타이포 밀도, 하단 메뉴 역할, 터치 크기, 그룹 정보 수정 폼, 안내문 대비·언어 차이를 근거와 우선순위로 정리했다. 기존 0.8 배율·스크롤 차단이 문서에 기록된 의도라는 점과 그룹 플래그별 진입 조건도 구분했다. 이는 수정 전 검토 기록이며 후속 사용자 승인·구현은 ADR-0038과 상단 구현 절을 따른다.
+- 파일 역할/의존성/사용 예: `_docs/UI_DESIGN_AUDIT_2026-11-10.md`는 검토 범위·발견·근거·후속 제안이다. `artifacts/design_audit_2026-11-10/render_audit_test.dart`는 기존 Flutter test/모의 의존성과 번들 폰트·아이콘으로 화면을 캡처한다. 루트에서 `flutter test --no-pub --reporter expanded artifacts/design_audit_2026-11-10/render_audit_test.dart`로 실행한다. 같은 폴더의 15개 화면 PNG·`measurements.json`은 시각/치수 근거, `comparison.png`는 주요 6개 화면 비교용이며 개별 파일 목록은 보고서를 참조한다.
+- 검증/영향/롤백: 렌더러 1 test 완료·수집된 Flutter 예외 0, 분석 진단 0건 및 PNG 시각 확인. 320×568 커스텀 색상 초과 높이 147.4·드래그 전후 위치 0, 알림 버튼 높이 34·하단 버튼 높이 36을 측정했다. 앱 코드·DB·정책 변경은 없으며 새 ADR은 추가하지 않는다. 롤백은 이번 보고서·산출물 폴더·컨텍스트/로그 항목만 제거한다.
+
+## UI UX Pro Max 개발 스킬 (2026-11-10)
+
+- 목적/설치: 사용자 요청으로 `nextlevelbuilder/ui-ux-pro-max-skill`의 커밋 `6ae86f61f520d6ca229d2f40e070410638c908c5`에서 `.claude/skills/ui-ux-pro-max`를 공식 `skill-installer` 도우미로 사용자 공용 경로 `/Users/parkhyunseo/.agents/skills/ui-ux-pro-max`에 설치했다. 다른 프로젝트에서도 사용하는 로컬 개발 도구이며 앱 빌드 의존성은 없다.
+- 파일 역할/의존성: `SKILL.md`는 적용 조건·검색 흐름, `scripts/search.py`는 CLI 진입점, 나머지 Python 모듈은 검색·디자인 제안 생성, `data/`는 CSV/JSON 검색 자료, `references/`는 UX 점검 기준이다. Python 3 표준 라이브러리로 실행하며 설치 당시 Python 3.13.0을 확인했다. 원본 검색 코드·데이터는 유지하고 manifest의 Claude 전용 실행 경로 11곳만 실제 설치 경로와 `python3` 명령으로 맞췄다.
+- 사용 예: 다음 메시지에서 `$ui-ux-pro-max ShiftMate의 Flutter 캘린더 화면 UX를 검토해줘. 기존 Cupertino 구조와 AppTheme 토큰을 유지하고 개선안을 먼저 제시해줘.`처럼 호출한다. 새 스킬이 보이지 않을 때는 Codex를 재시작한다.
+- 직접 실행 예: `python3 /Users/parkhyunseo/.agents/skills/ui-ux-pro-max/scripts/search.py "safe area accessibility" --stack flutter -n 2`. 새 시안 제안은 같은 스크립트에 `"calendar scheduling productivity" --design-system -p ShiftMate --json`을 전달한다. `--design-system` 모드는 `--stack`을 무시하므로 Flutter 검색은 별도 명령으로 수행한다.
+- 적용 기준: 기존 Shift Harmony/Cupertino·`AppTheme` 규칙을 기준으로 검토한다. 생성 결과는 참고용이며 앱 코드 자동 변경이 아니다. 설치 검증의 디자인 제안에는 웹 랜딩페이지 패턴이 포함됐고 Flutter CSV의 결과는 3.44.x 대상이므로, 실제 프로젝트 버전과 화면에 맞는지 코드를 확인한 뒤 적용한다. 이번 검증에서는 `--persist`를 사용하지 않아 별도 디자인 문서를 생성하지 않았다.
+- 검증/영향/롤백: Flutter 접근성 검색 2건과 디자인 제안의 `Calendar & Scheduling App` 분류·JSON 생성 성공을 확인했다. 변경 범위는 로컬 스킬과 이 문서·WORKLOG이며 앱 코드·UI·DB 변경은 없다. 롤백은 설치 디렉터리와 이번 문서 항목만 제거한다. 앱 설계·정책 변경이 없어 ADR은 추가하지 않는다.
+- 근거: [원본 저장소](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), [OpenAI 공식 스킬 문서](https://learn.chatgpt.com/docs/build-skills).
+
 ## 프로필 편집 작업 검토·커밋·푸시 (2026-11-10)
 
 - 프로필 편집·사진 변경·관련 테스트·서버 요청서의 기존 변경 16개 파일을 검토해 `44595b6`으로 보존하고, 이전 로컬 커밋 `9516c5a`와 함께 origin/main에 일반 push했다. push 후 로컬 HEAD와 origin/main 일치를 확인했다. 추가 앱 코드 수정은 없다.
