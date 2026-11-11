@@ -69,71 +69,58 @@ class _ShiftTemplateSettingsPageState
       return;
     }
 
-    final result = await Navigator.push<CreateShiftTypeRequest>(
+    await Navigator.of(
       context,
+      rootNavigator: true,
+    ).push<CreateShiftTypeRequest>(
       CupertinoPageRoute(
-        builder: (context) =>
-            ShiftTypeFormModal(existingTypes: state.shiftTypes),
-      ),
-    );
-
-    if (result != null && mounted) {
-      showCupertinoDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) =>
-            const CupertinoAlertDialog(content: CupertinoActivityIndicator()),
-      );
-
-      final success = await ref
-          .read(shiftTemplateSettingsProvider.notifier)
-          .createShiftType(result);
-
-      if (mounted) {
-        Navigator.pop(context); // 로딩 다이얼로그 닫기
-        if (success) {
-          // 근무 타입 목록 새로고침
-          ref.invalidate(shiftTypesProvider);
-        } else {
-          final errorState = ref.read(shiftTemplateSettingsProvider);
-          _showErrorDialog(_getErrorMessage(errorState.error));
-        }
-      }
-    }
-  }
-
-  /// 근무 타입 편집
-  Future<void> _editShiftType(ShiftTypeApiModel shiftType) async {
-    final state = ref.read(shiftTemplateSettingsProvider);
-    final result = await Navigator.push<UpdateShiftTypeRequest>(
-      context,
-      CupertinoPageRoute(
-        builder: (context) => ShiftTypeFormModal(
-          shiftType: shiftType,
+        builder: (_) => ShiftTypeFormModal(
           existingTypes: state.shiftTypes,
+          onCreate: (request) async {
+            final success = await ref
+                .read(shiftTemplateSettingsProvider.notifier)
+                .createShiftType(request);
+            if (!success) {
+              return _getErrorMessage(
+                ref.read(shiftTemplateSettingsProvider).error,
+              );
+            }
+            ref.invalidate(shiftTypesProvider);
+            return null;
+          },
         ),
       ),
     );
+  }
 
-    if (result != null && mounted) {
-      final updated_shift_type = await ref
-          .read(shiftTemplateSettingsProvider.notifier)
-          .updateShiftType(shiftType.shiftTypeId, result);
-
-      if (mounted) {
-        if (updated_shift_type != null) {
-          ref
-              .read(shiftTypeDisplayUpdatesProvider.notifier)
-              .applyUpdate(
-                previous_type: shiftType,
-                updated_type: updated_shift_type,
+  /// 근무 타입 편집: 실패 시 폼 입력을 보존하고 저장 성공 후에만 닫는다.
+  Future<void> _editShiftType(ShiftTypeApiModel shiftType) async {
+    final state = ref.read(shiftTemplateSettingsProvider);
+    await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push<UpdateShiftTypeRequest>(
+      CupertinoPageRoute(
+        builder: (_) => ShiftTypeFormModal(
+          shiftType: shiftType,
+          existingTypes: state.shiftTypes,
+          onUpdate: (request) async {
+            final updated = await ref
+                .read(shiftTemplateSettingsProvider.notifier)
+                .updateShiftType(shiftType.shiftTypeId, request);
+            if (updated == null) {
+              return _getErrorMessage(
+                ref.read(shiftTemplateSettingsProvider).error,
               );
-        } else {
-          final errorState = ref.read(shiftTemplateSettingsProvider);
-          _showErrorDialog(_getErrorMessage(errorState.error));
-        }
-      }
-    }
+            }
+            ref
+                .read(shiftTypeDisplayUpdatesProvider.notifier)
+                .applyUpdate(previous_type: shiftType, updated_type: updated);
+            return null;
+          },
+        ),
+      ),
+    );
   }
 
   /// 근무 타입 삭제

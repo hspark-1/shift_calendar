@@ -1,8 +1,8 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
 import 'package:shift_mate/features/calendar/data/models/shift_type_api_model.dart';
 import 'package:shift_mate/features/calendar/presentation/widgets/shift_color_picker_page.dart';
@@ -137,7 +137,7 @@ Widget buildCreateResultTestApp({
 }
 
 void main() {
-  testWidgets('친구 설정 화면과 같은 컴팩트 카드 레이아웃으로 편집값을 표시한다', (tester) async {
+  testWidgets('작은 미리보기와 하단 저장으로 편집값을 표시한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -146,10 +146,10 @@ void main() {
 
     expect(find.text('근무 타입 편집'), findsOneWidget);
     expect(find.byKey(const Key('shift_type_back_button')), findsOneWidget);
-    expect(find.text('완료'), findsOneWidget);
+    expect(find.text('변경사항 저장'), findsOneWidget);
     expect(find.text('취소'), findsNothing);
-    expect(find.text('저장'), findsNothing);
-    expect(find.text('색상 변경'), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.chevron_back), findsOneWidget);
+    expect(find.text('표시 색상'), findsOneWidget);
     expect(find.text('근무 시간'), findsOneWidget);
     expect(find.text('시작 시간'), findsOneWidget);
     expect(find.text('종료 시간'), findsOneWidget);
@@ -159,17 +159,17 @@ void main() {
     final preview_size = tester.getSize(
       find.byKey(const Key('shift_type_code_preview')),
     );
-    expect(preview_size.width, closeTo(76.8, 0.01));
-    expect(preview_size.height, closeTo(76.8, 0.01));
+    expect(preview_size.width, closeTo(52, 0.01));
+    expect(preview_size.height, closeTo(52, 0.01));
     expect(
       tester.getSize(find.byKey(const Key('shift_type_start_time_row'))).height,
-      closeTo(44.8, 0.01),
+      greaterThanOrEqualTo(56),
     );
 
     final navigation_title = tester.widget<Text>(find.text('근무 타입 편집'));
     final section_title = tester.widget<Text>(find.text('근무 시간'));
     expect(navigation_title.style?.fontSize, AppTheme.heading_small.fontSize);
-    expect(section_title.style?.fontSize, 12.8);
+    expect(section_title.style?.fontSize, 16);
 
     expect(find.byKey(const Key('shift_type_identity_card')), findsOneWidget);
     expect(find.byKey(const Key('shift_type_time_card')), findsOneWidget);
@@ -273,55 +273,28 @@ void main() {
     expect(preview_code.style?.color, AppTheme.on_surface_color);
   });
 
-  testWidgets('코드부터 종료 시간까지 입력 포커스를 순서대로 이동한다', (tester) async {
+  testWidgets('이름부터 표시 코드까지 화면 순서대로 입력하고 완료하면 키보드를 닫는다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
-
-    final code_field = tester.widget<CupertinoTextField>(
-      find.byKey(const Key('shift_type_code_field')),
+    final name_finder = find.byKey(const Key('shift_type_name_field'));
+    final code_finder = find.byKey(const Key('shift_type_code_field'));
+    expect(
+      tester.getTopLeft(name_finder).dy,
+      lessThan(tester.getTopLeft(code_finder).dy),
     );
-    final name_field = tester.widget<CupertinoTextField>(
-      find.byKey(const Key('shift_type_name_field')),
-    );
-    code_field.controller?.selection = const TextSelection.collapsed(offset: 0);
-    name_field.controller?.selection = const TextSelection.collapsed(offset: 0);
-
-    await tester.tap(find.byKey(const Key('shift_type_code_field')));
+    await tester.tap(name_finder);
     await tester.pump();
-
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+    final code_field = tester.widget<CupertinoTextField>(code_finder);
     expect(code_field.focusNode?.hasFocus, isTrue);
     expect(code_field.controller?.selection.baseOffset, 'D'.length);
-
     await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-
+    await tester.pumpAndSettle();
     expect(code_field.focusNode?.hasFocus, isFalse);
-    expect(name_field.focusNode?.hasFocus, isTrue);
-    expect(name_field.controller?.selection.baseOffset, '데이'.length);
-
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-
-    expect(name_field.focusNode?.hasFocus, isFalse);
-    expect(find.byType(TimePickerSheet), findsOneWidget);
-    expect(find.text('시작시간 선택'), findsOneWidget);
-
-    await tester.tap(find.text('선택한 시간 적용'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(TimePickerSheet), findsOneWidget);
-    expect(find.text('시작시간 선택'), findsNothing);
-    expect(find.text('종료시간 선택'), findsOneWidget);
-
-    await tester.tap(find.text('선택한 시간 적용'));
-    await tester.pumpAndSettle();
-
     expect(find.byType(TimePickerSheet), findsNothing);
-    expect(code_field.focusNode?.hasFocus, isFalse);
-    expect(name_field.focusNode?.hasFocus, isFalse);
   });
 
   testWidgets('코드와 이름 밖 화면을 터치하면 텍스트 포커스를 해제한다', (tester) async {
@@ -390,8 +363,8 @@ void main() {
 
     final name_field = tester.widget<CupertinoTextField>(name_field_finder);
     expect(code_field.focusNode?.hasFocus, isFalse);
-    expect(name_field.focusNode?.hasFocus, isTrue);
-    expect(tester.testTextInput.isVisible, isTrue);
+    expect(name_field.focusNode?.hasFocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
     expect(
       find.byKey(const Key('shift_type_code_duplicate_message')),
       findsNothing,
@@ -501,8 +474,8 @@ void main() {
     code_field = tester.widget<CupertinoTextField>(code_field_finder);
     final name_field = tester.widget<CupertinoTextField>(name_field_finder);
     expect(code_field.focusNode?.hasFocus, isFalse);
-    expect(name_field.focusNode?.hasFocus, isTrue);
-    expect(tester.testTextInput.isVisible, isTrue);
+    expect(name_field.focusNode?.hasFocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
     expect(
       find.byKey(const Key('shift_type_code_duplicate_message')),
       findsOneWidget,
@@ -514,7 +487,7 @@ void main() {
     final error_decoration = code_error_border.decoration as BoxDecoration;
     final error_border = error_decoration.border as Border;
     expect(error_border.top.color, AppTheme.accent_red_color);
-    expect(error_border.top.width, closeTo(1.6, 0.01));
+    expect(error_border.top.width, closeTo(2, 0.01));
     expect(
       tester
           .widget<CupertinoTextField>(
@@ -575,67 +548,191 @@ void main() {
     );
   });
 
-  testWidgets('시간 삭제 액션은 누른 시간만 비운다', (tester) async {
+  testWidgets('시간 지정을 끄면 두 시간을 숨기고 다시 켜면 편집값을 복원한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
-
-    expect(find.byIcon(CupertinoIcons.xmark_circle_fill), findsNWidgets(2));
-
-    final clear_icon_right = tester
-        .getRect(find.byIcon(CupertinoIcons.xmark_circle_fill).first)
-        .right;
-    final code_editable = find.descendant(
-      of: find.byKey(const Key('shift_type_code_field')),
-      matching: find.byType(EditableText),
-    );
-    final name_editable = find.descendant(
-      of: find.byKey(const Key('shift_type_name_field')),
-      matching: find.byType(EditableText),
-    );
-    expect(
-      tester.getRect(code_editable).right,
-      closeTo(clear_icon_right, 0.01),
-    );
-    expect(
-      tester.getRect(name_editable).right,
-      closeTo(clear_icon_right, 0.01),
-    );
-
-    await tester.tap(find.byKey(const Key('shift_type_start_time_clear')));
-    await tester.pump();
-
-    expect(find.text('06:30'), findsNothing);
+    final toggle = find.byKey(const Key('shift_type_has_time_switch'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('shift_type_start_time_row')), findsNothing);
+    expect(find.byKey(const Key('shift_type_end_time_row')), findsNothing);
+    expect(find.text('시간 없음'), findsOneWidget);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('06:30'), findsOneWidget);
     expect(find.text('15:00'), findsOneWidget);
-    expect(find.text('시간 선택'), findsOneWidget);
-    expect(find.byKey(const Key('shift_type_start_time_clear')), findsNothing);
-    expect(find.byKey(const Key('shift_type_end_time_clear')), findsOneWidget);
-    expect(find.byType(CupertinoDatePicker), findsNothing);
-    expect(
-      tester
-          .getRect(find.byKey(const Key('shift_type_start_time_value')))
-          .right,
-      closeTo(clear_icon_right, 0.01),
-    );
+    expect(find.text('총 8시간 30분'), findsOneWidget);
+  });
 
+  testWidgets('시간 지정 해제는 수정 요청에 두 시간을 명시적 null로 전송한다', (tester) async {
+    UpdateShiftTypeRequest? saved_request;
+    await tester.pumpWidget(
+      buildResultTestApp(on_result: (result) => saved_request = result),
+    );
+    await tester.tap(find.text('편집 열기'));
+    await tester.pumpAndSettle();
+    final toggle = find.byKey(const Key('shift_type_has_time_switch'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_type_complete_button')));
     await tester.pumpAndSettle();
+    expect(saved_request, isNotNull);
+    final json = saved_request!.toJson();
+    expect(json.containsKey('start_time'), isTrue);
+    expect(json.containsKey('end_time'), isTrue);
+    expect(json['start_time'], isNull);
+    expect(json['end_time'], isNull);
+  });
 
-    expect(find.text('시작시간과 종료시간을 모두 입력하거나 모두 비워주세요.'), findsOneWidget);
-
-    await tester.tap(find.text('확인'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('shift_type_end_time_clear')));
-    await tester.pump();
-
-    expect(find.text('15:00'), findsNothing);
-    expect(find.text('시간 선택'), findsNWidgets(2));
-    expect(
-      tester.getRect(find.byKey(const Key('shift_type_end_time_value'))).right,
-      closeTo(clear_icon_right, 0.01),
+  testWidgets('시간 지정을 껐다 켜고 저장하면 기존 시간 쌍을 유지한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    UpdateShiftTypeRequest? saved_request;
+    await tester.pumpWidget(
+      buildResultTestApp(on_result: (result) => saved_request = result),
     );
+    await tester.tap(find.text('편집 열기'));
+    await tester.pumpAndSettle();
+    final toggle = find.byKey(const Key('shift_type_has_time_switch'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+    expect(saved_request?.startTime, '06:30:00');
+    expect(saved_request?.endTime, '15:00:00');
+  });
+
+  testWidgets('필수 입력 오류는 필드 옆에 표시하고 첫 오류로 포커스를 이동한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var calls = 0;
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: ShiftTypeFormModal(
+          existingTypes: [],
+          onCreate: (_) async {
+            calls++;
+            return null;
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+    final name = find.byKey(const Key('shift_type_name_field'));
+    final code = find.byKey(const Key('shift_type_code_field'));
+    expect(find.text('이름을 입력해주세요.'), findsOneWidget);
+    expect(find.text('코드를 입력해주세요.'), findsOneWidget);
+    expect(tester.widget<CupertinoTextField>(name).focusNode?.hasFocus, isTrue);
+    expect(name.hitTestable(), findsOneWidget);
+    expect(calls, 0);
+    await tester.enterText(name, '오프');
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('이름을 입력해주세요.'), findsNothing);
+    expect(tester.widget<CupertinoTextField>(code).focusNode?.hasFocus, isTrue);
+    expect(code.hitTestable(), findsOneWidget);
+    expect(calls, 0);
+  });
+
+  testWidgets('신규 타입은 기본으로 시간을 지정하며 한 시간만 입력하면 인접 오류와 입력을 보존한다', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    CreateShiftTypeRequest? saved_request;
+    await tester.pumpWidget(
+      buildCreateResultTestApp(on_result: (result) => saved_request = result),
+    );
+    await tester.tap(find.text('추가 열기'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('shift_type_name_field')),
+      '데이',
+    );
+    await tester.enterText(find.byKey(const Key('shift_type_code_field')), 'D');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    final toggle = find.byKey(const Key('shift_type_has_time_switch'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CupertinoSwitch>(toggle).value, isTrue);
+    final start_row = find.byKey(const Key('shift_type_start_time_row'));
+    await tester.ensureVisible(start_row);
+    await tester.pumpAndSettle();
+    await tester.tap(start_row);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('선택한 시간 적용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('취소').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('shift_type_complete_button')));
+    await tester.pumpAndSettle();
+    expect(saved_request, isNull);
+    expect(find.byKey(const Key('shift_type_time_error')), findsOneWidget);
+    expect(find.text('시작 시간과 종료 시간을 모두 선택해주세요.'), findsOneWidget);
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            find.byKey(const Key('shift_type_name_field')),
+          )
+          .controller
+          ?.text,
+      '데이',
+    );
+  });
+
+  testWidgets('야간은 다음 날 종료와 시간 간격을 표시하며 같은 시간은 서버처럼 0시간이다', (tester) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: ShiftTypeFormModal(
+          shiftType: buildIntensityShiftType(),
+          existingTypes: [buildIntensityShiftType()],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('22:30 – 다음 날 07:00'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('shift_type_duration_summary')),
+    );
+    expect(find.text('다음 날 종료 · 총 8시간 30분'), findsOneWidget);
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: ShiftTypeFormModal(
+          key: const ValueKey('equal-time'),
+          shiftType: ShiftTypeApiModel(
+            shiftTypeId: 'equal',
+            code: 'EQ',
+            name: '동일 시간',
+            startTime: '09:00:00',
+            endTime: '09:00:00',
+            crossesMidnight: false,
+            durationMinutes: 0,
+          ),
+          existingTypes: [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('shift_type_duration_summary')),
+    );
+    expect(find.text('총 0시간'), findsOneWidget);
+    expect(find.text('다음 날'), findsNothing);
   });
 
   testWidgets('개인 일정과 같은 공용 시간 선택 시트를 사용한다', (tester) async {
@@ -645,6 +742,9 @@ void main() {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(
+      find.byKey(const Key('shift_type_start_time_row')),
+    );
     await tester.tap(find.byKey(const Key('shift_type_start_time_row')));
     await tester.pumpAndSettle();
 
@@ -661,7 +761,7 @@ void main() {
     expect(find.text('종료시간 선택'), findsOneWidget);
     expect(find.text('06:30'), findsOneWidget);
 
-    await tester.tap(find.text('취소'));
+    await tester.tap(find.text('취소').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(TimePickerSheet), findsNothing);
@@ -783,6 +883,12 @@ void main() {
       find.byKey(const Key('shift_type_name_field')),
       '데이',
     );
+    final toggle = find.byKey(const Key('shift_type_has_time_switch'));
+    expect(tester.widget<CupertinoSwitch>(toggle).value, isTrue);
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_type_complete_button')));
     await tester.pumpAndSettle();
 
@@ -795,7 +901,7 @@ void main() {
     expect(saved_request?.toJson().containsKey('color'), isFalse);
   });
 
-  testWidgets('좌측 화살표는 편집 결과를 반환하지 않는다', (tester) async {
+  testWidgets('뒤로가기 화살표는 편집 결과를 반환하지 않는다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 

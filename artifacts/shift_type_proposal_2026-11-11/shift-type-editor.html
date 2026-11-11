@@ -1,0 +1,111 @@
+<div id="shift-editor-proposal" class="viz-dotted-background">
+  <style>
+    #shift-editor-proposal { padding:24px 12px; }
+    #shift-editor-proposal .sm-screen { --sm-bg:light-dark(#F8F9FB,#12141C); --sm-surface:light-dark(#fff,#1E212A); --sm-text:light-dark(#191C1E,#F2F4F6); --sm-muted:light-dark(#414750,#C1C7D2); --sm-line:light-dark(#E0E3E5,#414750); --sm-primary:light-dark(#0061A4,#96CBF2); --sm-on-primary:light-dark(#fff,#003453); --sm-soft:light-dark(#ECEEF0,#30343E); --sm-radius:16px; max-width:390px; margin:auto; background:var(--sm-bg); color:var(--sm-text); border:1px solid var(--sm-line); border-radius:28px; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; font-size:16px; line-height:1.5; }
+    #shift-editor-proposal * { box-sizing:border-box; }
+    #shift-editor-proposal button, #shift-editor-proposal input { font:inherit; }
+    #shift-editor-proposal .sm-nav { display:grid; grid-template-columns:52px 1fr 52px; align-items:center; padding:16px; border-bottom:1px solid var(--sm-line); }
+    #shift-editor-proposal .sm-title { text-align:center; font-size:18px; font-weight:600; }
+    #shift-editor-proposal .sm-cancel { border:0; background:transparent; color:var(--sm-primary); min-height:44px; padding:0; }
+    #shift-editor-proposal .sm-main { padding:24px 20px; }
+    #shift-editor-proposal .sm-caption { font-size:13px; color:var(--sm-muted); margin:0 0 10px; }
+    #shift-editor-proposal .sm-preview { display:flex; gap:14px; align-items:center; padding-bottom:24px; }
+    #shift-editor-proposal .sm-badge { flex:0 0 52px; height:52px; border-radius:50%; background:#4355B8; color:#fff; display:grid; place-items:center; font-size:20px; font-weight:600; }
+    #shift-editor-proposal .sm-preview-name { font-weight:600; font-size:18px; overflow-wrap:anywhere; }
+    #shift-editor-proposal .sm-preview-detail { color:var(--sm-muted); font-size:14px; }
+    #shift-editor-proposal .sm-label { display:block; font-size:14px; font-weight:600; margin:0 0 8px; }
+    #shift-editor-proposal .sm-field { margin-bottom:20px; }
+    #shift-editor-proposal .sm-input { width:100%; min-width:0; border:1px solid var(--sm-line); border-radius:12px; background:var(--sm-surface); color:var(--sm-text); padding:12px 14px; min-height:48px; }
+    #shift-editor-proposal .sm-hint { color:var(--sm-muted); font-size:13px; margin-top:6px; }
+    #shift-editor-proposal .sm-color-row { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid var(--sm-line); border-bottom:1px solid var(--sm-line); padding:12px 0; }
+    #shift-editor-proposal .sm-color-label { display:flex; align-items:center; gap:10px; }
+    #shift-editor-proposal .sm-color { width:48px; height:44px; padding:4px; border:1px solid var(--sm-line); border-radius:10px; background:var(--sm-surface); }
+    #shift-editor-proposal .sm-section-title { font-size:16px; font-weight:600; margin:24px 0 12px; }
+    #shift-editor-proposal .sm-toggle { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:48px; }
+    #shift-editor-proposal .sm-toggle input { width:24px; height:24px; accent-color:var(--sm-primary); }
+    #shift-editor-proposal .sm-time-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+    #shift-editor-proposal .sm-time-grid label { min-width:0; }
+    #shift-editor-proposal .sm-duration { background:var(--sm-soft); border-radius:10px; padding:10px 12px; margin-top:12px; font-size:14px; }
+    #shift-editor-proposal .sm-footer { padding:0 20px 24px; }
+    #shift-editor-proposal .sm-save { display:block; width:100%; min-height:52px; border:0; border-radius:14px; background:var(--sm-primary); color:var(--sm-on-primary); font-weight:600; }
+    #shift-editor-proposal .sm-save:disabled { opacity:.45; }
+    #shift-editor-proposal .sm-status { font-size:13px; color:var(--sm-muted); min-height:20px; margin-top:8px; text-align:center; }
+    #shift-editor-proposal button:active { opacity:.7; }
+    #shift-editor-proposal [hidden] { display:none; }
+    @media(max-width:360px) { #shift-editor-proposal {padding:12px 0;} #shift-editor-proposal .sm-main {padding:20px 16px;} #shift-editor-proposal .sm-time-grid {grid-template-columns:1fr;} }
+  </style>
+  <section class="sm-screen" aria-label="근무 타입 편집 제안">
+    <header class="sm-nav"><button class="sm-cancel cursor-interaction" type="button" data-action="cancel">취소</button><div class="sm-title">근무 타입 편집</div><span aria-hidden="true"></span></header>
+    <div class="sm-main">
+      <p class="sm-caption">캘린더에 표시될 모습</p>
+      <div class="sm-preview" aria-live="polite">
+        <div class="sm-badge" data-preview="code">N</div>
+        <div><div class="sm-preview-name" data-preview="name">야간</div><div class="sm-preview-detail" data-preview="time">22:00 – 다음 날 07:00</div></div>
+      </div>
+      <div class="sm-field"><label class="sm-label" for="sm-name">이름</label><input class="sm-input" id="sm-name" value="야간" autocomplete="off"><div class="sm-hint">예: 데이, 야간, 오프</div></div>
+      <div class="sm-field"><label class="sm-label" for="sm-code">캘린더 표시 코드</label><input class="sm-input" id="sm-code" value="N" maxlength="3" autocomplete="off" aria-describedby="sm-code-hint"><div class="sm-hint" id="sm-code-hint">최대 3자 · 예: D, N, OFF</div></div>
+      <div class="sm-color-row"><label class="sm-color-label" for="sm-color">표시 색상</label><input class="sm-color cursor-interaction" id="sm-color" type="color" value="#4355B8"></div>
+      <div class="sm-section-title">근무 시간</div>
+      <label class="sm-toggle" for="sm-has-time"><span>시간 지정</span><input id="sm-has-time" type="checkbox" role="switch" checked aria-controls="sm-time-fields"></label>
+      <div id="sm-time-fields">
+        <div class="sm-time-grid"><label><span class="sm-label">시작</span><input class="sm-input" id="sm-start" type="time" value="22:00" aria-label="시작 시간"></label><label><span class="sm-label">종료</span><input class="sm-input" id="sm-end" type="time" value="07:00" aria-label="종료 시간"></label></div>
+        <div class="sm-duration" data-preview="duration" aria-live="polite">다음 날 종료 · 총 9시간</div>
+      </div>
+      <div class="sm-hint" id="sm-no-time" hidden>오프·휴가처럼 정해진 시간이 없는 타입입니다.</div>
+    </div>
+    <footer class="sm-footer"><button class="sm-save cursor-interaction" type="button" data-action="save">변경사항 저장</button><div class="sm-status" role="status" aria-live="polite">제안 시안 · 예시 데이터</div></footer>
+  </section>
+  <script>
+    (() => {
+      const root = document.getElementById('shift-editor-proposal');
+      const name_input = root.querySelector('#sm-name');
+      const code_input = root.querySelector('#sm-code');
+      const color_input = root.querySelector('#sm-color');
+      const has_time_input = root.querySelector('#sm-has-time');
+      const start_input = root.querySelector('#sm-start');
+      const end_input = root.querySelector('#sm-end');
+      const save_button = root.querySelector('[data-action="save"]');
+      const status = root.querySelector('.sm-status');
+      function toMinutes(value) { const parts = value.split(':').map(Number); return parts[0]*60+parts[1]; }
+      function render() {
+        const badge = root.querySelector('[data-preview="code"]');
+        badge.textContent = code_input.value.trim().toUpperCase() || '–';
+        badge.style.backgroundColor = color_input.value;
+        const rgb = color_input.value.slice(1).match(/../g).map(value => parseInt(value,16)/255).map(value => value <= .04045 ? value/12.92 : Math.pow((value+.055)/1.055,2.4));
+        const luminance = rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;
+        badge.style.color = luminance > .179 ? '#191C1E' : '#FFFFFF';
+        root.querySelector('[data-preview="name"]').textContent = name_input.value.trim() || '근무 이름';
+        root.querySelector('#sm-time-fields').hidden = !has_time_input.checked;
+        root.querySelector('#sm-no-time').hidden = has_time_input.checked;
+        let valid = Boolean(code_input.value.trim() && name_input.value.trim());
+        if (has_time_input.checked && start_input.value && end_input.value) {
+          const start_minutes = toMinutes(start_input.value);
+          const end_minutes = toMinutes(end_input.value);
+          const crosses_midnight = end_minutes < start_minutes;
+          const duration = (end_minutes-start_minutes+1440)%1440;
+          const duration_text = `${Math.floor(duration/60)}시간${duration%60 ? ` ${duration%60}분` : ''}`;
+          root.querySelector('[data-preview="time"]').textContent = `${start_input.value} – ${crosses_midnight ? '다음 날 ' : ''}${end_input.value}`;
+          root.querySelector('[data-preview="duration"]').textContent = start_minutes === end_minutes ? '시작·종료 시간을 확인해주세요.' : `${crosses_midnight ? '다음 날 종료 · ' : ''}총 ${duration_text}`;
+          valid = valid && start_minutes !== end_minutes;
+        } else {
+          root.querySelector('[data-preview="time"]').textContent = has_time_input.checked ? '시간을 선택해주세요' : '시간 없음';
+          root.querySelector('[data-preview="duration"]').textContent = '시작·종료 시간을 모두 선택해주세요.';
+          valid = valid && !has_time_input.checked;
+        }
+        save_button.disabled = !valid;
+      }
+      root.addEventListener('input', () => { status.textContent = '제안 시안 · 예시 데이터'; render(); });
+      save_button.addEventListener('click', () => { status.textContent = '미리보기 완료 · 앱에 저장되지 않습니다'; });
+      root.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+        name_input.value='야간'; code_input.value='N'; color_input.value='#4355B8'; has_time_input.checked=true; start_input.value='22:00'; end_input.value='07:00'; status.textContent='제안 시안 · 예시 데이터'; render();
+      });
+      render();
+      if (globalThis.Tweak) {
+        const design = { radius:12 };
+        const screen = root.querySelector('.sm-screen');
+        const tweak = new Tweak({ container:screen, onChange:() => { screen.style.setProperty('--sm-radius',`${design.radius}px`); root.querySelectorAll('.sm-input').forEach(input => {input.style.borderRadius=`${design.radius}px`;}); } });
+        tweak.addSlider(design,'radius',{label:'입력란 모서리',min:4,max:20,unit:'px'});
+      }
+    })();
+  </script>
+</div>
