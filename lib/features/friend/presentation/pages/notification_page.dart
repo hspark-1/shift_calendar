@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../group/application/group_providers.dart';
 import '../../../group/presentation/pages/group_calendar_page.dart';
 import '../../data/models/friend_model.dart';
@@ -24,6 +25,7 @@ class NotificationPage extends ConsumerStatefulWidget {
 }
 
 class _NotificationPageState extends ConsumerState<NotificationPage> {
+  final _processing_ids = <String>{};
   @override
   void initState() {
     super.initState();
@@ -151,6 +153,9 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: NotificationItem(
                   notification: notification,
+                  is_processing: _processing_ids.contains(
+                    notification.notificationId,
+                  ),
                   onActionTap: (action) =>
                       _handleNotificationAction(notification, action),
                   show_actions: !is_group_invitation || show_group_actions,
@@ -208,12 +213,16 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
       case NotificationActionType.reject:
         final is_group_invitation =
             notification.notificationType == NotificationType.groupInvitation;
+        if (_processing_ids.contains(notification.notificationId)) return;
+        setState(() => _processing_ids.add(notification.notificationId));
         final success = await ref
             .read(notificationProvider.notifier)
             .handleNotificationAction(
               notification: notification,
               action: action,
             );
+        if (!mounted) return;
+        setState(() => _processing_ids.remove(notification.notificationId));
         if (success) {
           if (is_group_invitation) {
             if (!mounted) return;
@@ -248,6 +257,11 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
         if (action.route != null) {
           // 라우트에 따라 네비게이션
           if (action.route == '/friends') {
+            final tabs = AppTabNavigation.maybeOf(context);
+            if (tabs != null) {
+              tabs.selectTab(1);
+              return;
+            }
             Navigator.of(context).push(
               CupertinoPageRoute<void>(
                 builder: (context) => const FriendListPage(),

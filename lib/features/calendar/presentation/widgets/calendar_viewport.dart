@@ -20,6 +20,7 @@ class CalendarViewport extends StatelessWidget {
     required this.month_view,
     this.grid_wrapper,
     this.header_key,
+    this.onToday,
   });
 
   final DateTime focused_day;
@@ -32,6 +33,7 @@ class CalendarViewport extends StatelessWidget {
   final Widget month_view;
   final Widget Function(Widget child)? grid_wrapper;
   final Key? header_key;
+  final VoidCallback? onToday;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +56,7 @@ class CalendarViewport extends StatelessWidget {
             onNextMonth: onNextMonth,
             onSelectYearMonth: onSelectYearMonth,
             trailing: trailing,
+            onToday: onToday,
           ),
         ),
         calendar_grid,

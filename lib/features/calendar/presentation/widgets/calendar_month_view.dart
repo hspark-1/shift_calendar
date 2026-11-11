@@ -17,6 +17,7 @@ class CalendarMonthHeader extends StatelessWidget {
     required this.onNextMonth,
     required this.onSelectYearMonth,
     required this.trailing,
+    this.onToday,
   });
 
   final DateTime focused_day;
@@ -26,6 +27,7 @@ class CalendarMonthHeader extends StatelessWidget {
   final VoidCallback onNextMonth;
   final VoidCallback onSelectYearMonth;
   final Widget trailing;
+  final VoidCallback? onToday;
 
   @override
   Widget build(BuildContext context) {
@@ -33,55 +35,76 @@ class CalendarMonthHeader extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: can_go_to_previous_month ? onPreviousMonth : null,
-            child: Icon(
-              CupertinoIcons.chevron_left,
-              size: 20,
-              color: can_go_to_previous_month
-                  ? AppTheme.on_surface_color
-                  : AppTheme.outline_variant_color,
-            ),
-          ),
-          GestureDetector(
-            onTap: onSelectYearMonth,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(year_month, style: AppTheme.heading_medium),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface_container_low_color,
-                    borderRadius: BorderRadius.circular(AppTheme.radius_md),
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.chevron_down,
-                    size: 12,
-                    color: AppTheme.on_surface_variant_color,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wrap_actions =
+              constraints.maxWidth < 280 ||
+              MediaQuery.textScalerOf(context).scale(16) > 20;
+          final actions = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onToday != null)
+                CupertinoButton(
+                  key: const ValueKey('calendar-today-button'),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(44, 44),
+                  onPressed: onToday,
+                  child: Text(
+                    '오늘',
+                    style: AppTheme.body_medium.copyWith(
+                      color: AppTheme.primary_color,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: can_go_to_next_month ? onNextMonth : null,
-            child: Icon(
-              CupertinoIcons.chevron_right,
-              size: 20,
-              color: can_go_to_next_month
-                  ? AppTheme.on_surface_color
-                  : AppTheme.outline_variant_color,
-            ),
-          ),
-          const Spacer(),
-          trailing,
-        ],
+              trailing,
+            ],
+          );
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(44, 44),
+                    onPressed: can_go_to_previous_month
+                        ? onPreviousMonth
+                        : null,
+                    child: const Icon(CupertinoIcons.chevron_left, size: 20),
+                  ),
+                  Expanded(
+                    child: CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: onSelectYearMonth,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              year_month,
+                              style: AppTheme.heading_small,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(CupertinoIcons.chevron_down, size: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(44, 44),
+                    onPressed: can_go_to_next_month ? onNextMonth : null,
+                    child: const Icon(CupertinoIcons.chevron_right, size: 20),
+                  ),
+                  if (!wrap_actions) actions,
+                ],
+              ),
+              if (wrap_actions)
+                Align(alignment: Alignment.centerRight, child: actions),
+            ],
+          );
+        },
       ),
     );
   }
@@ -230,6 +253,8 @@ class CalendarMonthView<T> extends StatelessWidget {
     final outside_alpha = is_outside ? 0.4 : 1.0;
     final date_text = Text(
       '${date.day}',
+      maxLines: 1,
+      softWrap: false,
       style: TextStyle(
         color: presentation.date_color.withValues(alpha: outside_alpha),
         fontSize: 14,
@@ -245,7 +270,9 @@ class CalendarMonthView<T> extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                date_text,
+                Flexible(
+                  child: FittedBox(fit: BoxFit.scaleDown, child: date_text),
+                ),
                 const SizedBox(height: 1),
                 Container(
                   width: 12,
@@ -258,7 +285,7 @@ class CalendarMonthView<T> extends StatelessWidget {
               ],
             ),
           )
-        : date_text;
+        : FittedBox(fit: BoxFit.scaleDown, child: date_text);
     final cell_content = _buildCellContent(
       date: date,
       date_indicator: date_indicator,

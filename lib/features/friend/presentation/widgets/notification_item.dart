@@ -12,6 +12,7 @@ class NotificationItem extends StatelessWidget {
   final void Function(NotificationAction action)? onActionTap;
   final bool show_actions;
   final bool actions_enabled;
+  final bool is_processing;
 
   const NotificationItem({
     super.key,
@@ -19,6 +20,7 @@ class NotificationItem extends StatelessWidget {
     this.onActionTap,
     this.show_actions = true,
     this.actions_enabled = true,
+    this.is_processing = false,
   });
 
   @override
@@ -86,9 +88,19 @@ class NotificationItem extends StatelessWidget {
             ),
           ),
           // 액션 버튼 (동적 생성)
-          if (show_actions && notification.hasActions) ...[
+          if (is_processing || (show_actions && notification.hasActions)) ...[
             const SizedBox(height: 12),
-            _buildActions(context),
+            if (is_processing || !actions_enabled)
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CupertinoActivityIndicator(),
+                  SizedBox(width: 8),
+                  Text('처리 중'),
+                ],
+              )
+            else
+              _buildActions(context),
           ],
         ],
       ),
@@ -152,8 +164,9 @@ class NotificationItem extends StatelessWidget {
 
   /// 동적 액션 버튼 빌드
   Widget _buildActions(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    return Wrap(
+      alignment: WrapAlignment.end,
+      runSpacing: 8,
       children: notification.actions.map((action) {
         return Padding(
           padding: const EdgeInsets.only(left: 8),
@@ -191,7 +204,7 @@ class NotificationItem extends StatelessWidget {
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: backgroundColor,
-      minimumSize: Size.zero,
+      minimumSize: const Size(44, 44),
       borderRadius: BorderRadius.circular(AppTheme.chip_radius),
       onPressed: actions_enabled ? () => onActionTap?.call(action) : null,
       child: Text(

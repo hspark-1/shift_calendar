@@ -104,7 +104,7 @@ Authorization: Bearer <access_token>
 - `onMessageOpenedApp`으로 background 탭 처리
 - 세부 도메인 화면으로 직접 가지 않고 항상 `NotificationPage`로 이동
 
-`rootNavigatorKey`와 pending destination 상태를 사용합니다. 로그아웃 상태나 신규 사용자 프로필 설정 중 탭했다면 인증과 프로필 완료 후 이동합니다.
+`pendingPushNotificationNavigationProvider` 상태를 사용합니다. 로그아웃 상태나 신규 사용자 프로필 설정 중 탭했다면 인증과 프로필 완료 후 이동합니다. ADR-0038 적용 후 `AuthWrapper`는 인증 화면 분기와 coordinator lifecycle을 유지하고, `MainTabPage`가 pending을 소비해 **알림 탭을 선택**합니다. 별도 NotificationPage를 root에 중복 push하지 않습니다. root에 편집/설정/대화상자가 떠 있으면 보류하고 `rootNavigationObserver`가 복귀를 알린 뒤 이동합니다. 탭 내부 알림 상세가 열려 있으면 알림 목록 루트로 돌아갑니다.
 
 ## 6. 네이티브 설정
 

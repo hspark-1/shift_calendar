@@ -1,5 +1,33 @@
 # 프로젝트 컨텍스트
 
+## 글라스 내비게이션 (2026-11-11)
+
+- 목적/범위: 사용자 요청으로 하단 탭을 둥근 플로팅 글라스 스타일로 바꾸고 공통 상단 바 재질을 맞췄다(ADR-0044). Flutter의 제한된 BackdropFilter·반투명 그라데이션으로 표현하며 Apple 시스템 Liquid Glass의 굴절/광학 효과를 구현한 것은 아니다.
+- 하단: 좌우 16px·최대 너비 480px·반경 28px·내부 4px·일반 높이 64px이다. 홈 인디케이터 안전영역과 바 사이에 추가 8px(안전영역이 없으면 합계 최소 16px)을 확보한다. 흰색/어두운 표면의 94→82% 농도와 18px 블러·얕은 그림자를 사용한다. 기존 Column에서 본문과 바 공간을 분리하며 일정 카드와 바 경계의 16px 간격을 유지한다. 아래에 겹치는 일정이 없어 글라스의 뒤 배경 변화는 제한적이다.
+- 선택/접근성: 선택 탭에는 읽기 가능한 전경색의 10% 배경을 표시한다. 아이콘·텍스트·탭별 읽음 수 의미를 유지하고 180ms 색상 전환은 동작 줄이기에서 생략한다. 고대비는 불투명 표면/블러 끄기를 사용한다. 알림 `99+`는 고정 아이콘 슬롯 안에 두고 숫자 글자 확대만 최대 1.2배로 제한해 둥근 경계의 잘림을 막는다. 탭 라벨은 시스템 확대를 따르며 접근성 라벨은 실제 전체 미읽음 수를 읽는다. 숫자 바탕은 기존 error_text_color를 사용한다.
+- 상단: AppTheme.lightTheme/darkTheme의 `navigation_bar_color`를 공유한다. CupertinoNavigationBar의 기존 스크롤 배경 전환·블러를 사용하며, 정지 상태에는 scaffold 배경을 표시할 수 있다. 제목·뒤로가기 위치/동작·탐색 경로는 유지하고 별도 캡슐 장식을 추가하지 않는다. 설정·근무 패턴의 개별 불투명 배경/굵은 경계 override를 제거해 같은 테마를 따른다. API/DB·인증/탭 이력·provider 수명·analytics 정책은 유지한다.
+- 파일 역할/의존성/사용 예: 기존 `main_tab_page.dart`는 글라스 바와 선택 표시, `app_theme.dart`는 공통 내비게이션 색상/치수, 설정/근무 패턴 페이지는 공통 헤더 재질을 사용한다. 신규 `artifacts/glass_navigation_2026-11-11/render_test.dart`는 기존 design_update 렌더러의 공개 모의 repository/notifier·번들 폰트·실제 페이지로 PNG와 `measurements.json`을 만든다. 루트에서 `flutter test --no-pub artifacts/glass_navigation_2026-11-11/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 재생성한다. 각 PNG는 같은 이름의 화면/조건 캡처이며 JSON은 크기·글자배율·접근성 조건·바/배지 좌표·카드 간격·예외를 기록한다. 계정/알림 수는 예시다. [캘린더](../artifacts/glass_navigation_2026-11-11/calendar.png), [설정 헤더](../artifacts/glass_navigation_2026-11-11/settings.png), [큰 글자](../artifacts/glass_navigation_2026-11-11/text2.png).
+- 검증/한계/롤백: 최종 수치는 WORKLOG 완료 항목을 따른다. 앱은 기존 라이트 테마이며 dark_navigation 캡처는 하단 재질/전경만 확인한다(앱 전체 다크 모드 도입 아님). 모의 위젯 렌더로 실제 기기의 프레임 성능·VoiceOver·OS 투명도 줄이기 연동을 검증하지 않았다. 이번 테마/바/두 헤더·렌더/문서 변경만 되돌리면 직전 디자인으로 복구한다.
+
+## 공통 폼·고정 하단 탭 구현 (2026-11-10 착수, 11-11 완료)
+
+- 목적/상태: 사용자가 수정 방향을 승인해 앱에 반영했다. 정책은 ADR-0038, 화면별 범위는 [수정 방향서](UI_DESIGN_DIRECTION_2026-11-10.md), 결과 이미지는 [화면 비교](../artifacts/design_update_2026-11-10/comparison.png)를 참조한다.
+- 진입/상태: AuthWrapper가 로그인·가입 프로필·MainTabPage를 분기한다. 소셜 로그인/가입 페이지의 직접 pushReplacement는 제거했다. 인증 사용자 id가 바뀌면 탭 컨테이너를 새로 생성하고 로그아웃 시 root 탐색 이력을 정리한다. 각 탭 Navigator와 지연 IndexedStack은 선택 날짜·친구/그룹·목록·상세 이력을 유지한다. 탭/observer는 dispose하며 domain provider는 기존 계정별 무효화 정책을 유지한다.
+- 내비게이션: 하단은 캘린더·친구·알림, 오늘은 달력 헤더, 친구/그룹은 상단 세그먼트다. 설정·생성/편집/초대는 root로 열며 푸시는 폼을 덮지 않고 root가 현재 화면으로 복귀한 뒤 알림 탭을 연다. 알림 재진입은 목록/읽음 상태를 갱신한다. 별도 analytics 시스템은 추가하지 않는다.
+- 폼: 설정·근무 타입·색상의 전체 0.8 배율 제거, 본문 16/보조 14·카드 16·입력 12·터치 최소 44 목표. 준비 중 설정은 설명을 직접 표시한다. 개인 일정 날짜/시간은 별도 줄, 커스텀 색상은 세로 스크롤·한글 라벨·6자리 코드 검증을 사용한다. 근무 타입/개인 일정 저장은 콜백 완료까지 중복 입력/이탈을 막고 실패 시 입력을 보존한다. 알림 수락/거절은 최소 높이 44, 처리 중 표시와 중복 액션 방지를 제공한다.
+- 반응형: 가용 높이 580 미만 또는 16pt 기준 확대 크기 20 초과인 메인은 본문 스크롤을 허용한다. 달력의 750px 기준 월/2주 정책은 유지한다. 고정 달력 셀 날짜는 한 줄 FittedBox, 큰 글자의 일정 헤더는 줄바꿈한다. 프로필/근무 타입/색상 등 저장 내용과 API 형식은 유지한다.
+- 시간대: 그룹 수정은 도시/현재 UTC 시차 검색 선택을 사용한다. 기존 timezone 패키지의 위치 목록을 사용하고 목록에 없는 기존 값도 보존한다. 서버는 Intl.DateTimeFormat 검증을 수행하며 미지원 후보는 기존 API 오류로 안내한다. UTC 시차는 현재 날짜의 서머타임을 반영한다.
+- 신규 파일 역할/의존성/사용 예:
+  - `lib/core/navigation/main_tab_page.dart`: 인증 후 세 탭·badge·탭 이력과 pending 처리. Cupertino/Riverpod/기존 화면 provider에 의존. AuthWrapper가 `MainTabPage(key: ValueKey(user.id))`로 생성한다.
+  - `lib/core/navigation/app_navigation.dart`: root route 변경 observer와 탭 선택 InheritedWidget. 앱 root Navigator에 `rootNavigationObserver`를 등록하고 `AppTabNavigation.maybeOf(context)?.selectTab(1)`로 친구 탭에 이동한다.
+  - `lib/features/group/presentation/widgets/group_timezone_picker.dart`: 기존 timezone DB 기반 검색 페이지와 도시/시차 라벨. `GroupTimezonePicker(selected_timezone: current)`가 선택한 기존 식별자를 반환한다.
+  - `test/core/navigation/main_tab_page_test.dart`: 모의 인증/달력/친구/알림으로 탭 상태·오늘·상세 복귀·푸시 보류·로그인/가입/로그아웃을 검증한다.
+  - `test/features/calendar/presentation/widgets/form_save_state_test.dart`: Completer 기반 저장 중복 방지/실패 후 입력 보존 검증.
+  - `test/features/group/presentation/widgets/group_timezone_picker_test.dart`: 도시 표시·미등록 현재 값 보존·검색과 식별자 반환 검증.
+  - `artifacts/design_update_2026-11-10/render_update_test.dart`: 실제 위젯/번들 폰트/모의 provider의 28개 캡처 생성. `flutter test --no-pub artifacts/design_update_2026-11-10/render_update_test.dart`로 실행한다. `measurements.json`은 각 파일명·화면 크기·글자 배율·키보드 높이·예외·스크롤 측정 결과이며 같은 이름의 PNG가 대응한다. 실제 네트워크/계정은 사용하지 않는다.
+  - `artifacts/design_update_2026-11-10/compose_comparison.swift`: macOS AppKit으로 주요 캡처 9개를 원본 그대로 합성한다. 저장소 루트에서 `swift artifacts/design_update_2026-11-10/compose_comparison.swift`로 `comparison.png`를 재생성한다.
+- 검증/영향/롤백: 결과 수치는 WORKLOG 완료 항목을 따른다. 위젯 렌더/모의 회귀이며 실기기·실제 푸시·실서버 시간대 저장·VoiceOver 확인을 대체하지 않는다. 변경된 UI/내비게이션/테스트와 이번 문서·산출물만 되돌리면 복구되며 스키마/데이터 롤백은 필요 없다. 이전 검토·스킬 설치 작업은 보존한다.
+
 ## 화면·하단 내비게이션 수정 방향 (2026-11-10)
 
 - 목적/상태: 사용자가 앞선 검토 결과에 공감하고 하단 바까지 포함한 수정 방향을 요청했다. [수정 방향서](UI_DESIGN_DIRECTION_2026-11-10.md)의 방향을 사용자 후속 요청으로 구현했다. 최신 동작은 상단 구현 절과 ADR-0038을 따른다.

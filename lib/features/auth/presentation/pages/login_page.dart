@@ -6,9 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/privacy_policy.dart';
-import '../../../calendar/presentation/pages/calendar_page.dart';
 import '../providers/auth_provider.dart';
-import 'profile_setup_page.dart';
 
 /// 소셜 로그인 페이지
 class LoginPage extends ConsumerStatefulWidget {
@@ -43,23 +41,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _is_loading = false;
     });
 
-    if (success) {
-      final authState = ref.read(authProvider);
-
-      if (authState.requires_profile_setup) {
-        // 가입 프로필 미완료: 추가 정보 입력 페이지로
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(
-            builder: (context) => ProfileSetupPage(user: authState.user!),
-          ),
-        );
-      } else {
-        // 기존 회원: 메인 페이지로
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(builder: (context) => const CalendarPage()),
-        );
-      }
-    } else {
+    if (!success) {
       // 에러 표시
       final error = ref.read(authProvider).error;
       if (error != null) {
@@ -83,23 +65,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _is_loading = false;
     });
 
-    if (success) {
-      final authState = ref.read(authProvider);
-
-      if (authState.requires_profile_setup) {
-        // 가입 프로필 미완료: 추가 정보 입력 페이지로
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(
-            builder: (context) => ProfileSetupPage(user: authState.user!),
-          ),
-        );
-      } else {
-        // 기존 회원: 메인 페이지로
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(builder: (context) => const CalendarPage()),
-        );
-      }
-    } else {
+    if (!success) {
       // 에러 표시
       final error = ref.read(authProvider).error;
       if (error != null) {
@@ -123,21 +89,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _is_loading = false;
     });
 
-    if (success) {
-      final authState = ref.read(authProvider);
-
-      if (authState.requires_profile_setup) {
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(
-            builder: (context) => ProfileSetupPage(user: authState.user!),
-          ),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(builder: (context) => const CalendarPage()),
-        );
-      }
-    } else {
+    if (!success) {
       // 사용자 취소는 error가 null이므로 별도 실패 다이얼로그를 표시하지 않는다.
       final error = ref.read(authProvider).error;
       if (error != null) {
@@ -161,21 +113,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _is_loading = false;
     });
 
-    if (success) {
-      final authState = ref.read(authProvider);
-
-      if (authState.requires_profile_setup) {
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(
-            builder: (context) => ProfileSetupPage(user: authState.user!),
-          ),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          CupertinoPageRoute(builder: (context) => const CalendarPage()),
-        );
-      }
-    } else {
+    if (!success) {
       // 사용자 취소는 error가 null이므로 별도 실패 다이얼로그를 표시하지 않는다.
       final error = ref.read(authProvider).error;
       if (error != null) {

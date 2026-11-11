@@ -355,7 +355,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('친구 화면 footer에서 그룹 방 목록을 거쳐 미리보기 화면에 진입한다', (tester) async {
+  testWidgets('친구 화면 상단 세그먼트에서 그룹 목록을 거쳐 미리보기에 진입한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -387,11 +387,7 @@ void main() {
     );
     expect(find.text('우리 병동'), findsOneWidget);
     expect(find.text('4명 · 그룹 캘린더'), findsOneWidget);
-    expect(
-      find.text('그룹 방'),
-      findsNWidgets(2),
-      reason: '본문 중복 제목 없이 내비게이션과 footer에만 표시해야 한다.',
-    );
+    expect(find.text('그룹 방'), findsOneWidget, reason: '그룹 방 제목은 내비게이션에만 표시한다.');
     expect(find.byKey(const ValueKey('add-friend-button')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('friend-list-footer-button')));

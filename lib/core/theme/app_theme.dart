@@ -11,6 +11,7 @@ class AppTheme {
   static const Color primary_dark_color = Color(0xFF00497D);
   static const Color secondary_color = CupertinoColors.systemGrey;
   static const Color accent_red_color = Color(0xFFE53935);
+  static const Color error_text_color = Color(0xFFB3261E);
   static const Color background_color = Color(0xFFF8F9FB);
   static const Color surface_color = Color(0xFFFFFFFF);
   static const Color surface_container_low_color = Color(0xFFF2F4F6);
@@ -23,6 +24,18 @@ class AppTheme {
   static const Color outline_variant_color = Color(0xFFC1C7D2);
   static const Color dark_background_color = Color(0xFF12141C);
   static const Color dark_surface_color = Color(0xFF1E212A);
+
+  /// 상단 내비게이션의 반투명 재질. 고대비에서는 불투명 표면을 사용한다.
+  static const navigation_bar_color =
+      CupertinoDynamicColor.withBrightnessAndContrast(
+        color: Color(0xE6FFFFFF),
+        darkColor: Color(0xE61E212A),
+        highContrastColor: surface_color,
+        darkHighContrastColor: dark_surface_color,
+      );
+  static const double navigation_glass_blur = 18;
+  static const double navigation_glass_radius = 28;
+  static const double navigation_max_width = 480;
 
   /// 형태/간격 토큰
   static const double radius_sm = 4;
@@ -200,7 +213,7 @@ class AppTheme {
       brightness: Brightness.light,
       primaryColor: primary_color,
       scaffoldBackgroundColor: background_color,
-      barBackgroundColor: surface_color,
+      barBackgroundColor: navigation_bar_color,
       textTheme: _buildTextTheme(on_surface_color),
     );
   }
@@ -210,7 +223,7 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: primary_color,
       scaffoldBackgroundColor: dark_background_color,
-      barBackgroundColor: dark_surface_color,
+      barBackgroundColor: navigation_bar_color,
       textTheme: _buildTextTheme(CupertinoColors.white),
     );
   }

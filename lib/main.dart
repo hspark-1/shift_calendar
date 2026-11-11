@@ -14,8 +14,8 @@ import 'core/utils/korean_holidays.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/profile_setup_page.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/calendar/presentation/pages/calendar_page.dart';
-import 'features/friend/presentation/pages/notification_page.dart';
+import 'core/navigation/main_tab_page.dart';
+import 'core/navigation/app_navigation.dart';
 import 'core/push/push_coordinator.dart';
 import 'core/push/push_providers.dart';
 import 'features/app_update/presentation/app_update_gate.dart';
@@ -75,6 +75,7 @@ class ShiftMateApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoApp(
       navigatorKey: rootNavigatorKey,
+      navigatorObservers: [rootNavigationObserver],
       title: AppConstants.app_name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -117,22 +118,6 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper>
     }
   }
 
-  void _openPendingNotificationIfReady(AuthState auth_state) {
-    if (auth_state.status != AuthStatus.authenticated ||
-        auth_state.requires_profile_setup ||
-        !ref.read(pendingPushNotificationNavigationProvider)) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || rootNavigatorKey.currentState == null) return;
-      ref.read(pendingPushNotificationNavigationProvider.notifier).state =
-          false;
-      rootNavigatorKey.currentState!.push(
-        CupertinoPageRoute<void>(builder: (_) => const NotificationPage()),
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -147,10 +132,14 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper>
             false;
         coordinator.stopAuthenticated();
       }
-      _openPendingNotificationIfReady(next);
-    });
-    ref.listen<bool>(pendingPushNotificationNavigationProvider, (_, next) {
-      if (next) _openPendingNotificationIfReady(ref.read(authProvider));
+      if (next.status == AuthStatus.unauthenticated &&
+          previous?.status == AuthStatus.authenticated) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            rootNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+          }
+        });
+      }
     });
 
     switch (authState.status) {
@@ -165,7 +154,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper>
           return ProfileSetupPage(user: authState.user!);
         }
         // 기존 회원: 캘린더 페이지
-        return const CalendarPage();
+        return MainTabPage(key: ValueKey(authState.user?.id));
 
       case AuthStatus.unauthenticated:
         // 인증 안됨: 로그인 페이지

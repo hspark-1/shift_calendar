@@ -389,7 +389,7 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
   }
 
   Future<void> _openInvitePage(GroupDetail group) async {
-    final sent = await Navigator.of(context).push<bool>(
+    final sent = await Navigator.of(context, rootNavigator: true).push<bool>(
       CupertinoPageRoute<bool>(
         builder: (context) => GroupInvitePage(group: group),
       ),
@@ -403,7 +403,7 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
   }
 
   Future<void> _openEditPage(GroupDetail group) async {
-    final updated = await Navigator.of(context).push<bool>(
+    final updated = await Navigator.of(context, rootNavigator: true).push<bool>(
       CupertinoPageRoute<bool>(
         builder: (context) => GroupEditPage(group: group),
       ),

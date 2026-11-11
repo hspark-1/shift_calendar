@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../calendar/presentation/widgets/bottom_action_bar.dart';
 import '../../../group/application/group_providers.dart';
 import '../../../group/domain/entities/group_models.dart';
 import '../../../group/presentation/pages/group_calendar_page.dart';
@@ -31,6 +30,7 @@ class FriendListPage extends ConsumerStatefulWidget {
 
 class _FriendListPageState extends ConsumerState<FriendListPage> {
   _FriendListSection _selected_section = _FriendListSection.friends;
+  bool _has_opened_groups = false;
 
   @override
   void initState() {
@@ -53,39 +53,48 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
         ),
         trailing: _buildNavigationActions(),
       ),
-      child: Column(
-        children: [
-          Expanded(
-            child: SafeArea(
-              bottom: false,
-              child: _selected_section == _FriendListSection.friends
-                  ? _buildContent(state)
-                  : _buildGroupRoomList(),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: CupertinoSlidingSegmentedControl<_FriendListSection>(
+                  groupValue: _selected_section,
+                  children: const {
+                    _FriendListSection.friends: Padding(
+                      key: ValueKey('friend-list-footer-button'),
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('친구'),
+                    ),
+                    _FriendListSection.groupRooms: Padding(
+                      key: ValueKey('group-room-footer-button'),
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('그룹'),
+                    ),
+                  },
+                  onValueChanged: (section) {
+                    if (section != null) _selectSection(section);
+                  },
+                ),
+              ),
             ),
-          ),
-          BottomActionBar(
-            items: [
-              BottomActionBarItem(
-                widget_key: const ValueKey('friend-list-footer-button'),
-                icon: _selected_section == _FriendListSection.friends
-                    ? CupertinoIcons.person_2_fill
-                    : CupertinoIcons.person_2,
-                label: '친구 리스트',
-                is_selected: _selected_section == _FriendListSection.friends,
-                onTap: () => _selectSection(_FriendListSection.friends),
+            Expanded(
+              child: IndexedStack(
+                index: _selected_section.index,
+                children: [
+                  _buildContent(state),
+                  if (_has_opened_groups)
+                    _buildGroupRoomList()
+                  else
+                    const SizedBox.shrink(),
+                ],
               ),
-              BottomActionBarItem(
-                widget_key: const ValueKey('group-room-footer-button'),
-                icon: _selected_section == _FriendListSection.groupRooms
-                    ? CupertinoIcons.square_stack_3d_up_fill
-                    : CupertinoIcons.square_stack_3d_up,
-                label: '그룹 방',
-                is_selected: _selected_section == _FriendListSection.groupRooms,
-                onTap: () => _selectSection(_FriendListSection.groupRooms),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -361,7 +370,10 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
 
   void _selectSection(_FriendListSection section) {
     if (_selected_section == section) return;
-    setState(() => _selected_section = section);
+    setState(() {
+      _selected_section = section;
+      if (section == _FriendListSection.groupRooms) _has_opened_groups = true;
+    });
   }
 
   void _showAddFriendModal(BuildContext context) {
@@ -396,11 +408,20 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
   }
 
   Future<void> _navigateToGroupCreate() async {
-    await Navigator.of(context).push(
-      CupertinoPageRoute<void>(builder: (context) => const GroupCreatePage()),
-    );
+    final group_id = await Navigator.of(context, rootNavigator: true)
+        .push<String>(
+          CupertinoPageRoute<String>(
+            builder: (context) => const GroupCreatePage(),
+          ),
+        );
     if (!mounted) return;
     await ref.read(groupListProvider.notifier).loadGroups();
+    if (!mounted || group_id == null) return;
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => GroupCalendarPage(group_id: group_id),
+      ),
+    );
   }
 
   Future<void> _navigateToGroupInvitations() async {

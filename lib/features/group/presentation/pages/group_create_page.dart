@@ -10,7 +10,6 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../friend/data/models/friend_model.dart';
 import '../../../friend/presentation/providers/friend_provider.dart';
 import '../../application/group_providers.dart';
-import 'group_calendar_page.dart';
 
 class GroupCreatePage extends ConsumerStatefulWidget {
   const GroupCreatePage({super.key});
@@ -56,7 +55,7 @@ class _GroupCreatePageState extends ConsumerState<GroupCreatePage> {
           onPressed: group_state.is_loading ? null : () => _submit(timezone),
           child: group_state.is_loading
               ? const CupertinoActivityIndicator()
-              : const Text('완료'),
+              : const Text('저장'),
         ),
       ),
       child: SafeArea(
@@ -199,11 +198,7 @@ class _GroupCreatePageState extends ConsumerState<GroupCreatePage> {
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      CupertinoPageRoute<void>(
-        builder: (context) => GroupCalendarPage(group_id: group.group_id),
-      ),
-    );
+    Navigator.of(context).pop(group.group_id);
   }
 
   void _showError(String message) {

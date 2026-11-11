@@ -194,10 +194,6 @@ class _ShiftTemplateSettingsPageState
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: AppTheme.background_color,
-        border: const Border(
-          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 1),
-        ),
         middle: Text(
           '근무 패턴 설정',
           style: AppTheme.heading_small.copyWith(

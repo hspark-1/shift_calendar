@@ -7,8 +7,6 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/korean_holidays.dart';
 import '../../../auth/presentation/pages/settings_page.dart';
-import '../../../friend/presentation/pages/friend_list_page.dart';
-import '../../../friend/presentation/pages/notification_page.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
 import '../../application/calendar_range_state.dart';
 import '../controllers/calendar_viewport_controller.dart';
@@ -16,7 +14,6 @@ import '../models/calendar_day_presentation.dart';
 import '../models/calendar_layout_policy.dart';
 import '../providers/calendar_range_provider.dart';
 import '../providers/shift_types_provider.dart';
-import '../widgets/bottom_action_bar.dart';
 import '../widgets/calendar_month_view.dart';
 import '../widgets/calendar_schedule_card.dart';
 import '../widgets/calendar_viewport.dart';
@@ -348,93 +345,61 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () {
-            Navigator.of(context).push(
+            Navigator.of(context, rootNavigator: true).push(
               CupertinoPageRoute(builder: (context) => const SettingsPage()),
             );
           },
           child: const Icon(CupertinoIcons.gear),
         ),
       ),
-      child: Container(
+      child: ColoredBox(
         color: AppTheme.background_color,
-        child: Column(
-          children: [
-            Expanded(
-              child: SafeArea(
-                bottom: false,
-                child: Column(
-                  children: [
-                    _buildCalendarViewport(),
-                    const SizedBox(height: AppTheme.spacing_xs),
-                    // 선택된 날짜 정보 및 일정 목록
-                    Expanded(child: _buildSelectedDayInfo()),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildMainBottomActionBar(),
-          ],
+        child: SafeArea(
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final needs_scroll =
+                  constraints.maxHeight < 580 ||
+                  MediaQuery.textScalerOf(context).scale(16) > 20;
+              if (needs_scroll) {
+                return SingleChildScrollView(
+                  key: const ValueKey('main-calendar-scroll'),
+                  child: Column(
+                    children: [
+                      _buildCalendarViewport(),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: MediaQuery.textScalerOf(context).scale(280),
+                        child: _buildSelectedDayInfo(),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  _buildCalendarViewport(),
+                  const SizedBox(height: AppTheme.spacing_xs),
+                  Expanded(child: _buildSelectedDayInfo()),
+                  const SizedBox(height: AppTheme.spacing_md),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMainBottomActionBar() {
-    return BottomActionBar(
-      mode: BottomActionBarMode.main,
-      unreadNotificationCount: ref.watch(unreadNotificationCountProvider),
-      onFriendTap: () {
-        Navigator.of(context).push(
-          CupertinoPageRoute<void>(
-            builder: (context) => const FriendListPage(),
-          ),
-        );
-      },
-      onCalendarTap: () {
-        // 오늘 날짜로 이동
-        final now = DateTime.now();
-        final normalizedNow = _normalizeDate(now);
-        // focusedDay와 selectedDay를 동시에 업데이트
-        // TableCalendar는 focusedDay 변경 시 자동으로 페이지를 변경하지만,
-        // NotificationListener가 스크롤 알림을 차단하면 onPageChanged가 호출되지 않을 수 있음
-        // 따라서 focusedDay 변경 후 명시적으로 onPageChanged 로직을 실행
-        setState(() {
-          _focused_day = normalizedNow;
-          _selected_day = normalizedNow;
-        });
-        // onPageChanged가 호출되지 않을 수 있으므로,
-        // 페이지 변경이 완료된 후 상태를 확실히 업데이트
-        SchedulerBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            // focusedDay가 변경되었는지 확인하고, 필요시 다시 업데이트
-            final currentNormalized = _normalizeDate(_focused_day);
-            if (!isSameDay(currentNormalized, normalizedNow)) {
-              setState(() {
-                _focused_day = normalizedNow;
-                _selected_day = normalizedNow;
-              });
-              // 월 변경 시 데이터 로딩
-              _loadCalendarData(normalizedNow);
-              // 공휴일도 함께 로드
-              _loadHolidays(normalizedNow.year, month: normalizedNow.month);
-            }
-          }
-        });
-      },
-      onNotificationTap: () {
-        Navigator.of(context)
-            .push(
-              CupertinoPageRoute<void>(
-                builder: (context) => const NotificationPage(),
-              ),
-            )
-            .then((_) {
-              // 알림 페이지에서 돌아오면 미읽음 개수 새로고침
-              ref.read(notificationProvider.notifier).fetchUnreadCount();
-            });
-      },
-    );
+  void _goToToday() {
+    final today = _normalizeDate(DateTime.now());
+    setState(() {
+      _focused_day = today;
+      _selected_day = today;
+    });
+    _loadCalendarData(today);
+    _loadHolidays(today.year, month: today.month);
   }
 
   Widget _buildCalendarViewport() {
@@ -445,8 +410,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       onPreviousMonth: _goToPreviousMonth,
       onNextMonth: _goToNextMonth,
       onSelectYearMonth: _showYearMonthPicker,
-      trailing: GestureDetector(
-        onTap: _is_shift_add_mode ? _onCancelShiftAddMode : _startShiftAddMode,
+      onToday: _goToToday,
+      trailing: CupertinoButton(
+        minimumSize: const Size(44, 44),
+        padding: EdgeInsets.zero,
+        onPressed: _is_shift_add_mode
+            ? _onCancelShiftAddMode
+            : _startShiftAddMode,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
@@ -668,7 +638,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
       // 4. 성공 처리
       if (mounted) {
-        Navigator.pop(context); // 로딩 다이얼로그 닫기
+        Navigator.of(context, rootNavigator: true).pop(); // 로딩 다이얼로그 닫기
 
         setState(() {
           _is_shift_add_mode = false;
@@ -700,7 +670,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     } catch (e) {
       // 5. 에러 처리
       if (mounted) {
-        Navigator.pop(context); // 로딩 다이얼로그 닫기
+        Navigator.of(context, rootNavigator: true).pop(); // 로딩 다이얼로그 닫기
         _showErrorDialog(_getErrorMessage(e));
       }
     }
@@ -849,7 +819,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             CupertinoDialogAction(
               isDestructiveAction: true,
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.of(context, rootNavigator: true).pop();
                 _cancelShiftAddMode();
               },
               child: const Text('취소'),

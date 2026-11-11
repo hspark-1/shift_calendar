@@ -1,0 +1,204 @@
+{
+  "login": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "settings": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "real_switch_count": 0,
+    "biometric_label_font_size": 16.0
+  },
+  "profile_edit": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "color_picker": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "custom_color": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "recent_label_built": false,
+    "scroll_extent": 207.0,
+    "scroll_pixels_after_drag": 207.0,
+    "scroll_pixels_before_drag": 0.0
+  },
+  "custom_color_small": {
+    "size": "320.0x568.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "recent_label_built": false,
+    "scroll_extent": 684.5999999999999,
+    "scroll_pixels_after_drag": 480.0,
+    "scroll_pixels_before_drag": 0.0
+  },
+  "custom_color_text2": {
+    "size": "390.0x844.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "recent_label_built": false,
+    "scroll_extent": 381.0,
+    "scroll_pixels_after_drag": 381.0,
+    "scroll_pixels_before_drag": 0.0
+  },
+  "friend_detail": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "friend_list": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "group_create": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "group_edit": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "shift_type_form": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "color_button_size": "Size(127.3, 44.0)",
+    "time_label_font_size": 16.0
+  },
+  "personal_event_form": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "main_tabs": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "main_tabs_friend": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "main_tabs_notifications": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "main_tabs_small": {
+    "size": "320.0x568.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "notification_card": {
+    "size": "390.0x844.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "button_sizes": [
+      "Size(57.8, 44.0)",
+      "Size(57.8, 44.0)"
+    ]
+  },
+  "settings_small_text2": {
+    "size": "320.0x568.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "shift_type_form_small_text2": {
+    "size": "320.0x568.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "color_picker_small_text2": {
+    "size": "320.0x568.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "custom_color_small_text2": {
+    "size": "320.0x568.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "recent_label_built": false,
+    "scroll_extent": 1407.0,
+    "scroll_pixels_after_drag": 481.1666666666667,
+    "scroll_pixels_before_drag": 0.0
+  },
+  "personal_event_small_text2": {
+    "size": "320.0x568.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "group_edit_small_text2": {
+    "size": "320.0x568.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "main_tabs_small_text2": {
+    "size": "320.0x568.0",
+    "text_scale": 2.0,
+    "keyboard_height": 0.0,
+    "framework_errors": []
+  },
+  "custom_color_small_bottom": {
+    "size": "320.0x568.0",
+    "text_scale": 1.0,
+    "keyboard_height": 0.0,
+    "framework_errors": [],
+    "recent_label_built": true,
+    "recent_label_rect": "Rect.fromLTRB(16.0, 418.0, 131.8, 442.0)",
+    "scroll_extent": 483.0,
+    "scroll_pixels_after_drag": 483.0,
+    "scroll_pixels_before_drag": 483.0
+  },
+  "custom_color_keyboard": {
+    "size": "320.0x568.0",
+    "text_scale": 1.0,
+    "keyboard_height": 240.0,
+    "framework_errors": [],
+    "recent_label_built": true,
+    "recent_label_rect": "Rect.fromLTRB(16.0, 238.2, 131.8, 262.2)",
+    "scroll_extent": 723.0,
+    "scroll_pixels_after_drag": 723.0,
+    "scroll_pixels_before_drag": 662.8
+  },
+  "personal_event_keyboard": {
+    "size": "320.0x568.0",
+    "text_scale": 1.0,
+    "keyboard_height": 240.0,
+    "framework_errors": []
+  }
+}

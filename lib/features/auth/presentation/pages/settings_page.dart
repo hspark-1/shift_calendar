@@ -10,7 +10,6 @@ import '../../../../core/widgets/profile_image.dart';
 import '../../domain/entities/user.dart';
 import '../../../calendar/presentation/pages/shift_template_settings_page.dart';
 import '../providers/auth_provider.dart';
-import 'login_page.dart';
 import 'profile_setup_page.dart';
 
 /// 설정 페이지
@@ -27,23 +26,17 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  static const double _settings_scale = 0.8;
   static const Color _primary_fixed_color = Color(0xFFD1E4FF);
   static const Color _error_container_color = Color(0xFFFFDAD6);
   static const Color _on_error_container_color = Color(0xFF93000A);
   static const Color _settings_section_border_color = Color(0x660061A4);
-  static const Color _switch_off_color = Color(0xFFCCCCCC);
 
   bool _is_logging_out = false;
   bool _is_deleting_account = false;
 
   bool get _is_processing => _is_logging_out || _is_deleting_account;
 
-  static double _scaled(double value) {
-    return value * _settings_scale;
-  }
-
-  TextStyle _scaledTextStyle(
+  TextStyle _rowTextStyle(
     TextStyle style, {
     required double fontSize,
     Color? color,
@@ -51,25 +44,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }) {
     return style.copyWith(
       color: color,
-      fontSize: _scaled(fontSize),
+      fontSize: fontSize,
       fontWeight: fontWeight,
-    );
-  }
-
-  void _showFeatureUnavailableAlert(String feature_name) {
-    showCupertinoDialog<void>(
-      context: context,
-      builder: (dialog_context) => CupertinoAlertDialog(
-        title: const Text('준비 중인 기능'),
-        content: Text('$feature_name 기능은 아직 개발되지 않았습니다.'),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(dialog_context).pop(),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -117,10 +93,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _navigateToLogin() {
-    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      CupertinoPageRoute<void>(builder: (context) => const LoginPage()),
-      (route) => false,
-    );
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).popUntil((route) => route.isFirst);
   }
 
   void _showDeleteAccountConfirmDialog() {
@@ -236,10 +212,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: AppTheme.background_color,
-        border: const Border(
-          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 1),
-        ),
         middle: Text(
           '설정',
           style: AppTheme.heading_small.copyWith(
@@ -251,15 +223,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: SafeArea(
         bottom: false,
         child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            _scaled(20),
-            _scaled(16),
-            _scaled(20),
-            _scaled(40) + bottom_padding,
-          ),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 40 + bottom_padding),
           children: [
             if (user != null) _buildProfileCard(user),
-            if (user != null) SizedBox(height: _scaled(24)),
+            if (user != null) SizedBox(height: 24),
             _buildSettingsSection(
               title: '근무 관리',
               children: [
@@ -271,63 +238,61 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _buildSettingsRow(
                   icon: CupertinoIcons.bell,
                   title: '기본 알림 설정',
-                  onTap: () => _showFeatureUnavailableAlert('기본 알림 설정'),
+                  is_available: false,
                 ),
               ],
             ),
-            SizedBox(height: _scaled(24)),
+            SizedBox(height: 24),
             _buildSettingsSection(
               title: '앱 설정',
               children: [
-                _buildSwitchRow(
+                _buildSettingsRow(
                   icon: CupertinoIcons.moon,
                   title: '다크 모드',
-                  value: false,
-                  featureName: '다크 모드',
+                  is_available: false,
                 ),
                 _buildSettingsRow(
                   icon: CupertinoIcons.globe,
                   title: '언어 및 지역',
                   value: '한국어',
-                  onTap: () => _showFeatureUnavailableAlert('언어 및 지역'),
+                  is_available: false,
                 ),
                 _buildSettingsRow(
                   icon: CupertinoIcons.textformat_size,
                   title: '글꼴 크기',
-                  onTap: () => _showFeatureUnavailableAlert('글꼴 크기'),
+                  is_available: false,
                 ),
               ],
             ),
-            SizedBox(height: _scaled(24)),
+            SizedBox(height: 24),
             _buildSettingsSection(
               title: '계정 및 보안',
               children: [
                 _buildSettingsRow(
                   icon: CupertinoIcons.lock,
                   title: '비밀번호 변경',
-                  onTap: () => _showFeatureUnavailableAlert('비밀번호 변경'),
+                  is_available: false,
                 ),
-                _buildSwitchRow(
+                _buildSettingsRow(
                   icon: CupertinoIcons.lock_shield,
                   title: '로그인 생체 인증',
-                  value: true,
-                  featureName: '로그인 생체 인증',
+                  is_available: false,
                 ),
               ],
             ),
-            SizedBox(height: _scaled(24)),
+            SizedBox(height: 24),
             _buildSettingsSection(
               title: '지원',
               children: [
                 _buildSettingsRow(
                   icon: CupertinoIcons.speaker_2,
                   title: '공지사항',
-                  onTap: () => _showFeatureUnavailableAlert('공지사항'),
+                  is_available: false,
                 ),
                 _buildSettingsRow(
                   icon: CupertinoIcons.question_circle,
                   title: '고객 센터',
-                  onTap: () => _showFeatureUnavailableAlert('고객 센터'),
+                  is_available: false,
                 ),
                 _buildSettingsRow(
                   icon: CupertinoIcons.doc_text,
@@ -345,9 +310,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ],
             ),
-            SizedBox(height: _scaled(24)),
+            SizedBox(height: 24),
             _buildLogoutButton(),
-            SizedBox(height: _scaled(12)),
+            SizedBox(height: 12),
             _buildDeleteAccountButton(),
           ],
         ),
@@ -368,12 +333,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
       child: Container(
-        padding: EdgeInsets.all(_scaled(24)),
-        decoration: AppTheme.cardDecoration(radius: _scaled(16)),
+        padding: EdgeInsets.all(16),
+        decoration: AppTheme.cardDecoration(radius: 16),
         child: Row(
           children: [
             _buildProfileAvatar(user),
-            SizedBox(width: _scaled(24)),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,18 +347,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     user.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: _scaledTextStyle(
+                    style: _rowTextStyle(
                       AppTheme.heading_small,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  SizedBox(height: _scaled(2)),
+                  SizedBox(height: 2),
                   Text(
                     user.email,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: _scaledTextStyle(
+                    style: _rowTextStyle(
                       AppTheme.body_large,
                       color: AppTheme.on_surface_color,
                       fontSize: 16,
@@ -403,10 +368,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ],
               ),
             ),
-            SizedBox(width: _scaled(12)),
+            SizedBox(width: 12),
             Icon(
               CupertinoIcons.chevron_right,
-              size: _scaled(30),
+              size: 30,
               color: AppTheme.outline_color,
             ),
           ],
@@ -424,11 +389,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       clipBehavior: Clip.none,
       children: [
         Container(
-          width: _scaled(64),
-          height: _scaled(64),
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: _primary_fixed_color, width: _scaled(3)),
+            border: Border.all(color: _primary_fixed_color, width: 3),
           ),
           child: ClipOval(
             child: has_profile_image
@@ -440,22 +405,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ),
         Positioned(
-          right: -_scaled(2),
-          bottom: -_scaled(2),
+          right: -2,
+          bottom: -2,
           child: Container(
-            width: _scaled(32),
-            height: _scaled(32),
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: AppTheme.primary_color,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppTheme.surface_color,
-                width: _scaled(2),
-              ),
+              border: Border.all(color: AppTheme.surface_color, width: 2),
             ),
             child: Icon(
               CupertinoIcons.pencil,
-              size: _scaled(18),
+              size: 18,
               color: CupertinoColors.white,
             ),
           ),
@@ -470,7 +432,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: Center(
         child: Icon(
           CupertinoIcons.person_fill,
-          size: _scaled(30),
+          size: 30,
           color: AppTheme.outline_color,
         ),
       ),
@@ -485,13 +447,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.only(left: _scaled(16), bottom: _scaled(10)),
+          padding: EdgeInsets.only(left: 16, bottom: 10),
           child: Text(
             title,
-            style: _scaledTextStyle(
+            style: _rowTextStyle(
               AppTheme.body_medium,
               color: AppTheme.on_surface_variant_color,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -502,7 +464,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildSettingsCard(List<Widget> children) {
-    final radius = _scaled(16);
+    const radius = 16.0;
     final border_radius = BorderRadius.circular(radius);
 
     return Container(
@@ -539,119 +501,48 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     String? value,
     VoidCallback? onTap,
     bool showChevron = true,
+    bool is_available = true,
   }) {
+    final detail = is_available ? value : '준비 중';
     return _buildRowShell(
-      onTap: onTap,
+      onTap: is_available ? onTap : null,
       child: Row(
         children: [
-          Icon(icon, size: _scaled(28), color: AppTheme.primary_color),
-          SizedBox(width: _scaled(18)),
+          Icon(icon, size: 24, color: AppTheme.primary_color),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _scaledTextStyle(
-                AppTheme.body_large,
-                color: AppTheme.on_surface_color,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTheme.body_large),
+                if (detail != null)
+                  Text(
+                    detail,
+                    style: AppTheme.body_medium.copyWith(
+                      color: AppTheme.on_surface_variant_color,
+                    ),
+                  ),
+              ],
             ),
           ),
-          if (value != null) ...[
-            SizedBox(width: _scaled(12)),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _scaledTextStyle(
-                AppTheme.body_large,
-                color: AppTheme.on_surface_variant_color,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          if (showChevron) ...[
-            SizedBox(width: _scaled(10)),
-            Icon(
+          if (is_available && showChevron && onTap != null)
+            const Icon(
               CupertinoIcons.chevron_right,
-              size: _scaled(30),
+              size: 18,
               color: AppTheme.outline_color,
             ),
-          ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildSwitchRow({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required String featureName,
-  }) {
-    return _buildRowShell(
-      onTap: () => _showFeatureUnavailableAlert(featureName),
-      child: Row(
-        children: [
-          Icon(icon, size: _scaled(28), color: AppTheme.primary_color),
-          SizedBox(width: _scaled(18)),
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _scaledTextStyle(
-                AppTheme.body_large,
-                color: AppTheme.on_surface_color,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          _buildStaticSwitch(value: value),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStaticSwitch({required bool value}) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      width: _scaled(44),
-      height: _scaled(24),
-      padding: EdgeInsets.all(_scaled(3)),
-      decoration: BoxDecoration(
-        color: value ? AppTheme.primary_color : _switch_off_color,
-        borderRadius: BorderRadius.circular(_scaled(12)),
-      ),
-      child: AnimatedAlign(
-        duration: const Duration(milliseconds: 160),
-        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          width: _scaled(18),
-          height: _scaled(18),
-          decoration: const BoxDecoration(
-            color: AppTheme.surface_color,
-            shape: BoxShape.circle,
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildRowShell({required Widget child, VoidCallback? onTap}) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
       child: Container(
-        constraints: BoxConstraints(minHeight: _scaled(56)),
-        padding: EdgeInsets.symmetric(
-          horizontal: _scaled(20),
-          vertical: _scaled(12),
-        ),
+        constraints: BoxConstraints(minHeight: 56),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         color: AppTheme.surface_color,
         child: child,
       ),
@@ -664,13 +555,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       onPressed: _is_processing ? null : _showLogoutConfirmDialog,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.symmetric(
-          horizontal: _scaled(20),
-          vertical: _scaled(14),
-        ),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: _error_container_color,
-          borderRadius: BorderRadius.circular(_scaled(15)),
+          borderRadius: BorderRadius.circular(15),
           border: Border.all(color: CupertinoColors.systemRed, width: 1),
         ),
         child: Row(
@@ -681,13 +569,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             else
               Icon(
                 CupertinoIcons.arrow_right_square,
-                size: _scaled(24),
+                size: 24,
                 color: _on_error_container_color,
               ),
-            SizedBox(width: _scaled(8)),
+            SizedBox(width: 8),
             Text(
               _is_logging_out ? '로그아웃 중' : '로그아웃',
-              style: _scaledTextStyle(
+              style: _rowTextStyle(
                 AppTheme.body_large,
                 color: _on_error_container_color,
                 fontSize: 16,
@@ -714,13 +602,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const CupertinoActivityIndicator(),
-                  SizedBox(width: _scaled(8)),
+                  SizedBox(width: 8),
                   Text(
                     '탈퇴 요청 중',
-                    style: _scaledTextStyle(
+                    style: _rowTextStyle(
                       AppTheme.body_large,
                       color: _on_error_container_color,
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -728,10 +616,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               )
             : Text(
                 '회원 탈퇴',
-                style: _scaledTextStyle(
+                style: _rowTextStyle(
                   AppTheme.body_large,
                   color: _on_error_container_color,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),

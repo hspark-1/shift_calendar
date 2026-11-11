@@ -100,7 +100,12 @@ Future<void> _pumpSettings(
     UncontrolledProviderScope(
       container: container,
       child: CupertinoApp(
-        home: SettingsPage(launch_privacy_policy: launch_privacy_policy),
+        home: Consumer(
+          builder: (context, ref, _) =>
+              ref.watch(authProvider).status == AuthStatus.unauthenticated
+              ? const LoginPage()
+              : SettingsPage(launch_privacy_policy: launch_privacy_policy),
+        ),
       ),
     ),
   );
@@ -128,6 +133,7 @@ void main() {
       matching: find.byType(CupertinoTextField),
     );
     await tester.enterText(name_field, '새 이름');
+    await tester.pump();
     await tester.tap(find.text('변경사항 저장'));
     await tester.pumpAndSettle();
     expect(repository.update_count, 1);
@@ -170,6 +176,12 @@ void main() {
       200,
       scrollable: find.byType(Scrollable),
     );
+    await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('개인정보처리방침')),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('개인정보처리방침'));
     await tester.pumpAndSettle();
 
@@ -191,6 +203,12 @@ void main() {
       200,
       scrollable: find.byType(Scrollable),
     );
+    await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('개인정보처리방침')),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('개인정보처리방침'));
     await tester.pumpAndSettle();
     expect(find.text('페이지 열기 실패'), findsOneWidget);
@@ -199,6 +217,12 @@ void main() {
       findsOneWidget,
     );
     await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('개인정보처리방침')),
+      alignment: 0.5,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('개인정보처리방침'));
     await tester.pumpAndSettle();

@@ -9,7 +9,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/profile_image.dart';
-import '../../../calendar/presentation/pages/calendar_page.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/profile_image_upload.dart';
 import '../providers/auth_provider.dart';
@@ -310,9 +309,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       Navigator.of(context).pop();
       return;
     }
-    Navigator.of(context).pushReplacement(
-      CupertinoPageRoute<void>(builder: (_) => const CalendarPage()),
-    );
+    // 가입 완료 화면 전환은 AuthWrapper가 인증 상태로 결정한다.
   }
 
   void _showErrorDialog(String message) {
