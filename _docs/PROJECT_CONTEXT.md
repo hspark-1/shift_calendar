@@ -1,5 +1,13 @@
 # 프로젝트 컨텍스트
 
+## Google 사진 수집 중단·선택 전화번호 (2026-11-13)
+
+- **Behavior change / ADR-0081**: GoogleLoginService는 ID Token과 선택 전화번호 access token을 GoogleLoginCredential로 반환한다. NativeGoogleSignInSdk는 authenticate 계정의 authorizationClient에서 기본 OIDC/user.phonenumbers.read 승인을 확인하고 필요하면 동의를 요청한다. 기본 인증 취소는 기존 취소, 선택 동의 취소/권한 오류·미지원은 access_token=null로 기본 로그인을 유지한다.
+- 흐름: 로그인 탭 → SDK 인증/선택 동의 → Repository → AuthRemoteDataSource.loginWithGoogleIdToken(id_token, google_access_token: ...) → 기존 /auth/google/token → 서버의 userinfo.sub 대조/People API PROFILE phoneNumbers → User.phone → 기존 ProfileSetupPage 미리 채움이다. SDK 사진을 읽거나 서버에 전달하지 않으며 신규 서버 사진은 null이다. 기존/업로드 사진과 기존 번호는 보존한다.
+- 상태/UX: Google 토큰은 교환 요청까지 메모리에만 두고 앱 JWT만 저장한다. 로그아웃/해제 시 SDK 계정 참조를 지운다. 선택 정보가 없으면 기존 직접 입력·null 사진 기본 아바타를 사용한다. route/접근권한·Riverpod 수명·공용 위젯/테마·로딩/오류 화면은 변경하지 않는다. 서버401/409는 기존 ApiException 처리와 실패 시 Google 로컬 세션 정리를 따른다.
+- 파일 역할/의존성/사용 예: 기존 google_login_service.dart의 GoogleLoginCredential·authorizePhoneAccessToken, auth_repository_impl.dart의 credential 전달, auth_remote_datasource.dart의 선택 body 필드와 기존3개 테스트/가입 위젯 회귀를 수정했다. 고정 google_sign_in7.2.0·기존 Dio/User 모델을 사용하며 새 파일/패키지/앱 env/DB migration은 없다. 실제 body는 `{id_token, access_token?}`이며 구형 ID Token 전용 요청도 지원한다.
+- 계약·배포/롤백: `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`의 현행 절과 인접 서버 가이드 상단을 따른다. 서버를 먼저 배포한 뒤 앱을 재빌드한다. 실제 Google iOS/Android 동의·번호 수신/취소·가입·로그아웃/탈퇴는 Stage 인수 대상이다. 최종 WORKLOG의 로컬 검증과 구분한다. rollback은 이번 Google 변경만 복구하고 기존 미커밋 변경·사용자 번호/사진을 유지한다.
+
 ## 누적 작업별 커밋·푸시 검증 (2026-11-11)
 
 - 기존 변경을 디자인 검토·공통 내비게이션/설정/그룹 UI·색상·근무 타입·프로필·개인 일정의 6개 커밋으로 나눠 origin/main에 푸시했다. 커밋별 컨텍스트·ADR·작업 기록과 시안/검증 산출물을 포함했고 앱 코드 추가 변경은 없다. 기존 ADR의 대체 안내와 아래 상세 UI/라우팅 설명의 정합성은 후속 문서 커밋으로 보존한다.

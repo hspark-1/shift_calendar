@@ -1,5 +1,18 @@
 # Google 소셜 로그인 서버 구현 요구문서
 
+## 현행 Google 선택 전화번호 연동 (2026-11-13)
+
+서버와 Flutter 로컬 구현/회귀 검증을 완료했다. 아래 기존 요구사항의 ID Token 전용·사진 초기 저장·기본 OIDC 전용·feature flag 설명은 과거 계획이며, 현행 계약은 이 절과 `../shift_calendar_server/_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md` 상단을 따른다. 실계정 인수와 배포는 아직 수행하지 않았다.
+
+- `GoogleLoginService.loginWithGoogle()` → `GoogleLoginCredential(id_token, access_token?)` 반환. NativeGoogleSignInSdk가 authenticate한 계정의 authorizationClient에서 openid/userinfo.email/userinfo.profile/user.phonenumbers.read를 확인하고 추가 동의가 필요하면 요청한다.
+- `AuthRemoteDataSource.loginWithGoogleIdToken(id_token, google_access_token: access_token)`은 기존 POST `/api/v1/auth/google/token`에 `{id_token, access_token?}`을 보낸다. 선택 권한 취소/오류는 access_token을 생략한다. 인증 자체 취소는 기존 취소 동작을 유지한다. Google 토큰은 저장/로그/사용자 오류 메시지에 포함하지 않고 앱 JWT만 저장한다.
+- 서버는 ID Token 검증 후 같은 access token의 OIDC userinfo.sub를 대조하고 People API PROFILE phoneNumbers만 조회한다. 계정이 다르면401 GOOGLE_INVALID_TOKEN, 번호 중복409 PHONE_ALREADY_EXISTS, 탈퇴 진행409 ACCOUNT_DELETION_IN_PROGRESS다. 번호 조회 장애/미제공은 기존 직접 입력으로 진행한다.
+- Google 사진 claim은 읽거나 신규 저장하지 않는다. 기존/업로드 사진은 보존하며 신규 사진 null은 기본 아바타다. 국내01x/+82의 단일 유효 번호 또는 명확한 primary만 신규/기존 null phone에 저장한다. 기존 번호는 덮어쓰지 않는다. 프로필 완료는 기존 완료 API만 담당한다.
+- User.phone 파서·ProfileSetupPage의 미리 채움은 이미 지원하여 화면 소스 변경이 없다. 기존 SDK/Repository/DataSource 테스트와 실제 가입 위젯 회귀로 연결을 검증한다. 신규 영구 파일/패키지/env/DB migration은 없다. 파일 역할은 PROJECT_CONTEXT의 같은 날짜 절을 따른다.
+- 콘솔 사용자 화면에서4개 scope는 비민감 범위로 등록되어 있다. People API 활성화와 실제 계정 전화번호 제공은 별도 확인한다. 서버를 먼저 배포한 뒤 Flutter를 재빌드/설치하고 Stage iOS/Android에서 동의 허용/거부·신규/기존 번호·중복·계정 불일치·가입·로그아웃/탈퇴를 검증한다. 서버는 구형 ID Token 전용 앱도 지원한다.
+- 검증: `flutter test --no-pub test/features/auth --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 최종 결과는 WORKLOG를 따른다. rollback은 이번 SDK/전송 변경과 회귀/문서만 복구하며 저장된 phone/기존 사진은 유지한다.
+- 공식 근거: [google_sign_in7.2.0](https://pub.dev/packages/google_sign_in/versions/7.2.0), [Google OIDC](https://developers.google.com/identity/openid-connect/openid-connect), [People API](https://developers.google.com/people/api/rest/v1/people/get).
+
 ## 1. 문서 상태와 범위
 
 - 상태: **결정 완료 / Express 후속 구현 대기**
