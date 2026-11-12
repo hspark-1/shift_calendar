@@ -1,5 +1,18 @@
 # 작업 로그
 
+## 2026-11-13 Google 선택 전화번호 권한과 사진 수집 중단 연동
+
+- [DONE] (FE/Auth) Google ID Token과 선택 전화번호 access token을 서버에 전달한다.
+  - 목적: 사용자 요청에 따라 서버가 Google 사진을 신규 저장하지 않고, Google 제공 번호를 가입 화면에 미리 채우도록 한다.
+  - 변경/영향: SDK의 계정별 authorizationClient·선택 동의 실패 fallback·Repository/DataSource 전송만 변경한다. 기존 가입 화면의 user.phone 미리 채움·사진 null 아바타와 탈퇴/로그아웃을 보존한다.
+  - 테스트/결과: Google 서비스/저장소/DataSource·프로필 화면4파일70 pass 이후 신규 Google 가입 미리 채움 회귀를 포함한 인증 기능 전체117 pass/0 fail. 선택 동의 취소/권한 오류/빈 token fallback·서버 전송/phone 파싱·사진 null 아바타·기존 JWT 저장/실패 정리·가입/로그아웃/탈퇴를 확인했다. 변경 Dart7개 최종 analyze 진단0건·format 변경0건·관련 코드/문서 diff 공백 검사를 통과했다.
+  - 수정 중 확인: 새 위젯 테스트가 화면 전체 person_fill 아이콘2개를 세어 실패한 것을 실제 profile_avatar 내부로 검증 범위를 좁혀 해결했다. 제품 화면은 변경하지 않았다.
+  - 문서/설계: PROJECT_CONTEXT·ADR-0081·GOOGLE_SIGN_IN_SERVER_GUIDE의 현행 계약을 갱신했다. 신규 영구 파일/패키지/env/route/provider 수명·DB 변경은 없다.
+  - 커밋 분리 검증: 원격 main 기준의 별도 작업 트리에 Google 전화번호 변경만 구성했다. 기존 iOS 탈퇴/다른 UI 미커밋 변경은 제외하고 서비스·테스트의 필요한 PlatformException import를 명시했다. 이 독립 소스 기준 인증 전체105 pass/0 fail·변경 Dart7개 analyze 진단0·format 변경0·diff 검사 통과다. 앞선117개는 기존 다른 로컬 작업이 포함된 작업 트리의 결과이며 구분한다.
+  - 커밋/병합: 전화번호 변경을 origin/develop에 먼저 push한 뒤 origin/main에 실제 merge한다. 실제 앱 바이너리 배포/스토어 업로드는 수행하지 않으며 서버 배포 후 현재 앱 소스를 재빌드/설치해 테스트해야 한다.
+  - 한계: 실제 Google API와 네이티브 동의 화면은 mock 경계 밖이므로 Stage iOS/Android 실계정 인수가 남는다. 서버 SQL 변경은 없다.
+  - 롤백: 이번 Google 변경만 되돌리고 기존 미커밋 작업과 저장된 사용자 번호/사진은 유지한다. 작업 전 사본은 /private/tmp/shiftmate_google_phone_20261113/before다.
+
 ## 2026-11-11
 
 - [DONE] (GIT/QA/DOCS) 누적 변경사항 작업별 커밋 및 푸시

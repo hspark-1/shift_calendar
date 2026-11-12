@@ -1,6 +1,6 @@
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shift_mate/features/auth/data/services/google_login_service.dart';
@@ -14,6 +14,9 @@ class _FakeGoogleSignInSdk implements GoogleSignInSdk {
   String? server_client_id;
   bool supports_authenticate = true;
   String? id_token = 'google-id-token';
+  String? phone_access_token = 'google-phone-access-token';
+  Object? phone_authorization_error;
+  int phone_authorization_count = 0;
   Object? initialize_error;
   Object? authenticate_error;
 
@@ -35,6 +38,13 @@ class _FakeGoogleSignInSdk implements GoogleSignInSdk {
     final current_error = authenticate_error;
     if (current_error != null) throw current_error;
     return id_token;
+  }
+
+  @override
+  Future<String?> authorizePhoneAccessToken() async {
+    phone_authorization_count += 1;
+    if (phone_authorization_error != null) throw phone_authorization_error!;
+    return phone_access_token;
   }
 
   @override
@@ -60,11 +70,42 @@ void main() {
 
       final id_token = await service.loginWithGoogle();
 
-      expect(id_token, 'google-id-token');
+      expect(id_token.id_token, 'google-id-token');
+      expect(id_token.access_token, 'google-phone-access-token');
+      expect(sdk.phone_authorization_count, 1);
       expect(sdk.initialize_count, 1);
       expect(sdk.client_id, isNull);
       expect(sdk.server_client_id, 'server-client-id');
       expect(sdk.authenticate_count, 1);
+    });
+
+    for (final error in <Object>[
+      const GoogleSignInException(code: GoogleSignInExceptionCode.canceled),
+      const GoogleSignInException(code: GoogleSignInExceptionCode.unknownError),
+      PlatformException(code: 'authorization_denied', message: 'private-token'),
+      UnsupportedError('phone authorization'),
+    ]) {
+      test('전화번호 선택 권한 $error 실패에도 ID Token 로그인을 유지한다', () async {
+        final sdk = _FakeGoogleSignInSdk()..phone_authorization_error = error;
+        final service = GoogleLoginService(
+          google_sign_in_sdk: sdk,
+          target_platform: TargetPlatform.android,
+          server_client_id: 'server-client-id',
+        );
+        final credential = await service.loginWithGoogle();
+        expect(credential.id_token, 'google-id-token');
+        expect(credential.access_token, isNull);
+      });
+    }
+
+    test('빈 선택 access token은 전송하지 않는다', () async {
+      final sdk = _FakeGoogleSignInSdk()..phone_access_token = '  ';
+      final service = GoogleLoginService(
+        google_sign_in_sdk: sdk,
+        target_platform: TargetPlatform.android,
+        server_client_id: 'server-client-id',
+      );
+      expect((await service.loginWithGoogle()).access_token, isNull);
     });
 
     test('iOS는 iOS clientId와 serverClientId를 모두 전달한다', () async {
@@ -195,6 +236,7 @@ void main() {
       );
       expect(sdk.initialize_count, 0);
       expect(sdk.authenticate_count, 0);
+      expect(sdk.phone_authorization_count, 0);
     });
   });
 }

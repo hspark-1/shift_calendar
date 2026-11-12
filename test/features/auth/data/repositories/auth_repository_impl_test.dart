@@ -20,6 +20,7 @@ class _FakeAuthRemoteDataSource extends AuthRemoteDataSource {
   AppleLoginPlatform? challenge_platform;
   AppleLoginCredential? login_credential;
   String? google_id_token;
+  String? google_access_token;
   Object? google_login_error;
   String? kakao_access_token;
   int kakao_logout_count = 0;
@@ -78,8 +79,12 @@ class _FakeAuthRemoteDataSource extends AuthRemoteDataSource {
   }
 
   @override
-  Future<AuthResponse> loginWithGoogleIdToken(String googleIdToken) async {
+  Future<AuthResponse> loginWithGoogleIdToken(
+    String googleIdToken, {
+    String? google_access_token,
+  }) async {
     google_id_token = googleIdToken;
+    this.google_access_token = google_access_token;
     final current_error = google_login_error;
     if (current_error != null) throw current_error;
     return response;
@@ -151,17 +156,21 @@ class _FakeTokenService extends TokenService {
 
 class _FakeGoogleLoginService extends GoogleLoginService {
   String id_token = 'google-id-token';
+  String? access_token = 'google-phone-access-token';
   Object? login_error;
   int login_count = 0;
   int logout_count = 0;
   int disconnect_count = 0;
 
   @override
-  Future<String> loginWithGoogle() async {
+  Future<GoogleLoginCredential> loginWithGoogle() async {
     login_count += 1;
     final current_error = login_error;
     if (current_error != null) throw current_error;
-    return id_token;
+    return GoogleLoginCredential(
+      id_token: id_token,
+      access_token: access_token,
+    );
   }
 
   @override
@@ -246,6 +255,7 @@ void main() {
 
     expect(google_login_service.login_count, 1);
     expect(remote_data_source.google_id_token, 'google-id-token');
+    expect(remote_data_source.google_access_token, 'google-phone-access-token');
     expect(response.user.google_id, 'google-subject');
     expect(token_service.save_count, 1);
     expect(token_service.access_token, 'app-access-token');

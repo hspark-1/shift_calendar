@@ -197,6 +197,51 @@ Future<void> _pumpEditPage(
 }
 
 void main() {
+  testWidgets('Google 전화번호는 가입 화면에 미리 채우고 사진 null은 기본 아바타로 표시한다', (
+    tester,
+  ) async {
+    final repository = _ProfileSetupAuthRepository();
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        child: CupertinoApp(
+          home: ProfileSetupPage(
+            user: const User(
+              id: 'google-user',
+              email: 'google@example.com',
+              name: 'Google 사용자',
+              google_id: 'google-subject',
+              phone: '010-1234-5678',
+              requires_profile_setup: true,
+            ),
+            timezone_loader: () async => 'Asia/Seoul',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            _textFieldInside(const Key('profile_phone_field')),
+          )
+          .controller!
+          .text,
+      '010-1234-5678',
+    );
+    expect(find.byType(Image), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('profile_avatar')),
+        matching: find.byIcon(CupertinoIcons.person_fill),
+      ),
+      findsOneWidget,
+    );
+    expect(repository.complete_request, isNull);
+  });
+
   testWidgets('편집은 기존 정보·레거시 직종을 표시하고 이름 변경만 전송한다', (tester) async {
     final repository = _ProfileSetupAuthRepository();
     var completed = false;

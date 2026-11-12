@@ -142,13 +142,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<AuthResponse> loginWithGoogle() async {
-    // 1. Google SDK에서 서버 audience용 ID Token을 가져온다.
-    final google_id_token = await _google_login_service.loginWithGoogle();
+    // 1. ID Token과 선택 전화번호 조회용 access token을 가져온다.
+    final google_credential = await _google_login_service.loginWithGoogle();
 
     try {
       // 2. 서버가 ID Token을 검증하고 앱 세션을 발급한다.
       final authResponse = await _remote_datasource.loginWithGoogleIdToken(
-        google_id_token,
+        google_credential.id_token,
+        google_access_token: google_credential.access_token,
       );
 
       // 3. 서버 인증 성공 후에만 앱 JWT를 저장한다.

@@ -93,11 +93,17 @@ class AuthRemoteDataSource {
   }
 
   /// Google ID Token으로 서버 로그인을 요청한다.
-  Future<AuthResponse> loginWithGoogleIdToken(String googleIdToken) async {
+  Future<AuthResponse> loginWithGoogleIdToken(
+    String googleIdToken, {
+    String? google_access_token,
+  }) async {
     try {
       final response = await _dio.post(
         ApiConstants.auth_google_token,
-        data: {'id_token': googleIdToken},
+        data: {
+          'id_token': googleIdToken,
+          if (google_access_token != null) 'access_token': google_access_token,
+        },
       );
 
       if (response.data['success'] == true) {

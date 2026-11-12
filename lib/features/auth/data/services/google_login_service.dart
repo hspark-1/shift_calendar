@@ -1,6 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -12,6 +13,8 @@ abstract interface class GoogleSignInSdk {
   bool supportsAuthenticate();
 
   Future<String?> authenticateAndGetIdToken();
+
+  Future<String?> authorizePhoneAccessToken();
 
   Future<void> signOut();
 
@@ -28,6 +31,7 @@ class NativeGoogleSignInSdk implements GoogleSignInSdk {
 
   final GoogleSignIn _google_sign_in;
   Future<void>? _initialization_future;
+  GoogleSignInAccount? _authenticated_account;
 
   @override
   Future<void> initialize({String? clientId, String? serverClientId}) {
@@ -42,18 +46,51 @@ class NativeGoogleSignInSdk implements GoogleSignInSdk {
 
   @override
   Future<String?> authenticateAndGetIdToken() async {
+    _authenticated_account = null;
     final account = await _google_sign_in.authenticate();
+    _authenticated_account = account;
     return account.authentication.idToken;
   }
 
   @override
-  Future<void> signOut() => _google_sign_in.signOut();
+  Future<String?> authorizePhoneAccessToken() async {
+    final account = _authenticated_account;
+    if (account == null) return null;
+    const scopes = <String>[
+      'openid',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/user.phonenumbers.read',
+    ];
+    final authorization_client = account.authorizationClient;
+    final authorization =
+        await authorization_client.authorizationForScopes(scopes) ??
+        await authorization_client.authorizeScopes(scopes);
+    return authorization.accessToken;
+  }
 
   @override
-  Future<void> disconnect() => _google_sign_in.disconnect();
+  Future<void> signOut() async {
+    _authenticated_account = null;
+    await _google_sign_in.signOut();
+  }
+
+  @override
+  Future<void> disconnect() async {
+    _authenticated_account = null;
+    await _google_sign_in.disconnect();
+  }
 }
 
-/// 사용자 액션으로 Google 인증을 시작해 서버 검증용 ID Token만 반환한다.
+/// 메모리에서 서버 교환에만 사용하며 Google 토큰은 영구 저장하지 않는다.
+class GoogleLoginCredential {
+  const GoogleLoginCredential({required this.id_token, this.access_token});
+
+  final String id_token;
+  final String? access_token;
+}
+
+/// Google 인증 후 선택 전화번호 동의용 access token을 함께 반환한다.
 class GoogleLoginService {
   final GoogleSignInSdk _google_sign_in_sdk;
   final TargetPlatform _target_platform;
@@ -71,7 +108,7 @@ class GoogleLoginService {
        _ios_client_id = ios_client_id.trim(),
        _server_client_id = server_client_id.trim();
 
-  Future<String> loginWithGoogle() async {
+  Future<GoogleLoginCredential> loginWithGoogle() async {
     _validateConfiguration();
 
     try {
@@ -89,7 +126,23 @@ class GoogleLoginService {
           'Google ID Token을 받지 못했습니다. 다시 시도해주세요.',
         );
       }
-      return id_token;
+      String? access_token;
+      try {
+        access_token = (await _google_sign_in_sdk.authorizePhoneAccessToken())
+            ?.trim();
+      } on GoogleSignInException {
+        // 선택 동의 거부·취소·조회 불가는 로그인 후 직접 입력으로 진행한다.
+      } on PlatformException {
+        // 네이티브 선택 권한 오류의 원문/토큰은 노출하지 않는다.
+      } on UnsupportedError {
+        // 전화번호 권한을 지원하지 않는 플랫폼도 기본 로그인은 유지한다.
+      }
+      return GoogleLoginCredential(
+        id_token: id_token,
+        access_token: access_token == null || access_token.isEmpty
+            ? null
+            : access_token,
+      );
     } on GoogleLoginCanceledException {
       rethrow;
     } on GoogleLoginUnavailableException {

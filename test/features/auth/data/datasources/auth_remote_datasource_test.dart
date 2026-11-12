@@ -349,6 +349,8 @@ void main() {
                       'email': 'google@example.com',
                       'name': 'Google 사용자',
                       'google_id': 'google-subject',
+                      'phone': '010-1234-5678',
+                      'profile_image_url': null,
                     },
                     'access_token': 'app-access-token',
                     'refresh_token': 'app-refresh-token',
@@ -372,8 +374,19 @@ void main() {
       expect(captured_request?.data, {'id_token': 'google-id-token'});
       expect(auth_response.user.id, 'google-user-id');
       expect(auth_response.user.google_id, 'google-subject');
+      expect(auth_response.user.phone, '010-1234-5678');
+      expect(auth_response.user.profile_image_url, isNull);
       expect(auth_response.expires_at, expires_at);
       expect(auth_response.requires_profile_setup, isTrue);
+
+      await data_source.loginWithGoogleIdToken(
+        'google-id-token',
+        google_access_token: 'google-phone-access-token',
+      );
+      expect(captured_request?.data, {
+        'id_token': 'google-id-token',
+        'access_token': 'google-phone-access-token',
+      });
     });
 
     test('AuthToken JSON의 정수 expires_at도 Unix epoch milliseconds로 파싱한다', () {
