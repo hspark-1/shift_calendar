@@ -25,6 +25,16 @@
 - 검증/한계: 실제 GroupDetail/GroupSummary/GroupCalendarHeader를 호출하는 외부 임시 진단 스크립트 `/private/tmp/group_owner_deletion_repro.dart`로 생성자 문자열 성공 → null일 때 목록/캘린더 성공·상세 TypeError를 재현했다. 실행 예: `/opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart /private/tmp/group_owner_deletion_repro.dart`. 순수 Dart 모델에만 의존하며 서버/DB/인증 정보를 사용하지 않는다. 임시 스크립트는 저장소 산출물이 아니다. 사용자가 겪은 실제 API 응답·배포 코드·운영 DB 값은 이번에 수집하지 않았다.
 - 영향/후속: 이번 작업은 분석/문서만 추가하고 앱·서버·API·DB 동작을 변경하지 않는다. 수정 지점은 FE 생성자 타입과 파서의 nullable 수용 및 생성자 탈퇴 후 상세/화면 회귀다. 소유권 판단을 생성자 ID로 대체하거나 새 소유자를 과거 생성자로 덮어쓰지 않는다. 새 설계 결정이 없어 ADR은 추가하지 않으며 이번 조사 문서만 제거하면 롤백된다.
 
+## 날짜 확인·오늘 위치·피커 시트 끌어 닫기 (2026-11-12)
+
+- 최신 정책: ADR-0056. 아래 과거 날짜 탭 즉시 반환 설명을 대체한다. 시작/종료 행 구분·제목 완료 안내·시간 휠/종일·공개 레벨1~5는 유지한다.
+- 날짜/입력 흐름: DatePickerSheet의 날짜 탭은 시트 내부 _selected_date와 선택 표시/날짜 요약만 바꾼다. 오늘도 선택일과 표시 월을 갱신할 뿐 닫지 않는다. 오늘은 월 내비게이션 오른쪽으로 옮기고 하단에는 취소/확인을 고정했다. 확인을 눌러야 date를 반환하고 팝업 전환 완료 후 해당 시간 휠을 연다. 취소/OS 복귀/바깥 탭/끌기 닫기는 null을 반환해 자동 진행을 중단한다. 확인한 날짜는 시간 취소 후에도 유지하고, 확인하지 않은 날짜/시간 변경은 폼에 반영하지 않는다. 부모 개인 일정 폼의 제목/입력은 유지한다.
+- 신규 파일 역할/의존성/사용 예: `lib/features/calendar/presentation/widgets/picker_sheet_frame.dart`는 Cupertino/AppTheme와 ScrollController에 의존하는 공용 UI 프레임이다. DatePickerSheet/TimePickerSheet가 key_prefix·height·body·footer·onDismiss를 주입한다. 예: 날짜 시트는 `onDismiss: _cancel`과 확인/취소 footer를 전달한다. 최대폭560/화면 높이·SafeArea/상단 반경28을 유지하고 손잡이44px·스크롤 본문·고정 footer를 구성한다. 날짜는6행과 본문 기준 높이, 시간은기존520px 기준을 사용한다. 새 provider/라우트/API 계약은 없다.
+- 끌기 규칙: 본문 AlwaysScrollable+Clamping physics의 depth0·수직·dragDetails·최상단 음수 overscroll만 시트 이동으로 누적한다. 손잡이는 터치 시작부터 실제 이동량을 센다. 최대180px 이동·120px 이상 취소 닫기·짧은 복귀180ms/동작 줄이기0ms다. 본문 중간은 내용만 스크롤하며 휠의 중첩 알림·달력 가로 스크롤·프로그램 이동은 무시한다. 닫기/확인 중복 pop을 방지하고 프레임 dispose 시 controller를 정리한다. 기존 개인 일정 폼의120px 정책과 맞추되 그 폼을 리팩터링하지 않았다. 공용 시간 피커의 근무 타입도 끌기 취소를 공유한다. 연월 빠른 이동 시트 자체는 이번 변경 대상이 아니다.
+- 신규 검증 파일 역할/의존성/사용 예: `test/features/calendar/presentation/widgets/picker_sheet_drag_test.dart`는 실제 날짜/시간 팝업·Flutter WidgetTester/intl/기존 AppTheme에 의존해 손잡이/본문 충분한 끌기·짧고 빠른 복귀/값 보존·119/121px·큰글자 본문 중간·휠/달력 가로 분리를16개로 확인한다. 루트에서 `flutter test --no-pub test/features/calendar/presentation/widgets/picker_sheet_drag_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 실행한다. 기존 날짜/폼/메인 테스트는 확인 확정·오늘 위치·끌어 취소 후 폼 저장값을 검증한다.
+- 렌더 역할/의존성/사용 예: 기존 `artifacts/calendar_input_flow_2026-11-12/render_test.dart`에 PICKER_CONFIRM_RENDER_OUTPUT을 추가했다. 예: `PICKER_CONFIRM_RENDER_OUTPUT=artifacts/picker_confirm_drag_2026-11-12 flutter test --no-pub artifacts/calendar_input_flow_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 기존 MainTabPage/모의 service/번들폰트 의존성으로 PNG24개·measurements.json을 생성하며 과거 PNG는 보존한다. 토스트/날짜/시간/공개 범위와 일반 미확정 날짜·70px 드래그를 렌더하고 확인 높이/하단·오늘이 달력 위에 있는지·입력 연결/복귀·예외를 검사한다.
+- 영향/한계/롤백: 전체 Flutter362 pass/기존 skip1·관련97 pass·렌더1 pass, 변경 Dart9개 분석 진단0건/포맷 변경0건이다. 확인48px/큰글자72px·화면 내 하단·오늘 상단 위치와 예외/조작 경고0건을 확인했다. 날짜/시간/폼 연결·관련 회귀/렌더·문서만 변경했다. 기존 미커밋 서버/DB·공개 레벨1~5·토스트/일정 수정 작업은 보존한다. 최종 검증은 WORKLOG를 따른다. 실제 OS/기기/VoiceOver·서버 인수는 별도이며 전체 다크 테마나 기존 메인 글자3배 문제를 수정하지 않았다. 이번 확인/배치/공용 프레임과 관련 추가분만 되돌린다.
+
 ## 누적 작업별 커밋·푸시 검증 (2026-11-11)
 
 - 기존 변경을 디자인 검토·공통 내비게이션/설정/그룹 UI·색상·근무 타입·프로필·개인 일정의 6개 커밋으로 나눠 origin/main에 푸시했다. 커밋별 컨텍스트·ADR·작업 기록과 시안/검증 산출물을 포함했고 앱 코드 추가 변경은 없다. 기존 ADR의 대체 안내와 아래 상세 UI/라우팅 설명의 정합성은 후속 문서 커밋으로 보존한다.

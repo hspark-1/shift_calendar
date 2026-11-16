@@ -1,8 +1,11 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import 'picker_selection_summary.dart';
 
 /// 캘린더에서 이동할 연도와 월을 선택하는 공용 하단 시트다.
 class YearMonthPickerSheet extends StatefulWidget {
@@ -64,6 +67,11 @@ class _YearMonthPickerSheetState extends State<YearMonthPickerSheet> {
       _selected_month = now.month;
     });
 
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _year_controller.jumpToItem(now.year - widget.first_year);
+      _month_controller.jumpToItem(now.month - 1);
+      return;
+    }
     await Future.wait([
       _year_controller.animateToItem(
         now.year - widget.first_year,
@@ -82,12 +90,20 @@ class _YearMonthPickerSheetState extends State<YearMonthPickerSheet> {
     Navigator.of(context).pop(DateTime(_selected_year, _selected_month, 1));
   }
 
+  double get _pickerItemExtent =>
+      math.max(44, MediaQuery.textScalerOf(context).scale(16) * 1.5 + 8);
+
   @override
   Widget build(BuildContext context) {
-    final bottom_padding = MediaQuery.paddingOf(context).bottom;
-
+    final media = MediaQuery.of(context);
+    final compact_actions = media.textScaler.scale(16) > 20;
     return Container(
-      height: 438 + bottom_padding,
+      constraints: const BoxConstraints(maxWidth: 560),
+      width: double.infinity,
+      height: math.min(
+        438 + media.padding.bottom,
+        math.max(0, media.size.height - media.padding.top - 12),
+      ),
       decoration: const BoxDecoration(
         color: AppTheme.surface_color,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -96,137 +112,65 @@ class _YearMonthPickerSheetState extends State<YearMonthPickerSheet> {
         top: false,
         child: Column(
           children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 38,
-              height: 5,
-              decoration: BoxDecoration(
-                color: AppTheme.outline_variant_color,
-                borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('날짜 이동', style: AppTheme.heading_small),
-                        SizedBox(height: 2),
-                        Text('원하는 연도와 월을 선택하세요', style: AppTheme.body_small),
-                      ],
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: const EdgeInsets.all(8),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Icon(
-                      CupertinoIcons.xmark,
-                      size: 19,
-                      color: AppTheme.on_surface_variant_color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary_color.withValues(alpha: 0.08),
-                  borderRadius: AppTheme.input_border_radius,
-                  border: Border.all(
-                    color: AppTheme.primary_color.withValues(alpha: 0.22),
-                  ),
-                ),
-                child: Row(
+            Expanded(
+              child: SingleChildScrollView(
+                key: const ValueKey('year-month-picker-scroll'),
+                child: Column(
                   children: [
+                    const SizedBox(height: 10),
                     Container(
                       width: 38,
-                      height: 38,
+                      height: 5,
                       decoration: BoxDecoration(
-                        color: AppTheme.primary_color.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.calendar,
-                        size: 20,
-                        color: AppTheme.primary_color,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '$_selected_year년 $_selected_month월',
-                        style: AppTheme.body_large.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primary_dark_color,
+                        color: AppTheme.outline_variant_color,
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.chip_radius,
                         ),
                       ),
                     ),
-                    CupertinoButton(
-                      minimumSize: Size.zero,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      color: AppTheme.surface_color,
-                      borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-                      onPressed: _canSelectCurrentMonth
-                          ? _selectCurrentMonth
-                          : null,
-                      child: const Text(
-                        '이번 달',
-                        style: TextStyle(
-                          color: AppTheme.primary_color,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('날짜 이동', style: AppTheme.heading_small),
+                                SizedBox(height: 2),
+                                Text(
+                                  '원하는 연도와 월을 선택하세요',
+                                  style: AppTheme.body_small,
+                                ),
+                              ],
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: const EdgeInsets.all(8),
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Icon(
+                              CupertinoIcons.xmark,
+                              size: 19,
+                              color: AppTheme.on_surface_variant_color,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: PickerSelectionSummary(
+                        icon: CupertinoIcons.calendar,
+                        value: '$_selected_year년 $_selected_month월',
+                        action_label: '이번 달',
+                        onAction: _canSelectCurrentMonth
+                            ? _selectCurrentMonth
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _buildWheelSection(),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(child: _buildPickerLabel('연도')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildPickerLabel('월')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface_container_low_color,
-                    borderRadius: AppTheme.card_border_radius,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildYearPicker()),
-                      Container(
-                        width: 1,
-                        height: 118,
-                        color: AppTheme.outline_variant_color.withValues(
-                          alpha: 0.65,
-                        ),
-                      ),
-                      Expanded(child: _buildMonthPicker()),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -251,15 +195,17 @@ class _YearMonthPickerSheetState extends State<YearMonthPickerSheet> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    flex: 2,
+                    flex: compact_actions ? 1 : 2,
                     child: CupertinoButton(
+                      key: const ValueKey('year-month-picker-apply'),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       color: AppTheme.primary_color,
                       borderRadius: AppTheme.input_border_radius,
                       onPressed: _applySelection,
-                      child: const Text(
-                        '선택한 달로 이동',
-                        style: TextStyle(
+                      child: Text(
+                        compact_actions ? '이동' : '선택한 달로 이동',
+                        semanticsLabel: '선택한 달로 이동',
+                        style: const TextStyle(
                           color: CupertinoColors.white,
                           fontWeight: FontWeight.w700,
                         ),
@@ -275,6 +221,104 @@ class _YearMonthPickerSheetState extends State<YearMonthPickerSheet> {
     );
   }
 
+  double _wheelTextWidth(Iterable<String> values) {
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    var width = 0.0;
+    for (final value in values) {
+      painter.text = TextSpan(
+        text: value,
+        style: AppTheme.body_large.copyWith(
+          fontWeight: MediaQuery.boldTextOf(context)
+              ? FontWeight.bold
+              : FontWeight.w600,
+        ),
+      );
+      painter.layout();
+      width = math.max(width, painter.width);
+    }
+    painter.dispose();
+    return (width * 1.04 + 16).ceilToDouble();
+  }
+
+  Widget _wheelPanel(Widget child) => Container(
+    decoration: BoxDecoration(
+      color: AppTheme.surface_container_low_color,
+      borderRadius: AppTheme.card_border_radius,
+    ),
+    child: child,
+  );
+
+  Widget _buildWheelSection() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final year_width = _wheelTextWidth([
+          for (var year = widget.first_year; year <= widget.last_year; year++)
+            '$year년',
+        ]);
+        final month_width = _wheelTextWidth([
+          for (var month = 1; month <= 12; month++) '$month월',
+        ]);
+        final wheel_height = math.max(180.0, _pickerItemExtent * 3);
+        if (year_width + month_width + 1 > constraints.maxWidth) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildPickerLabel('연도'),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: wheel_height,
+                child: _wheelPanel(_buildYearPicker()),
+              ),
+              const SizedBox(height: 12),
+              _buildPickerLabel('월'),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: wheel_height,
+                child: _wheelPanel(_buildMonthPicker()),
+              ),
+            ],
+          );
+        }
+        final year_flex = year_width.ceil();
+        final month_flex = month_width.ceil();
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(flex: year_flex, child: _buildPickerLabel('연도')),
+                const SizedBox(width: 1),
+                Expanded(flex: month_flex, child: _buildPickerLabel('월')),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: wheel_height,
+              child: _wheelPanel(
+                Row(
+                  children: [
+                    Expanded(flex: year_flex, child: _buildYearPicker()),
+                    Container(
+                      width: 1,
+                      height: 118,
+                      color: AppTheme.outline_variant_color.withValues(
+                        alpha: 0.65,
+                      ),
+                    ),
+                    Expanded(flex: month_flex, child: _buildMonthPicker()),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
   Widget _buildPickerLabel(String label) {
     return Text(
       label,
@@ -286,7 +330,7 @@ class _YearMonthPickerSheetState extends State<YearMonthPickerSheet> {
   Widget _buildYearPicker() {
     return CupertinoPicker.builder(
       scrollController: _year_controller,
-      itemExtent: 44,
+      itemExtent: _pickerItemExtent,
       squeeze: 1,
       useMagnifier: true,
       magnification: 1.04,
@@ -311,7 +355,7 @@ class _YearMonthPickerSheetState extends State<YearMonthPickerSheet> {
   Widget _buildMonthPicker() {
     return CupertinoPicker.builder(
       scrollController: _month_controller,
-      itemExtent: 44,
+      itemExtent: _pickerItemExtent,
       squeeze: 1,
       useMagnifier: true,
       magnification: 1.04,

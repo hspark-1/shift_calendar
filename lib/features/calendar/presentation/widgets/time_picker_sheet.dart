@@ -3,6 +3,8 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import 'picker_sheet_frame.dart';
+import 'picker_selection_summary.dart';
 
 /// 시작시간·종료시간처럼 시/분 단위 시간을 선택하는 공용 하단 시트다.
 class TimePickerSheet extends StatefulWidget {
@@ -10,10 +12,12 @@ class TimePickerSheet extends StatefulWidget {
     super.key,
     required this.title,
     required this.initial_time,
+    this.selection_hint = '원하는 시간을 선택하세요',
   });
 
   final String title;
   final Duration initial_time;
+  final String selection_hint;
 
   @override
   State<TimePickerSheet> createState() => _TimePickerSheetState();
@@ -22,6 +26,7 @@ class TimePickerSheet extends StatefulWidget {
 class _TimePickerSheetState extends State<TimePickerSheet> {
   late Duration _selected_time;
   int _picker_revision = 0;
+  bool _closing = false;
 
   @override
   void initState() {
@@ -65,202 +70,146 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
   }
 
   void _applySelection() {
+    if (_closing) return;
+    _closing = true;
     Navigator.of(context).pop(_selected_time);
+  }
+
+  void _cancel() {
+    if (_closing) return;
+    _closing = true;
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottom_padding = MediaQuery.paddingOf(context).bottom;
-
-    return Container(
-      height: 438 + bottom_padding,
-      decoration: const BoxDecoration(
-        color: AppTheme.surface_color,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    final compact_actions = MediaQuery.textScalerOf(context).scale(16) > 20;
+    return PickerSheetFrame(
+      key_prefix: 'time-picker',
+      height: 520 + MediaQuery.paddingOf(context).bottom,
+      onDismiss: _cancel,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.title, style: AppTheme.heading_small),
+                      const SizedBox(height: 2),
+                      Text(widget.selection_hint, style: AppTheme.body_small),
+                    ],
+                  ),
+                ),
+                CupertinoButton(
+                  padding: const EdgeInsets.all(8),
+                  onPressed: _cancel,
+                  child: const Icon(
+                    CupertinoIcons.xmark,
+                    size: 19,
+                    color: AppTheme.on_surface_variant_color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: PickerSelectionSummary(
+              icon: CupertinoIcons.clock,
+              value: _formatTime(_selected_time),
+              action_label: '지금',
+              onAction: _selectCurrentTime,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                for (final label in const ['시', '분'])
+                  Expanded(
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: AppTheme.body_small.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 180,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ClipRRect(
+                borderRadius: AppTheme.card_border_radius,
+                child: ColoredBox(
+                  color: AppTheme.surface_container_low_color,
+                  child: CupertinoDatePicker(
+                    key: ValueKey(_picker_revision),
+                    mode: CupertinoDatePickerMode.time,
+                    initialDateTime: _toPickerDateTime(_selected_time),
+                    use24hFormat: true,
+                    itemExtent: 44,
+                    backgroundColor: AppTheme.surface_container_low_color,
+                    onDateTimeChanged: (date) {
+                      setState(() {
+                        _selected_time = Duration(
+                          hours: date.hour,
+                          minutes: date.minute,
+                        );
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+        child: Row(
           children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 38,
-              height: 5,
-              decoration: BoxDecoration(
-                color: AppTheme.outline_variant_color,
-                borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.title, style: AppTheme.heading_small),
-                        const SizedBox(height: 2),
-                        const Text('원하는 시간을 선택하세요', style: AppTheme.body_small),
-                      ],
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: const EdgeInsets.all(8),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Icon(
-                      CupertinoIcons.xmark,
-                      size: 19,
-                      color: AppTheme.on_surface_variant_color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary_color.withValues(alpha: 0.08),
-                  borderRadius: AppTheme.input_border_radius,
-                  border: Border.all(
-                    color: AppTheme.primary_color.withValues(alpha: 0.22),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary_color.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.clock,
-                        size: 21,
-                        color: AppTheme.primary_color,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _formatTime(_selected_time),
-                        style: AppTheme.body_large.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primary_dark_color,
-                        ),
-                      ),
-                    ),
-                    CupertinoButton(
-                      minimumSize: Size.zero,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      color: AppTheme.surface_color,
-                      borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-                      onPressed: _selectCurrentTime,
-                      child: const Text(
-                        '지금',
-                        style: TextStyle(
-                          color: AppTheme.primary_color,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  for (final label in const ['시', '분'])
-                    Expanded(
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: AppTheme.body_small.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: ClipRRect(
-                  borderRadius: AppTheme.card_border_radius,
-                  child: ColoredBox(
-                    color: AppTheme.surface_container_low_color,
-                    child: CupertinoDatePicker(
-                      key: ValueKey(_picker_revision),
-                      mode: CupertinoDatePickerMode.time,
-                      initialDateTime: _toPickerDateTime(_selected_time),
-                      use24hFormat: true,
-                      itemExtent: 44,
-                      backgroundColor: AppTheme.surface_container_low_color,
-                      onDateTimeChanged: (date) {
-                        setState(() {
-                          _selected_time = Duration(
-                            hours: date.hour,
-                            minutes: date.minute,
-                          );
-                        });
-                      },
-                    ),
+              child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                color: AppTheme.surface_container_color,
+                borderRadius: AppTheme.input_border_radius,
+                onPressed: _cancel,
+                child: const Text(
+                  '취소',
+                  style: TextStyle(
+                    color: AppTheme.on_surface_variant_color,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CupertinoButton(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      color: AppTheme.surface_container_color,
-                      borderRadius: AppTheme.input_border_radius,
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text(
-                        '취소',
-                        style: TextStyle(
-                          color: AppTheme.on_surface_variant_color,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: compact_actions ? 1 : 2,
+              child: CupertinoButton(
+                key: const ValueKey('time-picker-apply'),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                color: AppTheme.primary_color,
+                borderRadius: AppTheme.input_border_radius,
+                onPressed: _applySelection,
+                child: Text(
+                  compact_actions ? '적용' : '선택한 시간 적용',
+                  semanticsLabel: '선택한 시간 적용',
+                  style: const TextStyle(
+                    color: CupertinoColors.white,
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: CupertinoButton(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      color: AppTheme.primary_color,
-                      borderRadius: AppTheme.input_border_radius,
-                      onPressed: _applySelection,
-                      child: const Text(
-                        '선택한 시간 적용',
-                        style: TextStyle(
-                          color: CupertinoColors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -274,11 +223,17 @@ Future<Duration?> showTimePickerSheet({
   required BuildContext context,
   required String title,
   required Duration initial_time,
-}) {
-  return showCupertinoModalPopup<Duration>(
-    context: context,
+  String selection_hint = '원하는 시간을 선택하세요',
+}) async {
+  final route = CupertinoModalPopupRoute<Duration>(
     barrierDismissible: true,
-    builder: (context) =>
-        TimePickerSheet(title: title, initial_time: initial_time),
+    builder: (context) => TimePickerSheet(
+      title: title,
+      initial_time: initial_time,
+      selection_hint: selection_hint,
+    ),
   );
+  final result = await Navigator.of(context, rootNavigator: true).push(route);
+  await route.completed;
+  return result;
 }
