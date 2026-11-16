@@ -298,7 +298,9 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> deleteAccount(User user) async {
     // 서버가 해제용 토큰을 보관하지 않는 provider는 요청 전에 해제한다.
     if (user.google_id != null && user.google_id!.isNotEmpty) {
-      await _google_login_service.disconnect();
+      await _google_login_service.disconnect(
+        expected_google_id: user.google_id!,
+      );
     }
     await _naver_login_service.disconnect();
 

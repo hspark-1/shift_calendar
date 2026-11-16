@@ -10,6 +10,12 @@ class _FakeGoogleSignInSdk implements GoogleSignInSdk {
   int authenticate_count = 0;
   int sign_out_count = 0;
   int disconnect_count = 0;
+  int restore_count = 0;
+  String? restored_id = 'google-subject';
+  bool token_expired = false;
+  Object? restore_error;
+  Object? disconnect_error;
+  final calls = <String>[];
   String? client_id;
   String? server_client_id;
   bool supports_authenticate = true;
@@ -31,6 +37,15 @@ class _FakeGoogleSignInSdk implements GoogleSignInSdk {
 
   @override
   bool supportsAuthenticate() => supports_authenticate;
+
+  @override
+  Future<String?> restoreAccountId() async {
+    restore_count += 1;
+    calls.add('restore');
+    if (restore_error != null) throw restore_error!;
+    token_expired = false;
+    return restored_id;
+  }
 
   @override
   Future<String?> authenticateAndGetIdToken() async {
@@ -55,6 +70,11 @@ class _FakeGoogleSignInSdk implements GoogleSignInSdk {
   @override
   Future<void> disconnect() async {
     disconnect_count += 1;
+    calls.add('disconnect');
+    if (disconnect_error != null) throw disconnect_error!;
+    if (token_expired) {
+      throw PlatformException(code: 'com.google.HTTPStatus: 400');
+    }
   }
 }
 
@@ -148,11 +168,101 @@ void main() {
         server_client_id: 'server-client-id',
       );
 
-      await service.disconnect();
+      await service.disconnect(expected_google_id: 'google-subject');
 
       expect(sdk.initialize_count, 1);
       expect(sdk.disconnect_count, 1);
+      expect(sdk.restore_count, 0);
     });
+
+    test('iOS 만료 세션은 복원·갱신한 뒤 연결을 해제한다', () async {
+      final sdk = _FakeGoogleSignInSdk()..token_expired = true;
+      final service = GoogleLoginService(
+        google_sign_in_sdk: sdk,
+        target_platform: TargetPlatform.iOS,
+        ios_client_id: 'ios-client-id',
+        server_client_id: 'server-client-id',
+      );
+      await service.disconnect(expected_google_id: 'google-subject');
+      expect(sdk.calls, ['restore', 'disconnect']);
+      expect(sdk.restore_count, 1);
+      expect(sdk.authenticate_count, 0);
+    });
+
+    for (final restored_id in <String?>[null, 'another-google-subject']) {
+      test('iOS 복원 계정 $restored_id 불일치는 연결 해제 없이 재로그인을 요구한다', () async {
+        final sdk = _FakeGoogleSignInSdk()..restored_id = restored_id;
+        final service = GoogleLoginService(
+          google_sign_in_sdk: sdk,
+          target_platform: TargetPlatform.iOS,
+          ios_client_id: 'ios-client-id',
+          server_client_id: 'server-client-id',
+        );
+        await expectLater(
+          service.disconnect(expected_google_id: 'google-subject'),
+          throwsA(
+            isA<GoogleAccountDeletionReauthenticationRequiredException>(),
+          ),
+        );
+        expect(sdk.disconnect_count, 0);
+        expect(sdk.authenticate_count, 0);
+      });
+    }
+
+    test('iOS revoke 400은 무시하지 않고 재로그인 결과로 변환한다', () async {
+      final sdk = _FakeGoogleSignInSdk()
+        ..disconnect_error = PlatformException(
+          code: 'com.google.HTTPStatus: 400',
+          message: 'private-native-message',
+          details: {'data': 'NSConcreteMutableData'},
+        );
+      final service = GoogleLoginService(
+        google_sign_in_sdk: sdk,
+        target_platform: TargetPlatform.iOS,
+        ios_client_id: 'ios-client-id',
+        server_client_id: 'server-client-id',
+      );
+      await expectLater(
+        service.disconnect(expected_google_id: 'google-subject'),
+        throwsA(isA<GoogleAccountDeletionReauthenticationRequiredException>()),
+      );
+      expect(sdk.disconnect_count, 1);
+    });
+
+    for (final phase in ['restore', 'disconnect', 'initialize']) {
+      test('$phase SDK 실패는 원문 대신 사용자용 메시지를 반환한다', () async {
+        final sdk = _FakeGoogleSignInSdk();
+        final error = phase == 'restore'
+            ? const GoogleSignInException(
+                code: GoogleSignInExceptionCode.unknownError,
+                description: 'private-native-message',
+              )
+            : PlatformException(
+                code: 'network',
+                message: 'private-native-message',
+              );
+        if (phase == 'restore') sdk.restore_error = error;
+        if (phase == 'disconnect') sdk.disconnect_error = error;
+        if (phase == 'initialize') sdk.initialize_error = error;
+        final service = GoogleLoginService(
+          google_sign_in_sdk: sdk,
+          target_platform: TargetPlatform.iOS,
+          ios_client_id: 'ios-client-id',
+          server_client_id: 'server-client-id',
+        );
+        await expectLater(
+          service.disconnect(expected_google_id: 'google-subject'),
+          throwsA(
+            isA<GoogleLoginUnavailableException>().having(
+              (error) => error.message,
+              'message',
+              isNot(contains('private-native-message')),
+            ),
+          ),
+        );
+        if (phase != 'disconnect') expect(sdk.disconnect_count, 0);
+      });
+    }
 
     test('ID Token이 없으면 사용자용 오류로 변환한다', () async {
       final sdk = _FakeGoogleSignInSdk()..id_token = '  ';

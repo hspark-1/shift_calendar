@@ -8,6 +8,15 @@
 - 파일 역할/의존성/사용 예: 기존 google_login_service.dart의 GoogleLoginCredential·authorizePhoneAccessToken, auth_repository_impl.dart의 credential 전달, auth_remote_datasource.dart의 선택 body 필드와 기존3개 테스트/가입 위젯 회귀를 수정했다. 고정 google_sign_in7.2.0·기존 Dio/User 모델을 사용하며 새 파일/패키지/앱 env/DB migration은 없다. 실제 body는 `{id_token, access_token?}`이며 구형 ID Token 전용 요청도 지원한다.
 - 계약·배포/롤백: `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`의 현행 절과 인접 서버 가이드 상단을 따른다. 서버를 먼저 배포한 뒤 앱을 재빌드한다. 실제 Google iOS/Android 동의·번호 수신/취소·가입·로그아웃/탈퇴는 Stage 인수 대상이다. 최종 WORKLOG의 로컬 검증과 구분한다. rollback은 이번 Google 변경만 복구하고 기존 미커밋 변경·사용자 번호/사진을 유지한다.
 
+## Google 회원 탈퇴 iOS HTTP 400 보완 (2026-11-13)
+
+- 확인된 경로: SettingsPage → AuthNotifier → AuthRepositoryImpl의 Google disconnect → Naver disconnect → 서버 DELETE. 기존 Google SDK 예외는 서버 요청 전 전파되고 AuthNotifier가 toString으로 원문을 표시한다. 보관한 실제 수정 전 서비스에 제보와 같은 PlatformException을 주입해 원문 전파를 재현한다. 캡처만으로 실제 Google 응답 body·토큰 만료/폐기 여부는 확정할 수 없다.
+- SDK 근거: 고정 google_sign_in7.2.0/google_sign_in_ios6.3.0 및 설치된 GIDSignIn.m의 disconnect는 현재/키체인 토큰으로 revoke하고 선행 갱신하지 않는다. attemptLightweightAuthentication은 iOS restorePreviousSignIn으로 이어져 필요 시 토큰을 갱신한다. Google 공식 [세션 복원](https://developers.google.com/identity/sign-in/ios/sign-in)·[연결 해제](https://developers.google.com/identity/sign-in/ios/disconnect) 문서도 함께 확인했다. 사용자 기기의 원격 token 상태를 직접 조회하지 않았다.
+- **Behavior change / ADR-0080**: iOS는 연결 해제 직전 SDK 세션을 복원·갱신하고 계정 ID가 서버 User.google_id와 같은지 확인한다. 세션 부재/계정 불일치 또는 원시 com.google.HTTPStatus: 400은 새 GoogleAccountDeletionReauthenticationRequiredException → reauthentication_required → 기존 다시 로그인 alert로 연결한다. Android는 기존 직접 disconnect를 유지한다. SDK 복원으로 앱 JWT auth_time을 새로 만들거나 서버 최근 로그인 조건을 우회하지 않는다.
+- 에러/UX: PlatformException·GoogleSignInException은 GoogleLoginUnavailableException의 사용자용 메시지로 변환한다. 탈퇴의 예상 밖 오류도 고정 한국어 문구로 표시한다. 서버 ApiException 메시지/request_id 처리·202/401/진행 중 세션 정리·계정 Provider 수명·확인/취소/재로그인 후 재확인은 유지한다. 실패를 외부 연결 해제 성공으로 처리하지 않는다. 서버 설계의 내부 삭제/외부 해제 분리와 FE ADR-0021의 선행 해제 조건 차이는 기존 PRIVACY_FE_CONTRACT_PROPOSAL의 미합의 영역이며 이번에 사전 해제 우회 정책을 새로 만들지 않았다.
+- 파일 역할/의존성/사용 예: 기존 google_login_service.dart의 SDK 경계에 restoreAccountId()를 추가하고 disconnect(expected_google_id: user.google_id!)로 호출한다. 기존 repository는 서버 프로필 ID를 주입하며 AuthNotifier는 타입을 UI 결과로 매핑한다. 신규 영구 파일/패키지·공용 위젯/테마/라우트/analytics·서버 API/DB/env 변경은 없다. 기존 서비스/저장소/provider/설정 테스트에 만료 모의 세션·다른 계정·400·오류 비노출·재로그인 이동 회귀를 추가했다.
+- 검증/한계/롤백: 최종 WORKLOG를 따른다. 실계정 Google revoke·실기기 탈퇴/앱 재실행 인수·배포는 수행하지 않았다. 수정 전 파일은 /private/tmp/shiftmate_google_deletion_20261113/before에 보관했으며 이번 인증/테스트/문서 diff만 복구한다. Flutter 저장소에 origin/main만 있어 기존 main 기반으로 로컬 develop을 만들고 미커밋 작업을 보존했다. 커밋/푸시는 하지 않는다.
+
 ## 친구 추가는 정확 일치 계정 한 명을 확인한다 (2026-11-13)
 
 - 높이/제스처 최신 정책: ADR-0079(ADR-0078 후속). 기본/최대 두 높이를 유지하며 위48px 이상은 최대, 최대에서 아래48px 이상은 먼저 기본으로 접고 기본에서 아래120px 이상은 닫는다. 드래그 전후 애니메이션을 유지해260ms로 보간하며 중간 높이를 저장하지 않는다.

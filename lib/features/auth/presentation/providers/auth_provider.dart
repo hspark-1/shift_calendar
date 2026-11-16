@@ -339,6 +339,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _invalidateAccountScopedProviders();
       state = const AuthState(status: AuthStatus.unauthenticated);
       return AccountDeletionResult.accepted;
+    } on GoogleAccountDeletionReauthenticationRequiredException {
+      state = state.copyWith(is_loading: false, error: null);
+      return AccountDeletionResult.reauthentication_required;
+    } on GoogleLoginUnavailableException catch (error) {
+      state = state.copyWith(is_loading: false, error: error.message);
+      return AccountDeletionResult.failed;
     } on ApiException catch (error) {
       if (error.request_id != null) {
         debugPrint('회원 탈퇴 실패 request_id=${error.request_id}');
@@ -361,7 +367,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (error) {
       state = state.copyWith(
         is_loading: false,
-        error: error.toString().replaceAll('Exception: ', ''),
+        error: '회원 탈퇴를 처리하지 못했습니다. 잠시 후 다시 시도해주세요.',
       );
       return AccountDeletionResult.failed;
     }

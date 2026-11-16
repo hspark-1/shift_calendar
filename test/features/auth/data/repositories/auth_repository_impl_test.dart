@@ -161,6 +161,8 @@ class _FakeGoogleLoginService extends GoogleLoginService {
   int login_count = 0;
   int logout_count = 0;
   int disconnect_count = 0;
+  String? expected_google_id;
+  Object? disconnect_error;
 
   @override
   Future<GoogleLoginCredential> loginWithGoogle() async {
@@ -179,8 +181,10 @@ class _FakeGoogleLoginService extends GoogleLoginService {
   }
 
   @override
-  Future<void> disconnect() async {
+  Future<void> disconnect({required String expected_google_id}) async {
     disconnect_count += 1;
+    this.expected_google_id = expected_google_id;
+    if (disconnect_error != null) throw disconnect_error!;
   }
 }
 
@@ -323,12 +327,35 @@ void main() {
     await repository.deleteAccount(remote_data_source.response.user);
 
     expect(google_login_service.disconnect_count, 1);
+    expect(google_login_service.expected_google_id, 'google-subject');
     expect(naver_login_service.disconnect_count, 1);
     expect(remote_data_source.delete_account_count, 1);
     expect(remote_data_source.kakao_logout_count, 1);
     expect(naver_login_service.logout_count, 1);
     expect(google_login_service.logout_count, 1);
     expect(token_service.clear_count, 1);
+  });
+
+  test('Google 해제 실패는 서버 탈퇴와 로컬 JWT 삭제를 막는다', () async {
+    final remote_data_source = _FakeAuthRemoteDataSource();
+    final token_service = _FakeTokenService();
+    final google_login_service = _FakeGoogleLoginService()
+      ..disconnect_error =
+          const GoogleAccountDeletionReauthenticationRequiredException();
+    final naver_login_service = _FakeNaverLoginService();
+    final repository = AuthRepositoryImpl(
+      remote_data_source,
+      token_service,
+      google_login_service: google_login_service,
+      naver_login_service: naver_login_service,
+    );
+    await expectLater(
+      repository.deleteAccount(remote_data_source.response.user),
+      throwsA(isA<GoogleAccountDeletionReauthenticationRequiredException>()),
+    );
+    expect(remote_data_source.delete_account_count, 0);
+    expect(token_service.clear_count, 0);
+    expect(naver_login_service.disconnect_count, 0);
   });
 
   test('재인증 필요 오류에서는 앱 JWT와 인증 상태를 유지한다', () async {

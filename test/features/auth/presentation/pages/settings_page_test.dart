@@ -7,6 +7,7 @@ import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/core/utils/privacy_policy.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
+import 'package:shift_mate/features/auth/data/services/google_login_service.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/features/auth/presentation/pages/login_page.dart';
 import 'package:shift_mate/features/auth/presentation/pages/settings_page.dart';
@@ -258,6 +259,25 @@ void main() {
 
     expect(repository.delete_account_count, 1);
     expect(find.byType(LoginPage), findsOneWidget);
+  });
+
+  testWidgets('Google revoke 400 재인증은 다시 로그인으로 이동한다', (tester) async {
+    final repository = _SettingsAuthRepository()
+      ..delete_account_error =
+          const GoogleAccountDeletionReauthenticationRequiredException();
+    await _pumpSettings(tester, repository);
+    await _scrollToDeleteAccount(tester);
+    await tester.tap(find.byKey(const Key('delete_account_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, '탈퇴'));
+    await tester.pumpAndSettle();
+    expect(find.text('다시 로그인이 필요합니다'), findsOneWidget);
+    expect(find.text('회원 탈퇴 실패'), findsNothing);
+    expect(find.byType(SettingsPage), findsOneWidget);
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, '다시 로그인'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginPage), findsOneWidget);
+    expect(repository.delete_account_count, 1);
   });
 
   testWidgets('재인증 필요 응답은 설정 화면을 유지하고 다시 로그인을 안내한다', (tester) async {

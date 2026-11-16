@@ -12,6 +12,8 @@ abstract interface class GoogleSignInSdk {
 
   bool supportsAuthenticate();
 
+  Future<String?> restoreAccountId();
+
   Future<String?> authenticateAndGetIdToken();
 
   Future<String?> authorizePhoneAccessToken();
@@ -43,6 +45,14 @@ class NativeGoogleSignInSdk implements GoogleSignInSdk {
 
   @override
   bool supportsAuthenticate() => _google_sign_in.supportsAuthenticate();
+
+  @override
+  Future<String?> restoreAccountId() async {
+    final account = await _google_sign_in.attemptLightweightAuthentication(
+      reportAllExceptions: true,
+    );
+    return account?.id;
+  }
 
   @override
   Future<String?> authenticateAndGetIdToken() async {
@@ -179,11 +189,32 @@ class GoogleLoginService {
     await _google_sign_in_sdk.signOut();
   }
 
-  /// 회원 탈퇴 전 Google 앱 연결과 로컬 세션을 해제한다.
-  Future<void> disconnect() async {
+  /// iOS는 저장된 Google 세션을 복원·갱신하고 탈퇴 계정과 대조한 뒤 해제한다.
+  Future<void> disconnect({required String expected_google_id}) async {
     _validateConfiguration();
-    await _ensureInitialized();
-    await _google_sign_in_sdk.disconnect();
+    try {
+      await _ensureInitialized();
+      if (_target_platform == TargetPlatform.iOS) {
+        final restored_id = await _google_sign_in_sdk.restoreAccountId();
+        if (restored_id == null || restored_id != expected_google_id) {
+          throw const GoogleAccountDeletionReauthenticationRequiredException();
+        }
+      }
+      await _google_sign_in_sdk.disconnect();
+    } on PlatformException catch (error) {
+      // iOS revoke의 400은 성공으로 간주하지 않고 전체 재로그인을 요구한다.
+      if (_target_platform == TargetPlatform.iOS &&
+          error.code == 'com.google.HTTPStatus: 400') {
+        throw const GoogleAccountDeletionReauthenticationRequiredException();
+      }
+      throw const GoogleLoginUnavailableException(
+        'Google 연결을 해제하지 못했습니다. 잠시 후 다시 시도해주세요.',
+      );
+    } on GoogleSignInException {
+      throw const GoogleLoginUnavailableException(
+        'Google 연결을 확인하지 못했습니다. 다시 로그인한 후 탈퇴해주세요.',
+      );
+    }
   }
 
   void _validateConfiguration() {
@@ -207,6 +238,12 @@ class GoogleLoginService {
       serverClientId: _server_client_id,
     );
   }
+}
+
+/// Google 세션 부재·계정 불일치 또는 revoke 400은 전체 재로그인 후 다시 확인한다.
+class GoogleAccountDeletionReauthenticationRequiredException
+    implements Exception {
+  const GoogleAccountDeletionReauthenticationRequiredException();
 }
 
 /// 사용자가 Google 계정 선택 화면을 명시적으로 닫은 경우.

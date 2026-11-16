@@ -13,6 +13,19 @@
   - 한계: 실제 Google API와 네이티브 동의 화면은 mock 경계 밖이므로 Stage iOS/Android 실계정 인수가 남는다. 서버 SQL 변경은 없다.
   - 롤백: 이번 Google 변경만 되돌리고 기존 미커밋 작업과 저장된 사용자 번호/사진은 유지한다. 작업 전 사본은 /private/tmp/shiftmate_google_phone_20261113/before다.
 
+## 2026-11-13 Google 회원 탈퇴 iOS HTTP 400
+
+- [DONE] (FE) Google 연결 해제 전 세션 복원·갱신 및 재인증/오류 처리
+  - 목적: Google SDK HTTP 400으로 서버 탈퇴 요청이 중단되고 예외 원문이 표시되는 문제를 해결한다.
+  - 변경/Behavior change: iOS는 SDK lightweight authentication으로 세션 복원·필요 시 token 갱신 후 User.google_id와 복원 account.id가 일치할 때만 disconnect한다. 세션 부재/불일치·원시 com.google.HTTPStatus: 400은 전용 예외로 기존 다시 로그인 안내에 연결한다. 기타 SDK 오류는 안전한 한국어 메시지, 예상 밖 탈퇴 오류도 고정 문구로 표시한다. 해제 실패를 성공으로 간주하지 않으며 서버 요청/로컬 JWT 삭제를 진행하지 않는다. 사용자의 다시 로그인 선택으로 로그아웃하고 전체 로그인 후 다시 탈퇴 확인을 받는다.
+  - 범위/파일: 기존 google_login_service.dart·auth_repository_impl.dart·auth_provider.dart와 관련 기존 테스트4개 및 PROJECT_CONTEXT/ADR-0080/이번 일지다. 신규 영구 파일/패키지·UI 배치/라우트/테마/analytics·서버 API/DB/env는 없다. Android 직접 해제·ApiException/request_id·202/401/진행 중 처리·계정 캐시 정책은 유지하며 SDK 복원은 ShiftMate JWT auth_time을 바꾸지 않는다. 기존 미커밋 변경은 보존했다.
+  - 근거/재현: 설치된 google_sign_in7.2.0/google_sign_in_ios6.3.0/GIDSignIn.m의 disconnect와 restore 코드를 직접 읽고 Google 공식 복원/해제 문서와 대조했다. 보관한 수정 전 실제 서비스에 제보와 같은 PlatformException을 주입해 원문 전파를 재현했다(probe1 pass). 실제 Google 응답 body/token 상태는 미확인이므로 제보 원인이 만료라고 확정하지 않는다.
+  - 테스트/결과: 관련4파일44 pass, 인증 기능 전체111 pass/0 fail. 추가 회귀는 만료 모의 세션의 복원→해제 순서/대화형 인증 미호출·계정 부재/불일치의 해제 차단·400 재인증·initialize/restore/disconnect 기타 SDK 오류 비노출·서버 미호출/JWT 보존·provider 로딩 종료·설정 안내에서 로그인 화면 이동을 검증했다. 변경 Dart7개 analyze 진단0건, format 변경0, 범위 diff 검사 통과. 최초 unnecessary_import1건은 제거 후 재분석했다.
+  - 디버거/한계: DebugMCP가 테스트 대신 기존 iPhone release 실행 구성을 선택해 중단점에 도달하지 못했고 stop/중단점 제거 후 no-session을 확인했다. 모의 SDK/서버 테스트로 검증했으며 실제 Google 계정 revoke·실기기 탈퇴/앱 재실행·운영 서버 호출 인수는 수행하지 않았다. 성공한 빌드/설치/배포를 확인한 것은 아니다. 실기기 반영에는 재빌드/설치가 필요하다.
+  - 브랜치/산출물: Flutter 저장소에는 origin/main만 있어 현재 main 기반 로컬 develop을 만들고 작업을 보존했다. 커밋/푸시/운영 배포는 하지 않았다. /private/tmp/shiftmate_google_deletion_20261113/auth-final.log는 인증 전체 결과, baseline_test.dart와 before는 수정 전 모의 재현과 사본이다. 새 영구 산출물은 없다.
+  - 롤백: /private/tmp/shiftmate_google_deletion_20261113/before에 보관한 변경 전 파일과 이번 diff를 기준으로 관련 변경만 복구한다. 기존 미커밋 화면/일정 변경은 되돌리지 않는다.
+  - 다음: 로그인 직후/시간 경과/앱 재실행 후 실제 탈퇴를 확인한다. Google/Naver 사전 해제와 내부 삭제 분리의 기존 미합의 정책은 서버 PRIVACY_FE_CONTRACT_PROPOSAL에 남아 있으며 이번에 우회 정책을 추가하지 않았다.
+
 ## 2026-11-13 친구 추가 시트 전환 애니메이션·접기 개선
 
 - [DONE] (FE/UI) 확대/축소의 실제 중간 프레임을 복구하고 최대 단계의 즉시 닫힘 방지

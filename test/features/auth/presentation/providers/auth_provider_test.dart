@@ -321,6 +321,54 @@ void main() {
     expect(container.read(authProvider).status, AuthStatus.unauthenticated);
   });
 
+  test('Google 연결 재인증은 로그인 상태를 보존하고 재로그인을 안내한다', () async {
+    const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');
+    final repository = _FakeAuthRepository()
+      ..is_logged_in = true
+      ..profile = user
+      ..delete_account_error =
+          const GoogleAccountDeletionReauthenticationRequiredException();
+    final container = ProviderContainer(overrides: _overrides(repository));
+    addTearDown(container.dispose);
+    final notifier = container.read(authProvider.notifier);
+    await notifier.checkAuthStatus();
+    expect(
+      await notifier.deleteAccount(),
+      AccountDeletionResult.reauthentication_required,
+    );
+    expect(container.read(authProvider).status, AuthStatus.authenticated);
+    expect(container.read(authProvider).user, same(user));
+    expect(container.read(authProvider).is_loading, isFalse);
+    expect(container.read(authProvider).error, isNull);
+  });
+
+  for (final error in <Object>[
+    const GoogleLoginUnavailableException('Google 연결을 확인하지 못했습니다.'),
+    Exception('private-native-message'),
+  ]) {
+    test('탈퇴 오류 $error 는 SDK 원문을 노출하지 않는다', () async {
+      const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');
+      final repository = _FakeAuthRepository()
+        ..is_logged_in = true
+        ..profile = user
+        ..delete_account_error = error;
+      final container = ProviderContainer(overrides: _overrides(repository));
+      addTearDown(container.dispose);
+      final notifier = container.read(authProvider.notifier);
+      await notifier.checkAuthStatus();
+      expect(await notifier.deleteAccount(), AccountDeletionResult.failed);
+      expect(container.read(authProvider).status, AuthStatus.authenticated);
+      expect(container.read(authProvider).is_loading, isFalse);
+      expect(
+        container.read(authProvider).error,
+        isNot(contains('private-native-message')),
+      );
+      if (error is GoogleLoginUnavailableException) {
+        expect(container.read(authProvider).error, error.message);
+      }
+    });
+  }
+
   test('재인증 필요 시 인증 상태를 유지하고 별도 결과를 반환한다', () async {
     const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');
     final repository = _FakeAuthRepository()
