@@ -6,10 +6,41 @@ import 'package:shift_mate/features/group/data/repositories/group_repository_imp
 import 'package:shift_mate/features/group/domain/entities/group_models.dart';
 
 class _FakeGroupRemoteDataSource implements GroupRemoteDataSource {
-  _FakeGroupRemoteDataSource({this.event_private});
+  _FakeGroupRemoteDataSource({
+    this.event_private,
+    this.created_by_user_id = 'creator',
+  });
   final bool? event_private;
+  final String? created_by_user_id;
   String? requested_start_date;
   String? requested_end_date;
+
+  @override
+  Future<Map<String, dynamic>> getGroupDetail(String group_id) async {
+    return {
+      'success': true,
+      'data': {
+        'group': {
+          'group_id': group_id,
+          'name': '우리 병동',
+          'timezone': 'Asia/Seoul',
+          'my_role': 'OWNER',
+          'member_count': 1,
+          'members': [
+            {
+              'user_id': 'successor',
+              'name': '새 소유자',
+              'role': 'OWNER',
+              'joined_at': '2026-08-01T03:00:00.000Z',
+            },
+          ],
+          'created_by_user_id': created_by_user_id,
+          'created_at': '2026-08-01T03:00:00.000Z',
+          'updated_at': '2026-11-12T03:00:00.000Z',
+        },
+      },
+    };
+  }
 
   @override
   Future<Map<String, dynamic>> getGroupCalendarRange({
@@ -84,6 +115,23 @@ class _FakeGroupRemoteDataSource implements GroupRemoteDataSource {
 }
 
 void main() {
+  for (final creator_id in <String?>['creator', null]) {
+    test('그룹 상세는 생성자 ID $creator_id 응답과 현재 OWNER를 보존한다', () async {
+      final repository = GroupRepositoryImpl(
+        _FakeGroupRemoteDataSource(created_by_user_id: creator_id),
+      );
+
+      final result = await repository.getGroupDetail('group-1');
+
+      expect(result.group_id, 'group-1');
+      expect(result.created_by_user_id, creator_id);
+      expect(result.my_role, GroupRole.owner);
+      expect(result.member_count, 1);
+      expect(result.members.single.user_id, 'successor');
+      expect(result.members.single.role, GroupRole.owner);
+    });
+  }
+
   test('그룹 캘린더 응답에서 소유자·공개 상태·색상·UTC를 보존한다', () async {
     final data_source = _FakeGroupRemoteDataSource();
     final repository = GroupRepositoryImpl(data_source);

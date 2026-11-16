@@ -13,37 +13,41 @@ import 'package:shift_mate/features/group/domain/repositories/group_repository.d
 import 'package:shift_mate/features/group/presentation/pages/group_management_page.dart';
 
 class _FakeGroupRepository implements GroupRepository {
-  _FakeGroupRepository({this.my_role = GroupRole.owner});
+  _FakeGroupRepository({
+    this.my_role = GroupRole.owner,
+    this.created_by_user_id = 'owner',
+  });
 
   final GroupRole my_role;
+  final String? created_by_user_id;
   int outgoing_invitation_call_count = 0;
 
   @override
   Future<GroupDetail> getGroupDetail(String group_id) async {
-    return GroupDetail(
-      group_id: group_id,
-      name: '우리 병동',
-      timezone: 'Asia/Seoul',
-      my_role: my_role,
-      member_count: 2,
-      members: [
-        GroupMember(
-          user_id: 'owner',
-          name: '소유자',
-          role: GroupRole.owner,
-          joined_at: DateTime.utc(2026, 8, 1),
-        ),
-        GroupMember(
-          user_id: 'member',
-          name: '멤버',
-          role: GroupRole.member,
-          joined_at: DateTime.utc(2026, 8, 1, 1),
-        ),
+    return GroupDetail.fromJson({
+      'group_id': group_id,
+      'name': '우리 병동',
+      'timezone': 'Asia/Seoul',
+      'my_role': my_role.api_value,
+      'member_count': 2,
+      'members': [
+        {
+          'user_id': 'owner',
+          'name': '소유자',
+          'role': 'OWNER',
+          'joined_at': '2026-08-01T00:00:00.000Z',
+        },
+        {
+          'user_id': 'member',
+          'name': '멤버',
+          'role': 'MEMBER',
+          'joined_at': '2026-08-01T01:00:00.000Z',
+        },
       ],
-      created_by_user_id: 'owner',
-      created_at: DateTime.utc(2026, 8, 1),
-      updated_at: DateTime.utc(2026, 8, 1),
-    );
+      'created_by_user_id': created_by_user_id,
+      'created_at': '2026-08-01T00:00:00.000Z',
+      'updated_at': '2026-08-01T00:00:00.000Z',
+    });
   }
 
   @override
@@ -90,6 +94,36 @@ class _FakeFriendService extends FriendService {
 }
 
 void main() {
+  testWidgets('생성자가 탈퇴한 그룹도 정보를 표시하고 승계된 OWNER의 초대를 허용한다', (tester) async {
+    final repository = _FakeGroupRepository(created_by_user_id: null);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          groupRepositoryProvider.overrideWithValue(repository),
+          friendServiceProvider.overrideWithValue(_FakeFriendService()),
+        ],
+        child: const CupertinoApp(
+          home: GroupManagementPage(group_id: 'group-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('우리 병동'), findsOneWidget);
+    expect(find.text('멤버 2명'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('group-management-member-owner')),
+      findsOneWidget,
+    );
+    final invite_button = tester.widget<CupertinoButton>(
+      find.byKey(const ValueKey('group-management-invite-button')),
+    );
+    expect(invite_button.onPressed, isNotNull);
+    expect(find.text('그룹 정보를 불러오지 못했습니다.'), findsNothing);
+    expect(find.text('다시 시도'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('P0 초대는 항상 보이고 P1 관리 액션은 플래그를 따른다', (tester) async {
     final repository = _FakeGroupRepository();
     await tester.pumpWidget(

@@ -8,6 +8,23 @@
 - 파일 역할/의존성/사용 예: 기존 google_login_service.dart의 GoogleLoginCredential·authorizePhoneAccessToken, auth_repository_impl.dart의 credential 전달, auth_remote_datasource.dart의 선택 body 필드와 기존3개 테스트/가입 위젯 회귀를 수정했다. 고정 google_sign_in7.2.0·기존 Dio/User 모델을 사용하며 새 파일/패키지/앱 env/DB migration은 없다. 실제 body는 `{id_token, access_token?}`이며 구형 ID Token 전용 요청도 지원한다.
 - 계약·배포/롤백: `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`의 현행 절과 인접 서버 가이드 상단을 따른다. 서버를 먼저 배포한 뒤 앱을 재빌드한다. 실제 Google iOS/Android 동의·번호 수신/취소·가입·로그아웃/탈퇴는 Stage 인수 대상이다. 최종 WORKLOG의 로컬 검증과 구분한다. rollback은 이번 Google 변경만 복구하고 기존 미커밋 변경·사용자 번호/사진을 유지한다.
 
+## 그룹 생성자 탈퇴 후 상세 정보의 nullable 계약 지원 (2026-11-12)
+
+- 목적/Behavior change: ADR-0070. 생성자가 회원 탈퇴해 `GET /api/v1/groups/{group_id}`의 `created_by_user_id`가 null이어도 그룹 정보를 정상 표시한다. 기존 `GroupDetail.created_by_user_id`를 `String?`, `fromJson`의 캐스트를 `as String?`로 변경했다. 생성자 문자열은 그대로 보존하고 null을 빈 문자열이나 현재 OWNER ID로 대체하지 않는다.
+- 흐름/영향: 기존 `GroupManagementPage → GroupDetailNotifier.load → GroupRepositoryImpl.getGroupDetail → GroupDetail.fromJson` 경로를 유지하며 데이터 계약 두 줄만 수정한다. 권한은 기존 `my_role`/멤버 `role`을 따르며 UI state/domain state 관리·autoDispose·라우트/접근권한·API 요청·서버/DB·의존성/env·로깅은 변경하지 않는다.
+- 파일/검증: 신규 파일 없이 기존 `group_repository_impl_test.dart`에 생성자 문자열/null 응답 파싱과 승계된 OWNER 보존을 검증한다. 기존 `group_management_page_test.dart`의 모의 repository는 실제 JSON 파서를 호출하며 null 생성자에서도 그룹명/멤버/활성 초대 버튼을 표시하고 기본 오류/재시도를 표시하지 않는지 검증한다. 수정 전 두 null 회귀가 실패해 증상을 재현했다. 실행: `flutter test --no-pub test/features/group --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --dart-define=GROUP_API_ENABLED=true --dart-define=GROUP_P1_ENABLED=true`. 결과/기본 플래그 검증은 WORKLOG를 따른다.
+- 롤백/배포: 이번 모델 두 줄·추가 회귀·문서 추가분만 되돌린다. 수정 앱을 빌드/배포해야 설치 사용자에게 반영되며 기존 앱의 파싱 오류를 서버 문서 변경으로 해결할 수는 없다. 이번 작업은 실기기/운영 API 확인·앱 배포를 포함하지 않는다.
+
+## 그룹 생성자 회원 탈퇴 후 상세 조회 오류 조사 (2026-11-12)
+
+- 상태: 수정 전 원인 조사 기록이다. 앱 수정 결과와 현행 nullable 계약은 위 절 및 ADR-0070을 따른다.
+
+- 조사 결과: 인접 서버의 `accountDeletionService.purgeAccountData`는 남은 멤버를 `OWNER`로 승계하고 탈퇴자를 물리 삭제한다. `add_account_deletion_support.sql`의 `groups.created_by_user_id`는 nullable/`ON DELETE SET NULL`이며, 서버 `groupService.getGroupDetail`과 `types/group.ts`는 이 null을 그대로 응답한다. 현재 소유권은 `group_members.role`이고 생성자 감사 필드는 소유권 이전 대상이 아니다.
+- FE 계약 불일치: `lib/features/group/domain/entities/group_models.dart:209`의 `GroupDetail.fromJson`은 생성자 값을 `as String`으로 읽는다. 생성자 탈퇴 후 null 응답은 TypeError를 발생시키고 `GroupDetailNotifier.load`가 저장한다. `GroupManagementPage`는 그룹 데이터가 없고 로딩 중이 아니며 ApiException이 아닌 오류이면 ‘그룹 정보를 불러오지 못했습니다.’를 표시한다. 연결 API는 `GET /api/v1/groups/{group_id}`이며 HTTP 성공 응답의 파싱만 실패해도 나타난다.
+- 캘린더와 목록이 유지되는 이유: `GET /groups/{group_id}/calendar/range`의 헤더는 group_id/name/timezone만 사용하고 그룹 목록 모델도 생성자 필드를 파싱하지 않는다. 캘린더 진입에서 상세와 캘린더 요청은 별도로 실행된다. 상세 파싱 오류가 있어도 캘린더 데이터로 제목/구성원/일정을 표시할 수 있다.
+- 검증/한계: 실제 GroupDetail/GroupSummary/GroupCalendarHeader를 호출하는 외부 임시 진단 스크립트 `/private/tmp/group_owner_deletion_repro.dart`로 생성자 문자열 성공 → null일 때 목록/캘린더 성공·상세 TypeError를 재현했다. 실행 예: `/opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart /private/tmp/group_owner_deletion_repro.dart`. 순수 Dart 모델에만 의존하며 서버/DB/인증 정보를 사용하지 않는다. 임시 스크립트는 저장소 산출물이 아니다. 사용자가 겪은 실제 API 응답·배포 코드·운영 DB 값은 이번에 수집하지 않았다.
+- 영향/후속: 이번 작업은 분석/문서만 추가하고 앱·서버·API·DB 동작을 변경하지 않는다. 수정 지점은 FE 생성자 타입과 파서의 nullable 수용 및 생성자 탈퇴 후 상세/화면 회귀다. 소유권 판단을 생성자 ID로 대체하거나 새 소유자를 과거 생성자로 덮어쓰지 않는다. 새 설계 결정이 없어 ADR은 추가하지 않으며 이번 조사 문서만 제거하면 롤백된다.
+
 ## 누적 작업별 커밋·푸시 검증 (2026-11-11)
 
 - 기존 변경을 디자인 검토·공통 내비게이션/설정/그룹 UI·색상·근무 타입·프로필·개인 일정의 6개 커밋으로 나눠 origin/main에 푸시했다. 커밋별 컨텍스트·ADR·작업 기록과 시안/검증 산출물을 포함했고 앱 코드 추가 변경은 없다. 기존 ADR의 대체 안내와 아래 상세 UI/라우팅 설명의 정합성은 후속 문서 커밋으로 보존한다.

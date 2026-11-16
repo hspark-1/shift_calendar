@@ -192,7 +192,7 @@ class GroupDetail {
   final GroupRole my_role;
   final int member_count;
   final List<GroupMember> members;
-  final String created_by_user_id;
+  final String? created_by_user_id;
   final DateTime created_at;
   final DateTime updated_at;
 
@@ -206,7 +206,7 @@ class GroupDetail {
       members: (json['members'] as List)
           .map((item) => GroupMember.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),
-      created_by_user_id: json['created_by_user_id'] as String,
+      created_by_user_id: json['created_by_user_id'] as String?,
       created_at: DateTime.parse(json['created_at'] as String),
       updated_at: DateTime.parse(json['updated_at'] as String),
     );

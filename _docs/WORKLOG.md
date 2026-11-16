@@ -13,6 +13,29 @@
   - 한계: 실제 Google API와 네이티브 동의 화면은 mock 경계 밖이므로 Stage iOS/Android 실계정 인수가 남는다. 서버 SQL 변경은 없다.
   - 롤백: 이번 Google 변경만 되돌리고 기존 미커밋 작업과 저장된 사용자 번호/사진은 유지한다. 작업 전 사본은 /private/tmp/shiftmate_google_phone_20261113/before다.
 
+## 2026-11-12 그룹 생성자 탈퇴 후 상세 조회 수정
+
+- [DONE] (FE) 그룹 생성자 nullable 응답 지원
+  - 목적: 생성자 탈퇴 후 소유권이 승계된 그룹의 정보 화면이 파싱 예외로 실패하는 문제를 해결한다.
+  - 변경/영향: GroupDetail 생성자 ID 타입/파서를 nullable로 맞추고 실제 repository 파싱 및 정보 화면 회귀를 추가한다. 앱만 수정하며 서버/DB 계약과 역할 기반 권한을 유지한다.
+  - 테스트: 생성자 ID 문자열/null 응답 및 null 응답의 실제 정보 화면 로딩·승계된 OWNER 권한을 검증하고 관련 그룹 회귀·정적 분석·포맷을 확인한다.
+  - 결과: 수정 전 새 null repository/화면 회귀2건 실패로 TypeError와 정보 미표시를 재현했다. 수정 후 GROUP_API_ENABLED/GROUP_P1_ENABLED=true 그룹 전체21 pass, 기본 플래그의 관련 두 파일7 pass·P1 전용 기존1 skip. 생성자 문자열/null 보존·그룹명/멤버 표시·활성 초대 버튼·오류/재시도 미표시를 확인했다. 변경 Dart3개 정적 분석 진단0건·포맷 변경0건·범위 diff 검사 통과.
+  - 실행: `flutter test --no-pub test/features/group --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --dart-define=GROUP_API_ENABLED=true --dart-define=GROUP_P1_ENABLED=true --reporter=expanded`; 기본 경로는 repository/management 두 테스트 파일에 플래그 없이 같은 명령을 실행했다. `flutter analyze --no-pub` 및 `dart format --output=none --set-exit-if-changed`에 변경 Dart3개를 전달했다.
+  - 파일/문서: 기존 group_models.dart·group_repository_impl_test.dart·group_management_page_test.dart·PROJECT_CONTEXT·ADR-0070·이번 로그만 변경했다. 신규 파일/의존성은 없다. 기존 원인 조사 절은 수정 전 기록임을 명시했다.
+  - 한계/배포: 모의 API 응답과 실제 모델/notifier/페이지로 검증했으며 실기기·운영 API 호출·회원 탈퇴 E2E·앱 배포·커밋/푸시는 수행하지 않았다. 수정 앱을 설치해야 반영된다.
+  - 롤백: 이번 모델 두 줄·추가 회귀·문서 추가분만 되돌린다. 기존 미커밋 변경은 보존한다.
+
+## 2026-11-12 그룹 소유자 회원 탈퇴 후 상세 조회 오류 조사
+
+- [DONE] (FE/BE 분석) 소유권 자동 이전 후 그룹 정보 로딩 오류 원인 확인
+  - 목적: 기존 소유자의 회원 탈퇴 후 그룹/캘린더는 유지되지만 그룹 정보 화면이 실패하는 원인을 코드와 재현 근거로 확인한다.
+  - 범위: 회원 탈퇴/소유권 이전, 그룹 상세와 캘린더 API, Flutter 응답 파싱 및 오류 표시. 기능 수정은 이번 분석에 포함하지 않는다.
+  - 원인: 서버는 OWNER 승계 후 탈퇴자를 물리 삭제하며 FK가 groups.created_by_user_id를 null로 익명화한다. 상세 API는 nullable 생성자 값을 반환하지만 Flutter GroupDetail.fromJson:209는 as String으로 읽어 TypeError를 발생시킨다. notifier의 error에 저장되고 그룹 정보 화면의 비ApiException 기본 문구로 표시된다. 캘린더/목록은 생성자 필드를 파싱하지 않아 유지된다.
+  - 검증: 실제 모델을 import한 /private/tmp/group_owner_deletion_repro.dart에서 생성자 문자열일 때 상세 성공, null일 때 목록/캘린더 성공·상세 TypeError를 재현했다(exit 0). 오류: type 'Null' is not a subtype of type 'String' in type cast, group_models.dart:209:54. 실행: /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart /private/tmp/group_owner_deletion_repro.dart. 최초 불필요한 --suppress-analytics 옵션은 VM에서 거부돼 제거한 동일 실행으로 성공했다. SDK/프로젝트 소스 변경은 없다.
+  - 파일/문서: PROJECT_CONTEXT의 ‘그룹 생성자 회원 탈퇴 후 상세 조회 오류 조사’와 이번 일지. 진단 스크립트는 순수 Dart 그룹 모델에 의존하고 저장소 밖 임시 파일이며 예시 문자열/null 응답만 사용한다. 신규 저장소 파일은 없다.
+  - 한계/후속: 실제 장애 API 응답·운영 DB·배포 버전은 미수집이다. DebugMCP 기본 실행이 지정한 임시 Dart 대신 기존 Flutter iPhone 설정을 선택해 진단 입력의 중단점 관찰은 못 했으며 별도 Dart 실행 결과를 근거로 사용한다. 이번에 생성한 디버그 세션과 211행 중단점은 정리하고 다른 중단점은 보존한다. 앱/서버 기능 수정·배포·전체 suite는 수행하지 않았다. 후속 수정은 created_by_user_id nullable 타입/파서와 탈퇴 후 상세/화면 회귀 검증이다. 설계 변경은 없어 ADR을 추가하지 않는다.
+  - 롤백: 이번 조사 문서 추가분만 제거한다. 기존 미커밋 변경은 보존한다.
+
 ## 2026-11-11
 
 - [DONE] (GIT/QA/DOCS) 누적 변경사항 작업별 커밋 및 푸시
