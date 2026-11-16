@@ -1,5 +1,13 @@
 # 작업 로그
 
+## 2026-11-16 로컬 디버그 API 주소 동기화
+
+- [DONE] (FE/DEV) 기존 로컬 서버 주소 변경을 별도 커밋으로 정리한다.
+  - 목적: 로컬 디버그 실행 주소와 실제 코드의 불일치를 해소한다.
+  - 변경/영향: 기존 ApiConstants.base_url_local의 172.30.1.14→172.30.1.93 변경과 PROJECT_CONTEXT의 실행 안내를 함께 반영한다. USE_LOCAL_API 조건과 Stage/Production 주소는 유지한다.
+  - 테스트: 전체 Flutter 559 pass·기존 skip 1, 전체 분석 error/warning 0·기존 미변경 naming info 26건 및 diff 공백 검사. 실제 로컬 서버의 현재 가용성은 이번에 검증하지 않았다.
+  - 롤백: 이 커밋의 상수/문서 변경만 git revert한다.
+
 ## 2026-11-16 네이버 탈퇴→재가입 반복 재현 원인 추적
 
 - [DONE] (FE/Auth) 네이버 탈퇴 후 SDK 재가입 -1005를 실제 재현하고 수정 SDK5.2.1 적용 후 사용자 해결 확인.

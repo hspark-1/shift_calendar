@@ -13,7 +13,7 @@ class ApiConstants {
   static const String base_url_prod = 'https://api.shiftmate.co.kr/api/v1';
 
   /// 로컬 디버그 서버 URL
-  static const String base_url_local = 'http://172.30.1.14:3000/api/v1';
+  static const String base_url_local = 'http://172.30.1.93:3000/api/v1';
 
   static const bool _use_local_api = bool.fromEnvironment('USE_LOCAL_API');
 

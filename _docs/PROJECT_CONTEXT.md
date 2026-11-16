@@ -2210,7 +2210,7 @@ $$
 ## 로컬 API 디버그 실행 (2026-11-08)
 
 - VS Code/Cursor에서 `ShiftMate (debug local)`을 선택하면 `USE_LOCAL_API=true`가 전달되어
-  `http://172.30.1.14:3000/api/v1`로 연결한다. 기존 `ShiftMate (debug)`는 Stage를 유지한다.
+  `http://172.30.1.93:3000/api/v1`로 연결한다. 현재 주소는 `ApiConstants.base_url_local`과 일치한다(2026-11-16 갱신). 기존 `ShiftMate (debug)`는 Stage를 유지한다.
 - CLI: `flutter run --debug --dart-define-from-file=.env --dart-define=USE_LOCAL_API=true`.
 - `lib/core/constants/api_constants.dart`는 Debug에서만 로컬 옵션을 적용한다.
   Profile/Release는 운영 API, Kakao/Firebase는 기존 빌드 모드별 설정을 유지한다.
