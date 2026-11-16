@@ -1,5 +1,14 @@
 # 프로젝트 컨텍스트
 
+## 네이버 탈퇴 후 반복 재가입의 네이티브 SDK 수정 (2026-11-16, ADR-0085)
+
+- 실제 재현: 사용자 탈퇴 성공 확인 후 NaverLoginService55행에서 sdk_status=error/Access Token 없음/Code=-1005/네이버 token endpoint를 확인했다. 이번 실패는 Repository126행의 SDK await에서 발생해 서버 로그인129행 이전이다. 서버 삭제 대기409와 이 SDK 실패를 구분한다.
+- 공식 근거: 네이버 공식 issue6과5.2.0 릴리스는 네이버앱 복귀 직후 -1005를 다룬다. 기존iOS SDK5.1.0→수정포함5.2.1로 고정한다. plugin4.0.0이Flutter>=3.44를 요구하므로 Flutter3.38.5에서 공식3.0.4의 Dart/Android/Swift bridge를 보존한 path dependency를 사용한다. 앱의 기존 최소iOS15와 일치한다.
+- 새 third_party/naver_login_flutter의 역할/의존성/사용 예는 내부 README.shiftmate.md에 기록한다. lib/**는Dart API/MethodChannel/DTO, ios/**는 podspec/SPM/Swift bridge·privacy manifest, android/**는 기존 Gradle/R8/manifest/Kotlin bridge, bin/**는 기존 선택 설정CLI, LICENSE/pubspec/analysis_options/.gitignore는 배포 출처·로컬 패키지/분석/생성물 제외다. 정리 전 원본 소스21개 동일 확인. 커밋 정리 과정에서 Android Gradle·Swift 3파일의 줄 끝 공백14곳만 제거했으며 줄 끝 공백을 제외한 원본 소스는 동일하다. iOS15/SDK5.2.1 및 메타데이터 변경 외 동작 수정은 없다. 원본 샘플·standalone Gradle wrapper·Android 테스트는 앱 빌드 대상이 아니어서 제외했다. native framework/credential은 저장소에 넣지 않는다.
+- 사용: `flutter pub get`, `cd ios && pod update NidThirdPartyLogin naver_login_flutter`, 기존 방식의 전체 iOS build/설치. Dart 호출은 기존 FlutterNaverLogin.logIn을 유지한다. 오류 안내는ADR-0084 그대로이며 자동 인증 반복·서버/DB/탈퇴 worker·Flutter SDK/환경·화면을 변경하지 않는다. 의존성 변경은 네이버 path/Pod lock에 한정한다.
+- 검증 완료: 인증125개·전체 analyze error/warning0(기존 naming info26개)·실제 iOS Debug build 및 앱의 SDK5.2.1/iOS15를 확인했다. 같은 iPhone의 새 로컬 디버그 앱 실행 후 사용자가 재가입 문제 해결을 확인했다. 다른 기기/여러 회차/Release·스토어 배포는 별도다. 상세 경과는 WORKLOG를 따른다.
+- 상태/롤백:  구현/모의 테스트 통과를 실제 재가입 성공으로 표현하지 않는다. 이전 hosted3.0.4와 lock/Nid5.1.0을 복구하고 전체 rebuild하면 롤백되며 기존 -1005도 돌아올 수 있다. 향후 Flutter>=3.44 업그레이드 때 공식 플러그인으로 복귀한다.
+
 ## 네이버 재가입 SDK 네트워크 오류 처리 (2026-11-16, ADR-0084)
 
 - 사용자 캡처는 nid.naver.com/oauth2.0/token의 NSURLErrorDomain -1005 연결 유실이다. 서버409와 발생 경계가 다르다. 설치 naver_login_flutter3.0.4/NidThirdPartyLogin5.1.0의 native requestLogin 실패→error.localizedDescription→errorMessage→Dart service→Repository→AuthNotifier→LoginPage 오류 다이얼로그 경로를 직접 확인했다. -1005는 진행 중 연결 유실이라는 Apple QA1941 설명과 일치한다. 네트워크가 끊긴 이유·탈퇴와의 인과관계는 캡처만으로 확정하지 않는다.

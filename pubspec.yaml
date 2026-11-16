@@ -24,7 +24,8 @@ dependencies:
   kakao_flutter_sdk_user: ^1.9.5
 
   # 네이버 로그인 (네이티브 SDK)
-  naver_login_flutter: 3.0.4
+  naver_login_flutter:
+    path: third_party/naver_login_flutter
 
   # Google 로그인 (ID Token 서버 검증)
   google_sign_in: 7.2.0

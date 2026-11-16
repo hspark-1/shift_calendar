@@ -1,5 +1,24 @@
 # 작업 로그
 
+## 2026-11-16 네이버 탈퇴→재가입 반복 재현 원인 추적
+
+- [DONE] (FE/Auth) 네이버 탈퇴 후 SDK 재가입 -1005를 실제 재현하고 수정 SDK5.2.1 적용 후 사용자 해결 확인.
+  - 목적: 이전 변경은 오류 안내만 개선했으며 반복 실패의 근본 원인은 해결하지 못했으므로, SDK 탈퇴/로그아웃/다음 로그인과 서버 도달을 구분한다.
+  - 범위: 코드/공식 SDK 근거·실제 디버거 상태로 확인한 원인에 대해서만 관련 로직을 수정한다. 임의 대기/자동 재시도·패키지 변경으로 덮지 않는다.
+  - 테스트: 사용자 실계정 재현의 단계·오류 코드·토큰 존재 여부만 관측하고 원문 credential을 저장/출력하지 않는다. 원인 수정 후 관련 회귀·분석·문서를 갱신한다.
+  - 롤백: 이번 진단 중단점·원인 수정 diff만 제거하고 기존 미커밋 작업과 계정 데이터를 보존한다.
+  - 준비(사용자 후속 요청): 실계정 재현용 SDK 로그인 반환55행·연결 해제 반환123행·서버 로그인 호출129행·탈퇴202 수신 후317행에 Flutter BP4개를 정리했다. 서버는 기존 진입814행을 보존하고 오류767행/성공785행을 추가한다. 양쪽 로컬 세션의 실행 상태·BP 목록을 확인하며 아직 새 실패 실행값은 관측하지 않았다. 재현 중 BP는 의도적으로 유지하고 결과 확인 후 이번 BP만 제거한다.
+  - 공식 근거 확인: 현재 Podfile.lock의 NidThirdPartyLogin5.1.0과 동일한 로그아웃→재로그인 -1005가 네이버 공식 issue6에 보고되어 있으며, 공식5.2.0 release notes는 네이버앱 복귀 직후 -1005 수정을 명시한다. 현재 기기에서의 동일 원인 여부는 재현과 구분한다. SDK/lock/native/Flutter 의존성은 이번 준비에서 변경하지 않았다. 근거: https://github.com/naver/naveridlogin-sdk-ios-swift/issues/6 및 https://github.com/naver/naveridlogin-sdk-ios-swift/releases/tag/5.2.0 .
+  - 재현 진행: 사용자가 이번 로컬 탈퇴 성공을 확인했다. 이는 사용자 관측이며 worker 물리 삭제 완료/다음 SDK 재가입 성공을 의미하지 않는다. 다음 재가입의 SDK 반환·서버 경계를 기다린다.
+  - 실제 재가입 관측: NaverLoginService.loginWithNaver55행에 정지했다. 디버거에서 sdk_status=error, has_access_token=false, errorMessage의Code=-1005 포함=true, 네이버 token endpoint 포함=true를 boolean만 평가해 확인했다. Repository126행 await 이전의 실패라 이번 요청은 서버 로그인 호출129행에 도달하지 않았다. 원문 credential은 읽거나 출력하지 않고 검사 후 실행을 재개했다.
+  - 수정 계획 확정: 공식 plugin4.0.0은 Flutter>=3.44.0이므로 현재3.38.5에서 직접 업그레이드할 수 없다(pub.dev 배포 메타데이터·공식 소스 확인). 공식3.0.4의 Dart/Android/Swift 호출 코드는 유지하는 저장소 로컬 호환 패키지로 네이티브 iOS 의존성만5.2.1 및 iOS15로 고정한다. 기존 앱 최소iOS15와 일치한다. 라이선스/출처/원본 대비 변경·복원 방법을 기록하고 lock·실제 iOS build를 검증한다. Flutter SDK 전체 업그레이드는 이번 범위에 포함하지 않는다.
+  - 구현/검증 진행: 공식3.0.4 원본으로 로컬 호환 패키지를 구성해 app path dependency·pub lock을 반영했고 네이티브SDK5.2.1로 pod lock을 갱신했다. 커밋 정리 전 기존 Dart/bin/Android/Swift/Resources 소스21개는 원본과 byte 단위 동일함을 확인했다. 커밋 정리 과정에서 Android Gradle·Swift 3파일의 줄 끝 공백14곳만 제거했으며 줄 끝 공백을 제외한 원본 소스는 동일하다. package 메타데이터/CocoaPods·SPM iOS15·SDK exact pin 및 생성물 제외/출처 문서만 조정했다. 인증125개 통과·전체 analyze error/warning0/기존 미변경26개 naming info, Ruby podspec 구문·diff 검사 통과. 실제 unsigned Debug iOS build22.7초 성공, Runner.app에 포함된 NidThirdPartyLogin.framework 버전5.2.1/최소iOS15를 확인했다.
+  - 의존성 범위: Dart lock 변경은 네이버1개뿐이다. Pod 버전 변경도 Nid5.1.0→5.2.1뿐이며 AppAuth/GTMAppAuth/GoogleSignIn의 checksum 변경은 로컬 캐시 전후 spec JSON 비교로 deprecated:true 메타데이터 추가만 확인했다. 첫 pod repo 갱신은 무관한 Firebase spec의 CDN HTTP2 오류로 실패했으나 네이버 spec이 갱신된 캐시를 사용한 --no-repo-update 재실행으로 정상 완료했다. pod 갱신 완료 전 최초 build는 구 lock 충돌로 중단됐고 갱신 완료 후 실제 build를 재실행해 통과했다.
+  - 기기 적용 진행: 네이티브 변경은 hot reload로 바뀌지 않으므로 기존 로컬 iPhone 디버그 세션을 중지하고 같은 ShiftMate(debug local) 구성으로 전체 실행을 시작했다. main60행 startup BP를 추가했다. 서명/설치·새 세션과 실제 재가입 성공은 별도 확인 후 기록한다. 기존 Release6·스토어 Archive/IPA는 수정하지 않았다.
+  - 기기 새 실행 확인: 기존 세션 종료 후 같은 iPhone에서 새 debug local 세션이 main60행에 도달했다. 새 세션 ID로 구분하고 startup BP를 제거해 실행을 재개했다. Dart define USE_LOCAL_API=true를 확인한다. 실제 사용자 네이버 재가입 결과는 아직 관측 전이다.
+  - 실계정 인수 완료: 새5.2.1 앱으로 네이버 재가입을 요청한 뒤 사용자가 “해결됐음”을 확인했다. 수정 전 SDK 오류 실제 관측과 수정 후 같은 iPhone 새 실행/사용자 확인을 근거로 이번 로컬 문제 해결로 기록한다. 여러 회차·다른 기기/Release/스토어 배포 성공까지 확장해 주장하지 않는다. 양쪽 디버그 세션은 running이고 진단 BP는 이미 제거된 상태(목록0개)를 확인했다. 제거되어 있던 사용자 BP를 임의 재생성하지 않았다.
+  - 최종 문서/출처: ADR-0085·PROJECT_CONTEXT·vendor README에 역할/의존성/사용 예·재평가·롤백을 기록했다. 공식 archive SHA-256이 이전 hosted pubspec.lock 값과 같음을 확인했고 원본 라이선스를 유지했다. Git 제외된 생성 lock/cache는 포함하지 않는다. 관련 diff/구문 검사를 완료했으며 커밋/푸시·스토어 Archive/IPA 생성·업로드/운영 배포는 하지 않았다.
+
 ## 2026-11-16 네이버 탈퇴 후 재가입 SDK 연결 오류
 
 - [DONE] (FE/Auth) 네이버 token 발급 중 NSURLErrorDomain -1005 및 SDK 오류 원문 노출 처리.

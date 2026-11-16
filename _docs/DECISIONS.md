@@ -1,5 +1,16 @@
 # 아키텍처 결정사항
 
+## ADR-0085: Flutter3.38.5 호환 패키지에서 네이버 iOS 수정 SDK5.2.1을 고정한다
+
+- 배경(문제): 탈퇴 성공 후 실제 재가입의 SDK 반환 지점에서 status=error/Access Token 없음/-1005/네이버 token endpoint를 확인했다. 네이버 공식 issue6과5.2.0 릴리스는 앱 복귀 직후 발생하는 같은 결함 및 수정을 기록한다. 현재 lock은NidThirdPartyLogin5.1.0이다.
+- 선택지(대안): 오류 표시만 유지 / 자동 로그인 재호출 / Flutter SDK 전체 업그레이드와 공식 최신 플러그인 / 공식3.0.4 호출 소스를 보존한 로컬 호환 패키지에서 iOS SDK만 수정 버전으로 교체.
+- 결정(무엇을 선택): 마지막 안. third_party/naver_login_flutter를 공식pub.dev3.0.4에서 구성하고 앱의 path dependency로 사용한다. lib/bin/Android/Swift bridge의 동작은 보존한다. 커밋 정리 과정에서 Android Gradle·Swift 3파일의 줄 끝 공백14곳만 제거했으며 줄 끝 공백을 제외한 원본 소스는 동일하다. CocoaPods/SPM의 최소iOS15와 NidThirdPartyLogin exact5.2.1, 로컬 package 버전3.0.4+shiftmate.1/publish_to:none만 조정한다. 앱/Flutter SDK·서버/DB·연결 해제 정책·자동 재시도는 유지한다.
+- 근거(왜): 공식 plugin4.0.0은Flutter>=3.44.0이어서 현재3.38.5와 직접 호환되지 않는다(배포 메타데이터·archive 확인). 앱은 이미iOS15가 최소다. 공식SDK5.2.0 결함 수정과5.2.1 바이너리 빌드 호환 릴리스를 사용하며 기존 Flutter/Android 영향과 자체 네이티브 로직 수정 범위를 제한한다.
+- 결과/영향(좋은 점/트레이드오프): **Behavior change**: 재로그인 token 요청의 커넥션 문제 수정 SDK를 앱에 포함한다. 네이티브 변경으로 전체 앱 재빌드/설치가 필요하다. 소규모 외부 패키지 사본·라이선스·버전 pin을 관리해야 한다. 외부 원본 소스의 이름/스타일을 프로젝트 규칙에 맞춰 재작성하지 않는다. 해당 호환 패키지의 역할/출처/삭제 조건은 README.shiftmate.md를 따른다.
+- 추후 과제(언제 다시 평가): 실제 수정 앱에서 반복 탈퇴→재가입을 인수한다. Flutter>=3.44를 별도 업그레이드할 때 공식 패키지로 복귀해 호환 사본을 제거한다. 실제 네트워크 장애는 계속 발생할 수 있어 기존 오류 안내를 유지한다.
+- 검증/롤백: 원본 소스21개 동일 비교, Dart 회귀·분석·CocoaPods lock 및 실제 iOS build를 WORKLOG에 기록한다. 이전 hosted3.0.4/lock·Nid5.1.0으로 복구하고 pub get/pod install/앱 재빌드 후 vendor 폴더를 제거한다. 기존 결함이 재발할 수 있다.
+- 근거: https://github.com/naver/naveridlogin-sdk-ios-swift/releases/tag/5.2.0 , https://github.com/naver/naveridlogin-sdk-ios-swift/releases/tag/5.2.1 , https://pub.dev/packages/naver_login_flutter/changelog .
+
 ## ADR-0084: 네이버 로그인 SDK 오류는 사용자용 ApiException으로 변환한다
 
 - 배경(문제): iOS 네이버 SDK 토큰 발급의 연결 유실 진단이 errorMessage에 담겨 반환되고 앱이 그대로 Exception으로 던져 URL·NSError 내부 정보가 로그인 다이얼로그를 채웠다.
