@@ -1,5 +1,14 @@
 # 프로젝트 컨텍스트
 
+## 심사 재제출용 iOS 빌드 5 (2026-11-14)
+
+- 사용자 요청으로 현재 작업 트리의 기존 미커밋 변경을 포함한 App Store용 1.0.0(5)를 생성했다. 현재 `pubspec.yaml`은 `1.0.0+5`, Release API 호환 번호는 기존 `1`이다. 빌드 번호 증가 외 이번 작업의 앱 기능/설계 변경은 없고 새 ADR은 추가하지 않는다. 아래 빌드 4 절은 당시 이력이다.
+- 실행: `flutter build ipa --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=5 --export-method=app-store`. Flutter3.38.5/Dart3.10.4·Xcode27.1/iOS SDK27.1·기존 lock/native 설정을 사용했다. Release 운영 API·Production Firebase/OAuth 및 기존 그룹/Apple 활성화 define을 확인했다. 서버 배포 상태/실계정 인수를 새로 검증한 것은 아니다.
+- 산출물 역할/의존성/사용 예: `build/ios/archive/Runner.xcarchive`는 Release 앱·Runner/App dSYM·메타데이터이며 Xcode Validate/배포에 사용한다. `build/ios/ipa/ShiftMate.ipa`는 위 Archive와 App Store provisioning에 의존하는 Apple Distribution 서명 IPA로 Transporter 업로드에 사용한다. `ExportOptions.plist`는 재내보내기 설정, `DistributionSummary.plist`/`Packaging.log`는 로컬 패키징 진단 자료다. 비밀값이 있을 수 있는 진단 파일과 환경·빌드 산출물은 커밋하지 않는다. 기존 빌드4의 동일 산출물은 `build/ios/releases/1.0.0-4/ipa/`·`Runner.xcarchive`에 보존했다.
+- 검증: 전체 테스트551 pass·기존 skip1, 전체 analyze error/warning0·미변경4파일의 기존 naming info26건. IPA ZIP CRC·deep/strict 배포 서명·App Store profile·production APNs/Apple 로그인·URL scheme 치환·운영 API/Firebase/OAuth·Stage/로컬 API 부재·1.0.0(5)/Bundle ID/iPhone전용/iOS15/SDK27.1 검증을 통과했다. IPA 24,755,597bytes, SHA-256 `23d38e5dbf81bd4a268785f5608c46d81d7d9d92588d8c05fc7642caa2295204`. 기존 기본 LaunchImage placeholder 안내1건은 유지한다.
+- 상태/영향/롤백: 로컬 빌드 생성/검증 완료이며 업로드·Connect 처리/빌드 선택·심사 재제출·실기기 인수는 수행하지 않았다. 기존 빌드4 포털 상태도 재조회하지 않았다. 이번 버전5·문서 추가분만 되돌리고 새 산출물을 제거하면 롤백된다. 기존 미커밋 소스와 보존한 빌드4는 유지한다.
+
+
 ## Google 사진 수집 중단·선택 전화번호 (2026-11-13)
 
 - **Behavior change / ADR-0081**: GoogleLoginService는 ID Token과 선택 전화번호 access token을 GoogleLoginCredential로 반환한다. NativeGoogleSignInSdk는 authenticate 계정의 authorizationClient에서 기본 OIDC/user.phonenumbers.read 승인을 확인하고 필요하면 동의를 요청한다. 기본 인증 취소는 기존 취소, 선택 동의 취소/권한 오류·미지원은 access_token=null로 기본 로그인을 유지한다.

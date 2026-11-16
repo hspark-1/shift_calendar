@@ -1,5 +1,15 @@
 # ShiftMate App Store 심사 준비 및 진행 기록
 
+## 심사 재제출용 빌드 5 생성·검증 — 2026-11-14
+
+- 최신 로컬 빌드: **iOS 1.0.0(5), API 호환 번호1**. 현재 작업 트리의 기존 미커밋 수정 사항을 포함했다. 이번 작업에서 업로드·Connect 빌드 교체·심사 재제출은 수행하지 않았다. 아래 빌드4 선택/미제출 기록은 해당 날짜의 이력이며 현재 포털 상태를 새로 확인한 결과가 아니다.
+- 실행: `flutter build ipa --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=5 --export-method=app-store` 성공. Archive46.5초·IPA58.4초. 산출물은 `build/ios/archive/Runner.xcarchive`, `build/ios/ipa/ShiftMate.ipa`(24,755,597bytes), SHA-256 `23d38e5dbf81bd4a268785f5608c46d81d7d9d92588d8c05fc7642caa2295204`. 파일 역할·의존성·사용 예는 PROJECT_CONTEXT 상단을 따른다.
+- 빌드4 보존: 기존 IPA 해시 `6083946096dfe8537f6a7ab3273d860bf0df769fc82866131eb2eaae3bb6ac74`·Archive 버전4를 확인한 뒤 `build/ios/releases/1.0.0-4/`로 이동했다.
+- 검증: 전체 Flutter551 pass·skip1. 전체 분석 error/warning0, 미변경4파일의 기존 naming info26건(종료코드1). IPA ZIP CRC·Apple Distribution deep/strict 서명·App Store profile·production APNs·Apple 로그인 권한·OAuth callback 치환·운영 API/Firebase·Stage/로컬 API 문자열 부재·버전/식별자·iPhone전용/iOS15/SDK27.1 통과. 서명 trust 검사는 macOS 신뢰 저장소 접근을 허용한 환경에서 통과했다. 기존 기본 LaunchImage placeholder 안내1건 유지.
+- 영향/롤백: 빌드 번호4→5와 출시 문서만 이번 작업에서 수정했으며 기존 사용자 소스 변경을 보존했다. 이번 버전/문서만 복원하고 새 산출물을 제거한다. 운영 서버/스토어 설정은 변경하지 않았다.
+- 다음: Transporter/Xcode 업로드 → Connect 처리 완료 확인 → 제출용 빌드5 선택 → 실기기/심사 준비 확인 및 재제출. 이 항목들은 완료로 처리하지 않는다.
+
+
 ## 앱 개인정보 직접 작성·게시 — 2026-11-08
 
 - 사용자 요청에 따라 Chrome의 App Store Connect에서 아래 15개 유형을 작성·저장했다. 보관하는 문의 내용을 포함한다는 사용자 답변에 따라 고객 지원을 선택했다. 모든 유형은 **사용자 신원에 연결됨 / 추적에 사용하지 않음**이다.

@@ -1,5 +1,17 @@
 # 작업 로그
 
+## 2026-11-14 심사 재제출용 iOS 빌드
+
+- [DONE] (RELEASE) 현재 작업 트리로 App Store용 1.0.0(5) IPA 생성·검증
+  - 목적: 사용자 요청에 따라 심사 재제출에 사용할 최신 앱 바이너리를 준비한다.
+  - 변경/영향: 기존 미커밋 변경을 포함해 Release 운영 설정으로 빌드했다. `pubspec.yaml` 빌드 번호4→5, 스토어 버전1.0.0·Release API 호환 번호1 유지. 기존 빌드4의 해시·Archive 버전을 확인한 뒤 `build/ios/releases/1.0.0-4/`에 IPA/Archive를 보존했다. 신규 기능/설계 변경이 없어 ADR 추가는 없다.
+  - 실행/산출물: `flutter build ipa --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=5 --export-method=app-store` 성공(Archive46.5초·IPA58.4초). `build/ios/archive/Runner.xcarchive`(Runner/App dSYM 포함), `build/ios/ipa/ShiftMate.ipa` 24,755,597bytes·SHA-256 `23d38e5dbf81bd4a268785f5608c46d81d7d9d92588d8c05fc7642caa2295204`. 산출물 역할/의존성/사용 예는 PROJECT_CONTEXT 상단, 재제출 상태는 APP_STORE_RELEASE_CHECKLIST 상단에 기록했다. APP_VERSION_POLICY 현재 빌드 번호도5로 갱신했다.
+  - 테스트: 전체 `flutter test --no-pub --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=release-preflight-test-key --reporter expanded` →551 pass·기존 skip1. 전체 `flutter analyze --no-pub` →error/warning0·기존 미변경4파일 naming info26건으로 종료코드1. 무관 소스는 수정하지 않았다. IPA ZIP CRC·Apple Distribution deep/strict·App Store provisioning·production APNs/Apple 로그인·운영 API/Firebase/OAuth·URL scheme 치환·Stage/로컬 API 부재·1.0.0(5)/Bundle ID/iPhone전용/iOS15/SDK27.1 검증 통과. 기존 기본 LaunchImage placeholder 안내1건 유지.
+  - 실행 환경 확인: sandbox에서 Flutter SDK engine.stamp 쓰기와 codesign 신뢰 저장소 접근이 제한되는 현상을 확인했고, 허용된 SDK/신뢰 저장소 접근으로 재실행해 빌드/서명 검증을 통과했다. 인증서/키체인 신뢰 설정 자체는 변경하지 않았다.
+  - 로컬 검증 자료 역할/의존성/사용 예: `/private/tmp/shiftmate_release_20261114_tests.log`·`analyze.log`·`build.log`는 해당 Flutter 명령 출력이다. `/private/tmp/shiftmate_release_20261114_verify.py`는 Python표준라이브러리·macOS codesign/security에 의존해 추출 IPA를 검사하며 루트에서 `python3 /private/tmp/shiftmate_release_20261114_verify.py`로 실행한다(신뢰 저장소 접근 필요). 같은 prefix의 `verification.json`은 비밀값 없는 검사 결과/해시다. 추출본은 `/private/tmp/shiftmate_release_20261114_pst3c1cq/`다. 임시 로컬 자료이며 Git에 추가하지 않는다.
+  - 롤백: 이번 버전/문서 변경만 복원하고 새 빌드5 산출물을 제거한다. 기존 소스 작업·환경/lock·보존한 빌드4는 유지한다.
+  - 다음/한계: 업로드·Connect 처리/선택·심사 재제출·실기기/실계정 인수는 미수행. 운영 서버/스토어 설정과 개인정보 선언은 변경/재검증하지 않았다. 이번 작업은 로컬 빌드 준비까지다.
+
 ## 2026-11-13 Google 선택 전화번호 권한과 사진 수집 중단 연동
 
 - [DONE] (FE/Auth) Google ID Token과 선택 전화번호 access token을 서버에 전달한다.
