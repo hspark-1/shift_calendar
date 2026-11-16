@@ -3,6 +3,8 @@
 import 'package:flutter/services.dart';
 import 'package:naver_login_flutter/naver_login_flutter.dart';
 
+import '../../../../core/network/api_exception.dart';
+
 /// 네이버 네이티브 SDK 호출 경계
 abstract interface class NaverLoginSdk {
   Future<NaverLoginResult> logIn();
@@ -59,32 +61,52 @@ class NaverLoginService {
             access_token = current_token.accessToken.trim();
           }
           if (access_token.isEmpty) {
-            throw Exception('네이버 Access Token을 받지 못했습니다.');
+            throw ApiException(
+              code: 'NAVER_TOKEN_UNAVAILABLE',
+              message: '네이버 로그인 정보를 받지 못했습니다. 다시 로그인해주세요.',
+            );
           }
           return access_token;
         case NaverLoginStatus.loggedOut:
-          throw Exception('네이버 로그인이 취소되었습니다.');
+          throw _loginError('cancelled');
         case NaverLoginStatus.error:
-          final error_message = login_result.errorMessage?.trim();
-          throw Exception(
-            error_message == null || error_message.isEmpty
-                ? '네이버 로그인에 실패했습니다.'
-                : error_message,
-          );
+          throw _loginError(login_result.errorMessage);
       }
+    } on ApiException {
+      rethrow;
     } on PlatformException catch (error) {
-      final error_message = error.message?.trim();
-      if (error_message != null &&
-          error_message.toLowerCase().contains('cancel')) {
-        throw Exception('네이버 로그인이 취소되었습니다.');
-      }
+      throw _loginError(error.message, native_code: error.code);
+    } catch (_) {
+      throw _loginError(null);
+    }
+  }
 
-      throw Exception(
-        error_message == null || error_message.isEmpty
-            ? '네이버 로그인에 실패했습니다.'
-            : '네이버 로그인에 실패했습니다: $error_message',
+  // SDK는 native code를 보존하지 않고 오류 문자열만 반환할 수도 있다.
+  // 분류에만 사용하며 URL/토큰/네이티브 진단 원문은 UI에 전달하지 않는다.
+  ApiException _loginError(String? raw_message, {String? native_code}) {
+    final message = raw_message?.trim().toLowerCase() ?? '';
+    final code = native_code?.toLowerCase() ?? '';
+    if (message.contains('cancel') || code.contains('cancel')) {
+      return ApiException(
+        code: 'NAVER_LOGIN_CANCELLED',
+        message: '네이버 로그인이 취소되었습니다.',
       );
     }
+    final is_url_network_error =
+        message.contains('nsurlerrordomain') &&
+        RegExp(r'code\s*=\s*-(1001|1003|1004|1005|1009)\b').hasMatch(message);
+    if (is_url_network_error ||
+        message.startsWith('network error') ||
+        code.contains('network')) {
+      return ApiException(
+        code: 'NAVER_NETWORK_ERROR',
+        message: '네이버에 연결할 수 없습니다. 네트워크 상태를 확인한 후 다시 시도해주세요.',
+      );
+    }
+    return ApiException(
+      code: 'NAVER_LOGIN_FAILED',
+      message: '네이버 로그인에 실패했습니다. 다시 시도해주세요.',
+    );
   }
 
   /// 네이버 SDK에 저장된 로컬 로그인 상태를 해제합니다.

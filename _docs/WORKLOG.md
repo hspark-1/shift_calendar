@@ -1,5 +1,18 @@
 # 작업 로그
 
+## 2026-11-16 네이버 탈퇴 후 재가입 SDK 연결 오류
+
+- [DONE] (FE/Auth) 네이버 token 발급 중 NSURLErrorDomain -1005 및 SDK 오류 원문 노출 처리.
+  - 목적: 사용자 캡처의 nid.naver.com/oauth2.0/token 연결 유실과 서버 계정 충돌 응답을 구분하고 사용자용 재시도 안내로 변환한다.
+  - 변경/영향: 기존 NaverLoginService·관련 회귀·문서만 수정하고 SDK/lock·서버/DB·탈퇴 접수 정책과 기존 미커밋 작업은 보존한다.
+  - 테스트: 실제 설치 SDK 오류 전달 경로 확인, 수정 전 동일 오류 주입 재현, 서비스/Repository/Provider 테스트·Dart 분석·포맷 확인. 실기기 네트워크 유실의 근본 원인은 캡처만으로 확정하지 않는다.
+  - 롤백: 이번 네이버 오류 처리·테스트·문서 추가분만 되돌린다.
+  - 원인/변경: naver_login_flutter3.0.4의 iOS requestLogin 실패가 localizedDescription을 errorMessage로 반환하고 NaverLoginService가 그대로 Exception으로 전달해 다이얼로그까지 노출했다. SDK error 결과/PlatformException을 공통 ApiException으로 변환해 NAVER_NETWORK_ERROR·취소·토큰 미수신·일반 실패를 구분한다. 원문 URL/진단/token은 표시/저장/추가 로깅하지 않는다. 네이티브 재시도/SDK 교체/토큰 재전송·로그아웃/연결 해제 변경은 없다.
+  - 재현/검증: 수정 전 실제 서비스에 캡처와 같은 SDK 오류를 주입한 임시 probe1개로 원문 전파를 확인했다. 새 회귀7개가 수정 전에 실패하고 기존8개는 통과했다. 수정 후 인증 기능 전체124개 통과, 최종 MethodChannel→실제 NaverLoginService→Provider→CupertinoAlertDialog의 안내·원문 비노출·로딩 해제·버튼 재시도를 포함한 서비스/페이지28개 통과, 변경 Dart3개 analyze 진단0·format/범위 diff 검사 통과다. SDK/API는 대체되므로 실제 네트워크 유실 해결·실계정 재가입 성공을 증명한 것은 아니다.
+  - 디버거/한계: 실행 중인 로컬 iPhone 세션과 SDK 오류 분기BP를 확인했다. 테스트 debugAtCursor는 BP에 도달하지 않아 live 오류 값을 관측했다고 기록하지 않는다. 실제 원문 전달은 수정 전 실행 probe와 회귀로 재현했고 진단 BP를 제거해 기기 세션은 실행 상태로 유지했다. Apple QA1941의 -1005 정의만 원인 분류에 사용하며 연결이 끊긴 구체적 이유·탈퇴와의 인과관계는 미확정이다.
+  - 파일/역할/산출물: 기존 naver_login_service.dart·naver_login_service_test.dart·login_page_test.dart와 PROJECT_CONTEXT·DECISIONS ADR-0084·WORKLOG만 이번 범위다. 신규 영구 파일/의존성/env/SDK/DB 변경은 없다. /private/tmp/shiftmate-naver-network/의 before 서비스 복사본·reproduce_test.dart·before-test.log/regression-before.log는 수정 전 재현, auth-after.log/final-tests.log/analyze.log는 실행 검증 자료이며 Flutter3.38.5·기존 lock·실제 서비스에 의존한다. probe는 flutter test로 실행하며 진단 자료는 커밋하지 않는다.
+  - 적용 상태: 앱 소스 수정 완료이며 실기기 hot reload/새 빌드 설치·실계정 네이버 재가입 성공은 이번에 확인하지 않았다. 기존 iOS Release6·심사 Archive/IPA·Google/서버 수정과 staged 작업은 보존하고 커밋/업로드/배포는 하지 않았다.
+
 ## 2026-11-16 iPad 가로 창 전환 제한 조사
 
 - [DONE] (iOS/UI) iPhone·iPad 세로 방향 고정 및 실물 iPad 창 resize 후 세로 유지 확인.

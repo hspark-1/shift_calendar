@@ -1,5 +1,13 @@
 # 프로젝트 컨텍스트
 
+## 네이버 재가입 SDK 네트워크 오류 처리 (2026-11-16, ADR-0084)
+
+- 사용자 캡처는 nid.naver.com/oauth2.0/token의 NSURLErrorDomain -1005 연결 유실이다. 서버409와 발생 경계가 다르다. 설치 naver_login_flutter3.0.4/NidThirdPartyLogin5.1.0의 native requestLogin 실패→error.localizedDescription→errorMessage→Dart service→Repository→AuthNotifier→LoginPage 오류 다이얼로그 경로를 직접 확인했다. -1005는 진행 중 연결 유실이라는 Apple QA1941 설명과 일치한다. 네트워크가 끊긴 이유·탈퇴와의 인과관계는 캡처만으로 확정하지 않는다.
+- **Behavior change**: 기존 NaverLoginService는 SDK error 결과/PlatformException을 공통 ApiException으로 변환한다. 네트워크는 NAVER_NETWORK_ERROR와 “네이버에 연결할 수 없습니다. 네트워크 상태를 확인한 후 다시 시도해주세요.”, 취소는 NAVER_LOGIN_CANCELLED, 빈 토큰은 NAVER_TOKEN_UNAVAILABLE, 기타 오류는 NAVER_LOGIN_FAILED다. SDK 진단 문자열/URL/token 원문을 UI로 전달하지 않는다. 로그인 실패 시 기존 Provider/페이지가 로딩을 해제하고 수동 재시도를 허용한다.
+- 흐름/범위: 로그인 SDK 경계의 오류만 수정하며 성공 token 교환→서버409/프로필 분기·라우트/권한·Riverpod 상태 수명·Dio/interceptor·가입/탈퇴 정책은 유지한다. 새로운 자동 인증/토큰 교환 재시도·로그아웃/연결 해제·SDK/lock/native 설정/의존성/env 변경은 없다. 오류 원문을 저장하거나 새 로그로 출력하지 않는다.
+- 파일 역할/사용 예: 기존 lib/features/auth/data/services/naver_login_service.dart가 ApiException에 의존해 SDK 실패를 분류한다. 기존 naver_login_service_test.dart는 SDK 결과/PlatformException 주입, login_page_test.dart는 MethodChannel→실제 서비스→Provider→다이얼로그의 원문 비노출·로딩 해제·수동 재시도를 검증한다. `flutter test test/features/auth`로 실행한다. 새 영구 파일은 없다.
+- 검증/롤백: 수정 전 실제 서비스에 동일 문자열을 주입해 원문 전달을 확인했다. 결과/실행 한계는 WORKLOG를 따른다. 원문 비노출·안내 개선과 실제 네트워크 원인 해결/실계정 재가입 성공은 구분한다. 이번 서비스·회귀·문서 diff만 되돌리며 이전 Google/네이티브/배포/기타 미커밋 작업은 보존한다. 앱 재실행/빌드에 수정 소스를 반영해야 한다.
+
 ## iPhone·iPad 세로 방향 고정 (2026-11-16, ADR-0083)
 
 - 사용자 확정/Behavior change: iPhone과 iPad 모두 portrait만 지원한다. 기존 `ios/Runner/Info.plist`의 UISupportedInterfaceOrientations와UISupportedInterfaceOrientations~ipad를 UIInterfaceOrientationPortrait 한 개로 제한하고 UIRequiresFullScreen=true를 추가했다. landscape·upside-down을 제거했다. 기존 UIApplicationSceneManifest/FlutterSceneDelegate·기기군[1]·최소iOS15·Dart route/state/API/Android·SDK/lock은 유지한다.

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naver_login_flutter/naver_login_flutter.dart';
 import 'package:shift_mate/features/auth/data/services/naver_login_service.dart';
+import 'package:shift_mate/core/network/api_exception.dart';
 
 class _FakeNaverLoginSdk implements NaverLoginSdk {
   NaverLoginResult login_result = NaverLoginResult(
@@ -55,6 +56,119 @@ NaverToken _token(String access_token) {
 
 void main() {
   group('NaverLoginService', () {
+    final network_error =
+        'Network error. Detailed error description: URLSession internal error. Error Domain=NSURLErrorDomain Code=-1005 "The network connection was lost." NSURLFailingURLStringKey=https://nid.naver.com/oauth2.0/token';
+
+    test('SDK 연결 유실은 네트워크 안내로 변환한다', () async {
+      final sdk = _FakeNaverLoginSdk()
+        ..login_result = NaverLoginResult(
+          status: NaverLoginStatus.error,
+          errorMessage: network_error,
+        );
+      await expectLater(
+        NaverLoginService(naver_login_sdk: sdk).loginWithNaver(),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 'NAVER_NETWORK_ERROR')
+              .having((error) => error.message, 'message', contains('다시 시도'))
+              .having(
+                (error) => error.message,
+                'no native details',
+                isNot(contains('NSURLErrorDomain')),
+              )
+              .having(
+                (error) => error.message,
+                'no URL',
+                isNot(contains('https://')),
+              ),
+        ),
+      );
+    });
+
+    test('PlatformException 연결 유실도 동일한 네트워크 오류다', () async {
+      final sdk = _FakeNaverLoginSdk()
+        ..login_exception = PlatformException(
+          code: 'NAVER_LOGIN_ERROR',
+          message: network_error,
+        );
+      await expectLater(
+        NaverLoginService(naver_login_sdk: sdk).loginWithNaver(),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.code,
+            'code',
+            'NAVER_NETWORK_ERROR',
+          ),
+        ),
+      );
+    });
+
+    for (final message in [
+      'private native diagnostic access_token=secret',
+      '',
+      null,
+    ]) {
+      test(
+        'SDK의 알 수 없는 오류는 안전한 로그인 안내다: ${message == null
+            ? 'null'
+            : message.isEmpty
+            ? 'empty'
+            : 'unknown'}',
+        () async {
+          final sdk = _FakeNaverLoginSdk()
+            ..login_result = NaverLoginResult(
+              status: NaverLoginStatus.error,
+              errorMessage: message,
+            );
+          await expectLater(
+            NaverLoginService(naver_login_sdk: sdk).loginWithNaver(),
+            throwsA(
+              isA<ApiException>()
+                  .having((error) => error.code, 'code', 'NAVER_LOGIN_FAILED')
+                  .having(
+                    (error) => error.message,
+                    'message',
+                    '네이버 로그인에 실패했습니다. 다시 시도해주세요.',
+                  ),
+            ),
+          );
+        },
+      );
+    }
+
+    test('네이티브 결과의 사용자 취소도 취소로 분류한다', () async {
+      final sdk = _FakeNaverLoginSdk()
+        ..login_result = NaverLoginResult(
+          status: NaverLoginStatus.error,
+          errorMessage: 'Login cancelled by user',
+        );
+      await expectLater(
+        NaverLoginService(naver_login_sdk: sdk).loginWithNaver(),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.code,
+            'code',
+            'NAVER_LOGIN_CANCELLED',
+          ),
+        ),
+      );
+    });
+
+    test('토큰이 없으면 안전한 토큰 미수신 오류를 반환한다', () async {
+      final sdk = _FakeNaverLoginSdk()
+        ..login_result = NaverLoginResult(status: NaverLoginStatus.loggedIn);
+      await expectLater(
+        NaverLoginService(naver_login_sdk: sdk).loginWithNaver(),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.code,
+            'code',
+            'NAVER_TOKEN_UNAVAILABLE',
+          ),
+        ),
+      );
+    });
+
     test('로그인 결과에 포함된 Access Token을 반환한다', () async {
       final sdk = _FakeNaverLoginSdk()
         ..login_result = NaverLoginResult(

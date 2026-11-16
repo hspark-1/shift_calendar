@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:shift_mate/features/auth/data/services/google_login_service.dart';
+import 'package:shift_mate/features/auth/data/services/naver_login_service.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/features/auth/presentation/pages/login_page.dart';
@@ -68,6 +69,14 @@ class _PendingGoogleAuthRepository implements AuthRepository {
   }) => throw UnimplementedError();
 }
 
+class _FailedNaverAuthRepository extends _PendingGoogleAuthRepository {
+  @override
+  Future<AuthResponse> loginWithNaver() async {
+    await NaverLoginService().loginWithNaver();
+    throw StateError('네이버 SDK 실패가 서버 인증으로 진행되면 안 됩니다.');
+  }
+}
+
 Future<({int width, int height})> readAssetSize(String asset_path) async {
   final asset_data = await rootBundle.load(asset_path);
   final codec = await ui.instantiateImageCodec(
@@ -95,6 +104,55 @@ Finder findAssetImage(String asset_path) {
 }
 
 void main() {
+  testWidgets('네이버 네이티브 연결 유실은 짧은 안내만 표시하고 다시 로그인할 수 있다', (tester) async {
+    var sdk_calls = 0;
+    final channel = const MethodChannel('naver_login_flutter');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      expect(call.method, 'logIn');
+      sdk_calls++;
+      return {
+        'status': 'error',
+        'errorMessage':
+            'Network error. Error Domain=NSURLErrorDomain Code=-1005 URL=https://nid.naver.com/oauth2.0/token private-diagnostic',
+      };
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(
+            _FailedNaverAuthRepository(),
+          ),
+        ],
+        child: const CupertinoApp(home: LoginPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      await tester.tap(find.byKey(const Key('naver_login_button')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('네이버에 연결할 수 없습니다. 네트워크 상태를 확인한 후 다시 시도해주세요.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('NSURLErrorDomain'), findsNothing);
+      expect(find.textContaining('private-diagnostic'), findsNothing);
+      expect(find.textContaining('https://nid.naver.com'), findsNothing);
+      expect(find.byType(CupertinoActivityIndicator), findsNothing);
+      expect(sdk_calls, attempt);
+      await tester.tap(find.text('확인'));
+      await tester.pumpAndSettle();
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('카카오·네이버·Google 원형 아이콘을 순서대로 같은 행에 표시한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));

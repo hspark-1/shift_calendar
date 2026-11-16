@@ -1,5 +1,15 @@
 # 아키텍처 결정사항
 
+## ADR-0084: 네이버 로그인 SDK 오류는 사용자용 ApiException으로 변환한다
+
+- 배경(문제): iOS 네이버 SDK 토큰 발급의 연결 유실 진단이 errorMessage에 담겨 반환되고 앱이 그대로 Exception으로 던져 URL·NSError 내부 정보가 로그인 다이얼로그를 채웠다.
+- 선택지(대안): 원문 표시 유지 / 서버에서만 처리 / 앱 SDK 경계에서 오류 유형과 안전한 안내로 매핑 / 자동 SDK 로그인 재호출.
+- 결정(무엇을 선택): 기존 NaverLoginService가 SDK error 결과와 PlatformException을 공통 ApiException으로 매핑한다. 네트워크/취소/토큰 미수신/기타 실패의 안정된 코드·안내만 UI에 전달하며 수동 재시도를 유지한다. 자동 인증 재호출과 SDK/native 패치는 추가하지 않는다.
+- 근거(왜): 실패는 서버 인증 이전에 발생할 수 있고 플러그인이 native code 대신 문자열만 보존하기도 한다. UI가 원문을 해석하는 대신 기존 ApiException 처리로 사용자 안내와 분기를 일관되게 전달할 수 있다. Apple QA1941은 -1005를 진행 중 연결 유실로 정의하며 POST 자동 재전송을 항상 보장하지 않는다.
+- 결과/영향(좋은 점/트레이드오프): **Behavior change**: SDK 진단 원문을 보여주지 않고 NAVER_NETWORK_ERROR/NAVER_LOGIN_CANCELLED/NAVER_TOKEN_UNAVAILABLE/NAVER_LOGIN_FAILED를 반환한다. 성공 로그인·서버 계정 충돌·탈퇴 접수 정책·SDK/lock/의존성/DB는 유지한다. 문자열 분류를 지원하지 않는 새 SDK 형식은 일반 실패 안내로 안전하게 처리된다.
+- 추후 과제(언제 다시 평가): 실기기에서 탈퇴→SDK 재인증을 인수하고 반복 연결 유실 시 해당 시각 native/network 로그로 근본 원인을 조사한다. 자동 재시도/SDK 업그레이드는 provider 계약과 실제 재현 증거 확보 후 별도 판단한다.
+- 검증/롤백: SDK 모의 응답 및 실제 MethodChannel/widget 회귀를 WORKLOG에 기록한다. 이번 서비스·테스트·문서 추가분만 되돌린다. 공식 근거: https://developer.apple.com/library/archive/qa/qa1941/_index.html .
+
 ## ADR-0083: iPhone·iPad 앱 콘텐츠는 세로 방향만 지원한다
 
 - 배경(문제): iPad의 iPhone 호환 창을 가로로 넓히면 가로 레이아웃으로 전환되는 동작을 사용자가 제한하도록 요청했다. 후속 답변으로 iPhone과 iPad 모두 세로 고정을 확정했다. 기존 Info.plist는 기본/기기별 방향에 landscape를 포함했고 iPad에는 upside-down도 허용했다.
