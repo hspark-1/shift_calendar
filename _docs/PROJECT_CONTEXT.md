@@ -1,5 +1,12 @@
 # 프로젝트 컨텍스트
 
+## 작업별 커밋 정리·검증·푸시 (2026-11-16)
+
+- 사용자 요청으로 누적 변경을 그룹 nullable·피커·일정 편집/삭제/캘린더 배치·색상/헤더·친구/그룹 탐색·설정·웹 정책·Google 탈퇴·출시 빌드·UIScene·방향 설정·네이버 오류·SDK·로컬 API의14개 커밋으로 분리했다. 원격의 기존 Google 전화번호850e45d를 보존하며 각 작업에 관련 컨텍스트·ADR·일지를 함께 넣었다. 이 최종 기록과 기존 정책 설명 정합성은 후속 문서 커밋으로 보존한다.
+- 검증: 전체 Flutter559 pass/기존 skip1, 실제 그룹 API/P1 활성 회귀45 pass, 분석 error/warning0·기존 미변경 naming info26건, Dart72개 포맷 변경0건·측정JSON9개/PNG232개 기본 구조·diff 검사 통과. 초기 코드/테스트/native/package 변경 보존을 patch check로 확인했다. vendor 원본의 줄 끝 공백만 정리한 예외와 출처는 ADR-0085/내부 README를 따른다.
+- 푸시/영향:14개 작업 커밋을 origin/develop에 일반 push했고4d5edf1에서 로컬/원격 일치를 확인했다. 최종 문서 커밋도 같은 브랜치에 추가 push한다. 새 기능 구현·서버/스토어 배포·main 병합·실기기/Release 재빌드는 이번 작업에 없다. 최종 커밋과 상세 명령/한계는 WORKLOG를 따른다.
+- 역할/사용 예/롤백: 이번 신규 영구 파일은 없으며 기존 PROJECT_CONTEXT·WORKLOG의 정합성만 갱신한다. 임시 분리 스크립트/로그/원본 patch는 /private/tmp/shiftmate-commit-split-20261116에 있으며 Git/Python3·기존 Flutter SDK에 의존한다. 일반 검증 명령은 WORKLOG를 따르며 이 기록을 근거로 작업 커밋을 선택해 git revert한다.
+
 ## 네이버 탈퇴 후 반복 재가입의 네이티브 SDK 수정 (2026-11-16, ADR-0085)
 
 - 실제 재현: 사용자 탈퇴 성공 확인 후 NaverLoginService55행에서 sdk_status=error/Access Token 없음/Code=-1005/네이버 token endpoint를 확인했다. 이번 실패는 Repository126행의 SDK await에서 발생해 서버 로그인129행 이전이다. 서버 삭제 대기409와 이 SDK 실패를 구분한다.
@@ -353,9 +360,11 @@
 
 ## 개인 일정 슬라이드업 모달과 인라인 공개 레벨 (2026-11-11)
 
-- 목적/정책: 모달/공개 조절은 ADR-0047, 후속 본문 끌기/확인 없는 닫기는 ADR-0048을 따른다. CalendarPage의 기존 showCupertinoModalPopup(root, barrierDismissible=false)과 생성 콜백을 그대로 사용하고 기존 캘린더/탭을 dim 배경으로 남긴다. 본문/저장·모의/실서버 계약은 ADR-0046과 같다.
-- 모달: 화면88%·최대폭560·상단반경28, 흰 표면·손잡이·중앙17px 제목·닫기48px이다. 키보드가 열리면 화면높이-상단안전영역-12-키보드 높이를 사용하고 시트 전체를 키보드 위에 둔다. 본문최대480/좌우24(360 미만20)·본문스크롤·하단 저장52 이상/안전영역을 유지한다. 손잡이 또는 본문 최상단 아래 끌기로 최대180px 이동하며 기존64px/아래속도700 기준을 만족하면 바로 닫는다. 본문은 AlwaysScrollable+Clamping physics와 depth0/사용자 dragDetails/음수 OverscrollNotification/minScrollExtent를 확인해 목록 중간·중첩 스크롤·프로그램 이동을 구분한다. 짧은 끌기는 복귀하고 위로 되밀면 이동량을 줄이며 동작 줄이기에서는 복귀 애니메이션을 생략한다. **Behavior change**: 내용 변경 여부/내용 버리기/계속 작성 확인 로직을 제거해 닫기 버튼·OS 복귀도 바로 닫고 미저장 입력은 사라진다. 저장 중 입력·닫기·중복 요청 차단과 저장 필수 검증은 유지한다. 이미 닫힌 route의 중복 pop을 방지한다. 바깥 탭은 기존처럼 닫지 않는다. 레벨 가로 드래그는 시트를 닫지 않는다.
-- 공개 범위: 선택 시트를 없애고 친구에게 공개/나만 보기 세그먼트와 친구 공개 전용0~5 정수 CupertinoSlider를 배치했다. 숫자0~5도 최소44px 버튼으로 선택할 수 있고 선택 숫자/트랙에 primary를 사용한다. 나만 보기에서는 슬라이더를 접되 _visibility_level을 보존해 다시 공개하면 복원한다. 설명은 can_view=true인 친구와 최소 레벨 전제를 표시한다. 기존 is_private boolean/레벨0~5·응답 확인·DTO/서버 정책은 유지한다. 장소/메모·종일/기간·날짜 보정·dispose/provider 수명/analytics는 변경하지 않는다.
+- 최신 입력 디테일(ADR-0050): 날짜/시간 헤더 오른쪽 연도와 종료 아래 기간/다음날/종일 합계 설명을 제거했다. 날짜 선택기·서로 다른 연도의 날짜 버튼·접근성 연도와 시간 검증/종일 저장 의미는 유지한다. 장소·메모는 기본 펼침이며 접기/입력 보존을 지원한다. 공개 레벨은 double 시각 위치와0~5 int 선택/저장을 분리해 드래그 중 연속 이동하고 놓기/숫자 선택 시180ms easeOutCubic으로 정수 위치에 정렬한다. 동작 줄이기는 정렬 애니메이션을 생략하며 접근성 증감은1단위다. 레벨1~5 설명은 `내가 지정한 레벨이 N 이상인 친구에게 보여요.`로 간소화했다. 아래 이전 표시 설명 중 충돌하는 부분은 이 정책으로 대체한다.
+- 파일 역할/재현: 기존 폼·폼/저장 회귀를 갱신했다. 기존 `artifacts/personal_event_sheet_2026-11-11/render_test.dart`는 기본 펼침 입력을 직접 검사하고 `PERSONAL_EVENT_RENDER_OUTPUT` 환경변수로 PNG/측정 출력 디렉터리를 바꿀 수 있다. 예: `PERSONAL_EVENT_RENDER_OUTPUT=/private/tmp/personal_event_details_2026-11-11 flutter test --no-pub artifacts/personal_event_sheet_2026-11-11/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 기존 렌더 의존성은 동일하며 과거 PNG는 보존한다. 최종 검증/한계·롤백은 WORKLOG 최신 디테일 항목을 따른다.
+- 목적/정책: 모달/공개 조절은 ADR-0047, 본문 끌기/확인 없는 닫기는 ADR-0048, 최소 끌기 거리는 ADR-0049를 따른다. CalendarPage의 기존 showCupertinoModalPopup(root, barrierDismissible=false)과 생성 콜백을 그대로 사용하고 기존 캘린더/탭을 dim 배경으로 남긴다. 본문/저장·모의/실서버 계약은 ADR-0046과 같다.
+- 모달: 화면88%·최대폭560·상단반경28, 흰 표면·손잡이·중앙17px 제목·닫기48px이다. 키보드가 열리면 화면높이-상단안전영역-12-키보드 높이를 사용하고 시트 전체를 키보드 위에 둔다. 본문최대480/좌우24(360 미만20)·본문스크롤·하단 저장52 이상/안전영역을 유지한다. 손잡이 또는 본문 최상단 아래 끌기로 최대180px 이동하며 시트 이동량120 논리px 이상일 때만 닫는다. 속도가 빨라도120px 미만이면 복귀하며 입력을 보존한다(ADR-0049). 본문은 AlwaysScrollable+Clamping physics와 depth0/사용자 dragDetails/음수 OverscrollNotification/minScrollExtent를 확인해 목록 중간·중첩 스크롤·프로그램 이동을 구분한다. 위로 되밀면 이동량을 줄이며 동작 줄이기에서는 복귀 애니메이션을 생략한다. **Behavior change**: 내용 변경 여부/내용 버리기/계속 작성 확인 로직을 제거해 닫기 버튼·OS 복귀도 바로 닫고 미저장 입력은 사라진다. 저장 중 입력·닫기·중복 요청 차단과 저장 필수 검증은 유지한다. 이미 닫힌 route의 중복 pop을 방지한다. 바깥 탭은 기존처럼 닫지 않는다. 레벨 가로 드래그는 시트를 닫지 않는다.
+- 공개 범위: 선택 시트를 없애고 친구에게 공개/나만 보기 세그먼트와 친구 공개 전용0~5 CupertinoSlider를 배치했다. 최신 연속 이동/정수 정렬은 ADR-0050을 따른다. 숫자0~5도 최소44px 버튼으로 선택할 수 있고 선택 숫자/트랙에 primary를 사용한다. 나만 보기에서는 슬라이더를 접되 _visibility_level을 보존해 다시 공개하면 복원한다. 설명은0에서 열람 허용된 친구,1~5에서 내가 지정한 최소 레벨을 표시한다. 기존 is_private boolean/레벨0~5·응답 확인·DTO/서버 정책·날짜 보정·dispose/provider 수명/analytics는 유지한다.
 - 파일 역할/의존성/사용 예: 기존 personal_event_form_modal.dart는 시트 크기/키보드·손잡이/본문 overscroll·인라인 공개 컨트롤을 담당하며 CalendarPage 진입부는 유지한다. 기존 personal_event_form_modal_test.dart는 실제 popup·숫자/슬라이더·private 전환·손잡이/본문 상단 끌기·중간 목록/짧은 끌기 복귀·확인 없는 닫기/OS 복귀·바깥 탭/저장 차단을 검증한다. `artifacts/personal_event_sheet_2026-11-11/render_test.dart`는 기존 design_update 렌더러의 공개 모의 auth/calendar/friend/notification/group fixtures·실제 MainTabPage/CalendarPage·번들폰트를 사용해 실제 일정 추가하기 버튼을 누른다. 모의 createEvent는 저장 오류를 반환하며 원격 요청은 수행하지 않는다. Flutter test/Riverpod·모의 SharedPreferences에 의존하고 루트에서 `flutter test --no-pub artifacts/personal_event_sheet_2026-11-11/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로17개 PNG/measurements.json을 재생성한다. JSON은 시트상단/높이/하단·화면/글자배율/키보드·저장/입력 좌표·예외를 기록한다. 직전 시안/렌더는 당시 기록으로 보존한다.
 - 검증/한계/영향/롤백: 최종 수치는 WORKLOG를 따른다. [슬라이드업 모달](../artifacts/personal_event_sheet_2026-11-11/normal.png), [인라인 레벨3](../artifacts/personal_event_sheet_2026-11-11/visibility.png), [나만 보기](../artifacts/personal_event_sheet_2026-11-11/private.png). 실제 캘린더 위젯/모의 키보드inset·API 기준으로 실제 OS/VoiceOver/원격 인증 사용자별 인수를 대체하지 않는다. 기존 라이트 테마 범위다. 이번 폼·회귀/렌더·문서만 되돌리며 서버/DB·기존 미커밋 작업은 보존한다.
 
@@ -433,7 +442,7 @@
 ## 커스텀 색상 선택 재디자인 (2026-11-11)
 
 - 프리셋 여백 보정: 카드 내부 GridView의 패딩은 0으로 명시해 safe-area가 중첩되지 않도록 한다. 카드의 16px 패딩만 적용하며, 렌더러가 첫/마지막 행의 위아래 간격(테두리 포함 각각 17px)을 측정한다. 수정 전 아래쪽에 추가되던 34px을 제거했다.
-- 농도 통합 완료(ADR-0040): 사용자 승인에 따라 프리셋 화면은 선택/완료와 `선택한 색상 조절` 진입만 제공한다. 농도 슬라이더는 커스텀의 RGB 아래에 있다. HEX/RGB/휠은 기준 색상을 편집하고 농도는 별도 유지한다. 상단 고정 `적용될 색상`은 흰색 혼합 후 최종 RGB를 표시하며 키보드가 열리면 접어 입력 공간을 확보한다. 프리셋 새 선택은 100%, 커스텀 완료/재진입은 기준색/농도를 보존하고 취소는 원래 선택을 유지한다.
+- 농도 통합 완료(ADR-0040): 사용자 승인에 따라 프리셋 화면은 선택/완료와 `선택한 색상 조절` 진입만 제공한다. 농도 슬라이더는 커스텀의 RGB 아래에 있다. HEX/RGB/휠은 기준 색상을 편집하고 농도는 별도 유지한다. `적용될 색상`은 흰색 혼합 후 최종 RGB를 표시한다. 최신 ADR-0069는 키보드 여부와 관계없이 미리보기를 고정하고 낮은 본문에서는 작게 표시한다. 프리셋 새 선택은 100%, 커스텀 완료/재진입은 기준색/농도를 보존하고 취소는 원래 선택을 유지한다.
 - 최근 색상: `shift_custom_recent_selections_v2`에 기준 HEX/정수 농도의 JSON 문자열 목록을 저장한다. 유효 값만 복원하며 최종 RGB 기준 중복 제거·최신순·최대 6개다. v2에 유효 기록이 없으면 v1 RGB를 기준색/100%로 복원한다. 완료 시 v1에도 최종 HEX를 기록해 이전 버전과 호환한다. API/DB의 base_color/color_intensity 및 불투명 흰색 혼합 계약은 변경하지 않는다.
 - 신규 `lib/features/calendar/presentation/widgets/shift_color_selection.dart`: 두 선택 화면이 공유하는 결과값 `ShiftColorSelection`과 `calculateShiftColor`를 기존 프리셋 파일에서 이동했다. 의존성은 dart:ui이며 예: `calculateShiftColor(const Color(0xFF4355B8), 50)` → `0xFFA1AADC`. 기존 프리셋 파일도 이 파일을 export해 호출부 호환성을 유지한다. 커스텀 route 반환형도 Color에서 ShiftColorSelection으로 바꿨다.
 - 최신 검증 산출물 `artifacts/custom_color_intensity_2026-11-11/render_test.dart`: Flutter test/SharedPreferences 모의 저장소/번들 폰트에 의존하며 프리셋과 농도 50% 커스텀의 10개 PNG/measurements.json을 생성한다. 루트에서 `flutter test --no-pub artifacts/custom_color_intensity_2026-11-11/render_test.dart`로 재생성한다. [프리셋](../artifacts/custom_color_intensity_2026-11-11/preset.png), [RGB와 농도](../artifacts/custom_color_intensity_2026-11-11/intensity_bottom.png). 이전 디자인 폴더는 해당 작업 시점 기록이다.
@@ -449,12 +458,12 @@
 - 목적/상태: 사용자가 수정 방향을 승인해 앱에 반영했다. 정책은 ADR-0038, 화면별 범위는 [수정 방향서](UI_DESIGN_DIRECTION_2026-11-10.md), 결과 이미지는 [화면 비교](../artifacts/design_update_2026-11-10/comparison.png)를 참조한다.
 - 진입/상태: AuthWrapper가 로그인·가입 프로필·MainTabPage를 분기한다. 소셜 로그인/가입 페이지의 직접 pushReplacement는 제거했다. 인증 사용자 id가 바뀌면 탭 컨테이너를 새로 생성하고 로그아웃 시 root 탐색 이력을 정리한다. 각 탭 Navigator와 지연 IndexedStack은 선택 날짜·친구/그룹·목록·상세 이력을 유지한다. 탭/observer는 dispose하며 domain provider는 기존 계정별 무효화 정책을 유지한다.
 - 내비게이션: 하단은 캘린더·친구·알림, 오늘은 달력 헤더, 친구/그룹은 상단 세그먼트다. 설정·생성/편집/초대는 root로 열며 푸시는 폼을 덮지 않고 root가 현재 화면으로 복귀한 뒤 알림 탭을 연다. 알림 재진입은 목록/읽음 상태를 갱신한다. 별도 analytics 시스템은 추가하지 않는다.
-- 폼: 설정·근무 타입·색상의 전체 0.8 배율 제거, 본문 16/보조 14·카드 16·입력 12·터치 최소 44 목표. 준비 중 설정은 설명을 직접 표시한다. 개인 일정 날짜/시간은 별도 줄, 커스텀 색상은 세로 스크롤·한글 라벨·6자리 코드 검증을 사용한다. 근무 타입/개인 일정 저장은 콜백 완료까지 중복 입력/이탈을 막고 실패 시 입력을 보존한다. 알림 수락/거절은 최소 높이 44, 처리 중 표시와 중복 액션 방지를 제공한다.
+- 폼: 설정·근무 타입·색상의 전체 0.8 배율 제거, 본문 16/보조 14·카드 16·입력 12·터치 최소 44 목표. 미지원 설정은 ADR-0073에 따라 표시하지 않는다. 개인 일정 날짜/시간은 별도 줄, 커스텀 색상은 세로 스크롤·한글 라벨·6자리 코드 검증을 사용한다. 근무 타입/개인 일정 저장은 콜백 완료까지 중복 입력/이탈을 막고 실패 시 입력을 보존한다. 알림 수락/거절은 최소 높이 44, 처리 중 표시와 중복 액션 방지를 제공한다.
 - 반응형: 가용 높이 580 미만 또는 16pt 기준 확대 크기 20 초과인 메인은 본문 스크롤을 허용한다. 달력의 750px 기준 월/2주 정책은 유지한다. 고정 달력 셀 날짜는 한 줄 FittedBox, 큰 글자의 일정 헤더는 줄바꿈한다. 프로필/근무 타입/색상 등 저장 내용과 API 형식은 유지한다.
 - 시간대: 그룹 수정은 도시/현재 UTC 시차 검색 선택을 사용한다. 기존 timezone 패키지의 위치 목록을 사용하고 목록에 없는 기존 값도 보존한다. 서버는 Intl.DateTimeFormat 검증을 수행하며 미지원 후보는 기존 API 오류로 안내한다. UTC 시차는 현재 날짜의 서머타임을 반영한다.
 - 신규 파일 역할/의존성/사용 예:
   - `lib/core/navigation/main_tab_page.dart`: 인증 후 세 탭·badge·탭 이력과 pending 처리. Cupertino/Riverpod/기존 화면 provider에 의존. AuthWrapper가 `MainTabPage(key: ValueKey(user.id))`로 생성한다.
-  - `lib/core/navigation/app_navigation.dart`: root route 변경 observer와 탭 선택 InheritedWidget. 앱 root Navigator에 `rootNavigationObserver`를 등록하고 `AppTabNavigation.maybeOf(context)?.selectTab(1)`로 친구 탭에 이동한다.
+  - `lib/core/navigation/app_navigation.dart`: root route 변경 observer와 탭 선택 InheritedWidget. 앱 root Navigator에 `rootNavigationObserver`를 등록하고 `AppTabNavigation.maybeOf(context)?.openFriends()`로 친구 목록 경로에 이동한다(ADR-0067).
   - `lib/features/group/presentation/widgets/group_timezone_picker.dart`: 기존 timezone DB 기반 검색 페이지와 도시/시차 라벨. `GroupTimezonePicker(selected_timezone: current)`가 선택한 기존 식별자를 반환한다.
   - `test/core/navigation/main_tab_page_test.dart`: 모의 인증/달력/친구/알림으로 탭 상태·오늘·상세 복귀·푸시 보류·로그인/가입/로그아웃을 검증한다.
   - `test/features/calendar/presentation/widgets/form_save_state_test.dart`: Completer 기반 저장 중복 방지/실패 후 입력 보존 검증.
@@ -776,8 +785,9 @@
     각각 검증한다. 공용 캘린더 계약을 변경할 때 세 페이지 위젯 테스트와 함께 실행한다.
   - `lib/features/calendar/presentation/widgets/calendar_schedule_card.dart`: 메인·친구 캘린더가
     함께 사용하는 선택일 일정 카드. `CalendarScheduleHeader`는 일정 카드와 메인 근무 설정 카드가
-    같은 16px 수평·8px 수직 padding, 28px 콘텐츠 슬롯, 날짜/공휴일 타이포와 0.5px 하단
-    구분선을 사용해 그룹 선택일 헤더와 동일한 44.5px 실측 높이를 유지한다. 선택일은
+    같은 16px 수평·8px 수직 padding, 최소28px 콘텐츠, 날짜/공휴일 타이포와 0.5px 하단
+    구분선을 사용한다. ADR-0068에 따라 그룹도 같은 헤더를 사용하며 한 줄이면44.5px,
+    좁은 폭/확대 글자에서는 필요한 만큼 높아진다. 선택일은
     `M월 d일 EEEE` 한국어 형식으로 표시하고 일정 수는 `N개의 일정` 문장 대신
     `CalendarScheduleSummaryChip`의 `일정 N개` pill로 배치하며, 일정이 없을 때도 `일정 0개`를
     명시한다. 이 공용 pill은 그룹의 `근무 N명`·`일정 N개`에도 사용한다. 일정 카드는 이 헤더와
@@ -869,7 +879,7 @@
     선택 전체 화면. 상단 최종 색상 미리보기와 스크롤 가능한 기준 HEX→휠→RGB→농도→최근 색상을 제공한다.
     입력 컨트롤은 기준색, 고정 미리보기는 최종색이며 농도 0%에서도 기준색을 잃지 않는다.
     휠 원 내부는 즉시 제스처를 소유하고, 농도 트랙은 탭/가로 드래그·접근성 조절을 지원한다.
-    작은 화면·큰 글자는 스크롤하며 키보드가 열리면 고정 미리보기를 접는다. 저장 중 입력/뒤로가기/중복 완료를 막는다.
+    작은 화면·큰 글자는 독립된 둥근 패널 안에서 스크롤하며 키보드가 열려도 미리보기를 유지한다. 낮은 본문은 미리보기를 작게 표시한다. 저장 중 입력/뒤로가기/중복 완료를 막는다.
     완료 시 유효한 6자리 HEX를 검사하고 `ShiftColorSelection`으로 기준색/농도/최종색을 반환한다.
     뒤로가기는 결과/최근 기록을 저장하지 않는다. 최근 색상의 v2 메타데이터와 v1 호환 규칙은 상단 농도 통합 절을 따른다.
   - `test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart`: 작은 미리보기/하단 저장,
@@ -940,8 +950,8 @@
   - `test/features/auth/data/services/apple_login_service_test.dart`: iOS/Android 옵션, nonce/state,
     state 불일치, 사용자 취소와 지원 불가 처리를 실제 플랫폼 채널 없이 검증한다.
   - `lib/features/auth/presentation/pages/settings_page.dart`: 설정 화면. `../design/stitch_shift_schedule_planner (3)/code.html`
-    시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/앱 설정/계정 및 보안/지원 카드 섹션,
-    준비 중 상태, 별도 로그아웃 버튼을 Cupertino 위젯으로 구현한다. 설정 화면 내부에는
+    시안의 중앙 `설정` 헤더, 프로필 카드, 근무 관리/지원 카드 섹션,
+    별도 로그아웃·회원 탈퇴 버튼을 Cupertino 위젯으로 구현한다. 미지원 메뉴와 빈 섹션은 표시하지 않는다(ADR-0073). 설정 화면 내부에는
     하단 내비게이션을 두지 않고, 메인 캘린더에서 push된 페이지로 뒤로가기를 제공한다.
     상단 `설정` 헤더와 뒤로가기는 `CupertinoPageScaffold.navigationBar`에 두어 메인
     캘린더의 `CupertinoNavigationBar`와 route 전환 시 같은 헤더 transition을 타게 한다.
@@ -949,12 +959,12 @@
     전체 축소 대신 본문 16/설명 14와 최소 높이 56의 행을 사용한다. 큰 글자는 행 안에서 줄바꿈한다. 섹션 카드는
     행 배경/구분선을 `ClipRRect`로 먼저 클리핑하고, `foregroundDecoration`이 primary
     tint 1px outline을 마지막에 그려 같은 크기의 내부 surface가 border를 덮지 않게 한다.
-    실제 구현된 항목은 `ShiftTemplateSettingsPage`로 이동하는 근무 패턴 설정,
-    로그아웃, 회원 탈퇴이다. 회원 탈퇴는 로그아웃 아래의 별도 destructive 액션으로 노출하고,
+    실제 표시 항목은 프로필 편집, `ShiftTemplateSettingsPage`로 이동하는 근무 패턴 설정,
+    고객 지원, 개인정보처리방침, 버전 정보, 로그아웃, 회원 탈퇴이다. 회원 탈퇴는 로그아웃 아래의 별도 destructive 액션으로 노출하고,
     일정·근무표·친구·그룹 정보 삭제와 복구 불가를 최종 확인한 뒤만 요청한다.
     요청 중에는 로그아웃과 탈퇴 버튼을 모두 비활성화해 중복 요청을 막는다.
     프로필 편집은 상단 2026-11-10 절의 실제 편집 route를 사용한다. 기본 알림 설정, 다크 모드, 언어 및 지역, 글꼴 크기, 비밀번호 변경,
-    로그인 생체 인증, 공지사항, 고객 센터는 `준비 중`을 직접 표시하며 동작·화살표·가짜 토글을 제공하지 않는다. 버전 정보는
+    로그인 생체 인증, 공지사항과 미지원 고객 센터는 UI에서 제거했다. 후속으로 실제 `/support` 페이지를 여는 고객 지원 행을 추가했다. 버전 정보는
     `AppConstants.app_version`을 표시한다.
 
 ### 아키텍처 개요
@@ -1186,7 +1196,7 @@ SettingsPage 최종 확인
 - `REAUTHENTICATION_REQUIRED`는 현재 JWT와 설정 화면을 유지하고 전용 안내를 표시한다.
   `다시 로그인` 선택 시 로컬 세션을 종료하고 로그인 화면으로 이동하며, 전체
   로그인 후 사용자가 탈퇴를 다시 확인해야 한다. access token refresh는 재인증이 아니다.
-- Google은 현재 사용자의 `google_id`가 있을 때 `GoogleSignIn.disconnect()`를 호출한다.
+- Google은 현재 사용자의 `google_id`가 있을 때 연결을 해제한다. iOS의 선행 복원·갱신/동일 계정 확인 및 400 재로그인 분기는 ADR-0080과 위 2026-11-13 항목을 따른다.
   Naver는 SDK의 현재 access token이 있을 때만 `logOutAndDeleteToken()`으로 앱 연결을
   해제한다. Apple·Kakao provider revoke는 서버 비동기 삭제 작업이 담당한다.
 - `ApiException.request_id`는 서버 오류 추적 ID를 보존한다. 미접수 오류는 request ID를
@@ -1410,38 +1420,32 @@ CalendarPage 개인 일정 왼쪽 스와이프
 
 ### 친구 추가 검색 흐름
 
+최신 UI 배치는 ADR-0077, 높이/제스처 정책은 ADR-0079(2026-11-13)이다. 사용자가 명확히 한 요구는 이메일/전화번호 유일성·정확 일치·계정 단일 반환이며, ADR-0076의 큰 도입/검색 결과 제목·카드·검색/요청 버튼 병렬 표시·비율 기반 높이·접이식 공유 안내를 아래 구성으로 대체한다.
+
 ```
-FriendListPage
-  → AddFriendModal
-  → SearchUserNotifier.searchUser()
-  → FriendService.searchUser()
-  → GET /api/v1/users/search?query=...
+FriendListPage → AddFriendModal
+  입력 → [친구 찾기] → SearchUserNotifier → FriendService
+  → GET /api/v1/users/search?query=... → 정확히 일치하는 data.user 한 명
+  → 중앙 프로필 확인 → [친구 요청 보내기] → FriendRequestsNotifier
+  → POST /api/v1/friend-requests → 기존 보낸 요청 목록 갱신
+  → 같은 프로필/수락 대기 상태 → [완료] → 시트 닫기
+입력 수정/지우기 → 이전 프로필/오류 제거 → [친구 찾기]
+받은 요청 → [받은 요청 확인] → Navigator.pop(true)
+  → 호출부가 기존 AppTabNavigation.selectTab(2)
+  → 탭 컨테이너가 없으면 독립 NotificationPage push
 ```
 
-- 친구 추가 모달의 검색창과 검색 버튼은 하나의 `TapRegion`으로 묶는다. 검색창 밖의 모달 영역을
-  터치하면 검색 `FocusNode`를 해제해 가상 키보드를 닫고, 검색창이나 검색 버튼 내부 터치는 기존
-  입력·검색 동작을 유지한다.
-- 상단 헤더 높이는 `AddFriendModal`의 `_headerHeight` 단일 상수로 관리하며, 드래그 핸들을 포함해
-  66px을 사용한다. 취소 액션은 `body_medium` 14px/w600, 중앙 제목은 `body_large` 16px/w700을
-  적용하고 44px 최소 터치 영역을 유지한다. 제목은 왼쪽 액션 너비와 무관하게 시트 정중앙에 배치한다.
-- 로컬 입력 검증 말풍선은 검색 행을 `CompositedTransformTarget`으로 삼고 모달 최상위 `Stack`의
-  `CompositedTransformFollower`로 그린다. 말풍선은 검색/결과 `Column`의 높이에 포함되지 않으므로
-  표시 전후에 검색 전·오류·결과 없음 안내와 검색 결과 카드의 위치가 바뀌지 않는다.
-- 시트 높이는 사용자가 선택한 높이와 `화면 높이 - 키보드 높이 - 상단 8% 여백` 중 작은 값으로
-  제한한다. `MediaQuery.viewInsets.bottom`이 제공하는 키보드 전환 프레임은 추가 보간 없이 직접
-  반영해 키보드가 닫히는 동안 시트가 최대 높이로 팽창했다가 기본 높이로 축소되지 않게 한다.
-- 검색 전·오류·결과 없음 안내는 가용 결과 영역 안에서 중앙 정렬하되, 큰 텍스트나 큰 키보드로
-  콘텐츠 높이가 영역을 넘으면 내부 스크롤을 허용해 `RenderFlex` 오버플로를 방지한다.
-- 검색 성공 시 단일 사용자 카드는 고정 높이나 최소 높이를 사용하지 않는다. 프로필 행, 공용 간격,
-  친구 관계 상태 또는 친구 요청 버튼과 카드 내부 패딩의 실제 높이에 따라 세로 크기를 결정하고,
-  결과 영역보다 커지는 경우 바깥 `SingleChildScrollView`가 스크롤을 담당한다.
-- 파일 역할/의존성/사용 예:
-  - `lib/features/friend/presentation/widgets/add_friend_modal.dart`: 이메일/전화번호 입력 검증과
-    정규화, 단일 사용자 검색 결과, 친구 요청 액션, 드래그 가능한 시트와 키보드 포커스/높이 대응을
-    담당한다. `FriendListPage`가 `showCupertinoModalPopup`으로 표시한다.
-  - `test/features/friend/presentation/widgets/add_friend_modal_test.dart`: 큰 키보드·확대 텍스트에서
-    안내 영역이 넘치지 않는지, 검색창 밖 터치로 포커스가 해제되는지, 키보드 닫힘 중 시트 목표
-    높이가 기본 높이를 초과하지 않는지와 검색 결과 카드가 내부 요소 높이로 축소되는지 검증한다.
+- 크기/색상: 흰 surface 배경 #FFFFFF에 연한 회색 입력 #F2F4F6·기존 primary #0061A4/Cafe24 폰트를 사용한다. 상단 반경24px·최대 폭560px·좌우24px·본문 위24px/아래24px+안전영역이다. 입력 라벨14px·입력16px/최소52px/반경12px, 제목20px·닫기44x44/핸들36x5를 사용한다. 헤더와 본문은 같은 흰색이며 도입 문구/검색 결과 제목/결과 카드 외곽/공유 안내를 추가하지 않는다.
+- 높이/스크롤: 기본은 mainAxisSize.min Column+Flexible(fit:loose)/SingleChildScrollView의 실제 내용 높이다. 최대 상태는 개인 일정 추가와 같은 `keyboard>0 ? max_height : min(screen_height*0.88,max_height)`이며 `max_height=screen_height-viewPadding.top-keyboard_height-12`를0~화면 높이로 제한한다. 기본 높이도 이 상한 안에서 스크롤하고 최대는 tight Flexible로 남은 본문 공간을 채운다. 작은 화면/키보드/큰 글자에서도 동일한 본문 스크롤을 사용한다.
+- 단계/제스처: bool _is_expanded만 높이 선택으로 저장하고 임의 drag height는 저장하지 않는다. 헤더 드래그 중 크기를 바꾸지 않고 아래 translation만 최대180px까지 따라간다. 놓을 때 위48px 이상은 최대, 최대에서 아래48px 이상은 거리와 관계없이 기본으로 접는다. 기본 상태에서 시작한 아래120px 이상 제스처만 닫는다. 더 짧으면 기존 단계를 유지하고 속도만으로 닫지 않는다. 입력/검색/요청 완료·키보드 전환은 선택한 높이 단계를 유지한다.
+- 높이/위치 전환: 일반 상태의 AnimatedSize는 드래그 전후 같은 요소를 유지하고260ms/easeOutCubic으로 보간한다. 드래그 중 이 위젯을 제거하면 종료 때 새 RenderAnimatedSize가 최종 크기에서 첫 레이아웃을 수행해 확대가 순간 전환되는 것을 실제 프레임 테스트로 재현했다. 배경/라운드 클리핑은 AnimatedSize 바깥의 add-friend-visible-surface에 두고 topCenter 정렬로 헤더가 움직이는 상단에 계속 붙도록 한다. translation은 드래그 중 즉시 반영하고 종료 때260ms로 복귀한다.
+- 키보드/동작 줄이기/취소: AnimatedSize의 ValueKey는 viewInsets.bottom이며 IME 값이 바뀌는 프레임은 새 애니메이션 요소의 첫 배치로 즉시 반영한다. 같은 inset 안의 사용자 단계 전환은 정상 보간한다. 동작 줄이기는 AnimatedSize 자체를 우회한다. Duration.zero RenderAnimatedSize 재진입 회귀를 피하는 정책을 유지하며, 기존 GlobalKey를 KeyedSubtree에 두어 애니메이션 경계 변경에도 controller/포커스/스크롤 subtree를 보존한다. Listener.onPointerCancel과 onVerticalDragCancel은 거리/translation/플래그를 초기화하고 비활성 onEnd를 무시한다.
+- 프로필/버튼: 사진64px·이름20px·이메일14px를 카드 없이 중앙 세로 배치하고 긴 값은 줄바꿈한다. 프로필 위24px·사진 뒤12px·이름 뒤4px를 둔다. 주요 버튼은 항상 정확히 하나이며 최소52px/글자16px/반경12px·primary 색이다. 계정 확인 전에는 친구 찾기(통신 실패는 같은 버튼의 다시 시도), 계정 확인 후에는 친구 요청, 이미 친구/보낸 요청/방향 불명 대기는 완료, 명시적인 받은 요청은 받은 요청 확인으로 바뀐다. 가입 정보 입력/수락 대기 절차의 일반 설명은 표시하지 않으며 오류·이미 친구·요청 대기 같은 실제 상태만 표시한다.
+- 검색/오류: 입력 수정/지우기는 검색 상태와 입력/요청 오류를 즉시 초기화한다. 기존 이메일/국내 전화번호/+82 검증과 하이픈 정규화를 유지하며 부분 검색·자동 완성/추천/목록은 제공하지 않는다. 유효하지 않은 값은 API 호출 없이 필드 아래 오류로 안내한다. USER_NOT_FOUND와 통신 실패도 필드 아래에서 구분한다. 검색 중 주요 버튼 안에 진행 표시와 비활성화를 적용하고 입력 수정 후 새 검색은 가능하다. 검색 generation으로 역순/초기화 이전/해제 뒤의 응답을 버리는 앞선 보호를 유지한다. 키보드 검색도 같은 계정 확인을 실행하되 이미 확인한 계정에서 다시 누르더라도 요청을 자동 전송하지 않는다.
+- 요청/수명: 요청 중 입력/지우기/중복 전송을 막고 닫기는 제공한다. 응답 뒤 mounted를 먼저 확인한다. 실패 시 프로필/입력을 보존하고 오류와 같은 요청 버튼으로 재시도한다. 성공 시 프로필/수락 대기 상태와 완료 버튼을 표시하고 완료로 닫는다. 같은 시트에서 보낸 사용자 ID Set과 기존 비-autoDispose domain provider 정책을 유지한다. controller/FocusNode는 dispose한다. 실제 친구 수락/공유 ACL/레벨/기본 설정은 바꾸지 않는다.
+- 파일 역할/의존성/사용 예(모두 기존 파일): add_friend_modal.dart는 Cupertino/Riverpod/AppTheme/ProfileImage 및 기존 검색·요청 provider에 의존하는 폼이다. `showCupertinoModalPopup<bool>(builder: (_) => const AddFriendModal())`로 열고 기존 friend_list_page.dart가 true 결과를 받은 요청 확인으로 연결한다. 기존 add_friend_modal_test.dart가 API 모의 service·입력·단일 행동 전환·오류/요청·높이 단계/취소·키보드·실제 폰트 렌더를 검증한다. 테스트는 기존 PersonalEventFormModal과 intl 한국어 날짜 초기화에 의존해5개 화면/키보드/상단 안전영역 조건에서 실제 최대 높이 일치를 비교한다. _buildTestApp은 CupertinoApp.builder에서 Navigator와 popup 전체에 같은 MediaQuery/캡처 경계를 적용하고 테스트 scaffold의 resizeToAvoidBottomInset=false로 모달이 실제 popup처럼 키보드 inset을 직접 받게 한다. 드래그 도중 pump한 뒤 종료 직후/80ms/완료의 실제 표면 높이·헤더 상단·하단을 검증한다. 이번 수정은 모달/해당 테스트만 바꾸며 기존 route/접근권한·탭 호출부·analytics/logging·API/DTO/Entity·DB/env·패키지는 변경하지 않는다.
+- 렌더 사용 예: `ADD_FRIEND_RENDER_OUTPUT=/private/tmp/shiftmate_friend_motion_2026-11-13/render flutter test --no-pub test/features/friend/presentation/widgets/add_friend_modal_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`. 기존 테스트의 선택적 캡처가 dart:io/dart:ui·RepaintBoundary/FontLoader로 확대 전/종료 직후/중간/완료 프레임과 초기/확인/완료/최대 단계·작은 화면/가로/태블릿/큰 글자/키보드/어두운 OS 선호 PNG를 지정 경로에 생성한다. 새 저장소 파일/스크립트·의존성은 없다.
+- 검증/롤백: 최종 결과와 실행 조건은 WORKLOG를 따른다. 모의 API/위젯 렌더 범위이며 실기기/VoiceOver·운영 API 인수는 별도다. 이번 모달/관련 테스트·ADR-0079/문서 변경만 되돌리고 기존 미커밋 변경과 앞선 검색 최신성·알림 이동을 보존한다.
 
 ### 친구 캘린더 조회 흐름
 
@@ -1529,8 +1533,8 @@ MainTabPage 친구 탭 → FriendListPage 상단 세그먼트
   → GROUP_API_ENABLED=false: `우리 병동` 카드 → GroupCalendarPreviewPage
 ```
 
-- 친구 탭은 상단 `CupertinoSlidingSegmentedControl`로 친구/그룹을 전환한다. 하단은 공통 세 탭을 유지한다.
-- 두 목록은 IndexedStack으로 상태·스크롤 위치를 보존하고 그룹 목록은 처음 선택할 때 생성한다.
+- 친구 탭은 상단 `CupertinoSlidingSegmentedControl` 또는 본문 좌우 스와이프로 친구/그룹을 전환한다. 하단은 공통 세 탭을 유지한다.
+- 두 목록은 PageView와 파일 내부 keep-alive 래퍼로 상태·스크롤 위치를 보존하고 그룹 목록은 처음 선택할 때 생성한다(ADR-0061).
   그룹 선택 시 제목은 `그룹 방`, 친구 추가 액션은 숨기고 미리보기 또는 실제 목록을 표시한다.
 - 그룹 생성은 root 전체 화면에서 저장 후 group_id를 반환한다. 친구 탭은 목록 갱신 후 내부 Navigator로 새 그룹을 연다.
   그룹 수정·초대도 root 폼에서 처리하고 완료 시 기존 탐색 화면으로 복귀한다.
@@ -1573,8 +1577,8 @@ MainTabPage 친구 탭 → FriendListPage 상단 세그먼트
   그 이상에서는 월 보기와 56px 행을 사용한다.
 - 파일 역할/의존성/사용 예:
   - `lib/features/friend/presentation/pages/friend_list_page.dart`: `friendListProvider` 기반 기존
-    친구 목록과 그룹 방 목록을 페이지 내부 상태로 전환한다. 공용 `BottomActionBar`에
-    `BottomActionBarItem` 두 개를 주입한다. 그룹 API 플래그가 켜지면 실제 목록·받은 초대·생성
+    친구 목록과 그룹 방 목록을 페이지 내부 상태·PageController/상단 세그먼트로 전환한다.
+    좌우 스와이프를 지원하며 목록은 keep-alive로 보존한다. 그룹 API 플래그가 켜지면 실제 목록·받은 초대·생성
     진입을 제공하고, 꺼지면 `우리 병동` 카드를 눌러 `GroupCalendarPreviewPage`를 연다.
   - `lib/features/friend/presentation/pages/group_calendar_preview_page.dart`: 고정 구성원,
     결정적 날짜별 더미 데이터 생성기, 0~4명의 근무색 점 캘린더와 선택일 구성원 상세를 한
@@ -1663,7 +1667,7 @@ NotificationPage
   서버가 이전 계약처럼 `notification`을 반환하지 않으면 `responded_at` 기준으로 만든
   낙관적 완료 알림을 유지한다.
 - 수락 액션이 성공하면 `NotificationPage`는 친구 목록을 다시 조회한 뒤
-  `payload.related_user_id`와 일치하는 친구를 찾아 `FriendCalendarPage`로 이동한다.
+  `payload.related_user_id`와 일치하는 친구를 찾아 친구 탭의 친구 목록→`FriendCalendarPage` 경로로 이동한다(ADR-0067).
   거절 액션은 알림 상태만 갱신하고 화면 이동하지 않는다.
 - 응답 처리 중 또는 처리 직후 알림 목록 재조회가 실행되어 서버 목록에 완료 알림이 빠져 있어도,
   프론트는 같은 `notification_id` 또는 `payload.request_id`의 로컬 처리 완료 알림을 병합해

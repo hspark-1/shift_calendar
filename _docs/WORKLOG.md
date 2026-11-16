@@ -1,5 +1,17 @@
 # 작업 로그
 
+## 2026-11-16 작업별 커밋 분리 및 원격 푸시
+
+- [DONE] (Git) 누적 변경을 작업별 14개 커밋으로 분리하고 origin/develop에 푸시했다. 최종 문서 정합성·검증 기록은 후속 문서 커밋으로 함께 보존한다.
+  - 목적: 캘린더·공통 UI·친구/그룹·인증·iOS·웹 문서 변경을 검토·롤백 가능한 단위로 정리한다.
+  - 변경/영향: 원격 develop의 기존 Google 전화번호 커밋850e45d를 먼저 반영하고 기존 작업 파일은 보존했다. 공통 문서는 항목별로 인덱스에서 분리하고 각 코드 커밋에 PROJECT_CONTEXT·WORKLOG 및 필요한 ADR을 함께 포함했다. pubspec의 빌드 번호/SDK 경로, Info.plist의 UIScene/방향 설정도 서로 분리했다. 마지막 문서 커밋은 기존 설명과 후속 정책의 정합성을 맞추고 원격의 Google 검증/병합 기록을 보존한다.
+  - 작업 커밋: 42dc28b 그룹 nullable / 9cc41b2 피커 / 04cdcf3 일정 편집·삭제·캘린더 배치 / 5d3117b 색상·헤더 / 333a315 친구·그룹 탐색 / 05a2395 설정 / f9238ce 웹 정책 / c45f3b0 Google 탈퇴 / 95211c0 빌드5 / 1d13cf8 UIScene / 3724a9a 세로 방향 / 376f375 네이버 오류 / 4d3790c 네이버 SDK / 4d5edf1 로컬 API 주소.
+  - 코드 보존/정리: 초기 binary patch에 대해 lib/test/ios/pubspec 범위의 역방향 적용 check가 통과해 기존 변경이 보존됐음을 확인했다. 새 vendor 원본에서 확인된 줄 끝 공백14곳(Gradle/Swift3파일)만 제거하고 출처 README·ADR·컨텍스트에 명시했다. 해당 Swift2파일 parse·podspec Ruby 구문·Info.plist lint도 통과했다. 로컬 API 안내를 실제 상수172.30.1.93에 맞췄다. 기능 동작의 추가 변경은 없다.
+  - 테스트: 최종 작업 트리의 전체 Flutter559 pass·기존 skip1. GROUP_API_ENABLED/GROUP_P1_ENABLED=true의 친구 목록+그룹 전체45 pass. 전체 분석 error/warning0, 기존 미변경4파일 naming info26건으로 분석 종료코드1이며 무관 소스를 변경하지 않았다. 변경/신규 앱·테스트·렌더 Dart72개 포맷 변경0건, 측정JSON9개 파싱·PNG232개 signature/양수치수 확인, 전체 및 각 커밋 diff 공백 검사 통과. 기존 실기기/빌드 검증 이력은 보존하며 이번 작업에서 다시 빌드/설치하지 않았다.
+  - 실행: `flutter test --no-pub --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=commit-validation-test-key --reporter=expanded`; 활성 그룹은 같은 define에 `test/features/friend/presentation/pages/friend_list_page_test.dart test/features/group --dart-define=GROUP_API_ENABLED=true --dart-define=GROUP_P1_ENABLED=true`; `flutter analyze --no-pub`. Flutter SDK 캐시 접근 권한으로 실행했고 로그·분리 계획·메시지·원본 patch는 /private/tmp/shiftmate-commit-split-20261116에 보관한다. 새 영구 파일은 이번에 추가하지 않았다.
+  - 푸시/검증: 일반 `git push --set-upstream origin develop` 성공, 로컬HEAD=origin/develop=4d5edf174079c5f4bfe0cc2c43454e456516488a를 확인했다. 본 최종 문서 커밋까지 추가 push 후 원격HEAD 일치·작업 트리 clean을 다시 확인한다. main 병합·서버/스토어 배포는 이번 범위에 없다.
+  - 롤백: 필요한 작업 커밋을 의존성 역순으로 git revert한다. 분리 전 작업/인덱스 patch와 vendor 공백 정리 전 사본은 위 임시 폴더에 보존한다. Git 일시 잠금은 파일이 사라진 것을 확인한 후 재실행했으며 잠금 파일을 강제로 삭제하지 않았다.
+
 ## 2026-11-16 로컬 디버그 API 주소 동기화
 
 - [DONE] (FE/DEV) 기존 로컬 서버 주소 변경을 별도 커밋으로 정리한다.
@@ -112,7 +124,7 @@
   - 수정 중 확인: 새 위젯 테스트가 화면 전체 person_fill 아이콘2개를 세어 실패한 것을 실제 profile_avatar 내부로 검증 범위를 좁혀 해결했다. 제품 화면은 변경하지 않았다.
   - 문서/설계: PROJECT_CONTEXT·ADR-0081·GOOGLE_SIGN_IN_SERVER_GUIDE의 현행 계약을 갱신했다. 신규 영구 파일/패키지/env/route/provider 수명·DB 변경은 없다.
   - 커밋 분리 검증: 원격 main 기준의 별도 작업 트리에 Google 전화번호 변경만 구성했다. 기존 iOS 탈퇴/다른 UI 미커밋 변경은 제외하고 서비스·테스트의 필요한 PlatformException import를 명시했다. 이 독립 소스 기준 인증 전체105 pass/0 fail·변경 Dart7개 analyze 진단0·format 변경0·diff 검사 통과다. 앞선117개는 기존 다른 로컬 작업이 포함된 작업 트리의 결과이며 구분한다.
-  - 커밋/병합: 전화번호 변경을 origin/develop에 먼저 push한 뒤 origin/main에 실제 merge한다. 실제 앱 바이너리 배포/스토어 업로드는 수행하지 않으며 서버 배포 후 현재 앱 소스를 재빌드/설치해 테스트해야 한다.
+  - 커밋/병합: 전화번호 변경은 기존 원격 커밋 `850e45d`로 origin/develop에 반영되어 있고 origin/main에는 `dff95c1`로 병합되어 있음을 2026-11-16 fetch 후 확인했다. 실제 앱 바이너리 배포/스토어 업로드는 수행하지 않으며 서버 배포 후 현재 앱 소스를 재빌드/설치해 테스트해야 한다.
   - 한계: 실제 Google API와 네이티브 동의 화면은 mock 경계 밖이므로 Stage iOS/Android 실계정 인수가 남는다. 서버 SQL 변경은 없다.
   - 롤백: 이번 Google 변경만 되돌리고 기존 미커밋 작업과 저장된 사용자 번호/사진은 유지한다. 작업 전 사본은 /private/tmp/shiftmate_google_phone_20261113/before다.
 
