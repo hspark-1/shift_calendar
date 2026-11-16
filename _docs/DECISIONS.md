@@ -1,5 +1,19 @@
 # 아키텍처 결정사항
 
+## ADR-0083: iPhone·iPad 앱 콘텐츠는 세로 방향만 지원한다
+
+- 배경(문제): iPad의 iPhone 호환 창을 가로로 넓히면 가로 레이아웃으로 전환되는 동작을 사용자가 제한하도록 요청했다. 후속 답변으로 iPhone과 iPad 모두 세로 고정을 확정했다. 기존 Info.plist는 기본/기기별 방향에 landscape를 포함했고 iPad에는 upside-down도 허용했다.
+- 선택지(대안): 기존 가로 지원 유지 / iPad에만 방향 제한 / iOS 앱 전체를 portrait로 제한하고 resize 호환 정책을 사용.
+- 결정(무엇을 선택): 세 번째. 기존 Info.plist의 UISupportedInterfaceOrientations 및 UISupportedInterfaceOrientations~ipad를 UIInterfaceOrientationPortrait 한 개로 제한하고 UIRequiresFullScreen=true를 설정한다. UIView/Flutter 화면을 강제로 회전시키거나 Android까지 SystemChrome 방향 잠금을 추가하지 않는다. 기존 단일 FlutterSceneDelegate/implicit engine 등록은 유지한다.
+- 근거(왜): 사용자 지정 범위를 iOS 네이티브 설정으로 한정한다. Apple 공식 UIRequiresFullScreen/TN3192/WWDC26 문서에 따르면 방향 선호값만으로는 resizable 환경을 제한할 수 없고, iOS27의 해당 호환 모드는 지원 방향을 따르는 discrete resize를 사용한다. 창 손잡이 제거/모든OS의 고정 창 크기를 보장하는 기능으로 설명하지 않는다. 설치SDK 헤더의 UISceneSizeRestrictions도 시스템이 선호값을 제한할 수 있다고 명시한다.
+- 결과/영향(좋은 점/트레이드오프): **Behavior change**: iPhone·iPad의 landscape 및 upside-down 지원을 제거한다. UIRequiresFullScreen은 deprecated 호환 설정이며 오래된 iPad 멀티태스킹의 Split View/Slide Over에 영향을 줄 수 있고 iOS27 이후에는 창 resize 자체를 막지 않는다. 실제 iPad 창을 넓혔을 때 콘텐츠 방향은 기기 검증 결과로 기록한다. 기기군[1]·최소iOS15·Dart route/state/API/DB/env·SDK/lock/버전은 바꾸지 않는다.
+- 추후 과제(언제 다시 평가): 실물 iPad26.5.2 resize/회전·iOS27 resizable 환경과 실제 심사27.3을 구분해 검증한다. 네이티브 iPad 지원이나 전체 반응형 화면 요구 시 이 임시 호환 설정 제거를 재평가한다. 롤백은 이번 방향 배열과 UIRequiresFullScreen 추가분만 변경 전 값으로 복구한다.
+- 근거 문서: [UIRequiresFullScreen](https://developer.apple.com/documentation/bundleresources/information-property-list/uirequiresfullscreen), [TN3192](https://developer.apple.com/documentation/technotes/tn3192-migrating-your-app-from-the-deprecated-uirequiresfullscreen-key), [Modernize your UIKit app](https://developer.apple.com/videos/play/wwdc2026/278/).
+
+### ADR-0083 적용 확인 (2026-11-16)
+
+Release6 bundle의 iPhone/iPad 방향 배열이 portrait 하나임을 확인했다. 연결된 iPadOS26.5.2에서 사용자가 가로로 창을 늘려도 세로 화면이 유지됨을 확인했으며 캡처/프로세스로 정상 실행을 확인했다. iPhone 실제 회전과 iPadOS27.3 실기기 resize는 별도 인수로 남긴다. 세부 명령/한계/롤백은 WORKLOG를 따른다.
+
 ## ADR-0082: iOS 시작 경로를 Flutter UIScene 생명주기로 전환한다
 
 - 배경(문제): 빌드5 심사 로그2건(7C82B0B2… / 31BF3142…)은 동일한 Runner UUID와 UIKit `___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke`에서 EXC_BREAKPOINT/SIGTRAP을 기록한다. SDK27.1로 만든 앱의 Info.plist에는 UIApplicationSceneManifest가 없고 AppDelegate는 didFinishLaunching에서 플러그인을 등록했다. Flutter/Apple 공식 문서는 최신SDK에서 UIScene 미도입 앱의 시작 실패를 명시한다.

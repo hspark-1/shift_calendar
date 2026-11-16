@@ -1,5 +1,13 @@
 # 프로젝트 컨텍스트
 
+## iPhone·iPad 세로 방향 고정 (2026-11-16, ADR-0083)
+
+- 사용자 확정/Behavior change: iPhone과 iPad 모두 portrait만 지원한다. 기존 `ios/Runner/Info.plist`의 UISupportedInterfaceOrientations와UISupportedInterfaceOrientations~ipad를 UIInterfaceOrientationPortrait 한 개로 제한하고 UIRequiresFullScreen=true를 추가했다. landscape·upside-down을 제거했다. 기존 UIApplicationSceneManifest/FlutterSceneDelegate·기기군[1]·최소iOS15·Dart route/state/API/Android·SDK/lock은 유지한다.
+- 창 동작: 최신OS의 resizable 환경에서 orientation 배열만으로 고정 창 크기를 보장할 수 없으므로 Apple 공식 호환 설정을 사용한다. UIRequiresFullScreen은deprecated이며 iOS27에서는 방향을 존중하는discrete resize 방식이고 창 손잡이/resize 자체의 완전 차단이 아니다. 이전iPad 멀티태스킹 제한과 미래OS 지원 변화는 ADR-0083의 재평가 대상이다.
+- 검증: Release AOT 빌드6 재빌드(17.5초)·서명·bundle의두 방향 배열/scene/profile·plist lint/공백 검사 통과. 연결된 iPadOS26.5.2에 업데이트 설치/실행 후 사용자가 가로 resize에서도 세로 유지됨을 확인했고 캡처의 세로 로그인 UI/PID717도 확인했다. iPhone 실제 회전 및 심사OS27.3 실물resize는 이번에 수행하지 않았다. 앞선 로그인/세션 복원 기록과 이번 방향 검증을 구분한다.
+- 파일 역할/의존성/사용 예: 기존Info.plist가 네이티브 방향/호환 모드를 선언한다. 새 영구 파일은 없다. 동일 `.env`/개발 서명의 `build/ios/Release-iphoneos/Runner.app`을 기존USB 절의 devicectl install/launch 명령으로 재현한다. `/private/tmp/shiftmate_portrait_20261116/`의 설정/앱 백업·빌드/설치/실행검증·캡처 역할은 WORKLOG를 따른다. 개인정보가 있을 수 있는 기기 자료는Git에 추가하지 않는다.
+- 배포/롤백: pubspec은5, 로컬USB 앱만CLI override6이다. 기존 App Store IPA/Archive는수정전5이므로 재제출용 새 Archive/IPA가 필요하다. 이번orientation 배열/UIRequiresFullScreen만 변경 전값으로 복원하면 롤백된다. UIScene 크래시 수정과 사용자 데이터는 유지한다.
+
 ## USB iPad Release 실행 확인 (2026-11-16)
 
 - 사용자 요청에 따라 개발자 모드를 켠 iPad Pro12.9형5세대 / iPadOS26.5.2에 현재 UIScene 수정본을 개발 서명의 Release AOT 1.0.0(6)으로 설치했다. CLI 빌드 번호만6이며 pubspec은1.0.0+5, 기존 App Store Archive/IPA는 빌드5 그대로다. **현재 기존 IPA를 다시 업로드하면 UIScene 수정본이 아니다.** 재제출용 새 Archive/IPA 생성이 필요하다.

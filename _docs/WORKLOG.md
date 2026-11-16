@@ -1,5 +1,17 @@
 # 작업 로그
 
+## 2026-11-16 iPad 가로 창 전환 제한 조사
+
+- [DONE] (iOS/UI) iPhone·iPad 세로 방향 고정 및 실물 iPad 창 resize 후 세로 유지 확인.
+  - 목적: 사용자 요청에 따라 iPad에서 세로 화면을 유지할 수 있는지 확인한다. 후속 답변에서 iPhone·iPad 모두 세로 고정을 확정했다.
+  - 근거/범위: 현재 Info.plist의 기본 및 ~ipad 방향 배열에 landscape가 있다. Apple의 최신 안내는 resizable 환경에서 방향 설정이 선호값일 수 있으며 UIRequiresFullScreen 호환 모드가 내부 scene 크기를 유지할 수 있음을 설명한다. 실제 동작 검증 없이 차단 완료로 표시하지 않는다.
+  - 변경: 기존 Info.plist의 기본/~ipad 방향 배열을 portrait 한 개로 제한하고 UIRequiresFullScreen=true를 추가했다(Behavior change, ADR-0083). Flutter/Android 코드·기기군·SDK/lock·버전·UIScene 크래시 수정은 유지한다. 영구 신규 파일은 없다.
+  - 테스트/결과: 같은 운영 define·CLI build6의 `flutter build ios --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=6` 성공(17.5초). 실제 Release bundle의 기본/~ipad 방향 배열이 portrait 하나이고 UIRequiresFullScreen=true·기존FlutterSceneDelegate·iPad profile 포함을 확인했다. deep/strict codesign·plutil lint·변경 코드/문서 공백 검사 통과. 빌드5 Archive/IPA 해시·pubspec5를 보존했다. 단순 native 설정 변경이라 구현을 반복하는 신규 테스트/전체 Flutter 테스트는 추가하지 않았다.
+  - 실기기 결과: iPad Pro12.9형5세대 / iPadOS26.5.2에 검증한 Release-iphoneos/Runner.app을 업데이트 설치하고 재실행했다. 사용자가 창을 가로로 넓힌 뒤 ‘세로 화면으로 유지됨’을 답했다. 캡처에서도 세로 로그인 UI, resize 후Runner PID717 유지를 확인했다. 이번 변경 이후 로그인 성공을 새로 인수한 것은 아니다. iPhone 회전·iOS27.3 실기기 resize는 미검증이며 두 플랫폼의 실제 bundle 설정만 공통으로 확인했다.
+  - 도구/한계: resizable app CLI는 연결된26.5.2 실기기에서 capability 미지원이라 사용자 직접 resize/화면으로 확인했다. sandbox의simctl help 접근 오류 후 별도 시뮬레이터 실행은 하지 않았다. UI/UX Pro Max 검색0건을 OS 동작 근거로 쓰지 않고 Apple 공식 문서를 사용했다. 창 크기 조절 손잡이 자체를 제거했다고 설명하지 않는다.
+  - 파일/자료 역할: 기존 Info.plist만 제품 설정을 수정했고 PROJECT_CONTEXT·ADR-0083·출시 체크리스트를 갱신했다. `/private/tmp/shiftmate_portrait_20261116/`의 Info.before.plist·Runner.before.app은 변경 전 설정/직전 USB 앱 복원용, build.log는 빌드 출력, verification.json은 방향/scene/profile 검증, install.json·launch.json·process-after-resize.json은 기기 실행 근거, after-resize.png는 실제세로화면 캡처다. 현재 소스/.env/Xcode·개발 profile에 의존한다. 이전 USB 설치/실행 명령으로 재현하며 진단/캡처는Git에 추가하지 않는다. 신규 영구 파일은 없다.
+  - 롤백: 이번 방향/창 설정과 문서 추가분만 되돌린다. 기존 소스·로그인/캘린더 데이터·빌드5 심사 산출물을 유지한다.
+
 ## 2026-11-16 USB iPad Release 실행 확인
 
 - [DONE] (iOS) 개발자 모드를 켠 실물 iPad에 UIScene 수정본 Release 1.0.0(6) 설치·실행·네이버 로그인·완전 종료 후 복원 확인.

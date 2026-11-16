@@ -1,5 +1,12 @@
 # ShiftMate App Store 심사 준비 및 진행 기록
 
+## iPhone·iPad 세로 방향 고정 — 2026-11-16
+
+- [x] 사용자 확정으로 기본/~ipad 지원 방향을portrait만 허용하고 UIRequiresFullScreen 호환 설정 추가(ADR-0083)
+- [x] Release6 재빌드·기존UIScene/서명·방향설정 검증, 연결iPad26.5.2에서 가로resize 후 세로유지 사용자 확인/캡처
+- [ ] iPhone 실제 회전·심사OS27.3 실기기resize 인수
+- 창resize 자체의 완전 차단은 아니다. 현재 USB 앱에 설정을 반영했으며 기존 App Store IPA/Archive는 수정전5를 보존한다. 새제출용Archive/IPA 생성/업로드는미완료다. 파일역할/실행/롤백은PROJECT_CONTEXT·WORKLOG의세로고정절을따른다.
+
 ## USB iPad Release 1.0.0(6) 실행 확인 — 2026-11-16
 
 - [x] iPad Pro12.9형5세대 / iPadOS26.5.2에서 Developer Mode·USB 페어링·개발 provisioning 확인
