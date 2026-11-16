@@ -26,9 +26,11 @@ class MainTabPage extends ConsumerStatefulWidget {
 
 class _MainTabPageState extends ConsumerState<MainTabPage> {
   final _navigator_keys = List.generate(3, (_) => GlobalKey<NavigatorState>());
+  final _friend_list_key = GlobalKey<FriendListPageState>();
   final _visited_tabs = <int>{0};
   int _selected_tab = 0;
   bool _pending_check_scheduled = false;
+  int _friend_navigation_revision = 0;
 
   @override
   void initState() {
@@ -79,6 +81,34 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
     }
   }
 
+  void _onTabPressed(int index) {
+    _friend_navigation_revision++;
+    if (index == _selected_tab) {
+      final navigator = _navigator_keys[index].currentState;
+      if (navigator?.canPop() == true) {
+        navigator!.popUntil((route) => route.isFirst);
+      } else if (index == 1) {
+        _friend_list_key.currentState?.toggleSection();
+      }
+    }
+    _selectTab(index);
+  }
+
+  void _openFriends(FriendTabSection section, WidgetBuilder? detail_builder) {
+    final revision = ++_friend_navigation_revision;
+    _selectTab(1);
+    // 처음 방문하는 탭도 목록 route가 생성된 뒤 목적지를 적용한다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || revision != _friend_navigation_revision) return;
+      final navigator = _navigator_keys[1].currentState!;
+      navigator.popUntil((route) => route.isFirst);
+      _friend_list_key.currentState!.showSection(section);
+      if (detail_builder != null) {
+        navigator.push(CupertinoPageRoute<void>(builder: detail_builder));
+      }
+    });
+  }
+
   Widget _buildTab(int index) {
     if (!_visited_tabs.contains(index)) return const SizedBox.shrink();
     return TickerMode(
@@ -91,7 +121,7 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
           onGenerateRoute: (_) => CupertinoPageRoute<void>(
             builder: (_) => switch (index) {
               0 => const CalendarPage(),
-              1 => const FriendListPage(),
+              1 => FriendListPage(key: _friend_list_key),
               _ => const NotificationPage(),
             },
           ),
@@ -108,6 +138,7 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
     final unread_count = ref.watch(unreadNotificationCountProvider);
     return AppTabNavigation(
       selectTab: _selectTab,
+      onOpenFriends: _openFriends,
       child: ColoredBox(
         color: CupertinoTheme.of(context).scaffoldBackgroundColor,
         child: Column(
@@ -150,6 +181,10 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
     final surface_color = is_dark
         ? AppTheme.dark_surface_color
         : AppTheme.surface_color;
+    final selected_color = AppTheme.readableForegroundColor(
+      surface_color,
+      preferred_color: AppTheme.primary_color,
+    );
     final border_radius = BorderRadius.circular(
       AppTheme.navigation_glass_radius,
     );
@@ -193,11 +228,40 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
             ),
             child: Padding(
               padding: const EdgeInsets.all(4),
-              child: Row(
+              child: Stack(
                 children: [
-                  _buildTabButton(0, CupertinoIcons.calendar, '캘린더'),
-                  _buildTabButton(1, CupertinoIcons.person_2, '친구'),
-                  _buildTabButton(2, CupertinoIcons.bell, '알림', unread_count),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedAlign(
+                        alignment: AlignmentDirectional(_selected_tab - 1.0, 0),
+                        duration: _tabTransitionDuration,
+                        curve: Curves.easeOutCubic,
+                        child: FractionallySizedBox(
+                          widthFactor: 1 / 3,
+                          heightFactor: 1,
+                          child: DecoratedBox(
+                            key: const ValueKey('main-tab-indicator'),
+                            decoration: BoxDecoration(
+                              color: selected_color.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      _buildTabButton(0, CupertinoIcons.calendar, '캘린더'),
+                      _buildTabButton(1, CupertinoIcons.person_2, '친구'),
+                      _buildTabButton(
+                        2,
+                        CupertinoIcons.bell,
+                        '알림',
+                        unread_count,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -206,6 +270,10 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
       ),
     );
   }
+
+  Duration get _tabTransitionDuration => MediaQuery.disableAnimationsOf(context)
+      ? Duration.zero
+      : const Duration(milliseconds: 280);
 
   Widget _buildTabButton(
     int index,
@@ -226,24 +294,17 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
         selected: selected,
         label: badge_count > 0 ? '$label, 읽지 않은 알림 $badge_count개' : label,
         excludeSemantics: true,
-        onTap: () => _selectTab(index),
+        onTap: () => _onTabPressed(index),
         button: true,
-        child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            color: selected
-                ? color.withValues(alpha: 0.10)
-                : AppTheme.primary_color.withValues(alpha: 0),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: CupertinoButton(
+        child: TweenAnimationBuilder<Color?>(
+          tween: ColorTween(begin: color, end: color),
+          duration: _tabTransitionDuration,
+          curve: Curves.easeOutCubic,
+          builder: (context, animated_color, child) => CupertinoButton(
             key: ValueKey('main-tab-$index'),
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
             minimumSize: const Size(44, 56),
-            onPressed: () => _selectTab(index),
+            onPressed: () => _onTabPressed(index),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -254,7 +315,7 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
                     clipBehavior: Clip.none,
                     alignment: Alignment.center,
                     children: [
-                      Icon(icon, size: 24, color: color),
+                      Icon(icon, size: 24, color: animated_color),
                       if (badge_count > 0)
                         Positioned(
                           top: -3,
@@ -286,7 +347,7 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
                 Text(
                   label,
                   style: AppTheme.body_small.copyWith(
-                    color: color,
+                    color: animated_color,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),

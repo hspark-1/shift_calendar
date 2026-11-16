@@ -8,6 +8,21 @@
 - 파일 역할/의존성/사용 예: 기존 google_login_service.dart의 GoogleLoginCredential·authorizePhoneAccessToken, auth_repository_impl.dart의 credential 전달, auth_remote_datasource.dart의 선택 body 필드와 기존3개 테스트/가입 위젯 회귀를 수정했다. 고정 google_sign_in7.2.0·기존 Dio/User 모델을 사용하며 새 파일/패키지/앱 env/DB migration은 없다. 실제 body는 `{id_token, access_token?}`이며 구형 ID Token 전용 요청도 지원한다.
 - 계약·배포/롤백: `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`의 현행 절과 인접 서버 가이드 상단을 따른다. 서버를 먼저 배포한 뒤 앱을 재빌드한다. 실제 Google iOS/Android 동의·번호 수신/취소·가입·로그아웃/탈퇴는 Stage 인수 대상이다. 최종 WORKLOG의 로컬 검증과 구분한다. rollback은 이번 Google 변경만 복구하고 기존 미커밋 변경·사용자 번호/사진을 유지한다.
 
+## 친구 추가는 정확 일치 계정 한 명을 확인한다 (2026-11-13)
+
+- 높이/제스처 최신 정책: ADR-0079(ADR-0078 후속). 기본/최대 두 높이를 유지하며 위48px 이상은 최대, 최대에서 아래48px 이상은 먼저 기본으로 접고 기본에서 아래120px 이상은 닫는다. 드래그 전후 애니메이션을 유지해260ms로 보간하며 중간 높이를 저장하지 않는다.
+- 후속 정리: 사용자 요청으로 기본 가입 정보 입력 안내와 버튼 아래 수락 안내를 제거했다. 안내 자리의 여백도 제거하며 입력 오류/검색 실패/요청 상태는 유지한다.
+- 현행 정책: ADR-0077이 ADR-0076의 화면 배치를 대체한다. 이메일/전화번호는 중복 불가능한 식별자이며 정확히 일치하는 계정 한 명을 확인한다. 입력 폼 하나·중앙 프로필 하나·주요 버튼 하나로 구성하고 내용만큼 시트가 높아진다.
+- 상태별 주요 버튼은 친구 찾기 → 친구 요청 보내기 → 완료다. 입력을 수정하면 프로필/이전 오류를 지우고 친구 찾기로 복귀한다. 기존 친구·보낸 요청은 상태와 완료, 받은 요청은 기존 알림 탭으로 연결한다. 상세 크기·수명/검증·파일 역할/렌더 명령·롤백은 아래 ‘친구 추가 검색 흐름’ 절을 따른다. API/DB/인증·정규화/응답 최신성·공유 권한과 provider 수명 계약은 유지하며 신규 파일/패키지는 없다.
+
+## 친구·그룹 빈/짧은 목록 당겨 새로고침 (2026-11-12)
+
+- 현재 정책/Behavior change: ADR-0075. 친구 목록과 실제 그룹 목록은 로딩/오류/빈/정상 상태 모두 동일한 CustomScrollView와 CupertinoSliverRefreshControl을 유지한다. BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())로 내용이 없어도 여백에서 아래로 당길 수 있다. 기존 목록 조회를 재호출하며 요청 중에는 당김의 추가 조회를 실행하지 않는다.
+- 역할/의존성/사용 예: 기존 `lib/core/widgets/scrollable_centered_body.dart`의 공용 프레임을 `SliverCenteredBody(children: [...])`로 전환했다. Flutter widgets의 SliverFillRemaining(hasScrollBody:false)·16px Padding·중앙 Column에 의존하며 CustomScrollView.slivers 안에서 사용한다. 예전 ScrollableCenteredBody의 다른 Dart 호출부가 없음을 검색 확인하고 중첩 SingleChildScrollView 구현을 제거했다. 신규 파일/의존성은 없다.
+- 흐름/상태: FriendListPage는 root scroll과 상태별 _buildContentSliver를 분리했다. GroupRoomListView도 초기/오류/빈/목록을 sliver로 분기한다. 그룹 ScrollEndNotification은 groups가 있고 pixels>=0이며 extentAfter<120일 때만 기존 loadMore에 전달한다. 그룹 API 비활성의 정적 미리보기·탭 route/접근권한·PageView/keep-alive/dispose·도메인 provider·API/DB/env/analytics/logging 계약은 유지한다.
+- 테스트/검증: 기존 friend_list_page_test.dart와 group_room_list_view_test.dart에 실제 당김·조회 횟수·지연 응답 중 컨트롤 유지/중복 방지·새 목록 표시·오류 복구를 추가했다. 활성 그룹에서는 빈 화면 여백을 당겨 친구/그룹 각각만 조회하고 선택 탭/가로 전환을 보존하는 실제 PageView 통합 경로도 확인한다. 기존 작은 높이/글자3.2배·일반/가로·다크/동작 줄이기/스크롤 위치·탐색 회귀와 최종 분석/포맷 결과는 WORKLOG를 따른다.
+- 한계/롤백: 서버는 모의 service/repository로 검증하며 실기기/VoiceOver·운영 API·빌드/업로드·커밋/푸시는 수행하지 않는다. 이번 root/physics·상태 sliver·회귀/문서만 되돌리고 기존 미커밋 변경을 보존한다.
+
 ## 그룹 캘린더 UI 공용화 (2026-11-12)
 
 - 선택 네모 후속 보완: 앞선 통일에서 남은 _CellLayoutMetrics.dots의50px/아래3px를 badge와 같은58px/아래4px로 통합했다. 58은 요청한 한 변 크기이며 실제 Rect는 7열의 칸 너비와 rowHeight(상세52/56px) 제약을 받는다. 메인 접힌 보기 compact의48px/아래8px와 점/배지 내용은 유지한다. 기존 group_calendar_page_test.dart가 폭320/375/390/430/667/768와 행52/56의12조합에서 badge/dots의 실제 선택 Rect(셀 기준 크기·위치)를 비교한다. 신규 파일/API/DB/상태 변경은 없고 결과는 WORKLOG를 따른다.
@@ -71,6 +86,14 @@
 - 목적/Behavior change: 메인·친구 공용 CalendarScheduleCard의 ‘등록된 일정이 없습니다’ 아이콘/문구 묶음을 날짜 헤더와 하단 추가 버튼을 제외한 일정 본문의 상하 중앙에 표시한다. 빈 상태의 기존 SingleChildScrollView를 Center로 감싸며 높이가 부족하면 기존 스크롤을 유지한다.
 - 파일/영향: 기존 calendar_schedule_card.dart의 빈 상태 분기만 변경한다. 일정이 있는 목록·카드 크기·헤더/footer·데이터/라우팅은 유지하며 신규 파일·상태·의존성·설계 정책은 없다. 관련 메인/친구 기존 회귀 및 분석·포맷 결과는 WORKLOG를 따른다. 롤백은 이번 Center와 문서 추가분만 되돌린다.
 
+## 하단 탭 재선택과 알림 목적지 경로 (2026-11-12)
+
+- 목적/정책: ADR-0067. 다른 하단 탭을 선택하면 해당 탭의 기존 탐색 이력·선택 날짜·친구/그룹 선택을 보존한다. 현재 탭을 다시 누르면 해당 Navigator를 `popUntil(route.isFirst)`로 홈까지 되돌린다. 친구 탭이 이미 목록이면 친구↔그룹 목록을 전환한다. 상세에서 홈으로 돌아오는 한 번의 탭은 목록 전환까지 함께 하지 않는다. 캘린더 홈 재선택은 기존 선택 날짜를 유지한다.
+- 흐름/Behavior change: 하단 버튼·접근성 탭은 MainTabPage._onTabPressed, 일반 탭 선택은 _selectTab으로 구분한다. `AppTabNavigation.openFriends()`는 친구 탭을 선택하고 기존 상세 이력을 정리한 후 지정한 목록을 표시한다. 친구 수락은 친구 목록→FriendCalendarPage, 그룹 수락/그룹 바로가기는 그룹 목록→GroupCalendarPage, `/friends`의 친구 목록 보기는 친구 목록으로 이동한다. 알림 탭 위에 상세를 추가하지 않으며 뒤로가기는 목적지 목록으로 돌아간다. MainTabPage 밖에서 NotificationPage를 단독 표시하는 기존 호출은 로컬 Navigator fallback을 유지한다.
+- 상태/역할·사용 예: 새 파일 없이 기존 app_navigation.dart에 FriendTabSection과 openFriends(section, detail_builder)를 추가한다. MainTabPage의 GlobalKey<FriendListPageState>가 기존 목록의 showSection/toggleSection을 호출하며 PageController·keep-alive·dispose 정책은 유지한다. 첫 방문 탭은 프레임 종료 후 경로를 적용하고 revision으로 연속 요청/그 사이 하단 탭 입력의 오래된 요청을 무시한다. 예: `AppTabNavigation.maybeOf(context)?.openFriends()` 또는 `openFriends(section: FriendTabSection.groups, detail_builder: (_) => GroupCalendarPage(group_id: id))`. provider/analytics·인증/접근권한·API/DB/env/의존성은 바꾸지 않는다.
+- 검증/한계: 기존 main_tab_page_test.dart에 실제 친구 캘린더/정보·알림·그룹 화면의 탭 선택, 날짜/state 보존, 홈 복귀/목록 전환, 목적지 뒤로가기, 첫 방문/기존 상세 정리, 실패·친구 누락·거절을 검증한다. 테스트용 service/repository/notifier가 서버 응답을 모의하며 수락 API 자체의 검증은 기존 provider 테스트가 담당한다. 세로375x667·768x1024와 가로844x390의 목록 전환/동작 줄이기·다크 모드를 포함한다. 별도 탐색 검증 중844x390의 실제 FriendCalendarPage에서 하단8.5px overflow가 관찰됐다. 해당 페이지 배치는 이번에 수정하지 않았으며 정확한 overflow 지점/원인 확인과 가로 상세 레이아웃 해결은 남아 있다. 가로 검증은 목록 전환 범위다. 실기기 인수는 수행하지 않았다.
+- 롤백: 이번 네 탐색/화면 파일과 기존 회귀·정본 문서 추가분만 되돌린다. 기존 미커밋 애니메이션/목록 스와이프·화면 배치 작업은 보존한다. 최종 테스트 결과는 WORKLOG를 따른다.
+
 ## 일정 시간 구분자 통일 (2026-11-12)
 
 - 목적/표시 정책: ADR-0066. 근무·개인 일정의 시간 구간은 `HH:mm - HH:mm`처럼 공백을 포함한 하이픈(` - `)으로 표시한다. 근무 타입 카드의 기존 표기를 따르며, 야간 편집 요약도 `22:30 - 다음 날 07:00`으로 표시한다.
@@ -112,6 +135,20 @@
 - 진입: 친구 목록 → 친구 캘린더의 설정 → 친구 정보. 설정 → 근무 패턴 설정 → 타입 추가/편집 → 표시 색상 → 색상 선택 → 선택한 색상 조절 → 커스텀 색상 선택. 기존 Navigator/CupertinoPageRoute 경로를 코드로 확인했으며 변경하지 않았다.
 - 추가 사용처: 친구 목록에서 여는 AddFriendModal은 흰 surface 배경을 공유하고 제목 바로 아래 1px 고정선을 둔다. 화면 내부 헤더까지 포함하면 메인/친구의 CalendarScheduleHeader(메인 근무 설정 카드에도 사용)와 실제/미리보기 그룹의 날짜 상세 카드도 같은 배경 위 0.5px 하단선을 사용한다. ShiftInputSheet의 ‘근무 추가’ 헤더도 0.5px 선이 있으나 현재 lib에 생성 호출/다른 파일의 import가 없어 활성 화면 목록에서는 제외한다.
 - 검증/영향/롤백: lib 전체의 CupertinoNavigationBar 선언과 수동 Border/구분선 및 관련 진입 호출을 읽고 공용 토큰/로컬 SDK와 대조한 정적 조사다. 앱 코드·동작·API/DB/상태/라우트/의존성은 변경하지 않았고 런타임 테스트/실기기 확인은 수행하지 않았다. 신규 파일/설계 결정은 없으며 이번 컨텍스트/WORKLOG 조사 기록만 제거하면 롤백된다.
+
+## 하단 캘린더·친구·알림 선택 이동 (2026-11-12)
+
+- 목적/Behavior change: ADR-0062. MainTabPage 하단 바의 선택 배경을 탭별 페이드에서 하나의 이동하는 배경으로 변경했다.280ms easeOutCubic으로 탭 중심 사이를 이동하고 아이콘/라벨 색상도 같은 시간/곡선으로 보간한다. 연속 탭은 현재 위치/색상부터 새 대상으로 이어지며 동작 줄이기는0ms다.
+- 흐름/구현: 기존 `_selectTab`과 Navigator/IndexedStack·알림 갱신은 유지한다. 바 안의 Stack에 버튼 Row를 그대로 두고 Positioned.fill → IgnorePointer → AnimatedAlign → FractionallySizedBox(폭1/3)의 배경을 배치한다. AlignmentDirectional로 글 방향을 반영하고 버튼별 TweenAnimationBuilder<Color?>가 기존 읽기 대비색 사이를 보간한다. 기존 글라스/고대비·폭/높이·여백·배지·접근성 선택/터치 동작은 유지한다. 애니메이션 state는 Flutter implicit animation이 관리해 신규 controller/provider/의존성이 없다.
+- 검증/파일: 기존 main_tab_page.dart·main_tab_page_test.dart와 정본 문서를 갱신했다. 신규 파일은 없다. 회귀는375x667·844x390·768x1024(다크/글자2배)의 중간 위치/색상·연속 선택·끝 위치·바/버튼 Rect 보존과 동작 줄이기를 확인한다. 기존 탐색/푸시/가입·친구/그룹 스와이프도 확인한다. `flutter test --no-pub test/core/navigation/main_tab_page_test.dart test/features/friend/presentation/pages/friend_list_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 실행한다.
+- 영향/롤백: 하단 선택 표시만 변경하며 각 탭 탐색/선택 날짜·상단 친구/그룹 세그먼트·domain state/API/DB/env는 유지한다. 이번 이동 배경·색상 보간·추가 검증·문서만 되돌린다. 실기기/VoiceOver 인수는 별도이며 최종 결과는 WORKLOG를 따른다.
+
+## 친구·그룹 탭 좌우 스와이프 (2026-11-12)
+
+- 목적/Behavior change: ADR-0061. FriendListPage 본문에서 왼쪽으로 쓸면 그룹, 오른쪽으로 쓸면 친구로 전환한다. 상단 CupertinoSlidingSegmentedControl 탭도 유지하며 PageView의 현재 페이지와 선택 표시·제목·추가/초대 액션을 동기화한다.
+- 흐름/상태: MainTabPage 친구 영역 → FriendListPage → PageView(친구/그룹). PageController와 선택 상태는 페이지 내부 UI state이며 dispose에서 컨트롤러를 해제한다. 파일 내부 `_KeepAliveSection`이 AutomaticKeepAliveClientMixin으로 두 목록의 state/스크롤 위치를 보존한다. 그룹은 처음 선택될 때 생성하며 실제 GroupRoomListView/미리보기 분기와 기존 provider/API·권한·라우트는 유지한다. 세그먼트 탭은250ms easeOutCubic 이동, 동작 줄이기에서는 jumpToPage로 즉시 전환한다. 본문 세로 스크롤과 기존 헤더 배경 고정을 유지한다.
+- 검증/파일: 기존 friend_list_page_test.dart를 확장해390x800·375x667·844x390에서 실제 양방향 드래그·탭·선택 표시/헤더 액션 동기화·세로 스크롤/복귀 위치·그룹 최초 요청1회, 다크 테마/글자2배/동작 줄이기를 확인한다. 기존 group_calendar_preview_page_test.dart의 전환 후 검증은 이동 애니메이션 종료까지 기다린다. 신규 파일/의존성은 없다. 실행: `flutter test --no-pub test/features/friend/presentation/pages/friend_list_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`; 실제 API 분기는 `--dart-define=GROUP_API_ENABLED=true`를 추가하며 서버는 모의한다.
+- 영향/롤백: UI 전환만 변경하며 DB/env·domain state·다른 미커밋 작업은 보존한다. 이번 PageView/keep-alive·추가 회귀·문서만 되돌린다. 최종 검증 결과는 WORKLOG를 따른다.
 
 ## 메인 캘린더 남은 일정 공간과 작은 화면 경계 (2026-11-12)
 

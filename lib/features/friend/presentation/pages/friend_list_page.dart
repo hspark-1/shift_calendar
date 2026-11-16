@@ -4,7 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/scrollable_centered_body.dart';
 import '../../../group/application/group_providers.dart';
 import '../../../group/domain/entities/group_models.dart';
 import '../../../group/presentation/pages/group_calendar_page.dart';
@@ -17,19 +19,19 @@ import '../widgets/add_friend_modal.dart';
 import '../widgets/friend_list_item.dart';
 import 'friend_calendar_page.dart';
 import 'group_calendar_preview_page.dart';
-
-enum _FriendListSection { friends, groupRooms }
+import 'notification_page.dart';
 
 /// 친구 목록 페이지
 class FriendListPage extends ConsumerStatefulWidget {
   const FriendListPage({super.key});
 
   @override
-  ConsumerState<FriendListPage> createState() => _FriendListPageState();
+  ConsumerState<FriendListPage> createState() => FriendListPageState();
 }
 
-class _FriendListPageState extends ConsumerState<FriendListPage> {
-  _FriendListSection _selected_section = _FriendListSection.friends;
+class FriendListPageState extends ConsumerState<FriendListPage> {
+  final _page_controller = PageController();
+  FriendTabSection _selected_section = FriendTabSection.friends;
   bool _has_opened_groups = false;
 
   @override
@@ -42,14 +44,24 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
   }
 
   @override
+  void dispose() {
+    _page_controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = ref.watch(friendListProvider);
 
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
+        // 친구/그룹 목록을 전환하거나 스크롤해도 같은 헤더 배경을 유지한다.
+        automaticBackgroundVisibility: false,
+        backgroundColor: AppTheme.background_color,
+        border: null,
         middle: Text(
-          _selected_section == _FriendListSection.friends ? '친구' : '그룹 방',
+          _selected_section == FriendTabSection.friends ? '친구' : '그룹 방',
         ),
         trailing: _buildNavigationActions(),
       ),
@@ -61,35 +73,39 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
               padding: const EdgeInsets.all(16),
               child: SizedBox(
                 width: double.infinity,
-                child: CupertinoSlidingSegmentedControl<_FriendListSection>(
+                child: CupertinoSlidingSegmentedControl<FriendTabSection>(
                   groupValue: _selected_section,
                   children: const {
-                    _FriendListSection.friends: Padding(
+                    FriendTabSection.friends: Padding(
                       key: ValueKey('friend-list-footer-button'),
                       padding: EdgeInsets.symmetric(vertical: 8),
                       child: Text('친구'),
                     ),
-                    _FriendListSection.groupRooms: Padding(
+                    FriendTabSection.groups: Padding(
                       key: ValueKey('group-room-footer-button'),
                       padding: EdgeInsets.symmetric(vertical: 8),
                       child: Text('그룹'),
                     ),
                   },
                   onValueChanged: (section) {
-                    if (section != null) _selectSection(section);
+                    if (section != null) showSection(section);
                   },
                 ),
               ),
             ),
             Expanded(
-              child: IndexedStack(
-                index: _selected_section.index,
+              child: PageView(
+                key: const ValueKey('friend-group-page-view'),
+                controller: _page_controller,
+                onPageChanged: (index) =>
+                    _selectSection(FriendTabSection.values[index]),
                 children: [
-                  _buildContent(state),
-                  if (_has_opened_groups)
-                    _buildGroupRoomList()
-                  else
-                    const SizedBox.shrink(),
+                  _KeepAliveSection(child: _buildContent(state)),
+                  _KeepAliveSection(
+                    child: _has_opened_groups
+                        ? _buildGroupRoomList()
+                        : const SizedBox.shrink(),
+                  ),
                 ],
               ),
             ),
@@ -100,97 +116,19 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
   }
 
   Widget _buildContent(FriendListState state) {
-    if (state.isLoading && state.friends.isEmpty) {
-      return const Center(child: CupertinoActivityIndicator());
-    }
-
-    if (state.error != null && state.friends.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              CupertinoIcons.exclamationmark_circle,
-              size: 48,
-              color: AppTheme.outline_color,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              getErrorMessage(state.error),
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            CupertinoButton(
-              onPressed: () =>
-                  ref.read(friendListProvider.notifier).loadFriends(),
-              child: const Text('다시 시도'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (state.friends.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              CupertinoIcons.person_2,
-              size: 64,
-              color: AppTheme.outline_variant_color,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '아직 친구가 없습니다',
-              style: AppTheme.body_large.copyWith(
-                color: AppTheme.on_surface_color,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '친구를 추가하여 일정을 공유해보세요',
-              style: AppTheme.body_small.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-            ),
-            const SizedBox(height: 24),
-            CupertinoButton.filled(
-              onPressed: () => _showAddFriendModal(context),
-              child: const Text('친구 추가하기'),
-            ),
-          ],
-        ),
-      );
-    }
-
     return CustomScrollView(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       slivers: [
         CupertinoSliverRefreshControl(
-          onRefresh: () => ref.read(friendListProvider.notifier).loadFriends(),
+          onRefresh: () async {
+            if (!ref.read(friendListProvider).isLoading) {
+              await ref.read(friendListProvider.notifier).loadFriends();
+            }
+          },
         ),
-        SliverPadding(
-          padding: const EdgeInsets.all(16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              if (index >= state.friends.length) {
-                return null;
-              }
-              final friend = state.friends[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: FriendListItem(
-                  friend: friend,
-                  onTap: () => _navigateToDetail(friend),
-                ),
-              );
-            }, childCount: state.friends.length),
-          ),
-        ),
-        // 더 불러오기 인디케이터
+        _buildContentSliver(state),
         if (state.isLoading && state.friends.isNotEmpty)
           const SliverToBoxAdapter(
             child: Padding(
@@ -199,6 +137,93 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildContentSliver(FriendListState state) {
+    if (state.isLoading && state.friends.isEmpty) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(child: CupertinoActivityIndicator()),
+      );
+    }
+
+    if (state.error != null && state.friends.isEmpty) {
+      return SliverCenteredBody(
+        children: [
+          const Icon(
+            CupertinoIcons.exclamationmark_circle,
+            size: 48,
+            color: AppTheme.outline_color,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            getErrorMessage(state.error),
+            style: AppTheme.body_medium.copyWith(
+              color: AppTheme.on_surface_variant_color,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          CupertinoButton(
+            onPressed: () =>
+                ref.read(friendListProvider.notifier).loadFriends(),
+            child: const Text('다시 시도'),
+          ),
+        ],
+      );
+    }
+
+    if (state.friends.isEmpty) {
+      return SliverCenteredBody(
+        children: [
+          const Icon(
+            CupertinoIcons.person_2,
+            size: 64,
+            color: AppTheme.outline_variant_color,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '아직 친구가 없습니다',
+            textAlign: TextAlign.center,
+            style: AppTheme.body_large.copyWith(
+              color: AppTheme.on_surface_color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '친구를 추가하여 일정을 공유해보세요',
+            textAlign: TextAlign.center,
+            style: AppTheme.body_small.copyWith(
+              color: AppTheme.on_surface_variant_color,
+            ),
+          ),
+          const SizedBox(height: 24),
+          CupertinoButton.filled(
+            onPressed: () => _showAddFriendModal(context),
+            child: const Text('친구 추가하기'),
+          ),
+        ],
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.all(16),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate((context, index) {
+          if (index >= state.friends.length) {
+            return null;
+          }
+          final friend = state.friends[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: FriendListItem(
+              friend: friend,
+              onTap: () => _navigateToDetail(friend),
+            ),
+          );
+        }, childCount: state.friends.length),
+      ),
     );
   }
 
@@ -298,7 +323,7 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
   }
 
   Widget? _buildNavigationActions() {
-    if (_selected_section == _FriendListSection.friends) {
+    if (_selected_section == FriendTabSection.friends) {
       return CupertinoButton(
         key: const ValueKey('add-friend-button'),
         padding: const EdgeInsets.only(left: 6),
@@ -368,19 +393,47 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
     );
   }
 
-  void _selectSection(_FriendListSection section) {
+  void _selectSection(FriendTabSection section) {
     if (_selected_section == section) return;
     setState(() {
       _selected_section = section;
-      if (section == _FriendListSection.groupRooms) _has_opened_groups = true;
+      if (section == FriendTabSection.groups) _has_opened_groups = true;
     });
   }
 
-  void _showAddFriendModal(BuildContext context) {
-    showCupertinoModalPopup<void>(
+  void toggleSection() => showSection(
+    _selected_section == FriendTabSection.friends
+        ? FriendTabSection.groups
+        : FriendTabSection.friends,
+  );
+
+  void showSection(FriendTabSection section) {
+    _selectSection(section);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _page_controller.jumpToPage(section.index);
+    } else {
+      _page_controller.animateToPage(
+        section.index,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  Future<void> _showAddFriendModal(BuildContext context) async {
+    final tabs = AppTabNavigation.maybeOf(context);
+    final open_received_requests = await showCupertinoModalPopup<bool>(
       context: context,
       builder: (context) => const AddFriendModal(),
     );
+    if (!context.mounted || open_received_requests != true) return;
+    if (tabs != null) {
+      tabs.selectTab(2);
+    } else {
+      Navigator.of(context).push(
+        CupertinoPageRoute<void>(builder: (_) => const NotificationPage()),
+      );
+    }
   }
 
   void _navigateToDetail(FriendModel friend) {
@@ -432,5 +485,27 @@ class _FriendListPageState extends ConsumerState<FriendListPage> {
     );
     if (!mounted) return;
     await ref.read(groupListProvider.notifier).loadGroups();
+  }
+}
+
+/// 화면 밖으로 넘어간 목록도 유지해 각 목록의 스크롤 위치를 보존한다.
+class _KeepAliveSection extends StatefulWidget {
+  const _KeepAliveSection({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAliveSection> createState() => _KeepAliveSectionState();
+}
+
+class _KeepAliveSectionState extends State<_KeepAliveSection>
+    with AutomaticKeepAliveClientMixin<_KeepAliveSection> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

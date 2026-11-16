@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
@@ -193,32 +195,42 @@ final searchUserProvider =
 /// 사용자 검색 Notifier
 class SearchUserNotifier extends StateNotifier<SearchUserState> {
   final FriendService _service;
+  int _search_generation = 0;
 
   SearchUserNotifier(this._service) : super(const SearchUserState());
 
   /// 사용자 검색
   Future<void> searchUser(String query) async {
+    final search_generation = ++_search_generation;
     if (query.isEmpty) {
       state = const SearchUserState();
       return;
     }
 
-    state = state.copyWith(isLoading: true, error: null, hasSearched: true);
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+      hasSearched: true,
+      clearUser: true,
+    );
 
     try {
       final response = await _service.searchUser(query);
+      if (!mounted || search_generation != _search_generation) return;
       state = SearchUserState(
         user: response.user,
         isLoading: false,
         hasSearched: true,
       );
     } catch (e) {
+      if (!mounted || search_generation != _search_generation) return;
       state = state.copyWith(isLoading: false, error: e, clearUser: true);
     }
   }
 
   /// 상태 초기화
   void reset() {
+    _search_generation++;
     state = const SearchUserState();
   }
 

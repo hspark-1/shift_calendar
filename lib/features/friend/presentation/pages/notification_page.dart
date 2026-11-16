@@ -259,7 +259,7 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
           if (action.route == '/friends') {
             final tabs = AppTabNavigation.maybeOf(context);
             if (tabs != null) {
-              tabs.selectTab(1);
+              tabs.openFriends();
               return;
             }
             Navigator.of(context).push(
@@ -284,6 +284,14 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
       return;
     }
 
+    final tabs = AppTabNavigation.maybeOf(context);
+    if (tabs != null) {
+      tabs.openFriends(
+        section: FriendTabSection.groups,
+        detail_builder: (_) => GroupCalendarPage(group_id: group_id),
+      );
+      return;
+    }
     Navigator.of(context).push(
       CupertinoPageRoute<void>(
         builder: (context) => GroupCalendarPage(group_id: group_id),
@@ -298,6 +306,13 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
       return;
     }
 
+    final tabs = AppTabNavigation.maybeOf(context);
+    if (tabs != null) {
+      tabs.openFriends(
+        detail_builder: (_) => FriendCalendarPage(friend: friend),
+      );
+      return;
+    }
     Navigator.of(context).push(
       CupertinoPageRoute<void>(
         builder: (context) => FriendCalendarPage(friend: friend),

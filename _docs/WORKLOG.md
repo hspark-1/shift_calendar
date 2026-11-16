@@ -13,6 +13,91 @@
   - 한계: 실제 Google API와 네이티브 동의 화면은 mock 경계 밖이므로 Stage iOS/Android 실계정 인수가 남는다. 서버 SQL 변경은 없다.
   - 롤백: 이번 Google 변경만 되돌리고 기존 미커밋 작업과 저장된 사용자 번호/사진은 유지한다. 작업 전 사본은 /private/tmp/shiftmate_google_phone_20261113/before다.
 
+## 2026-11-13 친구 추가 시트 전환 애니메이션·접기 개선
+
+- [DONE] (FE/UI) 확대/축소의 실제 중간 프레임을 복구하고 최대 단계의 즉시 닫힘 방지
+  - 목적: 사용자 제보의 높이 순간 전환과 최대→기본 복귀 대신 닫히는 동작을 수정한다.
+  - 원인/재현: 기존 테스트의 drag→pumpAndSettle은 드래그 진행 중 프레임을 그리지 않아 AnimatedSize 제거 경로를 놓쳤다. 새 회귀에서 startGesture→move/pump→move/pump→up/pump를 수행하자 기대299px/실제742.72px 즉시 확대가 실패했다. DebugMCP의 _buildSheetTransition 진입/animate=true·단계 상태와 기존 조건 분기를 대조했다. 드래그 중 요소를 제거하고 종료 시 새 요소를 만들면 최종 크기에서 첫 레이아웃을 시작해 이전 높이 보간이 사라진다.
+  - 변경/Behavior change: 드래그 전후 AnimatedSize 요소를 유지하고 높이·translation 복귀를260ms/easeOutCubic으로 보간한다. 흰 배경/반경24px 클리핑을 add-friend-visible-surface로 애니메이션 바깥에 두고 topCenter 정렬해 헤더가 움직이는 상단에 붙어 있고 축소 중 하단이 비지 않게 했다. 키보드 inset별 ValueKey는 IME 변경 프레임을 즉시 반영하며 같은 inset의 사용자 단계 전환은 보간한다. 동작 줄이기는 높이 애니메이션을 우회한다. 기존 GlobalKey는 KeyedSubtree로 옮겨 입력/포커스 subtree를 보존한다.
+  - 접기/닫기: 최대 상태에서는 아래48px 이상이면 거리에 관계없이 기본으로 먼저 접는다. 기본 상태에서 시작한 아래120px 이상 제스처만 닫는다. 닫기 버튼·두 높이/최대88%와 개인 일정 기준·짧은 제스처 복귀/취소·검색/요청/알림 이동은 유지하며 자유 중간 크기는 추가하지 않는다.
+  - 범위/파일: 기존 add_friend_modal.dart·add_friend_modal_test.dart와 PROJECT_CONTEXT·ADR-0079/0078 후속·이번 일지다. 테스트 scaffold는 resizeToAvoidBottomInset=false로 모달이 실제 popup처럼 키보드 inset을 직접 받게 한다. 역할/의존성/사용 예·렌더 경로는 PROJECT_CONTEXT에 기록했다. 신규 저장소 파일/패키지·다른 화면·API/DB/env/인증/권한/analytics/logging 변경은 없다.
+  - 테스트/결과: 모달41 pass. 실제 드래그 프레임 뒤 종료 직후 높이 보존→80ms 중간 높이→완료를 확대/축소에서 검증했다. 중간 프레임의 헤더가 실제 표면 상단에 붙고 확대 시 하단이 고정되는 것도 확인했다. 키보드가 있는 단계 전환의 보간·inset280/200/100의 변경 프레임 즉시 반영·동작 줄이기 즉시 전환·확대 도중 반대 제스처가 현재 높이에서 접히는 연속성을 확인했다. 긴 아래 제스처의 최대→기본/다음 제스처 닫기와 기존 검색/요청/취소/레이아웃 회귀를 유지했다.
+  - 키보드 검증 보정: 새 테스트의 기대512px/실제524px 차이를 조사했다. DebugMCP로 모달이 보는 keyboard_height=0.0·화면844.0을 확인했고 로컬 CupertinoPageScaffold의 resizeToAvoidBottomInset이 inset을 소비하는 구현과 대조했다. 실제 popup의 모달 직접 처리와 같은 테스트 조건으로 보정한 뒤 기대 가용 높이/모든 회귀가 통과했다. 프로덕션 scaffold/키보드 계약은 변경하지 않았다.
+  - 통합/정적 검증: 기본 설정의 모달/친구 목록/메인 탭3파일76 pass, 그룹/P1 활성에 적용되는 같은 범위76 pass. 이전에 확인한 그룹 비활성 전용2개는 기본 설정에서 검증하고 활성 실행에만 기존 이름 필터를 적용했다. 변경 Dart2개 analyze 진단0건·format 변경0건·범위 git diff --check 통과. 이번 디버거 중단점은 모두 제거했다. 임시 소스 로그는 추가하지 않았다.
+  - 렌더/실행: 실제 폰트의 motion_before/motion_release/motion_mid/motion_after와 기존 초기/확인/완료·최대·반응형 PNG를 /private/tmp/shiftmate_friend_motion_2026-11-13/render에 생성하고 전/중/후 프레임을 열어 확인했다. `ADD_FRIEND_RENDER_OUTPUT=/private/tmp/shiftmate_friend_motion_2026-11-13/render flutter test --no-pub test/features/friend/presentation/widgets/add_friend_modal_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`로 재현한다. 재현 실패 로그는 같은 임시 디렉터리의 repro.log, 최종 통합은 default-final.log/group-final.log이며 앞선3파일/그룹 실행 조건을 사용한다. SDK 캐시는 테스트/분석 명령 권한 확장, 포맷은 SDK Dart 직접 실행으로 처리했다.
+  - 한계/배포: 모의 API/위젯 프레임과 렌더 검증이며 실제 기기/VoiceOver·운영 API·전체 앱 suite·빌드/설치/배포·커밋/푸시는 수행하지 않았다. 실기기 앱 반영에는 재빌드/설치가 필요하다.
+  - 롤백: 이번 모달/테스트/문서만 되돌리고 기존 미커밋 변경은 보존한다. 수정 전 사본은 /private/tmp/shiftmate_friend_motion_2026-11-13/modal.before.dart·test.before.dart다.
+
+## 2026-11-13 친구 추가 시트 높이 단계 제한
+
+- [DONE] (FE/UI) 자유 크기 조절을 기본·최대·닫기 동작으로 제한
+  - 목적: 사용자 요청에 따라 임의의 중간 높이가 남지 않게 하고 최대 높이를 개인 일정 추가 시트와 맞춘다.
+  - 변경/Behavior change: _drag_height와 임의 높이 저장을 제거하고 _is_expanded bool만 유지한다. 기본은 기존 내용 기반 크기, 최대는 개인 일정 추가와 같은88%/키보드 시 가용 높이다. 가용 높이는 화면-상단viewPadding-키보드-12px를0~화면 높이로 제한한다. 헤더를 위48px 이상 밀면 최대, 아래48~119px는 기본, 아래120px 이상은 기본/최대에서 닫기로 정착한다. 짧은 움직임은 원래 단계로 복귀하고 속도만으로 닫지 않는다. 드래그 중 크기는 바꾸지 않고 아래 translation만180px까지 추적한다. 검색/입력 수정/요청 완료와 키보드 전환으로 선택 단계를 초기화하지 않는다.
+  - 취소/애니메이션: 일반 높이와 translation 복귀180ms·키보드/드래그/동작 줄이기 즉시 배치·GlobalKey subtree 보존을 유지한다. PointerCancel과 onVerticalDragCancel은 거리/offset/진행 상태를 초기화하고 이후 비활성 onEnd를 무시해 취소로 확장/닫기가 실행되지 않게 한다.
+  - 범위/파일: 기존 add_friend_modal.dart·add_friend_modal_test.dart 및 PROJECT_CONTEXT·ADR-0078/0077 후속·이번 일지다. 모달 테스트 helper는 CupertinoApp.builder에서 Navigator/popup 전체에 동일 MediaQuery와 RepaintBoundary를 적용하며, 기존 PersonalEventFormModal/intl 한국어 날짜 초기화에 의존해 실제 높이를 비교한다. 역할/의존성/사용 예는 PROJECT_CONTEXT의 친구 추가 검색 흐름에 기록했다. 신규 저장소 파일/패키지·개인 일정 시트/친구 서비스/provider/API/DB/env·탭/인증/공유 권한·analytics/logging 변경은 없다.
+  - 테스트/결과: 모달37 pass. 기본/최대 두 높이·여러 거리에서 같은 최대 높이·짧은 고속 드래그 복귀·최대에서 기본으로 접기·기본/최대에서 아래로 닫기·드래그 중 크기 불변/취소·검색/입력/요청 후 최대 유지와 기존29개 기능/레이아웃 회귀를 확인했다. 화면390x844·375x667·667x375·768x1024와390x844/키보드320px의5조건에서 상단 안전영역까지 포함해 실제 개인 일정 추가 높이와 일치했다.
+  - 통합/정적 검증: 기본 설정의 모달/친구 목록/메인 탭3파일72 pass, 그룹/P1 활성에 적용되는 같은 범위72 pass. 이전 작업에서 확인한 그룹 비활성 전용2개는 기본 설정에서 검증하고 활성 실행에만 기존 이름 필터를 적용했다. 변경 Dart2개 analyze 진단0건·format 변경0건·범위 git diff --check 통과. 자유 높이 변수/기존 상한 getter 잔존0건이다.
+  - 조사/수정: 첫 검증에서 팝업 최대528px와 기대742.72px 차이를 확인했고, 기존 test helper의 MediaQuery가 home 내부에만 있어 root popup은 테스트 View의600px 높이를 사용함을 확인해 Navigator 위 builder로 옮겼다. 드래그 취소 회귀는 취소 뒤 최대 단계로 변하는 실패를 재현했다. DebugMCP로 _settleSheet 중단점의 TestGesture.cancel→PointerCancel→DragGestureRecognizer._checkEnd→onVerticalDragEnd 호출 스택을 확인했고 로컬 Flutter monodrag.dart의 승인된 drag 처리와 대조했다. Listener 취소 보호와 비활성 종료 guard로 해결한 뒤 전체 회귀를 통과했다. 이번 중단점은 모두 제거했다. 임시 소스 로그/무관한 제품 변경은 없다.
+  - 렌더/실행: 실제 폰트의 초기/확인/완료·작은 화면/가로/태블릿/큰 글자/키보드/OS dark 선호·최대 단계 PNG12개를 /private/tmp/shiftmate_add_friend_detents_2026-11-13/render에 생성하고 최대 상태를 열어 확인했다. `ADD_FRIEND_RENDER_OUTPUT=/private/tmp/shiftmate_add_friend_detents_2026-11-13/render flutter test --no-pub test/features/friend/presentation/widgets/add_friend_modal_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`로 재현한다. 최종 통합 로그는 같은 디렉터리의 default-final.log/group-final.log이며 앞선 작업의3파일/그룹 실행 조건을 사용했다. SDK 캐시는 테스트/분석 명령 권한 확장, 포맷은 SDK Dart 직접 실행으로 처리했다.
+  - 한계/배포: 모의 API/위젯 렌더 범위이며 실기기/VoiceOver·운영 API·전체 앱 suite·빌드/설치/배포·커밋/푸시는 수행하지 않았다. 실기기 앱 반영에는 재빌드/설치가 필요하다.
+  - 롤백: 이번 모달/테스트/문서 변경만 되돌리고 기존 미커밋 변경은 보존한다. 작업 전 사본은 /private/tmp/shiftmate_add_friend_detents_2026-11-13/modal.before.dart·test.before.dart다.
+
+## 2026-11-13 친구 추가 보조 안내 제거
+
+- [DONE] (FE/UI) 가입 정보 입력·상대방 수락 안내 문구 제거
+  - 목적: 사용자 요청에 따라 친구 추가 화면의 불필요한 설명을 줄인다.
+  - 변경/범위: 기존 모달의 기본 입력 안내와 요청/완료 아래 수락 안내·관련 여백만 제거한다. 입력 오류/검색 실패/요청 상태·API와 탐색은 유지한다.
+  - 테스트: 기존 모달 회귀·정적 분석·포맷·문구 잔존/범위 diff 확인. 단순 문구 삭제이므로 새 테스트/파일은 추가하지 않는다.
+  - 결과/Behavior change: 기본 입력 안내와 요청/완료 아래 수락 안내를 제거했다. 기본 상태에는 오류용8px 간격도 만들지 않으며 버튼 아래 안내12px 간격과 미사용 can_request/is_pending 계산도 제거했다. 내용 기반 시트 높이가 그만큼 줄어든다. 라벨/placeholder·입력 오류·검색 실패·프로필/요청 상태·기존 단일 버튼과 API/탐색은 유지한다.
+  - 검증: 기존 모달29개 pass·변경 Dart1개 analyze 진단0건·format 변경0건·삭제 문구 잔존0건·범위 diff 검사 통과. PROJECT_CONTEXT와 ADR-0077 후속 기록을 갱신했다. 새 테스트/파일/의존성·렌더·실기기 실행·빌드/설치·커밋/푸시는 수행하지 않았다.
+  - 실행: `flutter test --no-pub test/features/friend/presentation/widgets/add_friend_modal_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`; `flutter analyze --no-pub lib/features/friend/presentation/widgets/add_friend_modal.dart`. SDK 캐시 접근은 같은 명령의 권한 확장, 포맷은 SDK Dart 직접 실행으로 처리했다.
+  - 롤백: 이번 모달/문서 추가분만 되돌리고 기존 미커밋 변경을 보존한다.
+
+## 2026-11-13 친구 추가 단일 계정 확인 구조
+
+- [DONE] (FE/UI) 정확 일치 계정 한 명을 확인하는 간결한 폼으로 재구성
+  - 목적: 사용자가 확정한 이메일/전화번호 유일성·정확 일치·단일 반환 요구에 맞춰 화면의 정보와 행동을 단순화한다.
+  - 변경/Behavior change: 큰 도입·검색 결과 제목·결과 카드·별도 검색 버튼·공유 안내를 제거했다. 흰 시트/연회색 입력·좌우24px, 원형64px 사진/20px 이름/14px 이메일의 중앙 프로필, 최소52px 주요 버튼 하나를 사용한다. 친구 찾기→친구 요청 보내기→완료로 버튼을 교체하고 입력 수정 시 이전 프로필/오류를 지운다. 기존 친구/보낸 요청은 완료, 받은 요청은 기존 알림 확인으로 연결한다. 요청 성공은 상태를 확인한 뒤 완료로 닫는다.
+  - 높이/수명: 고정65%/검색85% 확장을 제거하고 내용에 맞게 높이를 결정하며 화면92%-키보드 높이로 제한한다. 단일 본문 스크롤·고정 헤더/닫기/드래그를 유지하고 일반 변화만180ms로 전환한다. 키보드/드래그/동작 줄이기는 AnimatedSize 자체를 우회한다. GlobalKey로 시트 subtree를 보존해 전환 래퍼가 바뀌어도 입력/포커스가 유지된다. 앞선 API/정규화·검색 generation/해제 보호·요청 중복 방지·mounted 확인·보낸 상대 Set·domain provider 정책을 유지한다. 키보드 검색은 계정 확인만 하며 확인된 계정에서 자동 요청하지 않는다.
+  - 범위/파일: 이번 코드 변경은 기존 lib/features/friend/presentation/widgets/add_friend_modal.dart와 test/features/friend/presentation/widgets/add_friend_modal_test.dart다. PROJECT_CONTEXT의 최신 정책/역할·의존성/사용 예/렌더 명령·롤백, ADR-0077/ADR-0076 대체 상태, FRIEND_API_GUIDE의 정확 일치/현행 UI 참조와 이번 일지를 갱신했다. 저장소 신규 파일/패키지·API/DB/env·탭 호출부/인증/공유 권한·analytics/logging 변경은 없다.
+  - 테스트/결과: 모달29개 pass. 초기 시트400px 미만/확인600px 미만(390x844·기본 폰트)의 내용 기반 높이, 단일 프로필/주요 버튼 교체·입력 수정 복귀·키보드 확인의 자동 전송 방지·완료 닫기를 검증했다. 기존 검증/API 미호출·전화번호3형식·역순/초기화/해제 응답·없음/통신 실패·중복 방지/요청 재시도/관계 상태·닫기 후 응답·드래그/키보드 높이도 유지한다. 키보드320→100→0에서 입력/동일 FocusNode·실제 포커스를 보존하며, 완료 버튼이 화면/하단 안전영역 안에 있는지도 확인했다.
+  - 통합/정적 검증: 기본 설정의 모달·친구 목록·메인 탭3파일64 pass, 그룹/P1 활성 조건에 적용되는 같은 범위64 pass. 그룹 비활성 전용 테스트2개는 기본 설정에서 검증하고 앞선 작업에서 확인한 이름 필터를 활성 실행에만 적용했다. 변경 Dart2개 analyze 진단0건·format --output=none --set-exit-if-changed 변경0건·범위 git diff --check 통과.
+  - 시각 검증: 실제 Cafe24/Cupertino 폰트의 초기/확인/완료 및320x568·375x667·390x844·667x375·768x1024·3.2배 글자·480px 키보드·어두운 OS 선호/동작 줄이기 PNG11개를 /private/tmp/shiftmate_add_friend_single_2026-11-13/render에 생성해 확인했다. 주요 버튼 최소52px·닫기44px·텍스트 대비/줄바꿈·본문 안의 버튼 폭/하단 접근·스크롤·overflow 없음도 회귀로 확인했다. 시트는 OS 밝기와 관계없이 이번 승인 시안의 흰 표면을 유지하며 앱 전체 다크 테마를 추가한 것은 아니다.
+  - 조사/수정: 첫 검증에서 드래그와 동작 줄이기의 Duration.zero AnimatedSize가 레이아웃 중 동기 listener를 호출해 RenderAnimatedSize 자기 레이아웃 무효화 오류를 재현했다. DebugMCP는 동적으로 생성된 이름의 테스트를 찾지 못했으나 정적 드래그 테스트의 모달 build 중단점에 진입했다. 실제 실패 스택과 로컬 Flutter RenderAnimatedSize._layoutStable/_restartAnimation·AnimationController._animateToInternal의 zero-duration notifyListeners 경로를 대조했다. 즉시 반영 조건에서 해당 위젯을 우회하고 같은 실패 테스트와 전체 회귀를 통과했다. 이번 중단점은 모두 제거했으며 테스트 디버그 종료 후 표시되는 기존 ShiftMate release 세션은 건드리지 않았다. 임시 소스 로그는 추가하지 않았다.
+  - 실행/산출물: `ADD_FRIEND_RENDER_OUTPUT=/private/tmp/shiftmate_add_friend_single_2026-11-13/render flutter test --no-pub test/features/friend/presentation/widgets/add_friend_modal_test.dart test/features/friend/presentation/pages/friend_list_page_test.dart test/core/navigation/main_tab_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`. 그룹은 GROUP_API_ENABLED=true/GROUP_P1_ENABLED=true dart-define과 앞선 작업의 --name 정규식을 사용한다. 최종 로그는 같은 임시 디렉터리의 default-final.log/group-final.log다. SDK 캐시 접근은 테스트/분석 명령의 권한 확장, 포맷은 SDK Dart 직접 실행으로 처리했다.
+  - 한계/배포: 모의 API와 위젯 렌더 검증이며 실제 기기/VoiceOver·운영 API·전체 앱 suite·빌드/설치/배포·커밋/푸시는 수행하지 않았다. 실행 중인 실기기 앱에 적용하려면 새 코드로 재빌드/설치해야 한다.
+  - 롤백: 이번 모달/관련 테스트·문서만 되돌리고 앞선 검색 최신성/알림 이동 및 기존 미커밋 변경은 보존한다. 수정 전 모달/테스트 사본은 /private/tmp/shiftmate_add_friend_single_2026-11-13/modal.before.dart·modal_test.before.dart다.
+
+## 2026-11-13 친구 추가 화면 재설계
+
+- [DONE] (FE/UI) 검색 → 상대 확인 → 요청 흐름으로 친구 추가 시트 재설계
+  - 목적: 승인된 디자인 제안에 따라 입력 공간을 넓히고 검색 결과·요청 상태를 가까이 배치한다.
+  - 변경/Behavior change: 전체 너비 입력(16px)/검색48px·결과 카드/52px 요청·22px 도입·14px 보조 문구·좌우20px, 시트 상단24px/기본65%/최대폭560px로 재구성했다. 유효 검색 시 최소85% 높이를 확보한다. 헤더/닫기를 고정하고 나머지는 하나의 ListView로 스크롤한다. 검증은 인라인 오류, 검색 실패/결과 없음은 다른 안내, 요청 실패는 카드 아래 오류/재시도, 완료는 카드 안 수락 대기 상태다. 공유 안내를 펼쳐 확인할 수 있다. 명시적인 received 요청은 시트를 닫고 기존 알림 탭 또는 독립 NotificationPage로 연결한다.
+  - 상태/안전성: 입력 수정/초기화마다 검색 generation을 무효화해 역순 응답/오류·notifier 해제 뒤 결과를 버린다. 검색 시작 시 이전 user를 제거한다. 전송 중 입력/지우기/검색/중복 요청을 막고 응답 뒤 mounted를 먼저 확인한다. 같은 시트에서 보낸 상대는 재검색해도 대기 상태를 보존한다. 키보드 높이 제한·헤더 드래그/닫기·동작 줄이기·안전영역·큰 글자 줄바꿈과 세로 프로필 배치를 제공한다. 어두운 헤더는 배경 대비를 계산해 제목/닫기를 읽을 수 있게 했다.
+  - 범위/파일: 기존 lib/features/friend/presentation/widgets/add_friend_modal.dart·pages/friend_list_page.dart·providers/friend_provider.dart와 기존 add_friend_modal_test.dart·main_tab_page_test.dart, PROJECT_CONTEXT·DECISIONS(ADR-0076)·FRIEND_API_GUIDE·이번 일지를 수정했다. 파일 역할/의존성/사용 예와 렌더 명령은 PROJECT_CONTEXT의 ‘친구 추가 검색 흐름’에 기록했다. 저장소 신규 파일/패키지·API/DB/env·인증·기본 공개 권한·analytics/logging·domain provider 수명 정책 변경은 없다.
+  - 테스트/결과: 최종 기본 설정의 친구 추가/친구 목록/탭 탐색 61 pass, 그룹/P1 활성 상태에 적용되는 같은 범위 61 pass. 친구 추가 자체26개가 입력 오류/API 미호출·전화번호3형식 정규화·키보드 제출/포커스/지우기·역순/초기화/해제 응답·결과 없음/통신 오류 복구·전송 중 중복/성공/재검색/실패 재시도·관계 상태/받은 요청·닫기 후 응답·헤더 드래그·키보드 전환을 확인했다. 실제 탭 통합 경로에서도 시트 해제→알림 탭 선택/조회→친구 목록 복귀와 root route 중복 없음을 확인했다.
+  - 시각/접근성: 실제 Cafe24/Cupertino 폰트로 초기·결과·완료/320x568·375x667·390x844·667x375·768x1024·3.2배 글자·480px 키보드·어두운 헤더/동작 줄이기 조건의 PNG 11개를 /private/tmp/shiftmate_add_friend_2026-11-13/render에 생성하고 확인했다. 최소 입력52px/검색48px/요청52px·44px 닫기·본문 안의 버튼 폭/하단 접근·헤더 텍스트 대비4.5 이상·공유 설명까지 스크롤 접근·overflow 없음도 회귀로 검증했다. 어두운 전체 UI를 새로 도입한 것은 아니며 기존 밝은 본문을 유지한다.
+  - 정적 검증: 변경 Dart5개 flutter analyze 진단0건. SDK Dart --suppress-analytics format --output=none --set-exit-if-changed 5파일 변경0건. 범위 git diff --check 통과.
+  - 실행: 기본은 `ADD_FRIEND_RENDER_OUTPUT=/private/tmp/shiftmate_add_friend_2026-11-13/render flutter test --no-pub test/features/friend/presentation/widgets/add_friend_modal_test.dart test/features/friend/presentation/pages/friend_list_page_test.dart test/core/navigation/main_tab_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`. 그룹 검증은 같은 명령에 GROUP_API_ENABLED=true/GROUP_P1_ENABLED=true dart-define과 `--name '^(?!.*(탭 이동과 재선택은 달을 보존하고 오늘 버튼만 오늘로 이동한다|탭 내부 상세 화면은 뒤로가기로 같은 그룹 목록에 복귀한다)).*$'`를 적용한다. 최종 로그는 /private/tmp/shiftmate_add_friend_2026-11-13/default-final.log·group-final.log다.
+  - 조사/실행 정리: 확대 검증에서 미리보기 전제의 기존 테스트2개를 그룹 활성 조건으로 실행해 ‘우리 병동’/group-room-preview-card 부재 실패를 확인했다. DebugMCP로 해당 테스트606행에서 group_api_enabled=false·미리보기 실제1개를 관찰했고 코드의 활성 그룹 분기/빈 모의 그룹 응답과 대조해 실행 조건 불일치를 확인했다. 이 두 테스트는 기본 설정에서 통과하며 활성 검증만 이름 필터로 분리했다. 무관한 제품/테스트 동작은 수정하지 않았다. Flutter가 지원하지 않는 --exclude-name 시도는 위 --name 정규식으로 정정했다. 디버거 세션 종료와 이번 중단점 제거를 확인했으며 임시 소스 로그는 추가하지 않았다. SDK 캐시 쓰기 제한은 동일 테스트/분석 명령의 권한 확장, 포맷은 SDK Dart 직접 실행으로 해결했다.
+  - 한계/배포: API는 모의 service 응답이며 실기기/VoiceOver·운영 API·전체 앱 suite·빌드/배포·커밋/푸시는 수행하지 않았다. 앱 코드 반영 후 재실행해 확인할 수 있다.
+  - 롤백: 이번 모달·받은 요청 호출부·검색 최신성·회귀/문서 변경만 되돌리고 기존 미커밋 변경은 보존한다. 작업 전 세 Dart 파일과 모달 테스트 사본은 /private/tmp/shiftmate_add_friend_2026-11-13/*.before.dart에 있다.
+
+## 2026-11-12 친구·그룹 빈 목록 당겨 새로고침
+
+- [DONE] (FE/UI) 빈 목록·짧은 목록에서도 새로고침 가능하도록 수정
+  - 목적: 친구/그룹이 없거나 화면을 채우지 못해도 아래로 당겨 최신 목록을 조회할 수 있게 한다.
+  - 범위: 친구 목록·실제 그룹 목록의 scroll/refresh 경로와 기존 회귀·문서. API/DB/권한·탭 상태는 유지한다.
+  - 테스트: 빈/짧은 목록의 실제 당김 제스처·조회 재호출·성공/실패/중복·기존 탭/목록 회귀와 분석/포맷.
+  - 원인/재현: 빈/오류 분기가 새로고침용 CustomScrollView를 반환하지 않았다. 실제 당김으로 빈 목록·진행 중·오류 복구의 신규6개 회귀가 조회횟수 expected2/actual1로 실패했고 기존Cupertino환경의 짧은목록2개는 통과했다. 로컬 Flutter Cupertino refresh 구현도 Bouncing/AlwaysScrollable 조합을 확인했다.
+  - 변경/Behavior change: 친구/실제 그룹의 상태와 관계없이 root CustomScrollView·CupertinoSliverRefreshControl을 유지하고 Bouncing(parent:AlwaysScrollable)로 빈/짧은 목록과 여백에서도 당김을 받는다. 빈/오류는 SliverCenteredBody, 로딩은 SliverFillRemaining으로 구성한다. 요청 중 재조회는 막고 그룹 loadMore는 빈목록/음수overscroll을 제외한다. provider/API/DB/권한·탭keep-alive·가로전환·기존 재시도/카드 동작은 보존한다.
+  - 파일/문서: 기존 scrollable_centered_body.dart의 중첩 스크롤 구현을 SliverCenteredBody로 전환하고 friend_list_page.dart·group_room_list_view.dart·기존관련test2개를 확장했다. 기존프레임의 다른Dart호출부가 없음을 검색 확인했다. PROJECT_CONTEXT의역할/의존성/사용예와ADR-0075를 기록했다. 신규저장소파일/패키지는 없다(앞선작업의untracked파일은보존).
+  - 결과: 기본플래그 관련2파일24 pass, 활성그룹/P1의친구목록+그룹전체45 pass, 기본플래그 메인탭탐색/그룹미리보기27 pass. 공용프레임정리후 활성플래그관련2파일최종25 pass. 빈/짧은목록 당김·빈여백·pending중1회조회/컨트롤유지·응답후목록표시·오류→재시도복구·탭선택/가로전환·375x667/844x390·작은높이/글자3.2배·다크/동작줄이기를확인했다. 변경Dart5개분석진단0건·포맷변경0건·범위diff검사통과.
+  - 실행: `flutter test --no-pub test/features/friend/presentation/pages/friend_list_page_test.dart test/features/group/presentation/widgets/group_room_list_view_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --dart-define=GROUP_API_ENABLED=true --dart-define=GROUP_P1_ENABLED=true --reporter=expanded`. 활성전체는친구목록테스트와`test/features/group`,기본탐색은`test/core/navigation/main_tab_page_test.dart test/features/friend/presentation/pages/group_calendar_preview_page_test.dart`를같은테스트명령에서플래그없이실행했다.
+  - 조사/정리: DebugMCP가동적생성테스트명을찾지못했고파일단위실행도기존release iPhone설정을선택해중단점관찰을못했다. 해당세션중지·이번45행중단점제거와no-session을확인했으며pending호출을종료했다. 원인검증은위실제위젯제스처/조회횟수회귀로수행했다. 임시로그는추가하지않았다.
+  - 한계/배포: service/repository모의응답이며실기기인수·VoiceOver·운영API·전체앱suite·배포/커밋/푸시는수행하지않았다. 앱을재빌드/설치해야반영된다.
+  - 롤백: 이번 새로고침 연결·physics/빈 상태 배치·관련 회귀/문서만 되돌리고 기존 미커밋 변경은 보존한다.
+
 ## 2026-11-12 그룹 날짜 선택 네모 크기 통일
 
 - [DONE] (FE/UI) 그룹 dots 선택 영역을 메인·친구 badge와 통일
@@ -119,6 +204,15 @@
   - 테스트: 기존 메인/친구 캘린더 회귀52 pass. 변경 Dart 정적 분석 진단0건·포맷 변경0건·git diff --check 통과. 실행: `flutter test --no-pub test/features/calendar/presentation/pages/calendar_page_test.dart test/features/friend/presentation/pages/friend_calendar_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 실기기 시각 확인·커밋/푸시는 수행하지 않았다.
   - 롤백: 이번 빈 상태 정렬·문서 추가분만 되돌린다.
 
+- [DONE] (FE) 하단 탭 재선택과 알림 목적지 경로 통일
+  - 목적: 다른 탭에서 돌아올 때 탐색 이력을 보존하고, 현재 탭 재선택은 홈 복귀/친구·그룹 목록 전환으로 처리한다. 알림 바로가기는 목적지 탭의 실제 탐색 이력을 사용한다.
+  - 변경/Behavior change: MainTabPage의 하단 탭 입력은 현재 탭이면 첫 route까지 pop하고, 친구 탭이 이미 목록이면 기존 PageController로 친구↔그룹을 전환한다. 다른 탭에서 복귀하면 기존 상세·선택 날짜를 유지한다. AppTabNavigation.openFriends는 목적지 목록을 고른 뒤 선택적 상세를 친구 Navigator에 연결한다. 알림 친구 수락/목록 보기·그룹 수락/바로가기는 이 경로를 사용하며 알림 Navigator에 상세를 쌓지 않는다. 첫 방문은 프레임 종료 후 적용하고 revision으로 오래된 요청을 무시한다.
+  - 파일/영향: 기존 main_tab_page.dart·app_navigation.dart·friend_list_page.dart·notification_page.dart와 main_tab_page_test.dart, PROJECT_CONTEXT·ADR-0067·이번 로그. 신규 파일은 없다. 기존 목록 keep-alive/dispose·알림 갱신·실패/친구 누락/거절 UX·인증·공개 권한·analytics·API/DB/env 계약은 유지한다.
+  - 테스트: 기본 분기의 메인 탭·친구 목록·그룹 미리보기·그룹 알림 provider4개 파일40 pass. GROUP_API_ENABLED=true의 새 탐색 회귀9 pass.375x667·768x1024의 실제 친구 캘린더 날짜/state 보존·친구 정보까지의 이력 홈 복귀,844x390의 목록 재선택·다크/동작 줄이기, 첫 방문 수락/목록 바로가기·기존 상세 정리·친구/그룹 목록으로 뒤로가기·그룹 상세에서 하단 재선택·알림 탭 복귀·실패/누락/거절을 확인했다. 수락 결과는 탐색 테스트에서 모의하며 기존 provider 테스트로 domain 처리를 함께 검증했다. 변경 Dart5개 분석 진단0건·포맷 변경0건·diff 검사 통과. SDK 캐시 권한 오류는 같은 테스트 명령의 승인된 권한 확장으로 해결했다. 추가 테스트의 빈 record 리스트 타입/중괄호 진단은 명시 타입/블록으로 해소했다.
+  - 검증 명령: `flutter test --no-pub test/core/navigation/main_tab_page_test.dart test/features/friend/presentation/pages/friend_list_page_test.dart test/features/friend/presentation/pages/group_calendar_preview_page_test.dart test/features/friend/presentation/providers/group_notification_provider_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`; 활성 분기는 메인 탭 파일에 `--name '하단 재선택|알림.*경로|알림 수락 실패' --dart-define=GROUP_API_ENABLED=true`를 적용한다.
+  - 한계/다음: 별도844x390 실제 친구 캘린더 탐색 시8.5px 하단 overflow를 관찰했다. 해당 페이지 배치는 이번에 수정하지 않았으며 정확한 지점/원인 확인과 해결은 별도 과제로 남는다. 가로 회귀는 목록 전환 범위로 분리했고 실제 상세 탐색은375px/태블릿에서 검증했다. debug-live로 기존 _selectTab 중단점/호출 경로를 확인하고 추가 중단점을 모두 제거했다. 전체 suite·실기기·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 탐색 처리·관련 테스트·문서 추가분만 되돌린다. 기존 미커밋 작업은 보존한다.
+
 - [DONE] (FE/UX) 그룹 근무 시간 구분자 공백 보완
   - 목적: 그룹 화면에서도 ADR-0066의 `06:30 - 15:00` 표기를 적용한다.
   - 변경/영향: 실제 GroupCalendarPage._shiftTime과 GroupCalendarPreviewPage의 근무 템플릿4개에서 공백 없는 `–`를 ` - `로 교체했다. 야간 익일·시간 없음·시간 값/API/DB·기존 화면 배치는 유지한다.
@@ -168,6 +262,30 @@
   - 시각/한계:84개 PNG 중375px의1.1/1.25배 시간 정렬,320px 날짜/시간, 날짜 탐색의 큰 글자, 가로 연월과 최대 글자 시간/연도·월 휠을 직접 확인했다. 기존17조건 키보드 렌더는 /private/tmp/shift_small_screen_form_keyboard에 별도 생성했다. 모의 서비스/테스트 키보드 inset 기준으로 실기기 Dynamic Type/실제 키보드/VoiceOver·실서버 인수를 대체하지 않는다. 커밋/푸시·배포는 수행하지 않았다.
   - 마지막 보완: 동작 줄이기에서는 연월의 이번 달 선택에 jumpToItem을 사용한다. 새 회귀에서 두 휠을2000년1월로 이동시킨 뒤 이번 달을 실제 눌러 두 선택 인덱스/요약 동기화를12조건으로 확인했다. 작은 화면36개+기존 연월2개 총38 pass, 해당2개 파일 분석 진단0건이다. 시각 캡처는 이번 달 조작 전 생성하므로 기존84개와 동일하다.
   - 롤백: 이번 배치 수정·공용 위젯·회귀/산출물·문서 추가분만 되돌린다. 동시 진행 헤더 재질 변경(ADR-0064)과 기존 일정 편집/삭제 등 다른 미커밋 작업은 보존한다.
+
+- [DONE] (FE/UX) 하단 캘린더·친구·알림 바 선택 이동 애니메이션
+  - 목적: 사용자 확인에 따라 하단 세 탭의 선택 배경과 아이콘/글자 전환을 부드럽게 연결한다.
+  - 변경/Behavior change: 탭별 배경 페이드를 단일 선택 배경의 AnimatedAlign 이동으로 변경하고 아이콘/라벨 색상은 ColorTween으로 보간했다.280ms easeOutCubic/동작 줄이기0ms를 공유하며 연속 선택도 현재 위치/색상부터 이어진다. 배경 IgnorePointer·폭1/3·기존 테마색/반경을 사용한다.
+  - 파일/범위: 기존 MainTabPage·main_tab_page_test.dart·PROJECT_CONTEXT·ADR-0062·이번 일지. 신규 파일/의존성/controller는 없다. 친구·그룹 상단 전환과 각 탭 탐색/상태·배지/접근성·글라스·바 크기/여백·API/DB/env는 보존한다.
+  - 테스트: 기존 메인 내비게이션9개(추가4개)와 친구 목록5개, 총14 pass.375x667·844x390·768x1024 다크/글자2배에서 중간 위치/색상 보간·연속 탭 시 위치 연속성·최종 위치/색상·바/버튼 Rect 동일·최소44px 터치와 동작 줄이기 즉시 확정을 확인했다. 기존 월/그룹 상태·상세 복귀·푸시 보류·로그인/가입/로그아웃 회귀도 통과했다. 변경 Dart2개 정적 분석 진단0건·포맷 변경0건·diff 검사 통과.
+  - 검증 보완/한계: 가로 테스트는 빈 친구 화면의 기존7px 넘침과 분리하기 위해 친구1명 모의 상태를 사용했다. 다크 테마는 기존 대비 보정으로 선택/비선택 색상이 모두 흰색일 수 있어 실제 Color.lerp 결과로 검증한다. 기본 fixture 동작은 유지한다. 디버거의 매개변수 테스트 검색은 소스 템플릿 이름으로 실행했고 추가 중단점/세션을 정리했다. 전체 suite/실기기 시각·VoiceOver 인수·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 하단 바 애니메이션과 검증·문서 추가분만 되돌린다.
+
+- [DONE] (FE/UX) 친구·그룹 탭 좌우 스와이프 전환
+  - 목적: 상단 세그먼트 탭 외에 목록 본문의 좌우 스와이프로 친구·그룹을 전환한다.
+  - 변경/Behavior change: FriendListPage의 IndexedStack을 PageView로 교체하고 상단 세그먼트·제목/액션을 동기화했다. 왼쪽은 그룹/오른쪽은 친구로 이동한다. 세그먼트 탭은250ms easeOutCubic 전환, 동작 줄이기에서는 즉시 전환한다. 내부 keep-alive 래퍼로 목록 state/스크롤 위치와 그룹 최초 진입 시 생성 정책을 보존하며 PageController는 dispose한다.
+  - 파일/범위: friend_list_page.dart·기존 friend_list_page_test.dart 확장·group_calendar_preview_page_test.dart의 전환 대기3곳·PROJECT_CONTEXT/ADR-0061/이번 일지. 신규 파일/의존성은 없다. 기존 미커밋 헤더 고정과 다른 작업·API/DB/env·domain state/라우트/권한은 보존한다.
+  - 테스트: 기본 분기 관련20 pass(친구 목록5·그룹 미리보기9·그룹 목록1·메인 탭5), GROUP_API_ENABLED=true의 모의 API 목록/그룹 위젯6 pass.390x800·375x667·844x390의 실제 양방향 스와이프/탭·선택 표시/제목/액션·세로 스크롤/복귀 위치·최초 그룹 요청1회, 다크/글자2배/동작 줄이기를 확인했다. 변경 Dart3개 분석 진단0건·포맷 변경0건·diff 검사 통과. 전체 suite/실기기·VoiceOver 인수·커밋/푸시·배포는 수행하지 않았다.
+  - 검증 보완/한계: debug-live에서 기존 미리보기 테스트의 pump1회 시 PageController.page=0·진행 중 프레임4개를 확인해 애니메이션 종료 대기로 변경했다. 신규 세그먼트 검증은 private enum 제네릭의 실제 위젯 타입을 is predicate로 찾는다. 추가 중단점/디버그 세션은 정리했다. 실제 API 플래그를 메인 탭 기존 suite에도 확장 실행했을 때2건 실패했으나, 이 suite는 그룹 repository/초대 provider mock이 없고 미리보기 카드 키를 기대하므로 기본 플래그 전용임을 코드로 확인했다. 기본 메인 탭5개는 통과하며 실제 API 플래그는 전용 mock이 있는 이번 목록/그룹 테스트6개로 검증했다.
+  - 롤백: 이번 전환 UI·추가 검증·문서만 되돌린다.
+
+- [DONE] (FE/UX) 친구·그룹 목록 탭 헤더 배경 고정 확대
+  - 목적: 사용자 후속 요청에 따라 친구·그룹 캘린더 상세뿐 아니라 친구/그룹 목록 탭에도 같은 배경 고정을 적용한다.
+  - 확인/범위: FriendListPage가 친구/그룹 세그먼트의 헤더를 공유한다. 실제 GroupRoomListView와 미리보기 목록 모두 이 헤더 아래에 표시된다.
+  - 변경/Behavior change: FriendListPage.navigationBar에 automaticBackgroundVisibility=false·backgroundColor=AppTheme.background_color·border=null을 적용했다. 친구·그룹 목록 스크롤/세그먼트 전환에도 기존 정지 상태 배경을 유지한다. 목록/새로고침/페이지네이션·스크롤 위치·제목/액션·기능 플래그·API/DB와 다른 미커밋 작업은 유지한다.
+  - 파일/문서: 기존 friend_list_page.dart와 신규 friend_list_page_test.dart, PROJECT_CONTEXT·ADR-0058 후속 결정·이번 항목을 갱신했다. 신규 회귀 파일의 역할·의존성·실제/미리보기 실행 예는 PROJECT_CONTEXT에 기록했다.
+  - 테스트: 기본 경로 관련 **11 pass**(신규 목록 회귀·기존 그룹 미리보기/그룹 목록), GROUP_API_ENABLED=true의 실제 목록 통합 회귀 **1 pass**.20명 친구/20개 그룹의 실제 스크롤·헤더 BoxDecoration 고정·그룹 전환/맨 위 복귀·친구 스크롤 위치 보존을 확인했다. 미리보기는 카드1개라 양수 스크롤 대신 목록 제스처/표시·헤더와 전환을 검증했다. 수정 Dart2개 정적 분석 **진단0건**·diff 검사 통과. 이번 범위는 관련 테스트로 검증하며 실기기 인수·배포·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 목록 헤더 설정·회귀·문서 추가분만 되돌린다.
 
 - [DONE] (FE/UX) 메인 일정 영역의 남은 높이 채우기 복구와 작은 화면 넘침 수정
   - 목적: 사용자 정정에 따라40% 고정 배치를 제거하고, 달력 뒤 남은 공간을 채우면서 작은 화면의 전체 스크롤과 하단 탭 침범을 방지한다.

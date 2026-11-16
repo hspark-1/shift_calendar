@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/scrollable_centered_body.dart';
 import '../../application/group_providers.dart';
 import '../../domain/entities/group_models.dart';
 
@@ -31,58 +32,68 @@ class _GroupRoomListViewState extends ConsumerState<GroupRoomListView> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(groupListProvider);
-    if (state.is_loading && state.groups.isEmpty) {
-      return const Center(child: CupertinoActivityIndicator());
-    }
-    if (state.error != null && state.groups.isEmpty) {
-      return _ErrorState(
-        message: _errorMessage(state.error),
-        onRetry: () => ref.read(groupListProvider.notifier).loadGroups(),
-      );
-    }
-    if (state.groups.isEmpty) {
-      return const _EmptyState();
-    }
-
     return NotificationListener<ScrollEndNotification>(
       onNotification: (notification) {
         final metrics = notification.metrics;
-        if (metrics.extentAfter < 120) {
+        if (state.groups.isNotEmpty &&
+            metrics.pixels >= 0 &&
+            metrics.extentAfter < 120) {
           ref.read(groupListProvider.notifier).loadMore();
         }
         return false;
       },
       child: CustomScrollView(
         key: const ValueKey('group-room-api-list'),
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         slivers: [
           CupertinoSliverRefreshControl(
-            onRefresh: () => ref.read(groupListProvider.notifier).loadGroups(),
+            onRefresh: () async {
+              if (!ref.read(groupListProvider).is_loading) {
+                await ref.read(groupListProvider.notifier).loadGroups();
+              }
+            },
           ),
-          SliverPadding(
-            padding: const EdgeInsets.all(AppTheme.spacing_md),
-            sliver: SliverList.separated(
-              itemCount: state.groups.length,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(height: AppTheme.spacing_sm),
-              itemBuilder: (context, index) {
-                final group = state.groups[index];
-                return _GroupRoomCard(
-                  group: group,
-                  onTap: () => widget.onGroupTap(group),
-                );
-              },
+          if (state.is_loading && state.groups.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          else if (state.error != null && state.groups.isEmpty)
+            _ErrorState(
+              message: _errorMessage(state.error),
+              onRetry: () => ref.read(groupListProvider.notifier).loadGroups(),
+            )
+          else if (state.groups.isEmpty)
+            const _EmptyState()
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(AppTheme.spacing_md),
+              sliver: SliverList.separated(
+                itemCount: state.groups.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: AppTheme.spacing_sm),
+                itemBuilder: (context, index) {
+                  final group = state.groups[index];
+                  return _GroupRoomCard(
+                    group: group,
+                    onTap: () => widget.onGroupTap(group),
+                  );
+                },
+              ),
             ),
-          ),
-          if (state.is_loading)
+          if (state.is_loading && state.groups.isNotEmpty)
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.all(AppTheme.spacing_md),
                 child: Center(child: CupertinoActivityIndicator()),
               ),
             ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: AppTheme.spacing_md),
-          ),
+          if (state.groups.isNotEmpty)
+            const SliverToBoxAdapter(
+              child: SizedBox(height: AppTheme.spacing_md),
+            ),
         ],
       ),
     );
@@ -231,26 +242,28 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            CupertinoIcons.person_3,
-            size: 64,
-            color: AppTheme.outline_variant_color,
+    return SliverCenteredBody(
+      children: [
+        const Icon(
+          CupertinoIcons.person_3,
+          size: 64,
+          color: AppTheme.outline_variant_color,
+        ),
+        const SizedBox(height: AppTheme.spacing_md),
+        Text(
+          '참여 중인 그룹이 없습니다',
+          textAlign: TextAlign.center,
+          style: AppTheme.body_large,
+        ),
+        const SizedBox(height: AppTheme.spacing_sm),
+        Text(
+          '새 그룹을 만들거나 받은 초대를 확인해보세요',
+          textAlign: TextAlign.center,
+          style: AppTheme.body_small.copyWith(
+            color: AppTheme.on_surface_variant_color,
           ),
-          const SizedBox(height: AppTheme.spacing_md),
-          Text('참여 중인 그룹이 없습니다', style: AppTheme.body_large),
-          const SizedBox(height: AppTheme.spacing_sm),
-          Text(
-            '새 그룹을 만들거나 받은 초대를 확인해보세요',
-            style: AppTheme.body_small.copyWith(
-              color: AppTheme.on_surface_variant_color,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -263,20 +276,17 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            CupertinoIcons.exclamationmark_circle,
-            size: 48,
-            color: AppTheme.outline_color,
-          ),
-          const SizedBox(height: AppTheme.spacing_md),
-          Text(message, textAlign: TextAlign.center),
-          CupertinoButton(onPressed: onRetry, child: const Text('다시 시도')),
-        ],
-      ),
+    return SliverCenteredBody(
+      children: [
+        const Icon(
+          CupertinoIcons.exclamationmark_circle,
+          size: 48,
+          color: AppTheme.outline_color,
+        ),
+        const SizedBox(height: AppTheme.spacing_md),
+        Text(message, textAlign: TextAlign.center),
+        CupertinoButton(onPressed: onRetry, child: const Text('다시 시도')),
+      ],
     );
   }
 }
