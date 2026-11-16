@@ -1,5 +1,28 @@
 # 개인정보처리방침 작성 근거 및 공개 전 확정 항목
 
+## 2026-11-12 모바일 표 수정 및 본문 대조 — v1.1
+
+- 기준: 공개 `/privacy`를 HTTPS GET으로 받아 로컬 HTML과 SHA-256 `859e3da0fcabceceb84a5f39f0c8b2572bb2f9d9ba1837915bc89d2902063e02` 일치를 확인했다. 아래는 그 본문을 현행 FE·인접 BE 코드·통합 SDK 고지와 대조한 결과다. 실제 원격 서버 revision·계약·운영 보관 설정까지 재검증했다는 뜻은 아니다.
+- 사용자 지시: 연령 확인·항목별 동의 관련 내용은 수정하지 않는다. 제2항 가입 정책 확인 행, 제3항 해당 보관 대상, 제9항은 원문을 보존했고 문자열/정규화한 표 셀 비교로 확인했다. 이 검토에서는 해당 설명의 구현 적합성을 확정하지 않는다.
+
+| 검토 항목 | 확인 근거 | 조치·판정 |
+|---|---|---|
+| 모바일 표 정렬 | 기존600px 이하 CSS가 table/tbody/tr/td/th를 block 처리.375px에서5개 표 모두 헤더/본문 열 불일치 | 원인 CSS 제거. 기본640px·2열560px·4열880px 최소 폭의 실제 table과 표 내부 가로 스크롤 사용. caption·열/행 scope·키보드 접근·안내 제공 |
+| 개인 일정의 나만 보기 | FE event_api_model.dart·personal_event_form_modal.dart의 is_private. BE migrations/add_event_privacy.sql의 타인 view 제외 | 제2항 나만 보기 설정 항목과 제5항 친구/그룹 공유 제외 설명 추가 |
+| 친구 레벨0 | FE 개인 일정1~5 검증·BE view의 friend_level 비교 | 제5항 레벨0은 근무표만 열람함을 명시 |
+| 비친구 그룹 멤버의 근무표 | BE groupService.ts의 work_shifts 조회는 그룹 멤버십과 can_view IS DISTINCT FROM false 검사, 개인 일정은 친구 노출 view 사용 | 제5항 그룹 근무표는 친구 관계 없이도 표시될 수 있으며 명시적 열람 차단을 적용함을 구분 |
+| 그룹 설명 수집 | BE models/Group.ts와 FE 그룹 생성/수정 DTO는 name/timezone을 사용 | 수집 항목의 ‘그룹명·설명’을 ‘그룹명·시간대’로 정정 |
+| 통합 SDK의 분석·진단 | ios/Pods/GoogleSignIn/.../PrivacyInfo.xcprivacy의 사용자/기기 ID·대략적 위치·사용 데이터·분석 선언, FirebaseMessaging·GoogleDataTransport의 분석/진단 선언. 별도 firebase_analytics/firebase_crashlytics 의존성 없음 | 제2항 SDK 처리 행과 제10항 별도 분석 SDK 부재와 통합 SDK 처리의 차이를 설명. 광고 추적이나 정확한 GPS 수집으로 확대해 단정하지 않음 |
+| 공휴일 API | KoreanHolidays._fetchHolidaysForMonthRange의 한국천문연구원 API GET은 serviceKey·연도·월·페이지 등만 전달 | 제6항 외부 서비스 목록에 추가. 일정·프로필을 공휴일 요청에 포함하지 않음을 명시 |
+| 소셜 로그인/탈퇴 | auth_repository_impl.dart의 Google/Naver 선행 해제·auth_remote_datasource.dart의202 접수. BE accountDeletionProviderService/accountDeletionService와 기존 인수 기록 | 제공자별 해제·비동기 삭제·남은 그룹 유지 설명은 유지 |
+| FCM180일 | [Firebase 공식 안내](https://firebase.google.com/support/privacy)의 Cloud Messaging 설치ID 보관/삭제 설명을2026-11-12 확인 | 삭제API 요청 이후 live/backup180일 설명 유지. 앱 로그아웃만으로 외부 보유 전체가 삭제된다고 쓰지 않음 |
+| 보관기간·S3·연락처 | 이 문서의2026-10-18 운영자 확정 기록, BE config/privacy.ts의 완료 작업30일 강제 |7일 처리 목표·로그/백업30일·문의완료 후1년·서울S3·담당자/이메일 유지. 실제 운영 설정 재조회로 확대하지 않음 |
+
+- 수정 전5개 표의 실제 열 정렬 실패를 재현한 뒤 수정 후11조건×5표의 열 x/폭·헤더 동일행·페이지 가로 넘침 없음·행/열 제목·영역명/안내 연결을 확인했다. 폭320/375/390/430/600/601/768/844/1440,375px 본문200% 확대·다크 선호와 동작 줄이기를 포함한다. 키보드 ArrowRight로40px 이동했다. Chrome 렌더이며 iPhone Safari/VoiceOver 인수를 대체하지 않는다.
+- HTMLParser 중첩·14개 절·5개 표, MD/HTML 표5개 모든 셀 일치, 연령/동의 원문 보존을 확인했다. 최초 자체 parser가 XHTML형 void 종료태그를 잘못 판단한 검증 오류는 handle_startendtag 처리로 해결했다.
+- 남은 확인: 제7항의 ‘글로벌 처리 지역’ 등은 계정별 실제 수신 법인·처리 국가·계약/이전 근거를 확정한 고지가 아니다. 기존 운영자 확인 필요 사항을 유지하며 확인되지 않은 국가/법인/보유기간을 새로 만들어 넣지 않는다. [Firebase 공식 개인정보 안내](https://firebase.google.com/support/privacy)와 로컬 SDK manifest는 근거로 사용했으나 법률 준수 완료·심사 승인 보장은 아니다.
+- 버전1.1/최종 수정일2026-11-12와 변경 이력을 HTML·MD에 함께 반영했다. 최초 시행일2026-10-18은 유지한다. 새 내용의 운영 게시·고지 절차와 공개 URL 교체는 미수행이며 배포 가이드 상단을 따른다.
+
 ## 공개 문안 v1.0 작성 (2026-10-18)
 
 - 사용자가 최초 시행일을 2026-10-18로 확정했다. 이전 검토본 게시와 구분하며 개정본으로 임의 소급 표기하지 않는다.

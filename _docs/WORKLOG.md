@@ -98,6 +98,43 @@
   - 한계/배포: service/repository모의응답이며실기기인수·VoiceOver·운영API·전체앱suite·배포/커밋/푸시는수행하지않았다. 앱을재빌드/설치해야반영된다.
   - 롤백: 이번 새로고침 연결·physics/빈 상태 배치·관련 회귀/문서만 되돌리고 기존 미커밋 변경은 보존한다.
 
+## 2026-11-12 개인정보처리방침의 화면 사용 안내 제거
+
+- [DONE] (WEB) 정책 본문에서 표 스크롤 안내 문구 제거
+  - 목적: 개인정보처리방침에 화면 사용 설명이 섞이지 않도록 사용자 요청을 반영한다.
+  - 변경/영향:5개 표 앞 안내·전용 CSS·삭제된 안내의 aria-describedby 참조를 제거하고 변경 이력에서도 모바일 표시 개선 설명을 뺀다. 정책 내용·75%크기·표 구조/이름·스크롤·키보드 접근은 유지한다.
+  - 테스트: 기존 HTML 구조/표/MD/연령·동의 보존 검증·안내 잔존/누락 참조·diff 검사.
+  - 결과: 안내5개·전용CSS·aria-describedby5개를 제거했다. 공개 변경 이력의 화면 표시 설명을 HTML/MD에서 함께 제거했다. 정책 본문·연령/동의·75%치수·caption/scope/영역명/tabindex·스크롤은 유지한다. support는 변경하지 않았다.
+  - 검증/문서: 기존임시 `python3 /private/tmp/shiftmate_privacy_content_audit_2026-11-12.py`로 HTML중첩·14절/5표·MD표 모든셀 동일·연령/동의 보존·ARIA참조 유효 검증 통과. 안내문구·CSS잔존0과scope/표영역5개를 정적 대조했다. PROJECT_CONTEXT·ADR-0074후속·DEPLOY_GUIDE최신hash를 갱신했다. 범위diff검사 통과. 신규파일/테스트·렌더·운영게시·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 안내와 관련 문서 변경만 되돌리며 이전 크기/표 수정은 보존한다.
+
+## 2026-11-12 개인정보·고객지원 페이지 크기75% 조정
+
+- [DONE] (WEB/UI) privacy.html·support.html의 표시 크기 축소
+  - 목적: 사용자 요청에 따라 두 페이지의 글자·여백·본문 폭·표 크기를 기존의 약75%로 맞춘다.
+  - 변경/영향: CSS 치수만 조정하고 개인정보/지원 본문·연령/동의 문구·링크는 유지한다. 모바일 breakpoint·브라우저 확대·표 구조/가로 스크롤·링크 최소 터치 높이는 유지한다.
+  - 테스트: 모바일/가로/데스크톱 렌더·표 정렬·페이지 가로 넘침·본문/링크 보존·HTML 구조를 확인한다.
+  - 결과/Behavior change: 본문16→12px, h1 30→22.5px/모바일26→19.5px, h2 21→15.75px, 최대 폭860→645px로 조정했다. 개인정보 표 최소 폭640/560/880→480/420/660px와 패딩·반경도75%다. breakpoint600·viewport1·터치44px·1px구분선·포커스 강조를 유지하고 support 내비게이션도44px로 통일했다. transform/zoom은 사용하지 않았다.
+  - 검증: 두 실제 페이지의320/375/844/1440px·375px 본문200%/다크 선호·동작 줄이기12조건 통과. 본문12px(확대24px)·최대645px·표 정렬·페이지 가로 넘침 없음·링크/문의44px 이상을 확인하고375px 두 PNG를 열어 확인했다. CSS 이후 원문이 두 파일 모두 직전과 완전히 같아 본문/링크 변경이 없음을 확인했다. 기존 개인정보 태그 중첩·14절·5표 모든 MD셀·연령/동의 보존 검증과 범위 diff 검사도 통과했다.
+  - 파일/도구: 기존 privacy.html·support.html·PROJECT_CONTEXT·ADR-0074후속·DEPLOY_GUIDE·이번 일지만 갱신했다. 저장소 신규 파일/의존성은 없다. 임시 Node CDP 측정 스크립트 `/private/tmp/shiftmate_web_scale_2026-11-12.mjs`의 역할/의존성/실행 예와 PNG/JSON 출력 위치는 PROJECT_CONTEXT에 기록했다.
+  - 한계/배포: Chrome 렌더 범위이며 실제 Safari/VoiceOver·전체 Flutter/BE suite·운영 교체·커밋/푸시는 수행하지 않았다. 배포 연결 없이 로컬 수정/교체본 준비까지 완료했으며 두 파일 최신hash를 DEPLOY_GUIDE 상단에 갱신했다.
+  - 롤백: 이번 두 HTML의 크기 조정과 관련 문서만 되돌리고 앞선 표/본문 정정은 보존한다.
+
+## 2026-11-12 개인정보처리방침 모바일 표·내용 검토
+
+- [DONE] (WEB) 모바일 표의 헤더/본문 정렬 수정 및 정책 내용 사실 대조
+  - 목적: 휴대전화에서 개인정보처리방침 표의 열 제목과 내용이 분리되는 문제를 해결하고 현재 구현과 다른 문구를 정정한다.
+  - 범위: 공개 개인정보 HTML·편집 정본 MD·관련 검토/배포 문서와 정본 프로젝트 문서. 기존 앱/서버 기능·개인정보 보관 정책을 임의 변경하지 않는다.
+  - 테스트: 운영 HTML과 로컬 비교, 모바일/가로/확대 화면 렌더·표 구조/접근성 확인, 앱·인접 서버 코드 및 공식 안내 기반 내용 대조.
+  - 원인/수정: 공개 GET200·로컬 SHA 일치 후375px에서5개 표 모두 헤더/본문 x·폭 불일치를 재현했다.600px 이하 table/tbody/tr/td/th의 display:block을 제거하고5개 native table을 표 안에서 가로 스크롤하도록 바꿨다. 기본640px·2열560px·4열880px 최소 폭·첫 열 비율·세로 구분선을 적용하고 caption·열/행 scope·영역명/안내·tabindex·focus outline을 제공했다.
+  - 본문/Behavior change: 나만 보기 수집/공유 제외·친구 레벨0·비친구 그룹 근무표 노출 조건·Google/Firebase 통합 SDK 분석/진단·공휴일 API를 보완하고 그룹 ‘설명’을 실제 ‘시간대’로 정정했다. HTML/MD를 v1.1/최종수정2026-11-12로 동기화하며 최초 시행일·기존 보관기간은 유지했다. 사용자 답변 ‘이 내용에 대해서 수정하지마’에 따라 가입 연령 확인/항목별 동의 내용과 제9항 원문을 보존했다.
+  - 내용 확인/한계: 전체 HTML/MD·FE DTO/가입/일정/공휴일·인접 BE profileMutation/profileService·Group·friendService/groupService SQL·private migration·SDK privacy manifest와 기존 운영자 확정 기록을 대조했다. Firebase 공식 안내의 FCM 설치ID 삭제 후180일 설명도 확인했다. 국외 처리의 실제 계약별 법인/국가/근거와 원격 보관 설정은 새로 단정하지 않고 기존 확인 필요 사항으로 PRIVACY_REVIEW 상단에 남겼다.
+  - 결과:11조건×5표 정렬·헤더 동일 행·페이지 가로 넘침 없음·행 제목/접근성 참조가 모두 통과하고 ArrowRight로40px 스크롤했다. 폭320/375/390/430/600/601/768/844/1440,375px 본문200%·다크 선호·동작 줄이기를 포함했다. 수정 전후375px·가로·큰글자·마지막 열 PNG를 직접 확인했다. HTMLParser 태그 중첩·14개 절·MD/HTML 표5개 모든 셀 동일·연령/동의 원문 보존·범위 diff 검사를 통과했다.
+  - 파일/문서: 기존 privacy.html·PRIVACY_POLICY.md·PRIVACY_REVIEW.md·DEPLOY_GUIDE.md·PROJECT_CONTEXT·ADR-0074·이번 일지. 저장소 신규 파일·의존성은 없다. 임시QA스크립트·공개본·PNG/JSON의 역할/의존성/실행 예는 PROJECT_CONTEXT에 기록했다. 실행: `node /private/tmp/shiftmate_privacy_render_2026-11-12.mjs`, `python3 /private/tmp/shiftmate_privacy_content_audit_2026-11-12.py`.
+  - 실행 정리: sandbox의 Chrome 시작/loopback 접근 제한은 전용 임시 프로필의 권한 확장 실행으로 해결했다. 자체 HTMLParser가 self-closing void 태그를 잘못 판단한 실패는 handle_startendtag 처리 후 동일 검증 재실행으로 해결했다. 실제 HTML 중첩 오류는 없었다.
+  - 배포/범위: 실제 iPhone Safari·VoiceOver·운영 게시·Flutter/BE 기능 변경·커밋/푸시는 수행하지 않았다. 확인된 배포 연결/실제 파일 경로가 없어 새 HTML과 SHA/롤백 가이드를 준비했다. 공개 URL의 오류가 이미 수정됐다고 보고하지 않는다. 수정 HTML SHA-256은 `02cf90b8accd0b1b463e01fd013e122af6e11de47489634088c2dcd66eb6f3e6`이다.
+  - 롤백: 이번 개인정보 페이지·정책 정정·검토 문서 추가분만 되돌리고 기존 미커밋 변경을 보존한다.
+
 ## 2026-11-12 고객 지원 링크 추가
 
 - [DONE] (FE/UI) 설정 지원 섹션에 실제 고객 지원 페이지 연결

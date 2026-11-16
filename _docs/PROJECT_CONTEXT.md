@@ -23,6 +23,27 @@
 - 테스트/검증: 기존 friend_list_page_test.dart와 group_room_list_view_test.dart에 실제 당김·조회 횟수·지연 응답 중 컨트롤 유지/중복 방지·새 목록 표시·오류 복구를 추가했다. 활성 그룹에서는 빈 화면 여백을 당겨 친구/그룹 각각만 조회하고 선택 탭/가로 전환을 보존하는 실제 PageView 통합 경로도 확인한다. 기존 작은 높이/글자3.2배·일반/가로·다크/동작 줄이기/스크롤 위치·탐색 회귀와 최종 분석/포맷 결과는 WORKLOG를 따른다.
 - 한계/롤백: 서버는 모의 service/repository로 검증하며 실기기/VoiceOver·운영 API·빌드/업로드·커밋/푸시는 수행하지 않는다. 이번 root/physics·상태 sliver·회귀/문서만 되돌리고 기존 미커밋 변경을 보존한다.
 
+## 개인정보처리방침은 정책 내용만 표시 (2026-11-12)
+
+- 사용자 요청/Behavior change: privacy.html의5개 ‘표가 화면보다 넓으면…’ 안내 문단과 .table-hint CSS·aria-describedby 참조를 제거했다. 공개 변경 이력에서도 ‘모바일 표 표시 개선’을 빼고 개인정보 처리 관련 변경만 기재하며 정본 MD도 동기화했다.
+- 보존/검증: 정책 본문·연령/동의·75%치수·표 caption/행·열 scope·영역명/키보드 포커스·내부 가로 스크롤을 유지한다. HTML중첩·14절/5표·MD표 셀 일치·연령/동의 보존·안내 잔존0/누락ARIA참조0·diff검사를 확인했다. 단순 문구 삭제로 신규 테스트·렌더·파일·의존성을 추가하지 않았다. support는 변경하지 않았다.
+- 배포/롤백: 운영 교체는 수행하지 않았고 최신privacy hash는 DEPLOY_GUIDE상단에 반영했다. 이번 안내/참조·변경 이력 정리와 문서만 되돌리면 롤백된다.
+
+## 개인정보·고객지원 페이지75% 크기 (2026-11-12)
+
+- 사용자 요청/Behavior change: 기존 `_docs/app_store_web/privacy.html`·`support.html`의 CSS 글자·여백·본문 최대 폭·표 최소 폭·반경 등을75%로 축소했다. 본문16→12px, h1 데스크톱30→22.5px/모바일26→19.5px, h2 21→15.75px, 본문 최대 폭860→645px다. 개인정보 표는 기본480px·2열420px·4열660px로 유지한다. 이전 절의16px/표640·560·880 설명은 이번 크기로 대체한다.
+- 보존: 본문/링크는 CSS 이후 원문까지 완전히 동일하다. 연령·동의/보관기간·정책 버전과 지원 내용도 변경하지 않는다. viewport 초기 배율1·600px breakpoint·브라우저 확대·native table·표 내부 가로 스크롤을 유지한다. 내비게이션/이메일 버튼 최소 터치 높이44px·1px 구분선·포커스 강조는 축소하지 않는다. support도 같은44px 내비게이션 높이를 사용한다. 외부 CSS/JS·새 의존성/API/DB·앱 변경은 없다.
+- 검증 역할/사용 예: 임시 `/private/tmp/shiftmate_web_scale_2026-11-12.mjs`는 기존Node 내장 CDP 측정 경계를 사용해 두 실제 HTML을320/375/844/1440px·375px200% 본문/다크 선호·동작 줄이기12조건에서 렌더한다. 루트에서 `node /private/tmp/shiftmate_web_scale_2026-11-12.mjs` 실행 시 `/private/tmp/shiftmate_web_scale_2026-11-12`에 PNG4개·measurements.json을 저장한다. 별도 임시 Chrome CDP9337이 필요하고 저장소 신규 파일은 없다.
+- 결과/배포/롤백:12조건에서 본문12px(확대24px)·최대645px·표 열 정렬·페이지 가로 넘침 없음·내비게이션/문의44px 이상과 본문/링크 보존을 확인했다. 이전 내용 구조 검증도 통과했다. 실제 Safari/VoiceOver·운영 교체·커밋/푸시는 하지 않았다. 두 파일 최신 hash는 DEPLOY_GUIDE 상단을 따른다. 이번 CSS/문서만 되돌리며 앞선 표·본문 정정은 유지한다.
+
+## 개인정보 웹페이지 모바일 표·본문 정정 (2026-11-12)
+
+- 정책/흐름: ADR-0074. 앱의 개인정보 링크는 기존 `https://www.shiftmate.co.kr/privacy`를 유지한다. 기존 정적 `_docs/app_store_web/privacy.html`만 교체하는 변경이며 앱 바이너리/API/DB/상태 수명·동의 기능을 바꾸지 않는다. 모바일에서 헤더/본문을 각각 세로 나열하던 block CSS를 제거하고 native table/thead/tbody/tr/th/td를 보존한다.
+- UI:5개 표는 caption·열/행 제목 scope·가로 스크롤 영역/키보드 접근·설명 연결을 제공한다. 기본640px·2열560px·4열880px 최소 폭으로 표 안에서만 스크롤되며 페이지 자체는 viewport 폭을 유지한다. 기존 색상/16px 본문과600px 본문 패딩 분기는 유지한다.
+- 본문: 정본 PRIVACY_POLICY.md와 HTML을 v1.1/최종수정2026-11-12로 동기화했다. 나만 보기 공유 제외·그룹 비친구 근무 열람·레벨0·통합 SDK의 분석/진단·공휴일 API를 보완하고 실제 없는 그룹 설명 대신 시간대를 적는다. 사용자 지시로 연령/항목별 동의 원문은 유지한다. 최초 시행일·기존 보관기간·S3 위치/담당자도 유지한다. 근거·남은 계약별 국외 처리 확인은 PRIVACY_REVIEW 상단을 따른다.
+- 검증 도구 역할/의존성/사용 예: 저장소 밖 `/private/tmp/shiftmate_privacy_render_2026-11-12.mjs`는 Node 내장fetch/WebSocket/fs와 전용 임시 headless Chrome의CDP9337을 이용해 실제 HTML을11조건에서 렌더·측정한다. 루트에서 `node /private/tmp/shiftmate_privacy_render_2026-11-12.mjs`를 실행하면 `/private/tmp/shiftmate_privacy_qa_2026-11-12`에 PNG/measurements.json을 저장한다. `/private/tmp/shiftmate_privacy_content_audit_2026-11-12.py`는 Python표준HTMLParser로 태그·표/MD 셀 일치·연령/동의 원문 보존을 확인한다. 신규 저장소 파일/패키지는 없다.
+- 결과/배포/롤백: 수정 전375px5개 표 열 불일치, 수정 후11조건×5표 정렬·본문 가로 넘침 없음·ArrowRight40px 이동을 확인했다. 실제 Safari/VoiceOver·운영 교체는 수행하지 않았다. 확인된 배포 연결이 없어 교체본/hash/롤백을 DEPLOY_GUIDE 상단에 준비했다. 이번 정적 페이지/본문/문서만 되돌리며 기존 미커밋 변경을 보존한다.
+
 ## 설정 고객 지원 링크 (2026-11-12)
 
 - 목적/Behavior change: 미지원 고객 센터를 숨긴 ADR-0073의 후속으로, 실제 운영 고객 지원 페이지에 연결하는 ‘고객 지원’ 행을 추가했다. 설정의 지원 섹션은 고객 지원 → 개인정보처리방침 → 버전 정보 순서다.
