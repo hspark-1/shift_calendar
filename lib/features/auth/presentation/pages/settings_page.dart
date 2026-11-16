@@ -15,10 +15,12 @@ import 'profile_setup_page.dart';
 /// 설정 페이지
 class SettingsPage extends ConsumerStatefulWidget {
   final PrivacyPolicyLauncher launch_privacy_policy;
+  final ExternalPageLauncher launch_customer_support;
 
   const SettingsPage({
     super.key,
     this.launch_privacy_policy = launchPrivacyPolicy,
+    this.launch_customer_support = launchExternalPage,
   });
 
   @override
@@ -235,49 +237,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   title: '근무 패턴 설정',
                   onTap: _openShiftPatternSettings,
                 ),
-                _buildSettingsRow(
-                  icon: CupertinoIcons.bell,
-                  title: '기본 알림 설정',
-                  is_available: false,
-                ),
-              ],
-            ),
-            SizedBox(height: 24),
-            _buildSettingsSection(
-              title: '앱 설정',
-              children: [
-                _buildSettingsRow(
-                  icon: CupertinoIcons.moon,
-                  title: '다크 모드',
-                  is_available: false,
-                ),
-                _buildSettingsRow(
-                  icon: CupertinoIcons.globe,
-                  title: '언어 및 지역',
-                  value: '한국어',
-                  is_available: false,
-                ),
-                _buildSettingsRow(
-                  icon: CupertinoIcons.textformat_size,
-                  title: '글꼴 크기',
-                  is_available: false,
-                ),
-              ],
-            ),
-            SizedBox(height: 24),
-            _buildSettingsSection(
-              title: '계정 및 보안',
-              children: [
-                _buildSettingsRow(
-                  icon: CupertinoIcons.lock,
-                  title: '비밀번호 변경',
-                  is_available: false,
-                ),
-                _buildSettingsRow(
-                  icon: CupertinoIcons.lock_shield,
-                  title: '로그인 생체 인증',
-                  is_available: false,
-                ),
               ],
             ),
             SizedBox(height: 24),
@@ -285,14 +244,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               title: '지원',
               children: [
                 _buildSettingsRow(
-                  icon: CupertinoIcons.speaker_2,
-                  title: '공지사항',
-                  is_available: false,
-                ),
-                _buildSettingsRow(
                   icon: CupertinoIcons.question_circle,
-                  title: '고객 센터',
-                  is_available: false,
+                  title: '고객 지원',
+                  onTap: () => openCustomerSupport(
+                    context,
+                    launcher: widget.launch_customer_support,
+                  ),
                 ),
                 _buildSettingsRow(
                   icon: CupertinoIcons.doc_text,
@@ -501,11 +458,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     String? value,
     VoidCallback? onTap,
     bool showChevron = true,
-    bool is_available = true,
   }) {
-    final detail = is_available ? value : '준비 중';
     return _buildRowShell(
-      onTap: is_available ? onTap : null,
+      onTap: onTap,
       child: Row(
         children: [
           Icon(icon, size: 24, color: AppTheme.primary_color),
@@ -515,9 +470,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: AppTheme.body_large),
-                if (detail != null)
+                if (value != null)
                   Text(
-                    detail,
+                    value,
                     style: AppTheme.body_medium.copyWith(
                       color: AppTheme.on_surface_variant_color,
                     ),
@@ -525,7 +480,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ],
             ),
           ),
-          if (is_available && showChevron && onTap != null)
+          if (showChevron && onTap != null)
             const Icon(
               CupertinoIcons.chevron_right,
               size: 18,

@@ -98,6 +98,31 @@
   - 한계/배포: service/repository모의응답이며실기기인수·VoiceOver·운영API·전체앱suite·배포/커밋/푸시는수행하지않았다. 앱을재빌드/설치해야반영된다.
   - 롤백: 이번 새로고침 연결·physics/빈 상태 배치·관련 회귀/문서만 되돌리고 기존 미커밋 변경은 보존한다.
 
+## 2026-11-12 고객 지원 링크 추가
+
+- [DONE] (FE/UI) 설정 지원 섹션에 실제 고객 지원 페이지 연결
+  - 목적: 개인정보처리방침과 함께 앱에서 고객 지원 페이지에 접근할 수 있게 한다.
+  - 변경/영향: 기존 운영 문서의 https://www.shiftmate.co.kr/support 주소를 확인하고 설정에 고객 지원 행을 추가한다. 외부 브라우저 열기와 실패/예외 안내를 기존 정책 링크 방식으로 제공한다. API/DB/인증 상태는 변경하지 않는다.
+  - 파일: 기존 settings_page.dart·privacy_policy.dart·PROJECT_CONTEXT·DECISIONS·이번 일지. 신규 파일/의존성은 추가하지 않는다.
+  - 결과/Behavior change: 설정 지원 섹션에 고객 지원 → 개인정보처리방침 → 버전 정보를 표시한다. openCustomerSupport가 실제 지원 URL을 외부 브라우저로 열며, 공용 helper로 실패/예외·화면 해제 안전 처리를 재사용한다. 기존 PrivacyPolicyLauncher/launchPrivacyPolicy/openPrivacyPolicy 호출 계약과 정책 URL/오류 문구를 유지했다. ADR-0073에 후속 근거를 기록했다.
+  - 테스트: 기존 설정/로그인19 pass(정책 열기 성공·false/Exception 실패·재시도·화면 해제 및 설정 인증 동작 포함). 변경 Dart2개 분석 진단0건·포맷 변경0건·범위 diff 검사 통과. 신규 테스트는 추가하지 않았다.
+  - 운영 URL: 읽기 전용 HTTPS GET으로 https://www.shiftmate.co.kr/support 의200·text/html; charset=utf-8과 고객지원 제목·문의 이메일 링크·개인정보 링크를 확인했다. 웹 도구 접근 실패·sandbox DNS 제한은 권한 확장 GET으로, Flutter SDK 캐시 쓰기 제한은 같은 테스트/분석 명령의 권한 확장으로 해결했다. 임시 본문은 /private/tmp/shiftmate_customer_support_2026-11-12.html에 저장했으며 저장소 산출물은 아니다.
+  - 실행: `flutter test --no-pub test/features/auth/presentation/pages/settings_page_test.dart test/features/auth/presentation/pages/login_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`; `flutter analyze --no-pub lib/core/utils/privacy_policy.dart lib/features/auth/presentation/pages/settings_page.dart`; SDK Dart의 `--suppress-analytics format --output=none --set-exit-if-changed`로 변경 두 파일을 확인했다.
+  - 한계: 실제 기기의 브라우저 이동/앱 복귀·VoiceOver·전체 suite·신규 지원 행의 주입 launcher 위젯 테스트는 수행하지 않았다. 빌드/업로드·커밋/푸시는 하지 않았다.
+  - 롤백: 이번 고객 지원 행·URL 열기 확장·관련 문서만 되돌리고 앞선 미지원 메뉴 숨김과 기존 미커밋 변경은 보존한다.
+
+## 2026-11-12 미지원 설정 메뉴 숨김
+
+- [DONE] (FE/UI) 미지원 기능의 설정 진입 항목 제거
+  - 목적: 앱 심사 재제출 전 현재 사용할 수 없는 기능이 설정에 노출되지 않게 한다.
+  - 변경/영향: 설정의 미지원 8개 행과 빈 섹션을 제거하고 구현된 프로필 편집·근무 패턴·정책·버전·로그아웃·회원 탈퇴 경로를 유지한다. API/DB/인증 상태 변경은 없다.
+  - 파일: 기존 settings_page.dart·PROJECT_CONTEXT·DECISIONS·이번 일지. 신규 파일은 만들지 않는다.
+  - 결과/Behavior change: 기본 알림 설정·다크 모드·언어 및 지역·글꼴 크기·비밀번호 변경·로그인 생체 인증·공지사항·고객 센터 8개 행과 앱 설정/계정 및 보안 섹션을 제거했다. 미지원 표시 helper 옵션도 제거했고 근무 관리/지원 사이 기존24px 간격을 유지했다. PROJECT_CONTEXT의 현행 설명과 ADR-0073을 갱신했다.
+  - 테스트: 기존 설정/프로필 화면30 pass. 프로필 편집 저장/취소·정책 열기/실패 재시도·탈퇴 접수/재인증 회귀를 확인했다. settings_page.dart 분석 진단0건, 포맷 변경0건, 범위 git diff --check 통과. lib의 준비 중/미구현/미지원 UI 표시 검색 결과 미지원 설정 잔존0건이다(알림 구독·업데이트 차단 등 기능 용어는 제외).
+  - 실행: `flutter test --no-pub test/features/auth/presentation/pages/settings_page_test.dart test/features/auth/presentation/pages/profile_setup_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`; `flutter analyze --no-pub lib/features/auth/presentation/pages/settings_page.dart`; SDK Dart의 `--suppress-analytics format --output=none --set-exit-if-changed`로 변경 파일을 확인했다.
+  - 한계/배포: 신규 테스트·의존성·설정 플래그는 추가하지 않았다. 기존 테스트와 정적 대조 범위이며 전체 suite·시각 렌더·실기기/VoiceOver·운영 API 인수·빌드/업로드·커밋/푸시는 수행하지 않았다. 심사에 반영하려면 이 변경을 포함한 새 앱 빌드가 필요하다.
+  - 롤백: 이번 설정 표시·관련 문서 추가분만 되돌리고 기존 미커밋 변경은 보존한다.
+
 ## 2026-11-12 그룹 날짜 선택 네모 크기 통일
 
 - [DONE] (FE/UI) 그룹 dots 선택 영역을 메인·친구 badge와 통일

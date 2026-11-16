@@ -23,6 +23,20 @@
 - 테스트/검증: 기존 friend_list_page_test.dart와 group_room_list_view_test.dart에 실제 당김·조회 횟수·지연 응답 중 컨트롤 유지/중복 방지·새 목록 표시·오류 복구를 추가했다. 활성 그룹에서는 빈 화면 여백을 당겨 친구/그룹 각각만 조회하고 선택 탭/가로 전환을 보존하는 실제 PageView 통합 경로도 확인한다. 기존 작은 높이/글자3.2배·일반/가로·다크/동작 줄이기/스크롤 위치·탐색 회귀와 최종 분석/포맷 결과는 WORKLOG를 따른다.
 - 한계/롤백: 서버는 모의 service/repository로 검증하며 실기기/VoiceOver·운영 API·빌드/업로드·커밋/푸시는 수행하지 않는다. 이번 root/physics·상태 sliver·회귀/문서만 되돌리고 기존 미커밋 변경을 보존한다.
 
+## 설정 고객 지원 링크 (2026-11-12)
+
+- 목적/Behavior change: 미지원 고객 센터를 숨긴 ADR-0073의 후속으로, 실제 운영 고객 지원 페이지에 연결하는 ‘고객 지원’ 행을 추가했다. 설정의 지원 섹션은 고객 지원 → 개인정보처리방침 → 버전 정보 순서다.
+- 역할/의존성/사용 예: 기존 lib/core/utils/privacy_policy.dart가 customer_support_url(https://www.shiftmate.co.kr/support)·openCustomerSupport와 공용 외부 페이지 열기/실패 처리를 제공한다. 기존 url_launcher의 externalApplication 모드를 사용한다. SettingsPage는 `openCustomerSupport(context, launcher: widget.launch_customer_support)`로 호출하고, 선택적 ExternalPageLauncher를 주입할 수 있다. 기존 PrivacyPolicyLauncher/launchPrivacyPolicy/openPrivacyPolicy 계약과 로그인·설정 정책 URL/문구는 유지한다.
+- UX/영향: 브라우저 열기 실패/Exception은 고객 지원 페이지명·URL·재시도 안내를 다이얼로그로 표시하고 화면 해제 뒤에는 다이얼로그를 띄우지 않는다. 기존 행 높이/아이콘/구분선·root route·인증/provider·API/DB/env·나머지 미지원 메뉴 숨김은 유지한다. 신규 파일·의존성은 없다.
+- 검증/롤백: 설정·로그인 기존 회귀 및 분석/포맷·지원 URL 확인 결과는 WORKLOG를 따른다. 이번 지원 행과 공용 열기 확장·문서 추가분만 되돌리며 기존 미지원 메뉴 제거는 보존한다.
+
+## 미지원 설정 메뉴 숨김 (2026-11-12)
+
+- 목적/정책: ADR-0073. 앱 심사 재제출 전 미지원 기능은 설정에 표시하지 않는다. 이전의 ‘준비 중’ 표시 정책을 대체한다.
+- 변경/Behavior change: 기존 settings_page.dart에서 기본 알림 설정·다크 모드·언어 및 지역·글꼴 크기·비밀번호 변경·로그인 생체 인증·공지사항·고객 센터 8개 행과 비게 되는 앱 설정/계정 및 보안 섹션·간격을 제거했다. 행 helper의 is_available/준비 중 분기도 제거한다.
+- 표시/흐름: 프로필 카드 → 근무 관리(근무 패턴 설정) → 지원(개인정보처리방침·버전 정보) → 로그아웃 → 회원 탈퇴 순서다. 기존 root 설정 route, 프로필 편집·근무 패턴 이동·정책 열기·인증/삭제 처리, ListView 스크롤·테마·접근성 크기를 유지한다. OS 알림 권한과 실제 푸시 수신 기능은 이 메뉴 제거와 별개다.
+- 영향/검증/롤백: 신규 파일·의존성·API/DB/env/provider 수명·analytics/logging 변경은 없다. 기존 설정/프로필 화면 테스트와 정적 분석·포맷 결과는 WORKLOG를 따른다. 이번 메뉴 표시와 문서 변경분만 되돌리며 기존 미커밋 변경은 보존한다.
+
 ## 그룹 캘린더 UI 공용화 (2026-11-12)
 
 - 선택 네모 후속 보완: 앞선 통일에서 남은 _CellLayoutMetrics.dots의50px/아래3px를 badge와 같은58px/아래4px로 통합했다. 58은 요청한 한 변 크기이며 실제 Rect는 7열의 칸 너비와 rowHeight(상세52/56px) 제약을 받는다. 메인 접힌 보기 compact의48px/아래8px와 점/배지 내용은 유지한다. 기존 group_calendar_page_test.dart가 폭320/375/390/430/667/768와 행52/56의12조합에서 badge/dots의 실제 선택 Rect(셀 기준 크기·위치)를 비교한다. 신규 파일/API/DB/상태 변경은 없고 결과는 WORKLOG를 따른다.
