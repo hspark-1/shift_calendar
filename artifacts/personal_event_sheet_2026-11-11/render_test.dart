@@ -34,7 +34,10 @@ class _SheetCalendarService extends fixtures.AuditCalendarService {
 void main() {
   testWidgets('개인 일정 재설계의 화면·글자·키보드와 입력 접근을 검증한다', (tester) async {
     await initializeDateFormatting('ko_KR');
-    final output = Directory('artifacts/personal_event_sheet_2026-11-11');
+    final output = Directory(
+      Platform.environment['PERSONAL_EVENT_RENDER_OUTPUT'] ??
+          'artifacts/personal_event_sheet_2026-11-11',
+    );
     output.createSync(recursive: true);
     for (final entry in {
       'Cafe24SsurroundAir': 'assets/fonts/Cafe24SsurroundAir-v1.1.ttf',
@@ -196,11 +199,6 @@ void main() {
       Rect? focused_rect;
       if (scenario.name.contains('details') ||
           scenario.name == 'keyboard_memo') {
-        final details = find.byKey(const Key('personal-event-details-toggle'));
-        await tester.ensureVisible(details);
-        await tester.pumpAndSettle();
-        await tester.tap(details);
-        await tester.pumpAndSettle();
         final memo = find.byKey(const Key('personal-event-memo-field'));
         await tester.ensureVisible(memo);
         await tester.pumpAndSettle();

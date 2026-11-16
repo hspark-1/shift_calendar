@@ -222,6 +222,10 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
+        // 달력 아래 일정 목록의 스크롤과 헤더 배경을 분리한다.
+        automaticBackgroundVisibility: false,
+        backgroundColor: AppTheme.background_color,
+        border: null,
         middle: Text(_friend.name),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
@@ -230,13 +234,11 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
         ),
       ),
       child: SafeArea(
-        minimum: const EdgeInsets.only(bottom: AppTheme.spacing_md),
-        child: Column(
-          children: [
-            _buildCalendarSection(calendar_range_state),
-            const SizedBox(height: AppTheme.spacing_sm),
-            Flexible(child: _buildSelectedDaySchedule()),
-          ],
+        bottom: false,
+        child: CalendarPageBody(
+          key_prefix: 'friend-calendar',
+          calendar: _buildCalendarSection(calendar_range_state),
+          schedule: _buildSelectedDaySchedule(),
         ),
       ),
     );
@@ -250,30 +252,11 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
       onPreviousMonth: _goToPreviousMonth,
       onNextMonth: _goToNextMonth,
       onSelectYearMonth: _showYearMonthPicker,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (calendar_range_state.is_loading) ...[
-            const CupertinoActivityIndicator(radius: 8),
-            const SizedBox(width: AppTheme.spacing_sm),
-          ],
-          CupertinoButton(
-            key: const ValueKey('friend-calendar-today-button'),
-            minimumSize: const Size(44, 32),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: AppTheme.primary_color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-            onPressed: _goToToday,
-            child: Text(
-              '오늘',
-              style: AppTheme.body_small.copyWith(
-                color: AppTheme.primary_color,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
+      onToday: _goToToday,
+      today_key: const ValueKey('friend-calendar-today-button'),
+      trailing: calendar_range_state.is_loading
+          ? const CupertinoActivityIndicator(radius: 8)
+          : const SizedBox.shrink(),
       month_view: CalendarMonthView<dynamic>(
         calendar_key: const ValueKey('friend-calendar'),
         focused_day: _focusedDay,

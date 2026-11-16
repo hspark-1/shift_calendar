@@ -8,6 +8,187 @@ import 'package:shift_mate/features/calendar/data/services/calendar_service.dart
 import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
 
 void main() {
+  for (final is_private in [false, true]) {
+    for (final level in [0, -1, 6]) {
+      test(
+        '개인 일정 생성/수정은 레벨$level·private=$is_private를 HTTP 전송 전에 차단한다',
+        () async {
+          final dio = Dio();
+          var requests = 0;
+          dio.interceptors.add(
+            InterceptorsWrapper(
+              onRequest: (options, handler) {
+                requests++;
+                handler.reject(DioException(requestOptions: options));
+              },
+            ),
+          );
+          final service = CalendarService(dio);
+          final start_at = DateTime(2026, 11, 12, 9);
+          final end_at = DateTime(2026, 11, 12, 10);
+          final expected = throwsA(
+            isA<ApiException>().having(
+              (error) => error.code,
+              'code',
+              'INVALID_VISIBILITY_LEVEL',
+            ),
+          );
+          await expectLater(
+            service.createEvent(
+              CreateEventRequest(
+                title: '약속',
+                allDay: false,
+                startAt: start_at,
+                endAt: end_at,
+                visibilityLevel: level,
+                isPrivate: is_private,
+              ),
+            ),
+            expected,
+          );
+          await expectLater(
+            service.updateEvent(
+              'event',
+              UpdateEventRequest(
+                title: '약속',
+                memo: null,
+                place: null,
+                allDay: false,
+                startAt: start_at,
+                endAt: end_at,
+                visibilityLevel: level,
+                isPrivate: is_private,
+              ),
+            ),
+            expected,
+          );
+          expect(requests, 0);
+        },
+      );
+    }
+    for (final level in [1, 5]) {
+      test('개인 일정 생성/수정 경계 레벨$level·private=$is_private를 그대로 전송한다', () async {
+        final dio = Dio();
+        final requests = <RequestOptions>[];
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              requests.add(options);
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'success': true,
+                    'data': {
+                      'event_id': 'event',
+                      ...options.data as Map<String, dynamic>,
+                    },
+                  },
+                ),
+              );
+            },
+          ),
+        );
+        final service = CalendarService(dio);
+        final start_at = DateTime(2026, 11, 12, 9);
+        final end_at = DateTime(2026, 11, 12, 10);
+        final created = await service.createEvent(
+          CreateEventRequest(
+            title: '약속',
+            allDay: false,
+            startAt: start_at,
+            endAt: end_at,
+            visibilityLevel: level,
+            isPrivate: is_private,
+          ),
+        );
+        final updated = await service.updateEvent(
+          'event',
+          UpdateEventRequest(
+            title: '약속',
+            memo: null,
+            place: null,
+            allDay: false,
+            startAt: start_at,
+            endAt: end_at,
+            visibilityLevel: level,
+            isPrivate: is_private,
+          ),
+        );
+        expect(created.visibilityLevel, level);
+        expect(updated.visibilityLevel, level);
+        expect(
+          requests.map((request) => (request.data as Map)['visibility_level']),
+          [level, level],
+        );
+      });
+    }
+  }
+
+  group('CalendarService.updateEvent', () {
+    for (final invalid in ['none', 'id', 'privacy']) {
+      test('PUT 전체 편집/null/UTC와 응답 검증 ($invalid)', () async {
+        final dio = Dio();
+        RequestOptions? captured;
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              captured = options;
+              final data = <String, dynamic>{
+                'event_id': invalid == 'id' ? 'other' : 'edit',
+                ...options.data as Map<String, dynamic>,
+              };
+              if (invalid == 'privacy') data.remove('is_private');
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {'success': true, 'data': data},
+                ),
+              );
+            },
+          ),
+        );
+        final request = UpdateEventRequest(
+          title: '수정',
+          memo: null,
+          place: null,
+          allDay: false,
+          startAt: DateTime(2026, 11, 12, 9),
+          endAt: DateTime(2026, 11, 12, 10),
+          visibilityLevel: 3,
+          isPrivate: true,
+        );
+        final result = CalendarService(dio).updateEvent('edit', request);
+        if (invalid == 'none') {
+          expect((await result).eventId, 'edit');
+        } else {
+          await expectLater(
+            result,
+            throwsA(
+              isA<ApiException>().having(
+                (error) => error.code,
+                'code',
+                invalid == 'id'
+                    ? 'EVENT_UPDATE_NOT_CONFIRMED'
+                    : 'EVENT_PRIVACY_NOT_CONFIRMED',
+              ),
+            ),
+          );
+        }
+        expect(captured?.method, 'PUT');
+        expect(captured?.path, '${ApiConstants.events}/edit');
+        expect(captured?.data, request.toJson());
+        expect((captured?.data as Map).containsKey('memo'), true);
+        expect(
+          (captured?.data as Map)['start_at'],
+          request.startAt.toUtc().toIso8601String(),
+        );
+      });
+    }
+  });
+
   group('CalendarService.createEvent privacy', () {
     for (final is_private in [false, true]) {
       test('is_private=$is_private 요청과 생성 응답을 보존한다', () async {
@@ -76,7 +257,7 @@ void main() {
               allDay: false,
               startAt: DateTime(2026, 11, 11, 9),
               endAt: DateTime(2026, 11, 11, 10),
-              visibilityLevel: 0,
+              visibilityLevel: 1,
               isPrivate: true,
             ),
           ),

@@ -1,0 +1,98 @@
+{
+  "small320": {
+    "width": 320.0,
+    "height": 568.0,
+    "text_scale": 1.0,
+    "body_height": 371.0,
+    "card_height": 147.0,
+    "card_fraction": 0.39622641509433965,
+    "card_bottom": 446.0,
+    "full_scroll_fallback": false,
+    "tab_top": 462.0,
+    "exceptions": 0
+  },
+  "boundary750": {
+    "width": 390.0,
+    "height": 750.0,
+    "text_scale": 1.0,
+    "body_height": 553.0,
+    "card_height": 153.0,
+    "card_fraction": 0.2766726943942134,
+    "card_bottom": 628.0,
+    "full_scroll_fallback": false,
+    "tab_top": 644.0,
+    "exceptions": 0
+  },
+  "phone375": {
+    "width": 375.0,
+    "height": 812.0,
+    "text_scale": 1.0,
+    "body_height": 615.0,
+    "card_height": 215.0,
+    "card_fraction": 0.34959349593495936,
+    "card_bottom": 690.0,
+    "full_scroll_fallback": false,
+    "tab_top": 706.0,
+    "exceptions": 0
+  },
+  "normal": {
+    "width": 390.0,
+    "height": 844.0,
+    "text_scale": 1.0,
+    "body_height": 647.0,
+    "card_height": 247.0,
+    "card_fraction": 0.38176197836166925,
+    "card_bottom": 722.0,
+    "full_scroll_fallback": false,
+    "tab_top": 738.0,
+    "exceptions": 0
+  },
+  "large430": {
+    "width": 430.0,
+    "height": 932.0,
+    "text_scale": 1.0,
+    "body_height": 735.0,
+    "card_height": 335.0,
+    "card_fraction": 0.4557823129251701,
+    "card_bottom": 810.0,
+    "full_scroll_fallback": false,
+    "tab_top": 826.0,
+    "exceptions": 0
+  },
+  "tablet": {
+    "width": 768.0,
+    "height": 1024.0,
+    "text_scale": 1.0,
+    "body_height": 827.0,
+    "card_height": 427.0,
+    "card_fraction": 0.5163240628778718,
+    "card_bottom": 902.0,
+    "full_scroll_fallback": false,
+    "tab_top": 918.0,
+    "exceptions": 0
+  },
+  "landscape": {
+    "width": 844.0,
+    "height": 390.0,
+    "text_scale": 1.0,
+    "body_height": 193.0,
+    "card_height": 280.0,
+    "card_fraction": 1.450777202072539,
+    "card_bottom": 268.0,
+    "full_scroll_fallback": true,
+    "tab_top": 284.0,
+    "exceptions": 0
+  },
+  "large_text": {
+    "width": 320.0,
+    "height": 568.0,
+    "text_scale": 2.0,
+    "body_height": 357.0,
+    "card_height": 560.0,
+    "card_fraction": 1.5686274509803921,
+    "card_bottom": 432.0,
+    "full_scroll_fallback": true,
+    "tab_top": 448.0,
+    "exceptions": 0
+  }
+}

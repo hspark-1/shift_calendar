@@ -1,5 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 
@@ -8,16 +10,31 @@ import '../../data/models/event_api_model.dart';
 import 'date_picker_sheet.dart';
 import 'time_picker_sheet.dart';
 
+enum EventEditSaveStatus { saved, failed, notFound }
+
+class EventEditSaveResult {
+  const EventEditSaveResult(this.status, {this.message});
+  final EventEditSaveStatus status;
+  final String? message;
+}
+
 /// 개인 일정 입력과 검증을 소유하며 저장 결과까지 폼을 유지한다.
 class PersonalEventFormModal extends StatefulWidget {
   const PersonalEventFormModal({
     super.key,
     required this.initialDate,
     this.onSave,
+    this.initial_event,
+    this.onUpdate,
+    this.onRefresh,
   });
 
   final DateTime initialDate;
   final Future<String?> Function(CreateEventRequest request)? onSave;
+  final EventApiModel? initial_event;
+  final Future<EventEditSaveResult> Function(UpdateEventRequest request)?
+  onUpdate;
+  final Future<String?> Function()? onRefresh;
 
   @override
   State<PersonalEventFormModal> createState() => _PersonalEventFormModalState();
@@ -35,6 +52,8 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
   final _time_key = GlobalKey();
   final _time_error_key = GlobalKey();
   final _details_key = GlobalKey();
+  final _visibility_key = GlobalKey();
+  bool _picker_open = false;
 
   late DateTime _start_date;
   late DateTime _end_date;
@@ -42,8 +61,10 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
   Duration _end_time = const Duration(hours: 10);
   bool _all_day = false;
   bool _is_private = false;
-  int _visibility_level = 0;
-  bool _details_expanded = false;
+  int _visibility_level = 1;
+  double _visibility_slider_value = 1;
+  bool _dragging_visibility = false;
+  bool _details_expanded = true;
   bool _is_saving = false;
   bool _is_closing = false;
   double _sheet_drag_offset = 0;
@@ -59,6 +80,30 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     final initial_date = _dateOnly(widget.initialDate);
     _start_date = initial_date;
     _end_date = initial_date;
+    final event = widget.initial_event;
+    if (event != null) {
+      _title_controller.text = event.title;
+      _place_controller.text = event.place ?? '';
+      _memo_controller.text = event.memo ?? '';
+      _start_date = _dateOnly(event.startAt);
+      _end_date = event.allDay
+          ? DateTime(event.endAt.year, event.endAt.month, event.endAt.day - 1)
+          : _dateOnly(event.endAt);
+      if (!event.allDay) {
+        _start_time = Duration(
+          hours: event.startAt.hour,
+          minutes: event.startAt.minute,
+        );
+        _end_time = Duration(
+          hours: event.endAt.hour,
+          minutes: event.endAt.minute,
+        );
+      }
+      _all_day = event.allDay;
+      _is_private = event.isPrivate;
+      _visibility_level = event.visibilityLevel.clamp(1, 5);
+      _visibility_slider_value = _visibility_level.toDouble();
+    }
     for (final controller in [
       _title_controller,
       _place_controller,
@@ -103,13 +148,65 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     time.inMinutes.remainder(60),
   );
 
-  DateTime _buildStartAt() => _all_day
-      ? _dateOnly(_start_date)
-      : _combineDateTime(_start_date, _start_time);
+  DateTime _buildStartAt() {
+    final original = widget.initial_event;
+    if (original != null &&
+        _all_day == original.allDay &&
+        _start_date == _dateOnly(original.startAt) &&
+        (_all_day ||
+            _start_time ==
+                Duration(
+                  hours: original.startAt.hour,
+                  minutes: original.startAt.minute,
+                ))) {
+      return original.startAt;
+    }
+    return _all_day
+        ? _dateOnly(_start_date)
+        : _combineDateTime(_start_date, _start_time);
+  }
 
-  DateTime _buildEndAt() => _all_day
-      ? DateTime(_end_date.year, _end_date.month, _end_date.day + 1)
-      : _combineDateTime(_end_date, _end_time);
+  DateTime _buildEndAt() {
+    final original = widget.initial_event;
+    final original_date = original == null
+        ? null
+        : original.allDay
+        ? DateTime(
+            original.endAt.year,
+            original.endAt.month,
+            original.endAt.day - 1,
+          )
+        : _dateOnly(original.endAt);
+    if (original != null &&
+        _all_day == original.allDay &&
+        _end_date == original_date &&
+        (_all_day ||
+            _end_time ==
+                Duration(
+                  hours: original.endAt.hour,
+                  minutes: original.endAt.minute,
+                ))) {
+      return original.endAt;
+    }
+    return _all_day
+        ? DateTime(_end_date.year, _end_date.month, _end_date.day + 1)
+        : _combineDateTime(_end_date, _end_time);
+  }
+
+  CreateEventRequest _formValue() => CreateEventRequest(
+    title: _title_controller.text.trim(),
+    memo: _emptyToNull(_memo_controller.text),
+    place: _emptyToNull(_place_controller.text),
+    allDay: _all_day,
+    startAt: _buildStartAt(),
+    endAt: _buildEndAt(),
+    visibilityLevel: _visibility_level,
+    isPrivate: _is_private,
+  );
+
+  bool get _has_changes =>
+      widget.initial_event == null ||
+      !_formValue().matchesEvent(widget.initial_event!);
 
   String _formatDate(DateTime date) =>
       DateFormat('yyyy.MM.dd (E)', 'ko_KR').format(date);
@@ -121,45 +218,30 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     return '${hour < 12 ? '오전' : '오후'} $display_hour:$minute';
   }
 
+  String _pickerDate(DateTime date) => DateFormat(
+    _start_date.year == _end_date.year ? 'M월 d일 (E)' : 'yyyy.MM.dd',
+    'ko_KR',
+  ).format(date);
+
+  double _pickerTextWidth(BuildContext context, String value) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: MediaQuery.boldTextOf(context)
+            ? AppTheme.body_large.copyWith(fontWeight: FontWeight.bold)
+            : AppTheme.body_large,
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = painter.width.ceilToDouble();
+    painter.dispose();
+    return width;
+  }
+
   String get _visibility_description => _is_private
       ? '친구와 그룹에 공개되지 않아요.'
-      : _visibility_level == 0
-      ? '내 캘린더 열람을 허용한 친구에게 보여요.'
-      : '열람을 허용한 친구 중, 내가 지정한 레벨이 $_visibility_level 이상인 친구에게 보여요.';
-
-  String get _duration_summary {
-    if (_all_day) {
-      final days = DateTime.utc(_end_date.year, _end_date.month, _end_date.day)
-          .difference(
-            DateTime.utc(_start_date.year, _start_date.month, _start_date.day),
-          )
-          .inDays;
-      return '종일 · ${days + 1}일';
-    }
-    final minutes = _buildEndAt().difference(_buildStartAt()).inMinutes;
-    if (minutes <= 0) return '종료 시각은 시작 시각보다 늦게 선택해주세요.';
-    final hours = minutes ~/ 60;
-    final remainder = minutes.remainder(60);
-    final duration = [
-      if (hours > 0) '$hours시간',
-      if (remainder > 0) '$remainder분',
-    ].join(' ');
-    final day_difference =
-        DateTime.utc(_end_date.year, _end_date.month, _end_date.day)
-            .difference(
-              DateTime.utc(
-                _start_date.year,
-                _start_date.month,
-                _start_date.day,
-              ),
-            )
-            .inDays;
-    return '${day_difference == 1
-        ? '다음 날 종료 · '
-        : day_difference > 1
-        ? '$day_difference일 뒤 종료 · '
-        : ''}$duration';
-  }
+      : '내가 지정한 레벨이 $_visibility_level 이상인 친구에게 보여요.';
 
   String? _emptyToNull(String value) =>
       value.trim().isEmpty ? null : value.trim();
@@ -213,46 +295,127 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     return false;
   }
 
-  Future<void> _selectDate({required bool is_start}) async {
+  void _submitTitle(String value) {
+    if (_is_saving || _is_closing || _picker_open) return;
+    if (value.trim().isEmpty) {
+      setState(() => _title_error = '일정 제목을 입력해주세요.');
+      _reveal(_title_key, focus_node: _title_focus);
+      return;
+    }
+    _selectDate(is_start: true, continue_flow: widget.initial_event == null);
+  }
+
+  Future<void> _selectDate({
+    required bool is_start,
+    bool continue_flow = false,
+  }) async {
+    if (_is_saving || _is_closing || _picker_open) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    final result = await showDatePickerSheet(
-      context: context,
-      title: is_start ? '시작일 선택' : '종료일 선택',
-      initial_date: is_start ? _start_date : _end_date,
-      minimum_date: DateTime(2000, 1, 1),
-      maximum_date: DateTime(2050, 12, 31),
-    );
-    if (!mounted || result == null) return;
+    final current_date = is_start ? _start_date : _end_date;
+    if (current_date.year < 2000 || current_date.year > 2050) {
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('날짜 선택 범위'),
+          content: const Text('날짜 변경은 2000년부터 2050년까지 지원해요. 기존 날짜는 그대로 보존됩니다.'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    _picker_open = true;
+    DateTime? result;
+    try {
+      result = await showDatePickerSheet(
+        context: context,
+        title: is_start ? '시작일 선택' : '종료일 선택',
+        initial_date: is_start ? _start_date : _end_date,
+        minimum_date: DateTime(2000, 1, 1),
+        maximum_date: DateTime(2050, 12, 31),
+        selection_hint: _all_day
+            ? '날짜를 고른 뒤 확인을 눌러주세요.'
+            : '확인을 누르면 시간 선택으로 이어져요.',
+      );
+    } finally {
+      _picker_open = false;
+    }
+    if (!mounted || _is_closing || result == null) return;
+    final selected_date = result;
     setState(() {
       if (is_start) {
-        _start_date = result;
+        _start_date = selected_date;
         if (_end_date.isBefore(_start_date)) _end_date = _start_date;
       } else {
-        _end_date = result;
+        _end_date = selected_date;
         if (_end_date.isBefore(_start_date)) _start_date = _end_date;
       }
       _time_error = null;
       _save_error = null;
     });
+    if (!_all_day) {
+      await _selectTime(is_start: is_start, continue_flow: continue_flow);
+    } else if (continue_flow) {
+      if (is_start) {
+        await _selectDate(is_start: false, continue_flow: true);
+      } else {
+        _reveal(_visibility_key);
+      }
+    }
   }
 
-  Future<void> _selectTime({required bool is_start}) async {
+  Future<void> _selectTime({
+    required bool is_start,
+    bool continue_flow = false,
+  }) async {
+    if (_is_saving || _is_closing || _picker_open || _all_day) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    final result = await showTimePickerSheet(
-      context: context,
-      title: is_start ? '시작시간 선택' : '종료시간 선택',
-      initial_time: is_start ? _start_time : _end_time,
-    );
-    if (!mounted || result == null) return;
+    _picker_open = true;
+    Duration? result;
+    try {
+      result = await showTimePickerSheet(
+        context: context,
+        title: is_start ? '시작시간 선택' : '종료시간 선택',
+        initial_time: is_start ? _start_time : _end_time,
+        selection_hint: continue_flow
+            ? is_start
+                  ? '시작 시간을 정하면 종료 시간을 선택해요.'
+                  : '시간을 적용하면 공개 범위를 확인해요.'
+            : '원하는 시간을 선택하세요',
+      );
+    } finally {
+      _picker_open = false;
+    }
+    if (!mounted || _is_closing || result == null) return;
+    final selected_time = result;
     setState(() {
       if (is_start) {
-        _start_time = result;
+        _start_time = selected_time;
+        if (continue_flow && !_buildEndAt().isAfter(_buildStartAt())) {
+          final suggested_end = _buildStartAt().add(const Duration(hours: 1));
+          _end_date = _dateOnly(suggested_end);
+          _end_time = Duration(
+            hours: suggested_end.hour,
+            minutes: suggested_end.minute,
+          );
+        }
       } else {
-        _end_time = result;
+        _end_time = selected_time;
       }
       _time_error = null;
       _save_error = null;
     });
+    if (continue_flow) {
+      if (is_start) {
+        await _selectTime(is_start: false, continue_flow: true);
+      } else {
+        _reveal(_visibility_key);
+      }
+    }
   }
 
   void _setPrivate(bool is_private) {
@@ -260,6 +423,8 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _is_private = is_private;
+      _dragging_visibility = false;
+      _visibility_slider_value = _visibility_level.toDouble();
       _save_error = null;
     });
   }
@@ -267,14 +432,24 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
   void _setVisibilityLevel(int level) {
     if (_is_saving || _is_private) return;
     setState(() {
-      _visibility_level = level.clamp(0, 5);
+      _visibility_level = level.clamp(1, 5);
+      _visibility_slider_value = _visibility_level.toDouble();
+      _dragging_visibility = false;
       _save_error = null;
     });
   }
 
-  void _endSheetDrag(DragEndDetails details) {
-    final should_close =
-        _sheet_drag_offset > 64 || (details.primaryVelocity ?? 0) > 700;
+  void _updateVisibilitySlider(double value) {
+    if (_is_saving || _is_private) return;
+    setState(() {
+      _visibility_slider_value = value.clamp(1.0, 5.0);
+      _visibility_level = _visibility_slider_value.round();
+      _save_error = null;
+    });
+  }
+
+  void _endSheetDrag(DragEndDetails _) {
+    final should_close = _sheet_drag_offset >= 120;
     setState(() {
       _sheet_drag_offset = 0;
       _dragging_sheet = false;
@@ -284,7 +459,7 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
   }
 
   Future<void> _save() async {
-    if (_is_saving || _is_closing) return;
+    if (_is_saving || _is_closing || !_has_changes) return;
     FocusManager.instance.primaryFocus?.unfocus();
     final start_at = _buildStartAt();
     final end_at = _buildEndAt();
@@ -305,20 +480,54 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
       _reveal(_time_error_key);
       return;
     }
-    final request = CreateEventRequest(
-      title: _title_controller.text.trim(),
-      memo: _emptyToNull(_memo_controller.text),
-      place: _emptyToNull(_place_controller.text),
-      allDay: _all_day,
-      startAt: start_at,
-      endAt: end_at,
-      visibilityLevel: _visibility_level,
-      isPrivate: _is_private,
-    );
+    final request = _formValue();
     setState(() => _is_saving = true);
     String? error;
     try {
-      error = await widget.onSave?.call(request);
+      if (widget.initial_event != null) {
+        final result = await widget.onUpdate?.call(
+          UpdateEventRequest(
+            title: request.title,
+            memo: request.memo,
+            place: request.place,
+            allDay: request.allDay,
+            startAt: request.startAt,
+            endAt: request.endAt,
+            visibilityLevel: request.visibilityLevel,
+            isPrivate: request.isPrivate,
+          ),
+        );
+        if (!mounted) return;
+        if (result?.status == EventEditSaveStatus.notFound) {
+          await showCupertinoDialog<void>(
+            context: context,
+            builder: (context) => CupertinoAlertDialog(
+              title: const Text('일정 수정'),
+              content: Text(result?.message ?? '이미 삭제되었거나 수정할 수 없는 일정입니다.'),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('확인'),
+                ),
+              ],
+            ),
+          );
+          if (mounted) {
+            setState(() {
+              _is_saving = false;
+              _is_closing = true;
+            });
+            await WidgetsBinding.instance.endOfFrame;
+            if (mounted) Navigator.of(context).pop();
+          }
+          return;
+        }
+        error = result?.status == EventEditSaveStatus.saved
+            ? null
+            : result?.message ?? '일정을 수정하지 못했습니다. 다시 시도해주세요.';
+      } else {
+        error = await widget.onSave?.call(request);
+      }
     } catch (_) {
       error = '일정을 저장하지 못했습니다. 다시 시도해주세요.';
     }
@@ -336,6 +545,23 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     });
     await WidgetsBinding.instance.endOfFrame;
     if (mounted) Navigator.of(context).pop(request);
+  }
+
+  Future<void> _refreshSavedEvent() async {
+    if (_is_saving || widget.onRefresh == null) return;
+    setState(() => _is_saving = true);
+    String? error;
+    try {
+      error = await widget.onRefresh!();
+    } catch (_) {
+      error = '목록을 불러오지 못했습니다. 다시 시도해주세요.';
+    }
+    if (!mounted) return;
+    setState(() {
+      _is_saving = false;
+      _save_error = error;
+    });
+    if (error == null) _requestLeave();
   }
 
   @override
@@ -483,7 +709,7 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
               const SizedBox(width: 48),
               Expanded(
                 child: Text(
-                  '개인 일정 추가',
+                  widget.initial_event == null ? '개인 일정 추가' : '개인 일정 수정',
                   textAlign: TextAlign.center,
                   style: AppTheme.body_large.copyWith(
                     fontSize: 17,
@@ -497,7 +723,7 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
                 padding: EdgeInsets.zero,
                 onPressed: _is_saving ? null : _requestLeave,
                 child: Semantics(
-                  label: '일정 추가 닫기',
+                  label: widget.initial_event == null ? '일정 추가 닫기' : '일정 수정 닫기',
                   child: const Icon(
                     CupertinoIcons.xmark,
                     size: 20,
@@ -531,7 +757,7 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
           focus_node: _title_focus,
           placeholder: '어떤 일정인가요?',
           font_size: 26,
-          on_submitted: (_) => _title_focus.unfocus(),
+          on_submitted: _submitTitle,
         ),
       ),
       if (_title_error != null) _buildError(_title_error!),
@@ -545,23 +771,11 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     key: _time_key,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Row(
-        children: [
-          Expanded(
-            child: Text(
-              '날짜와 시간',
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-            ),
-          ),
-          Text(
-            '${_start_date.year}년',
-            style: AppTheme.body_medium.copyWith(
-              color: AppTheme.on_surface_variant_color,
-            ),
-          ),
-        ],
+      Text(
+        '날짜와 시간',
+        style: AppTheme.body_medium.copyWith(
+          color: AppTheme.on_surface_variant_color,
+        ),
       ),
       const SizedBox(height: 8),
       Row(
@@ -582,16 +796,6 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
       _buildDateTimeRow(is_start: true),
       const SizedBox(height: 8),
       _buildDateTimeRow(is_start: false),
-      const SizedBox(height: 8),
-      Semantics(
-        liveRegion: true,
-        child: Text(
-          _duration_summary,
-          key: const Key('personal-event-duration'),
-          textAlign: TextAlign.right,
-          style: AppTheme.body_medium.copyWith(color: AppTheme.primary_color),
-        ),
-      ),
       if (_time_error != null) _buildError(_time_error!, key: _time_error_key),
     ],
   );
@@ -601,10 +805,7 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     final date = is_start ? _start_date : _end_date;
     final date_field = _buildPickerButton(
       key: ValueKey('event-date-$label'),
-      value: DateFormat(
-        _start_date.year == _end_date.year ? 'M월 d일 (E)' : 'yyyy.MM.dd',
-        'ko_KR',
-      ).format(date),
+      value: _pickerDate(date),
       semantic_label: '$label일 ${_formatDate(date)}',
       on_pressed: () => _selectDate(is_start: is_start),
     );
@@ -617,48 +818,66 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final stacked =
-            constraints.maxWidth < 300 ||
-            MediaQuery.textScalerOf(context).scale(16) > 20;
-        return Row(
-          crossAxisAlignment: stacked
-              ? CrossAxisAlignment.start
-              : CrossAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Text(
-                label,
-                style: AppTheme.body_large.copyWith(
-                  color: AppTheme.on_surface_variant_color,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: stacked
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        date_field,
-                        if (!_all_day) ...[
-                          const SizedBox(height: 8),
-                          time_field,
-                        ],
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(flex: 3, child: date_field),
-                        if (!_all_day) ...[
-                          const SizedBox(width: 8),
-                          Expanded(flex: 2, child: time_field),
-                        ],
-                      ],
-                    ),
-            ),
-          ],
+        // 두 행에서 같은 폭을 예약해 9:00/10:00, 날짜 길이 차이로 정렬이 바뀌지 않는다.
+        final label_width = math.max(
+          _pickerTextWidth(context, '시작'),
+          _pickerTextWidth(context, '종료'),
         );
+        final date_width = math.max(
+          48.0,
+          math.max(
+                _pickerTextWidth(context, _pickerDate(_start_date)),
+                _pickerTextWidth(context, _pickerDate(_end_date)),
+              ) +
+              16,
+        );
+        final time_width = math.max(
+          48.0,
+          math.max(
+                _pickerTextWidth(context, _formatTime(_start_time)),
+                _pickerTextWidth(context, _formatTime(_end_time)),
+              ) +
+              16,
+        );
+        final values_width = date_width + (_all_day ? 0 : 8 + time_width);
+        final inline_label =
+            constraints.maxWidth >= label_width + 16 + values_width;
+        final inline_values = constraints.maxWidth >= values_width;
+        final label_widget = Text(
+          label,
+          style: AppTheme.body_large.copyWith(
+            color: AppTheme.on_surface_variant_color,
+          ),
+        );
+        final values = inline_values
+            ? Row(
+                children: [
+                  Expanded(child: date_field),
+                  if (!_all_day) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(width: time_width, child: time_field),
+                  ],
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  date_field,
+                  if (!_all_day) ...[const SizedBox(height: 8), time_field],
+                ],
+              );
+        return inline_label
+            ? Row(
+                children: [
+                  SizedBox(width: label_width, child: label_widget),
+                  const SizedBox(width: 16),
+                  Expanded(child: values),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [label_widget, const SizedBox(height: 4), values],
+              );
       },
     );
   }
@@ -690,6 +909,7 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
     key: const Key('personal-event-visibility'),
     padding: const EdgeInsets.symmetric(vertical: 20),
     child: Column(
+      key: _visibility_key,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
@@ -724,21 +944,46 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
         if (!_is_private) ...[
           const SizedBox(height: 12),
           Semantics(
+            excludeSemantics: true,
+            slider: true,
             label: '친구 공개 최소 레벨',
             value: '$_visibility_level',
-            child: CupertinoSlider(
-              key: const Key('personal-event-level-slider'),
-              value: _visibility_level.toDouble(),
-              min: 0,
-              max: 5,
-              divisions: 5,
-              activeColor: AppTheme.primary_color,
-              onChanged: (value) => _setVisibilityLevel(value.round()),
+            increasedValue: _visibility_level < 5
+                ? '${_visibility_level + 1}'
+                : null,
+            decreasedValue: _visibility_level > 1
+                ? '${_visibility_level - 1}'
+                : null,
+            onIncrease: _visibility_level < 5
+                ? () => _setVisibilityLevel(_visibility_level + 1)
+                : null,
+            onDecrease: _visibility_level > 1
+                ? () => _setVisibilityLevel(_visibility_level - 1)
+                : null,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: _visibility_slider_value),
+              duration:
+                  _dragging_visibility ||
+                      MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => CupertinoSlider(
+                key: const Key('personal-event-level-slider'),
+                value: value,
+                min: 1,
+                max: 5,
+                activeColor: AppTheme.primary_color,
+                onChangeStart: (_) =>
+                    setState(() => _dragging_visibility = true),
+                onChanged: _updateVisibilitySlider,
+                onChangeEnd: (value) => _setVisibilityLevel(value.round()),
+              ),
             ),
           ),
           Row(
             children: [
-              for (var level = 0; level <= 5; level++)
+              for (var level = 1; level <= 5; level++)
                 Expanded(
                   child: Semantics(
                     selected: level == _visibility_level,
@@ -786,6 +1031,15 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
             ),
           ),
         ),
+        if (widget.initial_event?.visibilityLevel == 0) ...[
+          const SizedBox(height: 8),
+          Text(
+            '기존 레벨 0 일정은 저장할 때 레벨 1 이상으로 변경돼요.',
+            style: AppTheme.body_small.copyWith(
+              color: AppTheme.on_surface_variant_color,
+            ),
+          ),
+        ],
       ],
     ),
   );
@@ -945,6 +1199,11 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
       children: [
         if (_save_error != null) ...[
           _buildError(_save_error!),
+          if (widget.onRefresh != null)
+            CupertinoButton(
+              onPressed: _is_saving ? null : _refreshSavedEvent,
+              child: const Text('목록 다시 확인'),
+            ),
           const SizedBox(height: 12),
         ],
         CupertinoButton(
@@ -952,8 +1211,11 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
           minimumSize: const Size(48, 52),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           color: AppTheme.primary_color,
+          disabledColor: _is_saving
+              ? AppTheme.primary_color
+              : AppTheme.surface_container_low_color,
           borderRadius: AppTheme.input_border_radius,
-          onPressed: _is_saving ? null : _save,
+          onPressed: _is_saving || !_has_changes ? null : _save,
           child: _is_saving
               ? Semantics(
                   label: '일정 저장 중',
@@ -962,10 +1224,16 @@ class _PersonalEventFormModalState extends State<PersonalEventFormModal> {
                   ),
                 )
               : Text(
-                  _save_error == null ? '일정 저장' : '다시 저장',
+                  _save_error != null
+                      ? '다시 저장'
+                      : widget.initial_event == null
+                      ? '일정 저장'
+                      : '변경사항 저장',
                   textAlign: TextAlign.center,
                   style: AppTheme.body_large.copyWith(
-                    color: AppTheme.surface_color,
+                    color: _has_changes
+                        ? AppTheme.surface_color
+                        : AppTheme.on_surface_variant_color,
                   ),
                 ),
         ),

@@ -30,7 +30,7 @@
           <mxGeometry x="740" y="40" width="360" height="140" as="geometry"/>
         </mxCell>
 
-        <mxCell id="events" value="events&#10;PK event_id (uuid)&#10;FK calendar_id -> calendars&#10;FK created_by_user_id -> users&#10;start_at/end_at (timestamptz)&#10;visibility_level&#10;deleted_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+        <mxCell id="events" value="events&#10;PK event_id (uuid)&#10;FK calendar_id -> calendars&#10;FK created_by_user_id -> users&#10;start_at/end_at (timestamptz)&#10;visibility_level (1~5, default 1)&#10;deleted_at (timestamptz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="40" y="440" width="320" height="170" as="geometry"/>
         </mxCell>
 

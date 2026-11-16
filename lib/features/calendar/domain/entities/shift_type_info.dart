@@ -1,3 +1,5 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:flutter/cupertino.dart';
 
 /// 근무 타입 정보 클래스 (DB shift_types + shift_type_schedules 매핑)
@@ -34,7 +36,7 @@ class ShiftTypeInfo {
     if (start_time == null || end_time == null) {
       return '근무없음';
     }
-    return '$start_time ~ $end_time';
+    return '$start_time - $end_time';
   }
 
   /// 근무 시간 유효 여부
@@ -57,7 +59,7 @@ class ShiftTypeInfo {
     return {
       'code': code,
       'name': name,
-      'color': color.value,
+      'color': color.toARGB32(),
       'sort_order': sort_order,
       'start_time': start_time,
       'end_time': end_time,

@@ -2,6 +2,35 @@
 
 ## 개요
 
+### 개인 일정 공개 레벨1~5 (2026-11-12)
+
+- ADR-0055: 개인 일정은 공개/private 모두1~5·기본1이다. 레벨0 친구에게는 근무표만 보여준다. 근무표0·친구0~5·can_view·is_private 독립 정책은 유지한다.
+- Flutter는0 버튼을 제거하고 슬라이더/접근성 최소1과 HTTP 전송 전 생성/수정 범위 검증을 적용한다. 기존0 편집은1 이상으로 보정해 저장한다는 안내를 표시하며 저장 전 원본은 유지한다.
+- 인접 서버 검증과 기존0→1/default/DB 제약 migration도 로컬 구현/검증했다. 구형0 요청은400이다. 운영 서버 배포 및 증분 SQL 적용이 필요하며 이번 작업에서 원격에 적용하지 않았다. 적용/검증·안전 롤백 정본은 [서버 가이드](../../shift_calendar_server/_docs/EVENT_VISIBILITY_GUIDE.md)를 따른다.
+
+개인 일정 수정은 아래 `PUT` 계약을 사용한다(2026-11-12 로컬 구현·검증, 서버 배포 전).
+
+### 메인 삭제 유예와 되돌리기
+
+- ADR-0053: 개인 일정/근무 삭제는 화면에서 먼저 숨기고3초(접근성 탐색10초) 후 기존 DELETE를 보낸다. 되돌리기는 미전송 묶음을 취소한다. POST로 재생성하거나 복원 API를 호출하지 않으며 ID/private/시간 등 원본 값을 보존한다.
+- ADR-0057: 토스트를 아래로 끌거나 접근성 닫기 액션을 실행하면 알림 표시만 숨긴다. 삭제 예약을 취소하거나 즉시 확정하지 않는다. 추가 삭제는 새 알림을 표시하며 되돌리기는 계속 미전송 묶음 전체를 취소한다.
+- 성공 후에만 캐시를 제거하고 실패 시 항목을 다시 표시한다. 개인 일정404/잘못된 ID 처리는 기존과 같다. 앱 비활성화/화면 dispose/계정 전환은 미전송 예약을 취소한다. 이미 시작된 서버 삭제는 되돌릴 수 없다. 서버/DB/env/인증 계약 변경은 없다.
+
+### 개인 일정 입력 순서
+
+- ADR-0054: 신규 제목 완료 → 시작 날짜 캘린더(날짜 선택 후 확인으로 확정) → 시작 시간 휠 → 종료 시간 휠 → 공개 범위로 이어진다. 기본 종료일은 같은 날이며 여러 날 일정은 종료일에서 직접 선택한다. 종일은 시작/종료 날짜만 선택한다.
+- 직접 날짜 수정은 확인 후 해당 시간만 이어서 열고, 피커 취소/끌어 닫기는 다음 진행을 멈춘다. 날짜/오늘은 임시 선택이며 하단 확인 전에는 폼에 반영하지 않는다. 오늘은 월 내비게이션 오른쪽에 둔다. 날짜/시간 시트는 손잡이·본문 최상단에서120px 이상 아래로 끌면 취소로 닫히며 휠·달력 가로 넘김은 분리한다(ADR-0056). 신규 안내의 시작 시각이 종료 이상이면 종료 기본값은 시작+1시간이며 자정을 넘으면 종료일도 다음 날로 이동한다. 수동 시간의 start<end 검증·종일 배타적 종료·기존 수정 시각 정밀도와 아래 API 계약은 동일하다.
+
+### 개인 일정 전체 수정
+
+- `PUT /api/v1/events/{event_id}`, JWT·JSON 필수. 본인 소유 활성 일정만 변경한다.
+- 요청8개 필드 모두 필수: title(string/trim/빈 값 금지), memo/place(string 또는 null), all_day/is_private(실제 boolean), start_at/end_at(UTC ISO·start<end), visibility_level(실제 정수1~5).
+- **생성과의 차이**: 수정에서 빈 장소/메모는 명시적 null을 보내 기존 값을 지운다. 생략은400이다. 소유자/생성자/created_at은 요청으로 변경할 수 없다.
+- HTTP200 `{success:true,data:EventApiModel,message:"일정이 수정되었습니다."}`. ID/created_at 보존·updated_at 갱신·is_private를 포함한 전체 모델을 반환한다.
+- 400: INVALID_EVENT_ID/INVALID_TITLE/INVALID_EVENT_TIME/INVALID_VISIBILITY_LEVEL/INVALID_EVENT_PRIVACY/VALIDATION_ERROR. 401: 인증 실패. 404 EVENT_NOT_FOUND: 미존재/타인/삭제된 일정 공통. 500: INTERNAL_SERVER_ERROR. 기존 `{success:false,error:{code,message}}`를 유지한다.
+- Flutter는 ID/private 응답 확인 후 모든 날짜의 기존 ID를 새 기간으로 교체한다. 종일 표시 종료일은 배타적 end_at의 전날이며 저장 시 다음 날 자정으로 변환한다. 제목만 고치면 원본 시각의 초/밀리초를 보존한다.
+- 실패 입력 보존/재시도, 응답 확인이 불확실할 때 `목록 다시 확인`,404 안내 후 종료를 제공한다. 마지막 성공 저장 적용 정책이며 충돌 version/Undo API는 없다. DB migration·새 env 없음. 인접 서버 상세: `../shift_calendar_server/_docs/EVENT_EDIT_GUIDE.md`.
+
 메인 캘린더의 `일정 추가하기` 모달에서 개인 일정을 생성하기 위한
 프론트-서버 계약입니다.
 
@@ -20,7 +49,7 @@
 | 종일 여부 | `all_day` | `events.all_day` | `true`면 날짜 단위 일정 |
 | 시작일/시작시간 | `start_at` | `events.start_at` | ISO-8601 UTC 문자열 |
 | 종료일/종료시간 | `end_at` | `events.end_at` | ISO-8601 UTC 문자열, `start_at < end_at` |
-| 공개 레벨 | `visibility_level` | `events.visibility_level` | 0~5, DB 제약은 0 이상 |
+| 공개 레벨 | `visibility_level` | `events.visibility_level` | 1~5, 기본1·DB CHECK BETWEEN1AND5 |
 
 ### 선택 값
 
@@ -34,8 +63,9 @@
 
 - 캘린더 위 슬라이드업 모달에서 제목 → 시작/종료 행 → 공개 범위 → 접을 수 있는 장소·메모 → 하단 저장 순서다(ADR-0047/0048). 손잡이·본문 스크롤 최상단 아래 끌기·닫기/OS 복귀는 작성 내용 폐기 확인 없이 닫는다. 저장 중 닫기 차단·키보드 위 저장을 제공한다.
 - 반복은 현재 API/DB 필드가 없어 폼에서 제거했다. 시작 전 알림·참석자·일정별 색상도 전송하지 않는다.
-- 공개 방식은 인라인 친구에게 공개/나만 보기 세그먼트로 고른다. 친구 공개에서만0~5 정수 슬라이더/숫자 탭과 의미 설명을 제공한다. 0은 열람 허용된 모든 친구이며 전체 인터넷 공개를 의미하지 않는다. 레벨5도 나만 보기가 아니다. private 전환 시 이전 레벨을 보존한다.
-- 나만 보기를 선택하면 `is_private: true`, 친구 공개는 false를 명시 전송한다. private여도 visibility_level 필수0~5를 유지하며 선택 전 레벨을 보존한다. 응답 is_private 생략은 false로 파싱하여 구형 공개 응답과 호환한다.
+- 날짜/시간 헤더의 연도 보조 표시와 종료 아래 기간 합계는 표시하지 않는다. 장소·메모는 기본 펼침이며 접기/입력 보존을 지원한다(ADR-0050). 날짜 선택/시간 검증·종일 배타적 종료는 유지한다.
+- 공개 방식은 인라인 친구에게 공개/나만 보기 세그먼트로 고른다. 친구 공개에서만1~5 레벨 슬라이더/숫자 탭과 의미 설명을 제공한다. 드래그는 연속 이동하며 놓으면 정수에 정렬하고 저장은 1~5 정수다. 친구 레벨0은 근무표만 보며 개인 일정에는0을 지정할 수 없다. 레벨5도 나만 보기가 아니다. private 전환 시 이전 레벨을 보존한다. 레벨1~5 설명은 `내가 지정한 레벨이 N 이상인 친구에게 보여요.`로 표시하며 서버의 can_view/레벨 판정은 동일하다.
+- 나만 보기를 선택하면 `is_private: true`, 친구 공개는 false를 명시 전송한다. private여도 visibility_level 필수1~5를 유지하며 선택 전 레벨을 보존한다. 응답 is_private 생략은 false로 파싱하여 구형 공개 응답과 호환한다.
 - private 생성 응답이 true가 아니면 CalendarService는 EVENT_PRIVACY_NOT_CONFIRMED로 성공 처리를 중단한다. 생성 후 확인이므로 서버 저장을 되돌리거나 타인 필터를 대체하지 않는다. 자동 재요청하지 않으며 일정 목록에서 실제 공개 범위를 확인하도록 안내한다.
 - 서버 배포 완료는 사용자 보고와 인접 서버 EVENT_PRIVACY_GUIDE 기록 기준이다. 로컬 모델/route/service/뷰 필터와 대조해 활성화했다. [나만 보기 서버 요청서](PERSONAL_EVENT_PRIVACY_SERVER_HANDOFF.md)의 상단 현황과 서버 정본 가이드를 함께 참고한다. 실제 원격 인증 사용자별/실기기 인수는 별도다.
 - 필수 입력은 인접 오류/첫 오류 이동, 서버 오류는 입력을 유지한 하단 다시 저장으로 처리한다. 저장 중 중복 입력/이탈은 막지만, 그 외 닫기는 작성 내용 확인 없이 즉시 처리한다.
@@ -59,7 +89,7 @@
   - `friend_level_settings.can_view = true`
   - `friend_level_settings.friend_level >= events.visibility_level`
 - 친구 캘린더 조회에서는 위 규칙의 owner가 조회 대상 친구가 된다.
-- `visibility_level=0`은 `can_view=true`이고 친구 관계가 있는 기본 레벨 친구에게 공개된다.
+- `events.visibility_level`은1~5이고 친구 레벨0은 개인 일정을 조회할 수 없다. 근무표의 레벨0은 유지한다.
 
 ## 종일 일정 시간 규칙
 
@@ -129,7 +159,7 @@ Content-Type: application/json
 | --- | --- | --- |
 | `INVALID_TITLE` | `title`이 공백 또는 누락 | 제목을 입력해주세요. |
 | `INVALID_EVENT_TIME` | `start_at >= end_at` 또는 날짜 파싱 실패 | 일정 시간이 올바르지 않습니다. |
-| `INVALID_VISIBILITY_LEVEL` | `visibility_level < 0` 또는 서버 정책 범위 초과 | 공개 레벨이 올바르지 않습니다. |
+| `INVALID_VISIBILITY_LEVEL` | `visibility_level < 1` 또는 서버 정책 범위 초과 | 공개 레벨이 올바르지 않습니다. |
 | `UNAUTHORIZED` | 토큰 없음/만료 | 로그인이 필요합니다. |
 
 ## DB/DDL 서버 적용 요청
@@ -149,7 +179,7 @@ CREATE TABLE IF NOT EXISTS events (
   all_day boolean NOT NULL DEFAULT false,
   start_at timestamptz NOT NULL,
   end_at timestamptz NOT NULL,
-  visibility_level smallint NOT NULL DEFAULT 0,
+  visibility_level smallint NOT NULL DEFAULT 1,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz,
@@ -159,7 +189,7 @@ CREATE TABLE IF NOT EXISTS events (
   CONSTRAINT fk_events_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(user_id),
   CONSTRAINT fk_events_deleted_by FOREIGN KEY (deleted_by_user_id) REFERENCES users(user_id),
   CONSTRAINT ck_events_time CHECK (start_at < end_at),
-  CONSTRAINT ck_events_visibility CHECK (visibility_level >= 0)
+  CONSTRAINT ck_events_visibility CHECK (visibility_level BETWEEN 1 AND 5)
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_owner_start_not_deleted

@@ -1,7 +1,6 @@
 // ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
 import 'package:flutter/cupertino.dart';
-import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -44,25 +43,25 @@ const List<_GroupPreviewShiftTemplate> _shift_templates = [
   _GroupPreviewShiftTemplate(
     code: 'D',
     name: '데이',
-    time_text: '07:00–15:00',
+    time_text: '07:00 - 15:00',
     color: Color(0xFFFF9500),
   ),
   _GroupPreviewShiftTemplate(
     code: 'E',
     name: '이브닝',
-    time_text: '14:30–22:30',
+    time_text: '14:30 - 22:30',
     color: Color(0xFFE85F80),
   ),
   _GroupPreviewShiftTemplate(
     code: 'N',
     name: '나이트',
-    time_text: '22:00–익일 08:00',
+    time_text: '22:00 - 익일 08:00',
     color: Color(0xFF4355B8),
   ),
   _GroupPreviewShiftTemplate(
     code: 'F',
     name: '플렉스',
-    time_text: '10:00–18:00',
+    time_text: '10:00 - 18:00',
     color: Color(0xFF448F53),
   ),
 ];
@@ -346,6 +345,10 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
+        // 달력 아래 구성원 목록의 스크롤과 헤더 배경을 분리한다.
+        automaticBackgroundVisibility: false,
+        backgroundColor: AppTheme.background_color,
+        border: null,
         middle: const Text('우리 병동'),
         trailing: Semantics(
           label: '그룹 멤버 ${group_preview_members.length}명',
@@ -378,17 +381,15 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
         ),
       ),
       child: SafeArea(
-        minimum: const EdgeInsets.only(bottom: AppTheme.spacing_md),
-        child: Column(
-          children: [
-            Container(
-              key: const ValueKey('group-preview-calendar-section'),
-              color: AppTheme.background_color,
-              child: _buildCalendarViewport(),
-            ),
-            const SizedBox(height: AppTheme.spacing_sm),
-            Expanded(child: _buildSelectedDayDetail(selected_day_data)),
-          ],
+        bottom: false,
+        child: CalendarPageBody(
+          key_prefix: 'group-preview',
+          calendar: Container(
+            key: const ValueKey('group-preview-calendar-section'),
+            color: AppTheme.background_color,
+            child: _buildCalendarViewport(),
+          ),
+          schedule: _buildSelectedDayDetail(selected_day_data),
         ),
       ),
     );
@@ -403,32 +404,15 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
       onNextMonth: _goToNextMonth,
       onSelectYearMonth: _showYearMonthPicker,
       header_key: const ValueKey('group-preview-month-header'),
-      trailing: CupertinoButton(
-        key: const ValueKey('group-preview-today-button'),
-        minimumSize: const Size(54, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        color: AppTheme.primary_color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.radius_md),
-        onPressed: _goToToday,
-        child: Text(
-          '오늘',
-          style: AppTheme.body_medium.copyWith(
-            color: AppTheme.primary_dark_color,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      grid_wrapper: (child) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_sm),
-        child: child,
-      ),
+      onToday: _goToToday,
+      today_key: const ValueKey('group-preview-today-button'),
+      trailing: const SizedBox.shrink(),
       month_view: CalendarMonthView<void>(
         calendar_key: const ValueKey('group-preview-calendar'),
         focused_day: _focused_day,
         selected_day: _selected_day,
         calendar_format: _calendar_format,
         row_height: _calendar_row_height,
-        days_of_week_height: 30,
         cell_layout: CalendarCellLayout.dots,
         day_key_prefix: 'group-day',
         selection_key_prefix: 'group-selection',
@@ -478,65 +462,28 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            key: const ValueKey('group-preview-selected-day-header'),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacing_md,
-              vertical: AppTheme.spacing_sm,
-            ),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: AppTheme.outline_variant_color,
-                  width: 0.5,
-                ),
+          CalendarScheduleHeader(
+            selected_date: day_data.date,
+            header_key: const ValueKey('group-preview-selected-day-header'),
+            summary_key: const ValueKey('group-preview-day-summary'),
+            summary_chips: [
+              CalendarScheduleSummaryChip(
+                key: const ValueKey('group-preview-working-count-chip'),
+                label: '근무 ${day_data.working_count}명',
+                is_primary: true,
               ),
-            ),
-            child: SizedBox(
-              height: 28,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Text(
-                      DateFormat('M월 d일 EEEE', 'ko_KR').format(day_data.date),
-                      style: AppTheme.heading_small.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppTheme.spacing_sm),
-                  Row(
-                    key: const ValueKey('group-preview-day-summary'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CalendarScheduleSummaryChip(
-                        key: const ValueKey('group-preview-working-count-chip'),
-                        label: '근무 ${day_data.working_count}명',
-                        is_primary: true,
-                      ),
-                      const SizedBox(width: 6),
-                      CalendarScheduleSummaryChip(
-                        key: const ValueKey('group-preview-event-count-chip'),
-                        label: '일정 ${day_data.personal_event_count}개',
-                      ),
-                    ],
-                  ),
-                ],
+              CalendarScheduleSummaryChip(
+                key: const ValueKey('group-preview-event-count-chip'),
+                label: '일정 ${day_data.personal_event_count}개',
               ),
-            ),
+            ],
           ),
           Expanded(
             child: ListView.separated(
               key: const ValueKey('group-preview-member-list'),
-              padding: EdgeInsets.fromLTRB(
-                AppTheme.spacing_sm,
-                AppTheme.spacing_sm,
-                AppTheme.spacing_sm,
-                AppTheme.spacing_sm,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               itemCount: day_data.members.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              separatorBuilder: (context, index) => const SizedBox.shrink(),
               itemBuilder: (context, index) {
                 return _buildMemberDayCard(day_data.members[index]);
               },
@@ -556,155 +503,134 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
         ? '${member_day.shift_name} · ${member_day.shift_time_text}'
         : '${member_day.shift_name} · 근무 없음';
 
-    return Container(
+    return CalendarScheduleItem(
       key: ValueKey('group-preview-member-${member_day.member.id}'),
-      decoration: AppTheme.cardDecoration(),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
+      color: member_day.shift_color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              key: ValueKey('group-preview-shift-bar-${member_day.member.id}'),
-              width: 4,
-              color: member_day.shift_color,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+          Row(
+            children: [
+              Container(
+                key: ValueKey(
+                  'group-preview-member-avatar-'
+                  '${member_day.member.id}',
+                ),
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: member_day.member.color.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: member_day.member.color.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  member_day.member.initial,
+                  style: TextStyle(
+                    color: member_day.member.color,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
+                    Text(
+                      member_day.member.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.body_medium.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
                       key: ValueKey(
-                        'group-preview-member-avatar-'
+                        'group-preview-schedule-row-'
                         '${member_day.member.id}',
                       ),
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: member_day.member.color.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: member_day.member.color.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Text(
-                        member_day.member.initial,
-                        style: TextStyle(
-                          color: member_day.member.color,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            member_day.member.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTheme.body_large.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: member_day.shift_color,
+                            shape: BoxShape.circle,
                           ),
-                          const SizedBox(height: 3),
-                          Row(
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            shift_description,
                             key: ValueKey(
-                              'group-preview-schedule-row-'
+                              'group-preview-shift-time-'
                               '${member_day.member.id}',
                             ),
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: member_day.shift_color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  shift_description,
-                                  key: ValueKey(
-                                    'group-preview-shift-time-'
-                                    '${member_day.member.id}',
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTheme.body_medium.copyWith(
-                                    color: AppTheme.on_surface_variant_color,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTheme.body_small.copyWith(
+                              color: AppTheme.on_surface_variant_color,
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      key: ValueKey(
-                        'group-preview-shift-code-${member_day.member.id}',
-                      ),
-                      constraints: const BoxConstraints(minWidth: 36),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: member_day.shift_color,
-                        borderRadius: BorderRadius.circular(AppTheme.radius_md),
-                      ),
-                      child: Text(
-                        member_day.shift_code,
-                        textAlign: TextAlign.center,
-                        style: AppTheme.body_small.copyWith(
-                          color: badge_text_color,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-                if (member_day.events.isNotEmpty) ...[
-                  const SizedBox(height: 11),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 56),
-                    child: SingleChildScrollView(
-                      key: ValueKey(
-                        'group-preview-event-scroll-'
-                        '${member_day.member.id}',
-                      ),
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (
-                            var index = 0;
-                            index < member_day.events.length;
-                            index++
-                          ) ...[
-                            if (index > 0) const SizedBox(width: 6),
-                            _buildEventChip(member_day.events[index]),
-                          ],
-                        ],
-                      ),
-                    ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                key: ValueKey(
+                  'group-preview-shift-code-${member_day.member.id}',
+                ),
+                constraints: const BoxConstraints(minWidth: 36),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(
+                  color: member_day.shift_color,
+                  borderRadius: BorderRadius.circular(AppTheme.radius_md),
+                ),
+                child: Text(
+                  member_day.shift_code,
+                  textAlign: TextAlign.center,
+                  style: AppTheme.body_small.copyWith(
+                    color: badge_text_color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
+          if (member_day.events.isNotEmpty) ...[
+            const SizedBox(height: 11),
+            Padding(
+              padding: const EdgeInsets.only(left: 56),
+              child: SingleChildScrollView(
+                key: ValueKey(
+                  'group-preview-event-scroll-'
+                  '${member_day.member.id}',
+                ),
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < member_day.events.length;
+                      index++
+                    ) ...[
+                      if (index > 0) const SizedBox(width: 6),
+                      _buildEventChip(member_day.events[index]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

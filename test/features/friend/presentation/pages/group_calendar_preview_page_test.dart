@@ -1,11 +1,14 @@
 // ignore_for_file: non_constant_identifier_names
 
+import '../../../../helpers/calendar_header_assertions.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/calendar_schedule_card.dart';
 import 'package:shift_mate/features/friend/data/models/friend_model.dart';
 import 'package:shift_mate/features/friend/data/services/friend_service.dart';
 import 'package:shift_mate/features/friend/presentation/pages/friend_list_page.dart';
@@ -57,6 +60,26 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await initializeDateFormatting('ko_KR');
+  });
+
+  testWidgets('구성원 목록 스크롤이 미리보기 그룹 이름 헤더의 배경을 바꾸지 않는다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      CupertinoApp(
+        theme: AppTheme.lightTheme,
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 800)),
+          child: GroupCalendarPreviewPage(initial_date: DateTime(2026, 8, 2)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await verifyCalendarHeaderOnScroll(
+      tester,
+      calendar: find.byKey(const ValueKey('group-preview-calendar')),
+      list: find.byKey(const ValueKey('group-preview-member-list')),
+    );
   });
 
   test('5일 동안 4명부터 0명까지의 근무 패턴과 2~3개 일정이 반복된다', () {
@@ -158,7 +181,7 @@ void main() {
             find.byKey(const ValueKey('group-preview-selected-day-header')),
           )
           .height,
-      44.5,
+      greaterThanOrEqualTo(44.5),
     );
     expect(
       find.byKey(const ValueKey('group-preview-working-count-chip')),
@@ -209,19 +232,22 @@ void main() {
     }
     expect(find.text('1명 근무'), findsNothing);
 
-    final first_shift_bar = tester.widget<Container>(
-      find.byKey(const ValueKey('group-preview-shift-bar-me')),
+    final first_member = find.byKey(const ValueKey('group-preview-member-me'));
+    expect(
+      tester.widget<CalendarScheduleItem>(first_member).color,
+      const Color(0xFFFF9500),
     );
-    expect(first_shift_bar.color, const Color(0xFFFF9500));
     final first_member_card = tester.widget<Container>(
-      find.byKey(const ValueKey('group-preview-member-me')),
+      find.descendant(of: first_member, matching: find.byType(Container)).first,
     );
     final first_member_decoration =
         first_member_card.decoration! as BoxDecoration;
     expect(
-      first_member_decoration.borderRadius,
-      BorderRadius.circular(AppTheme.card_radius),
+      first_member_decoration.color,
+      const Color(0xFFFF9500).withValues(alpha: 0.08),
     );
+    expect(first_member_decoration.borderRadius, AppTheme.input_border_radius);
+    expect((first_member_decoration.border! as Border).left.width, 4);
     expect(tester.takeException(), isNull);
   });
 
@@ -273,7 +299,10 @@ void main() {
       matching: find.byKey(const ValueKey('group-preview-shift-time-me')),
     );
     expect(
-      find.descendant(of: member_card, matching: find.text('데이 · 07:00–15:00')),
+      find.descendant(
+        of: member_card,
+        matching: find.text('데이 · 07:00 - 15:00'),
+      ),
       findsOneWidget,
     );
     final personal_event = find.descendant(
@@ -374,7 +403,7 @@ void main() {
     expect(find.byKey(const ValueKey('group-room-list')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('group-room-footer-button')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('group-room-list')), findsOneWidget);
     expect(
@@ -391,13 +420,13 @@ void main() {
     expect(find.byKey(const ValueKey('add-friend-button')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('friend-list-footer-button')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('group-room-list')), findsNothing);
     expect(find.byKey(const ValueKey('add-friend-button')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('group-room-footer-button')));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('group-room-preview-card')));
     await tester.pumpAndSettle();
 
@@ -407,5 +436,15 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('그룹 미리보기 공용 배치와 탐색은 작은 화면·가로·확대 글자에서도 유지된다', (tester) async {
+    await verifyResponsiveCalendar(
+      tester,
+      prefix: 'group-preview',
+      calendar_key: 'group-preview-calendar',
+      last_member_key: 'group-preview-member-donguk',
+      page_builder: (_) =>
+          GroupCalendarPreviewPage(initial_date: DateTime(2026, 1, 1)),
+    );
   });
 }

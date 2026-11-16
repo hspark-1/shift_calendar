@@ -26,6 +26,16 @@ class CalendarService {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
+  void _validateEventVisibility(int visibility_level) {
+    if (visibility_level < 1 || visibility_level > 5) {
+      throw ApiException(
+        code: 'INVALID_VISIBILITY_LEVEL',
+        message: '개인 일정 공개 레벨은 1부터 5까지 선택해주세요.',
+        statusCode: 400,
+      );
+    }
+  }
+
   /// 특정 날짜의 일정 조회
   ///
   /// 엔드포인트: GET /api/v1/calendar/day?date=YYYY-MM-DD
@@ -69,6 +79,7 @@ class CalendarService {
   /// 엔드포인트: POST /api/v1/events
   /// 인증: 필요
   Future<EventApiModel> createEvent(CreateEventRequest request) async {
+    _validateEventVisibility(request.visibilityLevel);
     try {
       final response = await _dio.post(
         ApiConstants.events,
@@ -85,6 +96,38 @@ class CalendarService {
       return EventApiModel.fromJson(data);
     } on DioException catch (e) {
       throw handleApiError(e);
+    }
+  }
+
+  /// 개인 일정 전체 편집. 빈 선택정보는 null로 전달한다.
+  Future<EventApiModel> updateEvent(
+    String event_id,
+    UpdateEventRequest request,
+  ) async {
+    _validateEventVisibility(request.visibilityLevel);
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.events}/$event_id',
+        data: request.toJson(),
+      );
+      final data = response.data['data'] as Map<String, dynamic>;
+      if (data['event_id'] != event_id) {
+        throw ApiException(
+          code: 'EVENT_UPDATE_NOT_CONFIRMED',
+          message: '저장 결과를 확인하지 못했어요. 목록을 다시 확인해주세요.',
+          statusCode: response.statusCode,
+        );
+      }
+      if (request.isPrivate && data['is_private'] != true) {
+        throw ApiException(
+          code: 'EVENT_PRIVACY_NOT_CONFIRMED',
+          message: '비공개 저장 결과를 확인하지 못했어요. 목록에서 공개 범위를 다시 확인해주세요.',
+          statusCode: response.statusCode,
+        );
+      }
+      return EventApiModel.fromJson(data);
+    } on DioException catch (error) {
+      throw handleApiError(error);
     }
   }
 

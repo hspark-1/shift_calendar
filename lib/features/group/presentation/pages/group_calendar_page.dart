@@ -82,6 +82,10 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
+        // 달력 아래 구성원 목록의 스크롤과 헤더 배경을 분리한다.
+        automaticBackgroundVisibility: false,
+        backgroundColor: AppTheme.background_color,
+        border: null,
         middle: Text(title),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -103,18 +107,18 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
             ),
             CupertinoButton(
               key: const ValueKey('group-calendar-management-button'),
-              padding: const EdgeInsets.only(left: 6),
-              minimumSize: const Size(34, 34),
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(44, 44),
               onPressed: _openManagement,
-              child: const Icon(CupertinoIcons.ellipsis_circle, size: 21),
+              child: Semantics(
+                label: '그룹 정보',
+                child: const Icon(CupertinoIcons.ellipsis_circle, size: 21),
+              ),
             ),
           ],
         ),
       ),
-      child: SafeArea(
-        minimum: const EdgeInsets.only(bottom: AppTheme.spacing_md),
-        child: _buildBody(state),
-      ),
+      child: SafeArea(bottom: false, child: _buildBody(state)),
     );
   }
 
@@ -129,12 +133,10 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      children: [
-        _buildCalendar(state),
-        const SizedBox(height: AppTheme.spacing_sm),
-        Expanded(child: _buildSelectedDayDetail(state)),
-      ],
+    return CalendarPageBody(
+      key_prefix: 'group-calendar',
+      calendar: _buildCalendar(state),
+      schedule: _buildSelectedDayDetail(state),
     );
   }
 
@@ -170,32 +172,17 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
       onNextMonth: () => _moveMonth(1),
       onSelectYearMonth: _showYearMonthPicker,
       header_key: const ValueKey('group-calendar-month-header'),
-      trailing: CupertinoButton(
-        key: const ValueKey('group-calendar-today-button'),
-        minimumSize: const Size(54, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        color: AppTheme.primary_color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.radius_md),
-        onPressed: _goToToday,
-        child: Text(
-          '오늘',
-          style: AppTheme.body_medium.copyWith(
-            color: AppTheme.primary_dark_color,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      grid_wrapper: (child) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_sm),
-        child: child,
-      ),
+      onToday: _goToToday,
+      today_key: const ValueKey('group-calendar-today-button'),
+      trailing: state.is_loading
+          ? const CupertinoActivityIndicator(radius: 8)
+          : const SizedBox.shrink(),
       month_view: CalendarMonthView<void>(
         calendar_key: const ValueKey('group-calendar'),
         focused_day: _focused_day,
         selected_day: _selected_day,
         calendar_format: _calendar_format,
         row_height: _calendar_row_height,
-        days_of_week_height: 30,
         cell_layout: CalendarCellLayout.dots,
         day_key_prefix: 'group-day',
         selection_key_prefix: 'group-selection',
@@ -256,48 +243,23 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacing_md,
-              vertical: AppTheme.spacing_sm,
-            ),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: AppTheme.outline_variant_color,
-                  width: 0.5,
-                ),
+          CalendarScheduleHeader(
+            selected_date: _selected_day,
+            header_key: const ValueKey('group-calendar-selected-day-header'),
+            summary_chips: [
+              CalendarScheduleSummaryChip(
+                label: '근무 ${shifts.length}명',
+                is_primary: true,
               ),
-            ),
-            child: SizedBox(
-              height: 28,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Text(
-                      DateFormat('M월 d일 EEEE', 'ko_KR').format(_selected_day),
-                      style: AppTheme.heading_small.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  CalendarScheduleSummaryChip(
-                    label: '근무 ${shifts.length}명',
-                    is_primary: true,
-                  ),
-                  const SizedBox(width: 6),
-                  CalendarScheduleSummaryChip(label: '일정 ${events.length}개'),
-                ],
-              ),
-            ),
+              CalendarScheduleSummaryChip(label: '일정 ${events.length}개'),
+            ],
           ),
           Expanded(
             child: ListView.separated(
               key: const ValueKey('group-calendar-member-list'),
-              padding: const EdgeInsets.all(AppTheme.spacing_sm),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               itemCount: state.members.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              separatorBuilder: (context, index) => const SizedBox.shrink(),
               itemBuilder: (context, index) {
                 final member = state.members[index];
                 final member_shift = _shiftForMember(shifts, member.user_id);
@@ -474,10 +436,9 @@ class _MemberDayCard extends StatelessWidget {
     final shift_color = shift?.shift_type_color == null
         ? AppTheme.surface_container_color
         : Color(shift!.shift_type_color!);
-    return Container(
+    return CalendarScheduleItem(
       key: ValueKey('group-calendar-member-${member.user_id}'),
-      padding: const EdgeInsets.all(14),
-      decoration: AppTheme.cardDecoration(),
+      color: denied ? AppTheme.outline_color : shift_color,
       child: denied ? _buildDenied() : _buildVisible(shift_color: shift_color),
     );
   }
@@ -595,8 +556,8 @@ class _MemberDayCard extends StatelessWidget {
   Widget _avatar() {
     final color = _memberColor(member.user_id);
     return Container(
-      width: 42,
-      height: 42,
+      width: 44,
+      height: 44,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
@@ -635,7 +596,7 @@ class _MemberDayCard extends StatelessWidget {
     final start = value.start_time;
     final end = value.end_time;
     if (start == null || end == null) return '시간 없음';
-    return '${start.substring(0, 5)}–${end.substring(0, 5)}';
+    return '${start.substring(0, 5)} - ${end.substring(0, 5)}';
   }
 
   Color _memberColor(String user_id) {

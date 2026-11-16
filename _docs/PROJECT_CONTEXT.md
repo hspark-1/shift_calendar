@@ -8,6 +8,30 @@
 - 파일 역할/의존성/사용 예: 기존 google_login_service.dart의 GoogleLoginCredential·authorizePhoneAccessToken, auth_repository_impl.dart의 credential 전달, auth_remote_datasource.dart의 선택 body 필드와 기존3개 테스트/가입 위젯 회귀를 수정했다. 고정 google_sign_in7.2.0·기존 Dio/User 모델을 사용하며 새 파일/패키지/앱 env/DB migration은 없다. 실제 body는 `{id_token, access_token?}`이며 구형 ID Token 전용 요청도 지원한다.
 - 계약·배포/롤백: `_docs/GOOGLE_SIGN_IN_SERVER_GUIDE.md`의 현행 절과 인접 서버 가이드 상단을 따른다. 서버를 먼저 배포한 뒤 앱을 재빌드한다. 실제 Google iOS/Android 동의·번호 수신/취소·가입·로그아웃/탈퇴는 Stage 인수 대상이다. 최종 WORKLOG의 로컬 검증과 구분한다. rollback은 이번 Google 변경만 복구하고 기존 미커밋 변경·사용자 번호/사진을 유지한다.
 
+## 그룹 캘린더 UI 공용화 (2026-11-12)
+
+- 선택 네모 후속 보완: 앞선 통일에서 남은 _CellLayoutMetrics.dots의50px/아래3px를 badge와 같은58px/아래4px로 통합했다. 58은 요청한 한 변 크기이며 실제 Rect는 7열의 칸 너비와 rowHeight(상세52/56px) 제약을 받는다. 메인 접힌 보기 compact의48px/아래8px와 점/배지 내용은 유지한다. 기존 group_calendar_page_test.dart가 폭320/375/390/430/667/768와 행52/56의12조합에서 badge/dots의 실제 선택 Rect(셀 기준 크기·위치)를 비교한다. 신규 파일/API/DB/상태 변경은 없고 결과는 WORKLOG를 따른다.
+- 현행 정책: ADR-0072. 아래 ‘범위 검토’와 과거 그룹 전용 버튼/달력 여백/구성원 카드 설명을 대체한다. 메인·친구·실제/미리보기 그룹은 CalendarPageBody와 CalendarMonthHeader.onToday를 함께 사용한다. 그룹의 grid_wrapper 좌우8px/요일30px 예외를 제거해 기본32px 요일·전체 폭 날짜 셀을 사용한다.
+- 흐름/역할: 기존 calendar_viewport.dart에 CalendarPageBody(calendar, schedule, key_prefix)를 추가하고 기존 메인 LayoutBuilder를 추출했다. 예: `CalendarPageBody(key_prefix: 'group-calendar', calendar: _buildCalendar(state), schedule: _buildSelectedDayDetail(state))`. 일정 최소 공간144px를 글자 크기에 맞춰 예약하고 달력 뒤4px 간격·하단16px를 사용한다. 높이가 극도로 부족하거나 글자 배율1.25를 넘으면 전체 페이지 스크롤과 일정280px의 확대 높이를 사용한다. 다른 경우 달력만 제한 높이 안에서 스크롤하며 목록은 남은 공간을 채운다. 네 페이지의 SafeArea(bottom: false)와 함께 사용한다.
+- 일정 행: 기존 calendar_schedule_card.dart에 CalendarScheduleItem(color, child, include_margin)을 추가했다. 메인/친구의 근무/개인 일정 장식을 그대로 추출하고 실제/미리보기 그룹 구성원이 사용한다. 배경8% tint·4px 왼쪽 선·12px 반경·안쪽12x10px·바깥 좌우12px/상하4px를 공유하며 그룹 목록은 위아래4px 여백이다. 구성원 아바타/이름·코드·개인 일정 가로 목록·DENIED 표시를 보존한다. 단일 소유자 모델로 변환하지 않는다.
+- 헤더/Behavior change: 친구/그룹의 별도 오늘 버튼을 메인과 같은 공용44x44 이상 액션으로 대체하며 today_key로 기존 키를 유지한다. 그룹의 월 로딩 표시를 제공한다. 큰 글자/좁은 헤더는 연월과 탐색 액션을 각각 한 행에 배치하고 요일 높이를 공용 body_small의 확대 크기 이상으로 확보한다. 실제 그룹 관리 액션도44x44·‘그룹 정보’ 이름을 제공한다.
+- 상태/영향: 기존 GroupCalendarRangeNotifier의 멤버/ACL/timezone·3개월 조회와 페이지 날짜 state·멤버별 필터·근무 점·수정/삭제·route/접근권한·analytics/logging·autoDispose 계약은 유지한다. API/DB/env/패키지 변경과 신규 저장소 파일은 없다.
+- 검증/역할: 기존 test/helpers/calendar_header_assertions.dart에 verifyResponsiveCalendar를 추가했다. 실제/미리보기 그룹 테스트가320x568·375x667·390x844·667x375·768x1024·글자3.2배·다크/동작 줄이기에서 달력 폭/요일 높이·연월 한 줄·44px 오늘·마지막 구성원 접근·다음 월/오늘 이동을 검증한다. GROUP_CALENDAR_RENDER_OUTPUT 환경변수를 지정하면 실제 폰트로 PNG를 임시 경로에 저장한다. 메인/친구 및 그룹·탭 탐색/레이아웃 정책 회귀 결과는 WORKLOG를 따른다.
+- 롤백: 이번 공용 위젯 추출/호출부·관련 테스트·ADR-0072/이번 절/일지 추가분만 되돌린다. 기존 미커밋 변경은 보존한다. 실기기 인수/배포는 수행하지 않는다.
+
+## 그룹 캘린더 UI 통일 범위 검토 (2026-11-12)
+
+- 상태: 구현 전 정적 검토이며 새 UI 정책을 확정하지 않았다. ADR-0016/0017의 표시 공용화·그룹 전용 domain state를 유지한다.
+- 코드 근거: 메인/친구/실제 그룹은 CalendarViewport·CalendarMonthView를 사용하고 선택일 날짜는 CalendarScheduleHeader를 공유한다. 실제 GroupCalendarPage와 GroupCalendarPreviewPage는 오늘 버튼54x36·별도 타이포/반경, grid_wrapper 좌우8px·요일30px를 지정한다. 메인은 공용 onToday 액션, 친구는44x32 별도 버튼을 사용한다. 메인 LayoutBuilder의 일정 최소 공간/큰 글자 스크롤 대응도 친구/그룹의 단순 Column 배치와 다르다.
+- 변경 후보/영향: 공용 액션·달력 치수·선택일 영역 배치를 정리하면 FE 안에서 외형을 맞출 수 있다. 구성원별 본문은 별도 카드이며 멤버 식별·다중 근무·공개 안 함 의미가 필요하므로 단일 소유자 CalendarScheduleCard 데이터로 축약하지 않는다. 실제/미리보기 그룹을 함께 검토한다. 앱/API/DB 동작은 이번에 수정하지 않았다.
+- 검증/롤백: 관련 소스와 기존 ADR을 대조했으며 테스트 실행/실기기 시각 검증은 수행하지 않았다. 구현 시 작은 화면·확대 글자·다중 멤버·DENIED와 기존 월 이동/날짜 선택의 회귀를 확인해야 한다. 이번 절과 WORKLOG 조사 항목만 제거하면 롤백된다. 신규 파일/의존성은 없다.
+
+## 근무·개인 일정의 삭제 문구와 화살표 통일 (2026-11-12)
+
+- 목적/Behavior change: ADR-0071. 메인 근무 일정도 개인 일정과 같이 왼쪽 스와이프의 노출 폭이88px 이상이면 휴지통 옆에 `삭제` 문구를 표시한다. 개인 일정 오른쪽의 연필/`수정` 표시는 근무와 동일한14px `chevron_left`·outline_variant_color 화살표로 대체한다. 아래 과거 연필/수정 표시 설명은 이번 정책이 대체한다.
+- 흐름/영향: 기존 CalendarPage의 `_buildWorkShiftItem`에 `show_delete_label: true`를 전달하고 `_buildEventItem`의 trailing만 교체한다. 행 전체 탭 편집·접근성의 ‘일정 수정’/삭제 액션·삭제 중 표시·짧은 스와이프 복귀·3초 유예/되돌리기·API/DB·provider 수명·라우트/권한은 유지한다. 신규 파일/의존성/env 변경은 없다.
+- 검증/롤백: 기존 calendar_page_test.dart의46개 회귀로 탭 수정·근무/개인 혼합 삭제·되돌리기·부분 스와이프 배경을 확인했다. 실행은 `flutter test --no-pub test/features/calendar/presentation/pages/calendar_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`이며 정적 분석/포맷 결과는 WORKLOG를 따른다. 이번 표시 속성/아이콘과 문서 추가분만 되돌린다.
+
 ## 그룹 생성자 탈퇴 후 상세 정보의 nullable 계약 지원 (2026-11-12)
 
 - 목적/Behavior change: ADR-0070. 생성자가 회원 탈퇴해 `GET /api/v1/groups/{group_id}`의 `created_by_user_id`가 null이어도 그룹 정보를 정상 표시한다. 기존 `GroupDetail.created_by_user_id`를 `String?`, `fromJson`의 캐스트를 `as String?`로 변경했다. 생성자 문자열은 그대로 보존하고 null을 빈 문자열이나 현재 OWNER ID로 대체하지 않는다.
@@ -25,6 +49,70 @@
 - 검증/한계: 실제 GroupDetail/GroupSummary/GroupCalendarHeader를 호출하는 외부 임시 진단 스크립트 `/private/tmp/group_owner_deletion_repro.dart`로 생성자 문자열 성공 → null일 때 목록/캘린더 성공·상세 TypeError를 재현했다. 실행 예: `/opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart /private/tmp/group_owner_deletion_repro.dart`. 순수 Dart 모델에만 의존하며 서버/DB/인증 정보를 사용하지 않는다. 임시 스크립트는 저장소 산출물이 아니다. 사용자가 겪은 실제 API 응답·배포 코드·운영 DB 값은 이번에 수집하지 않았다.
 - 영향/후속: 이번 작업은 분석/문서만 추가하고 앱·서버·API·DB 동작을 변경하지 않는다. 수정 지점은 FE 생성자 타입과 파서의 nullable 수용 및 생성자 탈퇴 후 상세/화면 회귀다. 소유권 판단을 생성자 ID로 대체하거나 새 소유자를 과거 생성자로 덮어쓰지 않는다. 새 설계 결정이 없어 ADR은 추가하지 않으며 이번 조사 문서만 제거하면 롤백된다.
 
+## 선택일 헤더의 좁은 폭·확대 글자 대응 (2026-11-12)
+
+- 목적/현재 정책: ADR-0068. 실제 그룹의 선택일 날짜가 좁은 Row에서 두 줄이 되지만 높이는28px에 고정돼 잘리는 문제를 수정했다. 날짜/공휴일과 요약 표시를 각각 자연 크기로 배치하고 함께 들어가지 않으면 요약 묶음을 다음 줄로 옮긴다. 요약끼리도 공간이 부족하면 줄을 나누며, 날짜/공휴일 자체가 한 줄보다 길면 전체 내용을 줄바꿈한다. 텍스트 축소·말줄임으로 숨기지 않는다.
+- 구현/Behavior change: 기존 calendar_schedule_card.dart의 CalendarScheduleHeader를 실제/미리보기 그룹까지 공유한다. 중첩 Wrap의 실측 배치로 화면 폭·번들 폰트·TextScaler·굵은 글자를 반영한다. 기존 고정28px를 최소28px로 바꿔 한 줄이면44.5px 헤더를 유지하고 필요한 만큼 높아진다. 메인/친구의 배율1.25 초과 분기와 공휴일 말줄임도 이 규칙으로 대체한다. 공용 타이포·16px 수평/8px 수직 여백·0.5px 경계는 유지한다. 본문 목록은 헤더 뒤 남은 공간을 사용하며 그룹의 구성원 목록 스크롤은 유지한다.
+- 역할/사용 예: 새 앱 파일 없이 CalendarScheduleHeader의 선택적 summary_chips, header_key, summary_key를 추가했다. 그룹은 `CalendarScheduleHeader(selected_date: date, summary_chips: [CalendarScheduleSummaryChip(label: '근무 2명', is_primary: true), CalendarScheduleSummaryChip(label: '일정 4개')])`로 사용한다. 기존 total_count/trailing 호출도 유지한다. API/DB·domain/UI state·라우트/권한·analytics·env·패키지 의존성은 바꾸지 않는다.
+- 신규 검증 파일: test/features/calendar/presentation/widgets/calendar_schedule_header_test.dart는 Flutter test/rendering/services·intl·기존 공용 헤더/그룹 미리보기에 의존하며 실제 Cafe24/Cupertino 폰트를 로드한다. 폭320/375/390/430/667/768·배율1/1.1/1.25/2/3.2·굵은 글자에서 긴 날짜·세 자리 요약·공휴일의 글리프 경계와 겹침/줄 전환을 확인한다. 기존 그룹 테스트에는320/375/390px 실제 페이지 재현을 추가했다. 선택 영역의 줄 끝 공백은 글리프 경계 검사에서 제외한다.
+- 실행/산출물: `SCHEDULE_HEADER_RENDER_OUTPUT=/private/tmp/shift_schedule_header_2026-11-12 flutter test --no-pub test/features/calendar/presentation/widgets/calendar_schedule_header_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 선택일 헤더4개와 실제 미리보기320x568·375x667·667x375 PNG3개를 생성한다. 결과와 한계는 WORKLOG를 따른다. 이 검증은 헤더의 최대 글자 배율을 포함하며 모든 상세 페이지 전체의 최대 Dynamic Type/실기기 인수를 의미하지 않는다.
+- 롤백: 이번 공용/그룹 헤더·관련 회귀/문서 추가분만 되돌린다. 기존 미커밋 시간 구분자·빈 상태 정렬·탐색/개인 일정 작업은 보존한다.
+
+## 일정 없음 안내의 세로 중앙 정렬 (2026-11-12)
+
+- 목적/Behavior change: 메인·친구 공용 CalendarScheduleCard의 ‘등록된 일정이 없습니다’ 아이콘/문구 묶음을 날짜 헤더와 하단 추가 버튼을 제외한 일정 본문의 상하 중앙에 표시한다. 빈 상태의 기존 SingleChildScrollView를 Center로 감싸며 높이가 부족하면 기존 스크롤을 유지한다.
+- 파일/영향: 기존 calendar_schedule_card.dart의 빈 상태 분기만 변경한다. 일정이 있는 목록·카드 크기·헤더/footer·데이터/라우팅은 유지하며 신규 파일·상태·의존성·설계 정책은 없다. 관련 메인/친구 기존 회귀 및 분석·포맷 결과는 WORKLOG를 따른다. 롤백은 이번 Center와 문서 추가분만 되돌린다.
+
+## 일정 시간 구분자 통일 (2026-11-12)
+
+- 목적/표시 정책: ADR-0066. 근무·개인 일정의 시간 구간은 `HH:mm - HH:mm`처럼 공백을 포함한 하이픈(` - `)으로 표시한다. 근무 타입 카드의 기존 표기를 따르며, 야간 편집 요약도 `22:30 - 다음 날 07:00`으로 표시한다.
+- 그룹 보완: 실제 GroupCalendarPage의 `_shiftTime`과 GroupCalendarPreviewPage의 네 근무 템플릿도 ` - `로 통일한다. 미리보기 야간의 `익일` 안내는 유지한다. 앞선 변경에서 남아 있던 공백 없는 `–` 표기를 보완하며 기존 ADR-0066 정책을 확장 적용한다. 신규 파일/API/DB/상태/라우트 변경은 없다. 기존 그룹 화면 두 테스트의 시간 기대값을 갱신하며, 이번 문자열·기대값·문서 추가분만 되돌리면 롤백된다.
+- 범위/Behavior change: 공용 일정 카드의 `formatWorkShiftTime`, `ShiftTypeInfo.timeDisplay`, 근무 타입 편집 요약의 구분자만 통일한다. 개인 일정·근무 타입 카드의 기존 하이픈, `근무없음`/`시간 없음`/`종일`, 시간 값과 저장 계약은 유지한다. 메인·친구는 공용 일정 카드에 반영되며 API/DB·라우트·상태/의존성 변경은 없다. 수정한 ShiftTypeInfo의 기존 분석 진단은 프로젝트 snake_case 예외 선언과 같은 ARGB 정수 변환의 현행 API(`toARGB32`)로 해소했다.
+- 검증/롤백: 기존 메인·친구 캘린더 및 근무 타입 편집 테스트 기대값을 갱신했다. 신규 파일은 없으며 결과는 WORKLOG를 따른다. 이번 구분자·관련 분석 정리·테스트 기대값·문서 추가분만 되돌린다.
+
+## 작은 화면의 날짜·시간과 상태 화면 배치 (2026-11-12)
+
+- 최신 정책/Behavior change: ADR-0063. 개인 일정의 날짜·시간3:2 분할과 너비300px/배율1.25 경계를 실제 번들 폰트·TextScaler·굵은 글자 기준 폭 측정으로 대체한다. 시작/종료 두 행은 긴 값의 폭을 함께 예약한다. 부족하면 라벨을 위로 옮기고, 날짜와 시간도 컨트롤 단위로 세로 배치한다. 글자를 축소하거나 날짜/시간을 말줄임하지 않는다. 매우 큰 글자의 긴 날짜/요약은 내용 전체를 줄바꿈한다.
+- 피커: 시간/연월 요약은 빠른 선택 버튼을 다음 줄로 옮겨 선택값 공간을 확보한다. 날짜 연월 탐색도 공간이 부족하면 연월과 이전/오늘/다음을 분리한다. 연월 시트는 화면 높이·상단 안전영역·최대폭560을 반영하고 본문만 스크롤한다. 연도/월 휠은 배율·확대율을 포함한 실제 텍스트 폭에 맞춰 비율을 나누며 둘이 들어가지 않으면 세로 배치한다. 휠 행 높이도 글자 배율을 반영한다. 큰 글자(scale(16)>20)의 시간/연월 하단 버튼은 같은 폭의 취소/적용·이동으로 간결하게 표시하고 접근성 이름은 기존 전체 문구를 유지한다. 날짜 확인/취소도 같은 폭을 사용한다. 연월의 이번 달 이동은 동작 줄이기를 따른다.
+- 상태/검색: 친구·그룹 빈 목록/오류는 가운데 정렬을 유지하면서 본문 높이가 부족하면 스크롤한다. 친구 추가 시트는 낮은 본문(<250px) 또는 큰 글자(scale(16)>24)에서 검색 입력과 결과 영역을 함께 스크롤한다. 최대 글자 크기의 헤더는 제목/취소를 분리한다. 기존 검색/검증/높이 조절/저장·provider/API/권한·DB/env는 유지한다.
+- 신규 파일 역할/의존성/사용 예: `lib/core/widgets/scrollable_centered_body.dart`는 Flutter widgets만 사용하는 공용 빈 목록/오류 프레임이며 현재는 ADR-0075에 따라 `SliverCenteredBody(children: [...])`를 친구·그룹의 공통 새로고침 스크롤 안에서 사용한다. `lib/features/calendar/presentation/widgets/picker_selection_summary.dart`는 Cupertino/AppTheme/TextPainter에 의존하며 `PickerSelectionSummary(icon: ..., value: ..., action_label: ..., onAction: ...)`로 시간/연월 선택값과 빠른 선택을 배치한다. 신규 provider/controller/패키지는 없다.
+- 검증 파일/산출물: `test/features/calendar/presentation/widgets/compact_layout_test.dart`는 실제 팝업·WidgetTester·intl·번들 Cafe24/Cupertino 폰트에 의존한다. 작은 화면/가로/태블릿·글자1~3.2배의 텍스트 박스·정렬·연도/종일 보존·저장 위치·실제 휠 접근을 검증한다. `COMPACT_LAYOUT_RENDER_OUTPUT=artifacts/compact_layout_2026-11-12 flutter test --no-pub test/features/calendar/presentation/widgets/compact_layout_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 해당 폴더에 PNG를 생성한다. `_docs/SMALL_SCREEN_LAYOUT_REVIEW_2026-11-12.md`는 코드/재현/수정/검증 범위를 구분한 검토 기록이며 런타임 의존성은 없다. 최종 결과·한계·롤백은 WORKLOG를 따른다.
+
+## 메인 캘린더 남은 일정 공간과 작은 화면 경계 (2026-11-12)
+
+- 최신 정책/Behavior change: ADR-0060. 사용자 정정에 따라 아래40% 정책은 폐기했다. 일정/근무 설정 카드는 달력을 배치한 뒤 실제 본문에서 남은 높이를 Expanded로 채운다. 비율/고정280px로 정상 세로 화면의 카드 높이를 정하지 않는다.
+- 원인/흐름: 기존 본문580px 미만 전체 스크롤 분기는320x568 기기에서 본문371px보다 달력204+간격24+카드280=508px를 크게 만들어 전체를 스크롤하게 했다. 현재 LayoutBuilder는 본문 높이에서 글자 배율 기준 최소 일정144px와 기존 간격4/16px를 제외한 값을 달력의 maxHeight로 전달한다. ConstrainedBox/SingleChildScrollView는 달력이 짧으면 실제 콘텐츠 높이만 쓰고, 길면 달력만 스크롤한다. 바로 아래 일정 카드는 남는 높이를 전부 채우며 카드 하단은 탭 위16px다.144px는 최소 보호 공간이며 고정 카드 높이나 화면 비율이 아니다.
+- 예외/영향: 달력 상한이100px(기본 연월 헤더60+요일32+하단8) 미만인 매우 낮은 본문 또는 scale(16)>20의 큰 글자는 기존 전체 스크롤/scale(280) 접근성 경로를 유지한다. 일반 작은 세로 화면에는 적용하지 않는다. 기본 달력 행 높이·750px 미만2주·형식/확장·근무 설정 전환·목록 내부 스크롤·삭제 오버레이/헤더 배경은 유지한다. 친구/그룹·라우트/권한/analytics·provider/API/DB/env 변경은 없다.
+- 검증/산출물 역할·의존성·사용 예: 기존 calendar_page_test.dart는6개 크기의 남은 공간·4/5/6주 실제 탐색·형식/근무 설정과 낮은 가로/큰 글자 예외를 검증한다. 기존 `artifacts/calendar_schedule_ratio_2026-11-12/render_test.dart`를 현재 남은 공간 검증용으로 갱신했으며 같은 Flutter/Riverpod/MainTabPage/Audit fixtures/EditRenderService/번들폰트에 의존한다. `flutter test --no-pub artifacts/calendar_schedule_ratio_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`는 새 `artifacts/calendar_remaining_space_2026-11-12/`에8조건 기본·6조건 근무 설정·6주 월 전후의 PNG16개/measurements.json을 생성한다. 이전40% PNG는 당시 기록으로 보존한다. 상단47/하단34px 안전영역·정확한 MediaQuery 크기로 작은 화면의 실제 목록 스크롤/달력 고정·탭 경계와 월6주의 최소 카드144px/달력 스크롤을 확인한다.
+- 결과/한계/롤백: 최종 WORKLOG를 따른다. 실기기/VoiceOver 인수는 별도다. 이번 메인 레이아웃·검증/렌더·문서만 되돌리고 기존 미커밋 일정 편집/삭제·서버 변경은 보존한다.
+
+## 메인 캘린더 하단 일정 영역 비율 (2026-11-12, 폐기된 이전 기록)
+
+- 상태: 사용자 정정으로 ADR-0060이 대체한다. 아래40% 구현/검증은 과거 작업 기록이며 현재 정책이 아니다.
+
+- 목적/Behavior change: ADR-0059. CalendarPage의 일정/근무 설정 카드 높이는 헤더·안전영역·하단 탭을 제외한 실제 본문 LayoutBuilder 높이의40%다. 이전 달력 고정 높이 이후 남은 공간을 모두 채우던 방식과 본문580px 전환 기준을 대체한다.40%는 사용자 요구인 화면별 비율 통일을 구현하기 위해 선택한 초기 UI 값이며 지정받은 수치는 아니다.
+- 흐름/영향: 본문 Column → Expanded(달력 전용 SingleChildScrollView) → 기존4px 간격 → SizedBox(본문 높이×0.4, 일정/근무 설정 공용 슬롯) → 기존16px 하단 여백. 달력은 기존 행 높이·750px 미만2주·월/2주/주·확장/compact·월 탐색을 유지한다. 달력이 상단 슬롯보다 크면 달력만 세로 스크롤하고 일정 카드는 고정한다. 일정 목록의 내부 스크롤·삭제 토스트 오버레이·헤더 배경 고정도 유지한다. 작은 화면에서는 목록 일부만 동시에 보일 수 있고,2주/compact 달력이 짧으면 상단 슬롯 안의 여백이 늘어난다.
+- 접근성 예외:40% 높이가 textScaler.scale(144) 미만이거나 scale(16)>20이면 기존 전체 스크롤/scale(280) 카드로 전환해 헤더·목록·추가/완료 버튼 접근을 보장한다. 가로/큰 글자에서는 비율 고정보다 조작 가능성을 우선한다. 친구/그룹 공용 위젯·라우트/권한/analytics·domain state/provider 수명·API/DTO/DB/env는 변경하지 않는다.
+- 검증/파일 역할: 기존 calendar_page_test.dart는 실제 번들 폰트를 로드하고6개 화면 크기·실제 월 탐색으로4/5/6주·형식/근무 설정 전환의 카드 Rect 동일과 가로/큰 글자 fallback을 확인한다. 헤더 회귀는 일정 카드 안의 목록만 정확히 찾아 스크롤한다. 신규 `artifacts/calendar_schedule_ratio_2026-11-12/render_test.dart`는 Flutter test/Riverpod/실제 MainTabPage·기존 Audit fixtures/EditRenderService·번들폰트에 의존하는 모의 API 렌더러다. `flutter test --no-pub artifacts/calendar_schedule_ratio_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 PNG10개/measurements.json을 생성한다. 표면과 MediaQuery 크기를 일치시키고 상단47px/하단34px 안전영역을 주입한다.6개 세로 화면의40%·탭 위 배치/추가 버튼과 가로/큰 글자 예외,6주 월의 실제 탐색/달력 스크롤 전후 카드 Rect를 확인한다. 과거 렌더 산출물은 보존한다.
+- 결과/한계/롤백: 최종 검증 결과는 WORKLOG를 따른다. 실제 기기 조작/VoiceOver 인수는 별도다. 이번 메인 레이아웃·추가 검증/렌더·문서만 되돌리고 기존 미커밋 일정 입력/수정/삭제·서버 작업은 보존한다.
+
+## 캘린더 헤더 배경 고정 (2026-11-12)
+
+- 후속 범위 확대: 사용자가 친구·그룹 탭 목록도 같은 배경 고정을 요청했다. 두 목록이 공유하는 `FriendListPage.navigationBar`에 동일한 automaticBackgroundVisibility=false·backgroundColor=AppTheme.background_color·border=null을 적용한다. `친구`/`그룹 방` 제목 전환·추가/초대 액션·IndexedStack 스크롤 위치 보존·새로고침/페이지네이션·GROUP_API_ENABLED의 실제/미리보기 분기는 유지한다. 아래 네 캘린더 외에 이 목록 헤더도 ADR-0044의 자동 전환 예외다.
+- 후속 신규 검증 파일 역할/의존성/사용 예: `test/features/friend/presentation/pages/friend_list_page_test.dart`는 실제 FriendListPage·WidgetTester/Riverpod·AppTheme와20명 친구/20개 그룹을 반환하는 모의 FriendService/GroupRepository에 의존한다. 친구 목록 실제 스크롤·그룹 전환·실제 그룹 스크롤/맨 위 복귀·친구로 복귀 후 위치/헤더 보존을 확인한다. 기본 빌드는 미리보기 카드/목록 제스처와 전환을 검증하며 카드1개라 실제 양수 스크롤은 요구하지 않는다. `flutter test --no-pub test/features/friend/presentation/pages/friend_list_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 기본 경로를, 여기에 `--dart-define=GROUP_API_ENABLED=true`를 더해 실제 API 목록 경로를 검증한다. 서버 요청은 모의하며 신규 API/provider/라우트는 없다. 최종 결과/롤백은 WORKLOG의 후속 항목을 따른다.
+- 최신 정책/Behavior change: ADR-0058. CalendarPage·FriendCalendarPage·GroupCalendarPage·GroupCalendarPreviewPage는 헤더를 `AppTheme.background_color`로 고정한다. `CupertinoNavigationBar.automaticBackgroundVisibility=false`와 `border=null`을 함께 지정해 일정/구성원 목록의 세로 스크롤로 흰 재질·하단 경계선이 나타나지 않는다. 아래 ADR-0044의 공통 자동 전환 설명에 대한 캘린더 화면 예외다. 작은 화면의 메인 전체 스크롤에서도 같은 배경을 유지한다.
+- 확인된 원인: 로컬 Flutter SDK의 nav_bar.dart는 depth0 ScrollUpdateNotification의 extentBefore를 헤더 아래 스크롤 여부로 사용한다. 실제 목록과 헤더의 겹침은 확인하지 않으므로 고정 달력 아래 목록도 배경 보간을 유발했다. 디버거에서 친구 목록161.17px 이동·달력 Rect 동일·헤더 BoxDecoration의 색상/경계 변경을 확인했고 수정 전 회귀 테스트도 같은 차이로 실패했다.
+- 영향/흐름: 네 페이지의 기존 navigationBar 표시 설정만 변경한다. 공통 테마·다른 페이지의 자동 배경 전환·제목/뒤로가기/설정 버튼·기존 달력/목록/탭 구조·provider/라우트/API/DB는 유지한다. 반투명 공통색을 항상 표시하는 대신 기존 정지 상태의 불투명 배경을 사용한다.
+- 신규 파일 역할/의존성/사용 예: `test/helpers/calendar_header_assertions.dart`는 Flutter WidgetTester/Cupertino/AppTheme에 의존하는 공용 회귀 도우미다. `verifyCalendarHeaderOnScroll(tester, calendar: ..., list: ...)`로 실제 세로 스크롤과 맨 위 복귀 전후의 헤더 색상·경계/달력 Rect를 확인한다. 네 기존 페이지 테스트가 각 모의 서비스/repository와 실제 화면으로 호출한다. 실행 예: `flutter test --no-pub test/features/friend/presentation/pages/friend_calendar_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`.
+- 테스트/한계/롤백: 최종 결과는 WORKLOG 완료 항목을 따른다. 실제 기기 인수는 별도다. 이번 네 헤더 설정·추가 회귀/도우미·문서만 되돌리며 기존 미커밋 일정 편집/삭제/피커 작업은 보존한다.
+
+## 되돌리기 토스트 아래로 쓸어 닫기 (2026-11-12)
+
+- 최신 정책/목적: ADR-0057. 메인 삭제 토스트를 아래로 끌어 화면에서 숨길 수 있다. 닫기는 표시만 바꾸며 기본3초/접근성 탐색10초 뒤 DELETE 예약과 묶음 정책을 유지한다. 되돌리기 버튼만 명시적으로 미전송 삭제를 취소하며 기존 앱 비활성화/dispose/계정 전환 취소·서버 실패 복귀는 그대로다.
+- 흐름/영향: CalendarDeleteToast는 down 방향 Dismissible과 필수 onDismiss를 제공한다. 높이50% 또는 Flutter 기본 아래 fling 판정으로 닫고, 위/가로·짧은 끌기는 유지/복귀한다. 수축 없이 이동/복귀180ms·동작 줄이기0ms다. 제스처 안의 Semantics 경계로 접근성 dismiss와 메시지 liveRegion·독립 Undo 버튼을 유지한다. CalendarPage는 알림 revision별 숨김 상태를 삭제 pending map/타이머와 분리하고 추가 삭제마다 새 알림을 띄운다. 이전 알림의 늦은 닫기 콜백은 현재 알림을 숨기지 않는다. 기존 Stack 오버레이 위치·본문/카드/탭 배치는 유지하며 서버/API/DB·라우팅/provider는 바꾸지 않는다.
+- 검증/산출물 역할·의존성·사용 예: 기존 페이지 회귀에 실제 아래 끌기/버튼과의 판정·위/가로/짧은 복귀·삭제 예약/오류 복귀·추가 삭제 알림·늦은 콜백·실제 semantics dismiss/동작 줄이기 검증7개를 추가했다. 기존 입력 렌더러의 `TOAST_DISMISS_RENDER_OUTPUT` 옵션으로 실제 MainTabPage/모의 service/번들폰트에 의존하는7조건의 표시/드래그/닫힘 PNG21개와 measurements.json을 생성한다. 예: `TOAST_DISMISS_RENDER_OUTPUT=artifacts/toast_dismiss_2026-11-12 flutter test --no-pub artifacts/calendar_input_flow_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 이전 산출물은 보존하며 실제 서버 요청은 페이지 모의 테스트로 검증한다.
+- 한계/롤백: 실기기·VoiceOver 인수는 별도다. 최종 테스트/정적 분석 결과는 WORKLOG를 따른다. 이번 토스트 제스처/표시 상태·회귀/렌더 옵션·문서 추가분만 되돌리고 기존 미커밋 입력/공개 레벨/서버 작업은 보존한다.
+
 ## 날짜 확인·오늘 위치·피커 시트 끌어 닫기 (2026-11-12)
 
 - 최신 정책: ADR-0056. 아래 과거 날짜 탭 즉시 반환 설명을 대체한다. 시작/종료 행 구분·제목 완료 안내·시간 휠/종일·공개 레벨1~5는 유지한다.
@@ -34,6 +122,52 @@
 - 신규 검증 파일 역할/의존성/사용 예: `test/features/calendar/presentation/widgets/picker_sheet_drag_test.dart`는 실제 날짜/시간 팝업·Flutter WidgetTester/intl/기존 AppTheme에 의존해 손잡이/본문 충분한 끌기·짧고 빠른 복귀/값 보존·119/121px·큰글자 본문 중간·휠/달력 가로 분리를16개로 확인한다. 루트에서 `flutter test --no-pub test/features/calendar/presentation/widgets/picker_sheet_drag_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 실행한다. 기존 날짜/폼/메인 테스트는 확인 확정·오늘 위치·끌어 취소 후 폼 저장값을 검증한다.
 - 렌더 역할/의존성/사용 예: 기존 `artifacts/calendar_input_flow_2026-11-12/render_test.dart`에 PICKER_CONFIRM_RENDER_OUTPUT을 추가했다. 예: `PICKER_CONFIRM_RENDER_OUTPUT=artifacts/picker_confirm_drag_2026-11-12 flutter test --no-pub artifacts/calendar_input_flow_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 기존 MainTabPage/모의 service/번들폰트 의존성으로 PNG24개·measurements.json을 생성하며 과거 PNG는 보존한다. 토스트/날짜/시간/공개 범위와 일반 미확정 날짜·70px 드래그를 렌더하고 확인 높이/하단·오늘이 달력 위에 있는지·입력 연결/복귀·예외를 검사한다.
 - 영향/한계/롤백: 전체 Flutter362 pass/기존 skip1·관련97 pass·렌더1 pass, 변경 Dart9개 분석 진단0건/포맷 변경0건이다. 확인48px/큰글자72px·화면 내 하단·오늘 상단 위치와 예외/조작 경고0건을 확인했다. 날짜/시간/폼 연결·관련 회귀/렌더·문서만 변경했다. 기존 미커밋 서버/DB·공개 레벨1~5·토스트/일정 수정 작업은 보존한다. 최종 검증은 WORKLOG를 따른다. 실제 OS/기기/VoiceOver·서버 인수는 별도이며 전체 다크 테마나 기존 메인 글자3배 문제를 수정하지 않았다. 이번 확인/배치/공용 프레임과 관련 추가분만 되돌린다.
+
+## 개인 일정 공개 레벨1~5 (2026-11-12)
+
+- 기획/최신 정책: ADR-0055. 친구 레벨0은 근무표만 열람하며 개인 일정은1~5·기본1이다. 아래 과거0~5·모든 친구 기본 설명보다 이 정책을 우선한다. 근무표 visibility_level=0·친구 friend_level0~5와 can_view/private는 유지한다. 기존 친구 설정0의 근무표만 공유 설명은 이미 일치해 변경하지 않았다.
+- UI/흐름: PersonalEventFormModal의 생성 기본값·슬라이더 min/숫자 버튼·클램프·접근성 감소 경계를1로 바꿨다.1~5의 기존 레벨 문장을 사용하며0 옵션/모든 친구 설명을 제거했다. private 전환은 레벨을 보존한다. 기존0 일정은 읽기를 유지하고 편집 시1 이상으로 보정/저장 안내를 제공한다. 원본 모델/캐시는 저장 전까지 유지하며0→1 보정은 편집 변경에 포함된다. CalendarService 생성/수정 진입에서0/-1/6 등을400 INVALID_VISIBILITY_LEVEL로 차단해 HTTP 요청을 보내지 않는다.
+- 서버/DB: 인접 서버의 route/service·Event ORM min1/max5/default1·OpenAPI와 신규 DDL/정본 도면·로컬 AGENTS DDL을 맞췄다. 새 `restrict_event_visibility_levels.sql`은 기존 events0만1로 보정하고 default1/ck_events_visibility BETWEEN1AND5를 적용한다. transaction·lock_timeout·예상 밖 범위 preflight/재실행을 지원하고 private/소유자/ID·시각·근무표/친구 설정·공개 view는 보존한다. 역할·의존성·적용 예/배포 순서·구형 요청 호환·롤백은 [서버 공개 레벨 가이드](../../shift_calendar_server/_docs/EVENT_VISIBILITY_GUIDE.md)를 따른다. 서버 코드 배포와 SQL 적용 전에는 원격 기존0 노출이 해소된 것으로 간주하지 않는다.
+- 파일/검증: 기존 폼/서비스·폼/서비스 회귀와 캘린더 입력 렌더러를 갱신했다. 기존 렌더러는 EVENT_VISIBILITY_RENDER_OUTPUT을 지정하면 공개 범위만7조건으로 출력하고 min/max/default를 측정한다. 예: `EVENT_VISIBILITY_RENDER_OUTPUT=artifacts/personal_event_visibility_2026-11-12 flutter test --no-pub artifacts/calendar_input_flow_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 새 PNG7개/measurements.json의 역할은 실제 메인 폼에서1~5/default1과0 미노출을 시각/수치로 확인하는 것이며 기존 Flutter/Riverpod·모의 서비스/번들폰트에 의존한다. 과거 PNG는 보존했다. 루트 schema/visibility_flow.drawio는 레벨 의미만 갱신하고 기존 전체 구조 차이는 유지한다.
+- 결과/한계/롤백: 전체 Flutter343 pass/기존 skip1·폼/서비스61 pass·시각 렌더1 pass, 서버 관련 HTTP12/격리 PostgreSQL9 pass. 서버 전체의 기존17개 실패는 변경 전후 동일하고 신규 실패0개다. 상세 분석/포맷·한계는 WORKLOG를 따른다. 서버 배포/운영 SQL 적용·원격/실기기 인수/커밋·푸시는 하지 않았다. 이번 레벨 정책 관련 변경만 되돌리되 보정된 데이터와 private/ACL을 다시 공개하는 롤백은 하지 않는다.
+
+## 삭제 오버레이·개인 일정 캘린더와 입력 단계 (2026-11-12)
+
+- 최신 정책: ADR-0053/0054를 따른다. 아래 기존5초·하단 슬롯 토스트와 날짜 휠 설명은 당시 기록이며 이번3초·오버레이·캘린더 선택이 대체한다.
+- 토스트/상태: CalendarPage는 기존 본문을 Stack의 원래 크기로 배치하고 Positioned(left/right/bottom16)의 토스트를 겹친다. 본문/일정 카드·추가 버튼의 좌표/크기와 스크롤 모드가 바뀌지 않는다. 토스트 밖 터치를 막는 배리어는 없다. 기본3초/접근성 탐색10초, 묶음 되돌리기·서버 DELETE 지연·실패 복귀·계정/revision·미전송 예약 취소 수명은 기존과 같다. 사용자가 앱 종료 제약을 수용해 영속 큐는 추가하지 않는다. 토스트는 잠시 본문 일부를 덮을 수 있으며 탭 위16px 간격과 SafeArea를 지킨다.
+- 날짜/시간: 기존 DatePickerSheet 내부를 TableCalendar 월간 달력으로 교체했다. 날짜 셀을 누르면 즉시 반환하며 기존 날짜 적용 버튼은 제거했다. 요일/선택일·오늘·월 스와이프/화살표·헤더의 기존 YearMonthPickerSheet 빠른 이동과 범위 제한을 제공한다. 일요일/토요일 의미 색상을 유지하고 날짜 셀은 전체 날짜/선택/활성 상태와 탭 semantics를 제공한다. 큰 글자의 두 자리 날짜는 셀 안에서 축소해 줄바꿈/잘림을 막는다. 시간은 기존24시간 휠을 유지하며 스크롤 본문/고정 취소·적용으로 작은/가로/큰 글자에서도 조작할 수 있다. 두 피커 모두 화면 높이/안전영역과 최대폭560을 사용하고 팝업이 완전히 닫힌 뒤 값을 반환한다.
+- 입력 안내: 신규 제목의 키보드 완료 → 시작일 캘린더 → 시작 시간 휠 → 종료 시간 휠 → 공개 범위로 스크롤한다. 당일 종료를 기본으로 불필요한 종료 날짜 단계를 줄이고 여러 날 일정은 종료일에서 직접 선택한다. 종일이면 제목 완료 → 시작일 → 종료일 → 공개 범위로 시간을 건너뛴다. 직접 날짜 변경은 해당 시간만 자동으로 열며 수정 모드에 전체 생성 안내를 강제하지 않는다. 빈 제목은 오류/제목 포커스를 유지한다. 각 피커의 취소/OS 복귀는 안내를 중단하고 기존 입력을 보존한다. 신규 안내에서 시작 시각이 종료 이상이면 종료 기본값을 시작+1시간(자정 넘어가면 다음 날)으로 제안한다. 수동 입력의 시간 검증·기존 수정 시각 정밀도·종일 종료 의미는 유지한다. 피커 중복 진입/닫기와 disposed 후 후속 진입을 막는다.
+- 영향/파일 역할: CalendarPage·DatePickerSheet·TimePickerSheet·PersonalEventFormModal과 기존 페이지/날짜/폼 회귀를 갱신했다. 공용 시간 피커를 사용하는 근무 타입은 새 높이/스크롤과 전환 완료 대기를 공유하되 선택 계약은 유지한다. 서버/API DTO/DB/env·provider 수명·라우팅·analytics와 기존 미커밋 수정 기능은 보존한다. 날짜 피커는 이미 사용 중인 table_calendar와 YearMonthPickerSheet, 시간 피커는 기존 CupertinoDatePicker에 의존한다.
+- 신규 파일 역할/의존성/사용 예: `artifacts/calendar_input_flow_2026-11-12/render_test.dart`는 실제 MainTabPage·기존 Audit fixtures/모의 EditRenderService·번들폰트·Flutter test/Riverpod로 토스트와 캘린더/휠/공개 범위 PNG22개·measurements.json을 생성한다. 루트에서 `flutter test --no-pub artifacts/calendar_input_flow_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 재생성한다. 320/375/390px·큰글자2배·가로/태블릿·다크/동작줄이기에서 토스트 전후 달력·카드 Rect 동일·탭 간격·버튼 높이·예외와 실제 입력 연결을 검사한다. 과거 삭제 토스트/폼 렌더 파일과 PNG는 당시 기록으로 보존한다.
+- 검증/한계/롤백: 최종 전체331 pass/기존 skip1·관련 입력/페이지76개/렌더1개 통과, 변경 Dart8개 분석 진단0건·포맷 변경0건이다. 실제 메인7조건/PNG22개에서 예외0건·토스트 전후 달력/카드 Rect 동일과 입력 연결을 확인했다. 상세는 WORKLOG를 따른다. 실기기 키보드/VoiceOver/실서버 인수를 대체하지 않는다. 기존 메인3배 넘침과 앱 전체 다크 테마는 범위 밖이다. 이번 토스트 시간/배치·공용 피커·입력 연결 및 관련 회귀/렌더·문서 추가분만 되돌린다.
+
+## 메인 일정 삭제 토스트와 되돌리기 (2026-11-12)
+
+- 목적/Behavior change: ADR-0052에 따라 본인 개인 일정과 근무를 왼쪽 스와이프하면 즉시 메인 목록/일정 수·근무 배지에서 숨기고 `일정을 삭제했어요. / 되돌리기` 토스트를 하단 탭 위에 표시한다. 기본5초, 접근성 탐색10초이며 연속 삭제는 묶어서 표시하고 마지막 삭제부터 시간을 다시 센다. 되돌리기는 미확정 묶음 전체를 복원한다. 아래 이전 삭제 중 행 표시·즉시 DELETE 설명보다 이 정책을 우선한다.
+- 흐름/상태: CalendarPage UI pending maps → Timer → 기존 CalendarService.deleteEvent / WorkShiftService.deleteWorkShift → 성공 후 CalendarRangeNotifier.removeEvent/removeWorkShift → 그룹 캐시 무효화. 유예·요청 중 대상은 ID로 필터링하되 원본 domain 캐시는 보존한다. 여러 날짜 일정/재조회도 같은 ID를 숨긴다. 취소는 UI 필터만 제거해 원본 ID·private·시각·레벨·장소/메모·근무 schedule 참조를 보존하며 생성/복원 API를 호출하지 않는다. notifier는 진행 중 GET별 근무 변경도 보정해 늦은 응답이 성공한 삭제를 복구하지 않게 한다.
+- 수명/오류: 시간이 지나 서버 요청을 시작하면 되돌리기 토스트가 닫힌다. 실패한 항목은 다시 표시하고 오류 문자열은 중복 없이 한 다이얼로그에 모은다. EVENT_NOT_FOUND는 기존처럼 제거/안내, INVALID_EVENT_ID는 재조회다. 앱 inactive/hidden/paused/detached와 페이지 dispose는 미전송 예약을 취소하고, 계정 변경은 타이머/대기·진행 UI 상태를 비우고 revision을 증가시킨다. 이미 보낸 요청은 취소하지 못하지만 이전 계정/revision의 완료 결과는 반영하지 않는다. 메인 탭은 IndexedStack으로 유지되므로 탭 변경 중에도 카운트다운은 계속된다. 영속 삭제 큐/새 provider·라우트·analytics·서버/DB/env 변경은 없다. 근무 삭제 대기/요청 중 입력 진입만 잠가 동일 근무 재저장 경합을 막는다.
+- UI/신규 파일 역할·의존성·사용 예: `lib/features/calendar/presentation/widgets/calendar_delete_toast.dart`는 Cupertino/AppTheme만 사용하는 표시 전용 위젯이다. CalendarPage가 count/onUndo를 주입하고 타이머를 소유한다. 어두운 불투명 토큰 표면/흰 글자·최소48px 버튼·liveRegion을 사용하며 좁은 화면/큰 글자에서는 문구와 버튼을 세로로 배치한다. 메인 레이아웃의 하단 슬롯/SafeArea에 배치해 목록·추가하기·탭을 가리지 않는다. 친구/그룹 읽기 전용 화면에는 추가하지 않는다.
+- 검증/신규 산출물 역할·의존성·사용 예: 기존 calendar_page_test/calendar_range_notifier_test가 유예 경계·취소/원본 보존·재조회/다일·연속/혼합 삭제·오류/404·계정·dispose/앱 수명·접근성/레이아웃·늦은 GET을 검증한다. `artifacts/calendar_delete_undo_2026-11-12/render_test.dart`는 실제 MainTabPage·번들 Cafe24/Cupertino 폰트·Flutter test/Riverpod·기존 design_update fixtures와 personal_event_edit의 EditRenderService를 재사용해 토스트 PNG/measurements.json을 생성한다. 모의 API만 사용하며 루트에서 `flutter test --no-pub artifacts/calendar_delete_undo_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 재생성한다. 크기/배율·토스트 하단/탭 상단·버튼 높이·예외를 기록한다. 최종 전체321 pass/기존 skip1·관련40 pass·변경6개 분석 진단0건이다. 토스트 단독은 글자3배·라이트/다크/안전영역을 포함한32조건, 실제 메인 PNG7개는 글자2배까지 확인했다. 메인3배는 삭제 전부터65px 수평 넘침이 있어 기존 화면은 범위 밖으로 보존했다. 다크는 토스트 검증 범위이며 전체 앱 테마/실기기·VoiceOver/실서버 인수를 대체하지 않는다. 상세 수치와 한계는 WORKLOG를 따른다.
+- 롤백: 이번 페이지 삭제 예약/필터·토스트 위젯·근무 조회 보정·관련 회귀/렌더·문서 추가분만 되돌린다. 기존 미커밋 개인 일정 수정·API/폼과 사용자 데이터를 보존한다.
+
+## 개인 일정 탭 수정 구현 (2026-11-12)
+
+- 동작: 메인의 본인 개인 일정 행 전체를 누르면 기존 값을 채운 `개인 일정 수정` 시트를 연다. 오른쪽은 연필/수정 표시이며 왼쪽 스와이프 삭제·둥근 빨간 배경을 유지한다. 충분한 폭에서 삭제 문구, 요청 중 spinner/삭제 중·탭 차단, 스크린리더 삭제 액션을 제공한다. 근무·친구/그룹에는 편집 진입을 추가하지 않는다.
+- 흐름: CalendarPage → PersonalEventFormModal(initial_event/onUpdate) → UpdateEventRequest → CalendarService.updateEvent → PUT /events/{event_id} → CalendarRangeNotifier.replaceEvent → 목록/일정 수. 수정 응답 ID/private를 확인하고 그룹 캘린더 캐시를 무효화한다. 선택일이 새 기간에 포함되면 날짜를 유지하고 기간 밖이면 새 시작일로 이동한다. 비교 전 선택일을 날짜로 정규화한다.
+- 입력/오류: PersonalEventFormValue를 생성/수정 DTO의 공통 값으로 두고 기존 생성 onSave/CreateEventRequest 반환 계약은 보존했다. 수정 DTO는 장소/메모 null 삭제를 명시한다. 종일 배타적 종료를 표시용 종료일로 역변환하고 미변경 시각의 초/밀리초를 보존한다. 변경 없으면 저장 비활성, 저장 실패는 입력/재시도와 목록 다시 확인을 제공한다. 404는 로컬 제거·안내 후 닫는다. 저장 중 이탈/중복 차단과 기존 확인 없는120px 닫기를 유지한다.
+- 상태: replaceEvent는 구 ID를 전체 날짜에서 제거하고 새 기간에 한 번의 state로 반영한다. 진행 중 GET별 mutation 보정으로 늦은 구응답이 수정/삭제를 되돌리지 못하게 한다. refreshMonth는 필요 시 서버 목록으로 해당 범위 일정을 교체한다. 요청 완료 시 mounted/계정을 확인하며 기존 autoDispose를 유지한다.
+- UI 영향: 공용 CalendarEventItem의 시간/장소를 Wrap으로 바꿔 320px·큰 글자에서 넘침을 방지한다. 이 줄바꿈 보완은 공용 행을 쓰는 읽기 전용 화면에도 적용되지만 권한/동작은 유지한다. 무변경 저장은 보조색 라벨, 저장 중은 primary 바탕/spinner로 구분한다. ADR-0051과 [수정 API 계약](EVENT_API_GUIDE.md)을 따른다.
+- 신규 파일 역할/의존성/사용 예: `artifacts/personal_event_edit_2026-11-12/render_test.dart`는 Flutter test/Riverpod·기존 Audit 인증/친구/알림/그룹 fixtures·실제 MainTabPage/CalendarPage·번들폰트·모의 service를 사용해 목록/수정/저장오류/스와이프/삭제 중과320/375/390px·큰 글자2배·키보드inset·가로·태블릿·동작줄이기 PNG19개와 measurements.json을 생성한다. 루트에서 `flutter test --no-pub artifacts/personal_event_edit_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 재생성한다. 원격 요청은 하지 않으며 측정값은 저장 높이/하단·뷰 크기·예외를 기록한다.
+- 검증/한계/롤백: 최종 결과는 WORKLOG를 따른다. 인접 서버에 PUT·엄격한 검증·소유자/활성 조건부 UPDATE RETURNING·OpenAPI·실제 격리 PostgreSQL/HTTP 테스트를 추가했다. DB migration/env 변경은 없다. Stage/운영 배포·원격 인수/실기기·VoiceOver·다크 테마 검증은 수행하지 않았다. 수정 연결/DTO/service/cache·행 UX 보완과 관련 테스트/문서만 되돌리고 기존 폼 작업·생성/삭제/private 데이터·필터를 보존한다.
+
+## 메인 캘린더 개인 일정 탭 수정 계획 (2026-11-12)
+
+- 상태/목적: [PERSONAL_EVENT_EDIT_PLAN.md](PERSONAL_EVENT_EDIT_PLAN.md)는 구현 전 검토 기록이며 후속 구현은 상단 구현 절/ADR-0051을 따른다. 작성 당시에는 앱/서버 코드를 변경하지 않았다.
+- 확인 사실: CalendarPage의 개인 일정 행에는 삭제 Dismissible만 있고 탭이 없다. 폼은 생성 초기값/CreateEventRequest만 지원하고 Flutter 및 인접 로컬 서버에는 개인 일정 수정 API가 없다. EventApiModel에는 편집 필드가 있지만 owner/updated_at이 없으며 addEvent만으로 기간 이동 시 구 날짜 항목을 제거할 수 없다.
+- 제안/영향: 서버 PUT /events/{event_id}·JWT 소유권/soft-delete 검증·장소/메모 null 삭제·private 보존을 선행하고, 공용 폼 수정 모드·notifier 원자적 교체/늦은 GET 응답 보정·메인 탭 연결을 순서대로 구현한다. 기존 생성/삭제/근무·친구/그룹 읽기 전용·확인 없는 닫기 정책을 유지한다. 상세 API/선택일/시간·캐시/오류/인수·롤백은 계획 문서를 따른다.
+- 수정/삭제 UX 보완 제안: 개인 일정은 행 탭으로 수정하고 기존 왼쪽 스와이프 삭제를 유지한다. 개인 일정의 왼쪽 chevron은 연필+수정으로 교체하고 근무 행은 유지한다. 빨간 삭제 배경은 충분한 폭에서 삭제 텍스트를 보완하며 별도 누르기 버튼으로 바꾸지 않는다. 삭제 중 행 잠금/피드백·스크린리더 삭제 액션·짧은 스와이프 복귀/탭 충돌 인수를 계획 3.1절에 기록했다. 당시 제안은 삭제 확인창·Undo를 추가하지 않았으며, 후속 삭제 되돌리기는 ADR-0052와 상단 토스트 절을 따른다. 구현/시각 검증 전 제안 기록이다.
+- 파일 역할/의존성/사용 예: 신규 PERSONAL_EVENT_EDIT_PLAN.md는 현행 Flutter page/form/service/notifier·인접 서버 route/controller/service/OpenAPI·양쪽 drawio와 private 가이드에 근거한 공동 구현 계획이다. 구현 범위 분리·서버 계약 검토·테스트 인수에 사용하며 확정 전 제안과 확인 사실을 구분한다. 설계 확정 ADR은 구현 착수 시 추가한다.
+- 검증/롤백: 코드와 계약·문서 링크 및 diff 정합성을 확인한다. 계획 문서 작업이므로 앱 테스트/원격 수정 API 인수는 수행하지 않는다. 이번 계획 파일과 컨텍스트/작업 기록 추가분만 제거하면 된다. 기존 미커밋 변경은 보존한다.
 
 ## 누적 작업별 커밋·푸시 검증 (2026-11-11)
 

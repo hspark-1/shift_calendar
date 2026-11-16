@@ -1,5 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
+import '../../../../helpers/calendar_header_assertions.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -115,6 +117,53 @@ void main() {
   });
 
   tearDown(KoreanHolidays.resetForTesting);
+
+  testWidgets('일정 목록 스크롤이 친구 이름 헤더의 배경을 바꾸지 않는다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.now();
+    final start_at = DateTime(now.year, now.month, now.day, 12);
+    final response = CalendarRangeResponse(
+      success: true,
+      data: CalendarRangeData(
+        workShifts: const [],
+        events: List.generate(
+          20,
+          (index) => EventApiModel(
+            eventId: 'scroll-$index',
+            title: '일정 $index',
+            allDay: false,
+            startAt: start_at,
+            endAt: start_at.add(const Duration(hours: 1)),
+            visibilityLevel: 1,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      _buildTestApp(
+        screen_height: 800,
+        response: response,
+        friend: FriendModel(
+          userId: 'scroll-friend',
+          name: '스크롤 친구',
+          email: 'scroll@example.com',
+          friendLevel: 1,
+          canView: true,
+          createdAt: now,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await verifyCalendarHeaderOnScroll(
+      tester,
+      calendar: find.byKey(const ValueKey('friend-calendar')),
+      list: find.descendant(
+        of: find.byKey(const ValueKey('friend-selected-day-schedule-card')),
+        matching: find.byType(SingleChildScrollView),
+      ),
+    );
+  });
 
   testWidgets('설정 저장 후 친구 목록을 새로고침하고 최신 설정으로 재진입한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));
@@ -360,7 +409,7 @@ void main() {
     );
     expect(find.text('2개의 일정'), findsNothing);
     expect(find.text('데이'), findsOneWidget);
-    expect(find.text('06:30 ~ 15:00'), findsOneWidget);
+    expect(find.text('06:30 - 15:00'), findsOneWidget);
     expect(find.text('개인 일정'), findsOneWidget);
 
     final schedule_card = find.byKey(
@@ -374,7 +423,7 @@ void main() {
     final calendar_to_schedule_gap =
         tester.getTopLeft(schedule_card).dy -
         tester.getBottomLeft(calendar_table).dy;
-    expect(calendar_to_schedule_gap, greaterThanOrEqualTo(16));
+    expect(calendar_to_schedule_gap, 12);
 
     final schedule_card_bottom = tester.getBottomRight(schedule_card).dy;
     expect(800 - schedule_card_bottom, greaterThanOrEqualTo(16));

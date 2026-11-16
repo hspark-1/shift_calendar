@@ -60,7 +60,7 @@ void addEventToCalendarDateMap(
       event.endAt.microsecond == 0;
 
   if (ends_at_midnight) {
-    end_date = end_date.subtract(const Duration(days: 1));
+    end_date = DateTime(end_date.year, end_date.month, end_date.day - 1);
   }
   if (end_date.isBefore(start_date)) {
     end_date = start_date;
@@ -73,12 +73,16 @@ void addEventToCalendarDateMap(
     event_list.removeWhere((item) => item.eventId == event.eventId);
     event_list.add(event);
     event_list.sort((a, b) => a.startAt.compareTo(b.startAt));
-    current_date = current_date.add(const Duration(days: 1));
+    current_date = DateTime(
+      current_date.year,
+      current_date.month,
+      current_date.day + 1,
+    );
   }
 }
 
-/// 개인 일정 생성 요청
-class CreateEventRequest {
+/// 생성/수정 폼이 공통으로 다루는 편집 가능한 값.
+class PersonalEventFormValue {
   final String title;
   final String? memo;
   final String? place;
@@ -88,7 +92,7 @@ class CreateEventRequest {
   final int visibilityLevel;
   final bool isPrivate;
 
-  CreateEventRequest({
+  const PersonalEventFormValue({
     required this.title,
     this.memo,
     this.place,
@@ -97,6 +101,33 @@ class CreateEventRequest {
     required this.endAt,
     required this.visibilityLevel,
     this.isPrivate = false,
+  });
+
+  bool matchesEvent(EventApiModel event) =>
+      title == event.title.trim() &&
+      memo == _normalizeText(event.memo) &&
+      place == _normalizeText(event.place) &&
+      allDay == event.allDay &&
+      startAt.isAtSameMomentAs(event.startAt) &&
+      endAt.isAtSameMomentAs(event.endAt) &&
+      visibilityLevel == event.visibilityLevel &&
+      isPrivate == event.isPrivate;
+
+  static String? _normalizeText(String? value) =>
+      value == null || value.trim().isEmpty ? null : value.trim();
+}
+
+/// 개인 일정 생성 요청. 빈 선택정보는 기존 계약대로 생략한다.
+class CreateEventRequest extends PersonalEventFormValue {
+  const CreateEventRequest({
+    required super.title,
+    super.memo,
+    super.place,
+    required super.allDay,
+    required super.startAt,
+    required super.endAt,
+    required super.visibilityLevel,
+    super.isPrivate,
   });
 
   Map<String, dynamic> toJson() {
@@ -111,6 +142,31 @@ class CreateEventRequest {
       'is_private': isPrivate,
     };
   }
+}
+
+/// 개인 일정 전체 편집 요청. null은 기존 장소/메모 삭제를 뜻한다.
+class UpdateEventRequest extends PersonalEventFormValue {
+  const UpdateEventRequest({
+    required super.title,
+    required super.memo,
+    required super.place,
+    required super.allDay,
+    required super.startAt,
+    required super.endAt,
+    required super.visibilityLevel,
+    required super.isPrivate,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'memo': memo,
+    'place': place,
+    'all_day': allDay,
+    'start_at': startAt.toUtc().toIso8601String(),
+    'end_at': endAt.toUtc().toIso8601String(),
+    'visibility_level': visibilityLevel,
+    'is_private': isPrivate,
+  };
 }
 
 /// 일별 일정 응답 데이터

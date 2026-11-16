@@ -1,12 +1,18 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/semantics.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/korean_holidays.dart';
 import '../../../auth/presentation/pages/settings_page.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../group/application/group_calendar_provider.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
 import '../../application/calendar_range_state.dart';
 import '../controllers/calendar_viewport_controller.dart';
@@ -16,6 +22,7 @@ import '../providers/calendar_range_provider.dart';
 import '../providers/shift_types_provider.dart';
 import '../widgets/calendar_month_view.dart';
 import '../widgets/calendar_schedule_card.dart';
+import '../widgets/calendar_delete_toast.dart';
 import '../widgets/calendar_viewport.dart';
 import '../widgets/personal_event_form_modal.dart';
 import '../widgets/shift_type_button.dart';
@@ -34,7 +41,8 @@ class CalendarPage extends ConsumerStatefulWidget {
   ConsumerState<CalendarPage> createState() => _CalendarPageState();
 }
 
-class _CalendarPageState extends ConsumerState<CalendarPage> {
+class _CalendarPageState extends ConsumerState<CalendarPage>
+    with WidgetsBindingObserver {
   static final _viewport_controller = const CalendarViewportController();
 
   CalendarFormat _calendar_format = CalendarFormat.month;
@@ -58,6 +66,17 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   // 개인 일정 삭제 요청 중복 실행 방지
   final Set<String> _deleting_event_ids = {};
+  final Set<String> _deleting_work_shift_ids = {};
+  final Map<String, EventApiModel> _pending_event_deletions = {};
+  final Map<String, WorkShiftApiModel> _pending_work_shift_deletions = {};
+  Timer? _delete_timer;
+  int _deletion_revision = 0;
+  int _delete_toast_revision = 0;
+  int? _hidden_delete_toast_revision;
+  bool _personal_event_modal_open = false;
+
+  int get _pendingDeletionCount =>
+      _pending_event_deletions.length + _pending_work_shift_deletions.length;
 
   bool get _isShortScreen => MediaQuery.sizeOf(context).height < 750;
 
@@ -78,6 +97,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selected_day = _focused_day;
     // 초기 데이터 로딩
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -86,6 +106,75 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       // 미읽음 알림 개수 조회
       ref.read(notificationProvider.notifier).fetchUnreadCount();
     });
+  }
+
+  @override
+  void dispose() {
+    _delete_timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 사용자가 되돌리기를 누를 수 없는 동안에는 서버 삭제를 예약하지 않는다.
+    if (state != AppLifecycleState.resumed) _undoPendingDeletes();
+  }
+
+  void _undoPendingDeletes() {
+    _delete_timer?.cancel();
+    _delete_timer = null;
+    if (!mounted || _pendingDeletionCount == 0) return;
+    setState(() {
+      _pending_event_deletions.clear();
+      _pending_work_shift_deletions.clear();
+    });
+  }
+
+  void _schedulePendingDeletes() {
+    _delete_timer?.cancel();
+    setState(() => _delete_toast_revision++);
+    final account_id = ref.read(authProvider).user?.id;
+    final revision = _deletion_revision;
+    _delete_timer = Timer(
+      Duration(seconds: MediaQuery.accessibleNavigationOf(context) ? 10 : 3),
+      () => _commitPendingDeletes(account_id, revision),
+    );
+  }
+
+  void _dismissDeleteToast(int revision) {
+    if (!mounted || revision != _delete_toast_revision) return;
+    setState(() => _hidden_delete_toast_revision = revision);
+  }
+
+  bool _canApplyDeletion(String? account_id, int revision) =>
+      _isSameAccount(account_id) && revision == _deletion_revision;
+
+  Future<void> _commitPendingDeletes(String? account_id, int revision) async {
+    _delete_timer = null;
+    if (!_canApplyDeletion(account_id, revision)) return;
+    final events = _pending_event_deletions.values.toList();
+    final work_shifts = _pending_work_shift_deletions.values.toList();
+    final errors = <String>{};
+    final notices = <String>{};
+    setState(() {
+      _deleting_event_ids.addAll(_pending_event_deletions.keys);
+      _deleting_work_shift_ids.addAll(_pending_work_shift_deletions.keys);
+      _pending_event_deletions.clear();
+      _pending_work_shift_deletions.clear();
+    });
+    await Future.wait([
+      for (final event in events)
+        _deleteEvent(event, account_id, revision, errors, notices),
+      for (final work_shift in work_shifts)
+        _deleteWorkShift(work_shift, account_id, revision, errors),
+    ]);
+    if (!_canApplyDeletion(account_id, revision)) return;
+    if (errors.isNotEmpty) {
+      _showErrorDialog(errors.join('\n'));
+    } else if (notices.isNotEmpty) {
+      _showInformationDialog(title: '일정 삭제', message: notices.join('\n'));
+    }
   }
 
   /// 날짜 정규화 (시간 제거)
@@ -175,6 +264,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 선택된 날짜의 스케줄 반환 (하루에 하나의 근무만 반환)
   String? _getScheduleForDay(DateTime day) {
     final normalizedDate = _normalizeDate(day);
+    final work_shift = ref.read(calendarRangeProvider).workShiftFor(day);
+    if (work_shift != null && _isWorkShiftHidden(work_shift)) return null;
     return _schedules[normalizedDate] ??
         ref
             .read(calendarRangeProvider)
@@ -184,8 +275,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 선택된 날짜의 서버 근무표 반환
   WorkShiftApiModel? _getWorkShiftForDay(DateTime day) {
-    return ref.read(calendarRangeProvider).workShiftFor(day);
+    final work_shift = ref.read(calendarRangeProvider).workShiftFor(day);
+    return work_shift != null && _isWorkShiftHidden(work_shift)
+        ? null
+        : work_shift;
   }
+
+  bool _isWorkShiftHidden(WorkShiftApiModel work_shift) =>
+      _pending_work_shift_deletions.containsKey(work_shift.workShiftId) ||
+      _deleting_work_shift_ids.contains(work_shift.workShiftId);
 
   void _applyShiftTypeDisplayUpdate(ShiftTypeDisplayUpdate update) {
     final affected_work_shifts = ref
@@ -284,39 +382,148 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   }
 
   /// 개인 일정 추가 모달 표시
-  Future<void> _showPersonalEventModal() async {
+  Future<void> _showPersonalEventModal({EventApiModel? initial_event}) async {
+    if (_personal_event_modal_open ||
+        (initial_event != null &&
+            _deleting_event_ids.contains(initial_event.eventId))) {
+      return;
+    }
+    _personal_event_modal_open = true;
+    final account_id = ref.read(authProvider).user?.id;
     final initialDate = _normalizeDate(_selected_day ?? DateTime.now());
-    await showCupertinoModalPopup<CreateEventRequest>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => PersonalEventFormModal(
-        initialDate: initialDate,
-        onSave: (request) async {
-          try {
-            final event = await ref
-                .read(calendarServiceProvider)
-                .createEvent(request);
-            if (!mounted) return null;
-            final event_date = _normalizeDate(event.startAt);
-            ref.read(calendarRangeProvider.notifier).addEvent(event);
-            setState(() {
-              _selected_day = event_date;
-              _focused_day = event_date;
-            });
-            _loadCalendarData(event_date);
-            _loadHolidays(event_date.year, month: event_date.month);
-            return null;
-          } catch (error) {
-            return _getErrorMessage(error);
-          }
-        },
-      ),
-    );
+    try {
+      await showCupertinoModalPopup<CreateEventRequest>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => PersonalEventFormModal(
+          initialDate: initialDate,
+          initial_event: initial_event,
+          onUpdate: initial_event == null
+              ? null
+              : (request) async {
+                  try {
+                    final event = await ref
+                        .read(calendarServiceProvider)
+                        .updateEvent(initial_event.eventId, request);
+                    if (!_isSameAccount(account_id)) {
+                      return const EventEditSaveResult(
+                        EventEditSaveStatus.failed,
+                        message: '계정이 변경되어 저장 결과를 표시할 수 없습니다.',
+                      );
+                    }
+                    ref
+                        .read(calendarRangeProvider.notifier)
+                        .replaceEvent(event);
+                    ref.invalidate(groupCalendarRangeProvider);
+                    final selected_date = _normalizeDate(
+                      _selected_day ?? event.startAt,
+                    );
+                    final last_date = _normalizeDate(
+                      event.endAt.subtract(const Duration(microseconds: 1)),
+                    );
+                    if (selected_date.isBefore(_normalizeDate(event.startAt)) ||
+                        selected_date.isAfter(last_date)) {
+                      final event_date = _normalizeDate(event.startAt);
+                      setState(() {
+                        _selected_day = event_date;
+                        _focused_day = event_date;
+                      });
+                      _loadCalendarData(event_date);
+                      _loadHolidays(event_date.year, month: event_date.month);
+                    }
+                    return const EventEditSaveResult(EventEditSaveStatus.saved);
+                  } on ApiException catch (error) {
+                    if (!_isSameAccount(account_id)) {
+                      return const EventEditSaveResult(
+                        EventEditSaveStatus.failed,
+                        message: '계정이 변경되었습니다.',
+                      );
+                    }
+                    if (error.code == 'EVENT_NOT_FOUND') {
+                      ref
+                          .read(calendarRangeProvider.notifier)
+                          .removeEvent(initial_event.eventId);
+                      ref.invalidate(groupCalendarRangeProvider);
+                      return const EventEditSaveResult(
+                        EventEditSaveStatus.notFound,
+                        message: '이미 삭제되었거나 수정할 수 없는 일정입니다.',
+                      );
+                    }
+                    return EventEditSaveResult(
+                      EventEditSaveStatus.failed,
+                      message:
+                          error.statusCode == null ||
+                              (error.statusCode ?? 0) >= 500
+                          ? '저장 결과를 확인하지 못했어요. 다시 저장하거나 목록을 다시 확인해주세요.'
+                          : error.message,
+                    );
+                  } catch (error) {
+                    return EventEditSaveResult(
+                      EventEditSaveStatus.failed,
+                      message: _getErrorMessage(error),
+                    );
+                  }
+                },
+          onRefresh: initial_event == null
+              ? null
+              : () async {
+                  if (!_isSameAccount(account_id)) return '계정이 변경되었습니다.';
+                  final notifier = ref.read(calendarRangeProvider.notifier);
+                  await notifier.refreshMonth(_focused_day);
+                  if (!_isSameAccount(account_id)) return '계정이 변경되었습니다.';
+                  ref.invalidate(groupCalendarRangeProvider);
+                  final error = ref.read(calendarRangeProvider).last_error;
+                  return error == null ? null : _getErrorMessage(error);
+                },
+          onSave: (request) async {
+            try {
+              final event = await ref
+                  .read(calendarServiceProvider)
+                  .createEvent(request);
+              if (!_isSameAccount(account_id)) return '계정이 변경되었습니다.';
+              final event_date = _normalizeDate(event.startAt);
+              ref.read(calendarRangeProvider.notifier).addEvent(event);
+              setState(() {
+                _selected_day = event_date;
+                _focused_day = event_date;
+              });
+              _loadCalendarData(event_date);
+              _loadHolidays(event_date.year, month: event_date.month);
+              return null;
+            } catch (error) {
+              return _getErrorMessage(error);
+            }
+          },
+        ),
+      );
+    } finally {
+      _personal_event_modal_open = false;
+    }
   }
+
+  bool _isSameAccount(String? account_id) =>
+      mounted && ref.read(authProvider).user?.id == account_id;
 
   @override
   Widget build(BuildContext context) {
+    final delete_toast_revision = _delete_toast_revision;
     ref.watch(calendarRangeProvider);
+    ref.listen(authProvider.select((state) => state.user?.id), (
+      previous,
+      next,
+    ) {
+      if (previous == next) return;
+      _delete_timer?.cancel();
+      _delete_timer = null;
+      setState(() {
+        _deletion_revision++;
+        _pending_event_deletions.clear();
+        _pending_work_shift_deletions.clear();
+        _deleting_event_ids.clear();
+        _deleting_work_shift_ids.clear();
+        _schedules.clear();
+      });
+    });
     ref.listen<CalendarRangeState>(
       calendarRangeProvider,
       _onCalendarRangeChanged,
@@ -331,6 +538,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     return CupertinoPageScaffold(
       resizeToAvoidBottomInset: false,
       navigationBar: CupertinoNavigationBar(
+        // 달력 아래 일정 목록의 스크롤과 헤더 배경을 분리한다.
+        automaticBackgroundVisibility: false,
+        backgroundColor: AppTheme.background_color,
+        border: null,
         middle: const Text('캘린더'),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
@@ -346,36 +557,34 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         color: AppTheme.background_color,
         child: SafeArea(
           bottom: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final needs_scroll =
-                  constraints.maxHeight < 580 ||
-                  MediaQuery.textScalerOf(context).scale(16) > 20;
-              if (needs_scroll) {
-                return SingleChildScrollView(
-                  key: const ValueKey('main-calendar-scroll'),
-                  child: Column(
-                    children: [
-                      _buildCalendarViewport(),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: MediaQuery.textScalerOf(context).scale(280),
-                        child: _buildSelectedDayInfo(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CalendarPageBody(
+                key_prefix: 'main-calendar',
+                calendar: _buildCalendarViewport(),
+                schedule: _buildSelectedDayInfo(),
+              ),
+              if (_pendingDeletionCount > 0 &&
+                  _hidden_delete_toast_revision != delete_toast_revision)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: SafeArea(
+                    top: false,
+                    child: CalendarDeleteToast(
+                      key: ValueKey(
+                        'calendar-delete-notice-$delete_toast_revision',
                       ),
-                      const SizedBox(height: 16),
-                    ],
+                      count: _pendingDeletionCount,
+                      onUndo: _undoPendingDeletes,
+                      onDismiss: () =>
+                          _dismissDeleteToast(delete_toast_revision),
+                    ),
                   ),
-                );
-              }
-              return Column(
-                children: [
-                  _buildCalendarViewport(),
-                  const SizedBox(height: AppTheme.spacing_xs),
-                  Expanded(child: _buildSelectedDayInfo()),
-                  const SizedBox(height: AppTheme.spacing_md),
-                ],
-              );
-            },
+                ),
+            ],
           ),
         ),
       ),
@@ -406,6 +615,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         padding: EdgeInsets.zero,
         onPressed: _is_shift_add_mode
             ? _onCancelShiftAddMode
+            : _pending_work_shift_deletions.isNotEmpty ||
+                  _deleting_work_shift_ids.isNotEmpty
+            ? null
             : _startShiftAddMode,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -487,6 +699,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 근무 추가 모드 시작
   void _startShiftAddMode() {
+    // 삭제가 끝나기 전에 같은 근무를 다시 저장하는 경합을 막는다.
+    if (_pending_work_shift_deletions.isNotEmpty ||
+        _deleting_work_shift_ids.isNotEmpty) {
+      return;
+    }
     setState(() {
       // 초기 상태 저장 (깊은 복사)
       _initial_schedules = Map.from(_schedules);
@@ -679,88 +896,92 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     });
   }
 
-  /// 근무표 삭제 확인 및 서버 API 호출
-  ///
-  /// Dismissible의 confirmDismiss에서 호출됨
-  /// 성공 시 true 반환 (삭제 진행), 실패 시 false 반환 (삭제 취소)
-  Future<bool> _confirmDeleteWorkShift(DateTime? selectedDay) async {
-    if (selectedDay == null) return false;
+  /// 목록에서만 숨긴다. 원본 캐시는 삭제 성공 전까지 보존한다.
+  Future<bool> _confirmDeleteWorkShift(WorkShiftApiModel work_shift) async {
+    if (_isWorkShiftHidden(work_shift)) return false;
+    setState(() {
+      _pending_work_shift_deletions[work_shift.workShiftId] = work_shift;
+    });
+    _schedulePendingDeletes();
+    return false;
+  }
 
-    final normalizedDate = _normalizeDate(selectedDay);
-    final workShiftId = ref
-        .read(calendarRangeProvider)
-        .workShiftFor(normalizedDate)
-        ?.workShiftId;
-
-    // work_shift_id가 없으면 로컬에만 있는 데이터 (서버에 저장 안 됨)
-    if (workShiftId == null) {
-      // 로컬에서만 삭제
-      setState(() {
-        _schedules.remove(normalizedDate);
-      });
-      ref.read(calendarRangeProvider.notifier).removeWorkShift(normalizedDate);
-      return true;
-    }
-
-    try {
-      // 서버 API 호출
-      final workShiftService = ref.read(workShiftServiceProvider);
-      await workShiftService.deleteWorkShift(workShiftId);
-
-      // 성공 시 로컬 상태에서도 삭제
-      setState(() {
-        _schedules.remove(normalizedDate);
-      });
-      ref.read(calendarRangeProvider.notifier).removeWorkShift(normalizedDate);
-
-      return true;
-    } catch (e) {
-      // 실패 시 에러 표시
-      if (mounted) {
-        _showErrorDialog(_getErrorMessage(e));
-      }
+  Future<bool> _confirmDeleteEvent(EventApiModel event) async {
+    if (_personal_event_modal_open ||
+        _pending_event_deletions.containsKey(event.eventId) ||
+        _deleting_event_ids.contains(event.eventId)) {
       return false;
+    }
+    setState(() => _pending_event_deletions[event.eventId] = event);
+    _schedulePendingDeletes();
+    return false;
+  }
+
+  Future<void> _deleteWorkShift(
+    WorkShiftApiModel work_shift,
+    String? account_id,
+    int revision,
+    Set<String> errors,
+  ) async {
+    final work_shift_id = work_shift.workShiftId;
+    try {
+      await ref.read(workShiftServiceProvider).deleteWorkShift(work_shift_id);
+      if (!_canApplyDeletion(account_id, revision)) return;
+      final date = _normalizeDate(work_shift.workDate);
+      // 대기 중 새로 조회된 다른 근무를 지우지 않는다.
+      if (ref.read(calendarRangeProvider).workShiftFor(date)?.workShiftId ==
+          work_shift_id) {
+        _schedules.remove(date);
+        ref.read(calendarRangeProvider.notifier).removeWorkShift(date);
+      }
+      ref.invalidate(groupCalendarRangeProvider);
+    } catch (error) {
+      if (_canApplyDeletion(account_id, revision)) {
+        errors.add(_getErrorMessage(error));
+      }
+    } finally {
+      if (_canApplyDeletion(account_id, revision)) {
+        setState(() => _deleting_work_shift_ids.remove(work_shift_id));
+      }
     }
   }
 
-  /// 개인 일정 삭제 API 호출 및 현재 캘린더 캐시 반영
-  Future<bool> _confirmDeleteEvent(EventApiModel event) async {
+  Future<void> _deleteEvent(
+    EventApiModel event,
+    String? account_id,
+    int revision,
+    Set<String> errors,
+    Set<String> notices,
+  ) async {
     final event_id = event.eventId;
-    if (_deleting_event_ids.contains(event_id)) return false;
-
-    _deleting_event_ids.add(event_id);
     try {
-      final calendar_service = ref.read(calendarServiceProvider);
-      final deleted_event_id = await calendar_service.deleteEvent(event_id);
-      if (!mounted) return false;
-
+      final deleted_event_id = await ref
+          .read(calendarServiceProvider)
+          .deleteEvent(event_id);
+      if (!_canApplyDeletion(account_id, revision)) return;
       ref.read(calendarRangeProvider.notifier).removeEvent(deleted_event_id);
-      return true;
+      ref.invalidate(groupCalendarRangeProvider);
     } on ApiException catch (error) {
-      if (!mounted) return false;
-
+      if (!_canApplyDeletion(account_id, revision)) return;
       if (error.code == 'EVENT_NOT_FOUND') {
         ref.read(calendarRangeProvider.notifier).removeEvent(event_id);
-        _showInformationDialog(title: '일정 삭제', message: '이미 삭제된 일정입니다.');
-        return true;
-      }
-
-      if (error.code == 'INVALID_EVENT_ID') {
-        _showErrorDialog('일정 정보가 올바르지 않습니다.');
+        ref.invalidate(groupCalendarRangeProvider);
+        notices.add('이미 삭제된 일정입니다.');
+      } else if (error.code == 'INVALID_EVENT_ID') {
+        errors.add('일정 정보가 올바르지 않습니다.');
         ref.invalidate(calendarRangeProvider);
         await _loadCalendarData(_focused_day);
-        return false;
+      } else {
+        errors.add(_getErrorMessage(error));
       }
-
-      _showErrorDialog(_getErrorMessage(error));
-      return false;
     } catch (error) {
-      if (mounted) {
-        _showErrorDialog(_getErrorMessage(error));
+      if (_canApplyDeletion(account_id, revision)) {
+        errors.add(_getErrorMessage(error));
       }
-      return false;
     } finally {
-      _deleting_event_ids.remove(event_id);
+      if (_canApplyDeletion(account_id, revision)) {
+        setState(() => _deleting_event_ids.remove(event_id));
+      }
     }
   }
 
@@ -951,7 +1172,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         ? KoreanHolidays.getHolidayName(selectedDate) ?? '공휴일'
         : null;
 
-    final dayEvents = ref.read(calendarRangeProvider).eventsFor(normalizedDate);
+    final dayEvents = ref
+        .read(calendarRangeProvider)
+        .eventsFor(normalizedDate)
+        .where(
+          (event) =>
+              !_pending_event_deletions.containsKey(event.eventId) &&
+              !_deleting_event_ids.contains(event.eventId),
+        )
+        .toList(growable: false);
 
     return CalendarScheduleCard(
       key: const ValueKey('calendar-schedule-card'),
@@ -1138,11 +1367,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   /// 근무표 아이템 위젯
   Widget _buildWorkShiftItem(WorkShiftApiModel workShift, int index) {
     return Container(
+      key: ValueKey('calendar-work-shift-row-${workShift.workShiftId}'),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: _RoundedDeleteDismissible(
         dismissible_key: Key('${workShift.workShiftId}_$index'),
         delete_background_key: const ValueKey('work-shift-delete-background'),
-        confirm_dismiss: (_) => _confirmDeleteWorkShift(_selected_day),
+        confirm_dismiss: (_) => _confirmDeleteWorkShift(workShift),
+        show_delete_label: true,
         child: CalendarWorkShiftItem(
           work_shift: workShift,
           include_margin: false,
@@ -1158,19 +1389,55 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
 
   /// 개인 일정 아이템 위젯
   Widget _buildEventItem(EventApiModel event, int index) {
+    final is_deleting = _deleting_event_ids.contains(event.eventId);
+    final semantic_label = [
+      event.title,
+      event.allDay
+          ? '종일'
+          : '${DateFormat('HH:mm').format(event.startAt)}부터 ${DateFormat('HH:mm').format(event.endAt)}까지',
+      event.place,
+      event.memo,
+      '일정 수정',
+    ].whereType<String>().where((value) => value.isNotEmpty).join(', ');
+    void openEdit() => _showPersonalEventModal(initial_event: event);
     return Container(
+      key: ValueKey('calendar-event-row-${event.eventId}'),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: _RoundedDeleteDismissible(
         dismissible_key: ValueKey('event-${event.eventId}-$index'),
         delete_background_key: const ValueKey('event-delete-background'),
         confirm_dismiss: (_) => _confirmDeleteEvent(event),
-        child: CalendarEventItem(
-          event,
-          include_margin: false,
-          trailing: Icon(
-            CupertinoIcons.chevron_left,
-            size: 14,
-            color: AppTheme.outline_variant_color,
+        show_delete_label: true,
+        is_processing: is_deleting,
+        child: Semantics(
+          excludeSemantics: true,
+          button: true,
+          enabled: !is_deleting,
+          label: is_deleting ? '${event.title}, 삭제 중' : semantic_label,
+          onTap: is_deleting ? null : openEdit,
+          customSemanticsActions: is_deleting
+              ? null
+              : {
+                  const CustomSemanticsAction(label: '삭제'): () =>
+                      _confirmDeleteEvent(event),
+                },
+          child: CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(48, 48),
+            onPressed: is_deleting ? null : openEdit,
+            child: CalendarEventItem(
+              event,
+              include_margin: false,
+              trailing: ExcludeSemantics(
+                child: is_deleting
+                    ? const CupertinoActivityIndicator()
+                    : Icon(
+                        CupertinoIcons.chevron_left,
+                        size: 14,
+                        color: AppTheme.outline_variant_color,
+                      ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1184,12 +1451,16 @@ class _RoundedDeleteDismissible extends StatefulWidget {
     required this.delete_background_key,
     required this.confirm_dismiss,
     required this.child,
+    this.show_delete_label = false,
+    this.is_processing = false,
   });
 
   final Key dismissible_key;
   final Key delete_background_key;
   final Future<bool> Function(DismissDirection direction) confirm_dismiss;
   final Widget child;
+  final bool show_delete_label;
+  final bool is_processing;
 
   @override
   State<_RoundedDeleteDismissible> createState() =>
@@ -1230,9 +1501,35 @@ class _RoundedDeleteDismissibleState extends State<_RoundedDeleteDismissible> {
                 color: CupertinoColors.systemRed.withValues(alpha: 0.1),
                 borderRadius: AppTheme.input_border_radius,
               ),
-              child: const Icon(
-                CupertinoIcons.trash,
-                color: CupertinoColors.systemRed,
+              child: ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.centerRight,
+                  minWidth: 0,
+                  maxWidth: double.infinity,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.is_processing)
+                        const CupertinoActivityIndicator(
+                          color: CupertinoColors.systemRed,
+                        )
+                      else
+                        const Icon(
+                          CupertinoIcons.trash,
+                          color: CupertinoColors.systemRed,
+                        ),
+                      if (widget.show_delete_label && reveal_width >= 88) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.is_processing ? '삭제 중' : '삭제',
+                          style: AppTheme.body_small.copyWith(
+                            color: AppTheme.error_text_color,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

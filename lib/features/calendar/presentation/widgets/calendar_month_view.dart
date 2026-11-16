@@ -18,6 +18,7 @@ class CalendarMonthHeader extends StatelessWidget {
     required this.onSelectYearMonth,
     required this.trailing,
     this.onToday,
+    this.today_key,
   });
 
   final DateTime focused_day;
@@ -28,6 +29,7 @@ class CalendarMonthHeader extends StatelessWidget {
   final VoidCallback onSelectYearMonth;
   final Widget trailing;
   final VoidCallback? onToday;
+  final Key? today_key;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +47,7 @@ class CalendarMonthHeader extends StatelessWidget {
             children: [
               if (onToday != null)
                 CupertinoButton(
-                  key: const ValueKey('calendar-today-button'),
+                  key: today_key ?? const ValueKey('calendar-today-button'),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: const Size(44, 44),
                   onPressed: onToday,
@@ -59,49 +61,55 @@ class CalendarMonthHeader extends StatelessWidget {
               trailing,
             ],
           );
-          return Column(
-            mainAxisSize: MainAxisSize.min,
+          final previous_button = CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(44, 44),
+            onPressed: can_go_to_previous_month ? onPreviousMonth : null,
+            child: const Icon(CupertinoIcons.chevron_left, size: 20),
+          );
+          final next_button = CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(44, 44),
+            onPressed: can_go_to_next_month ? onNextMonth : null,
+            child: const Icon(CupertinoIcons.chevron_right, size: 20),
+          );
+          final month_button = CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: onSelectYearMonth,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(year_month, style: AppTheme.heading_small),
+                ),
+                const SizedBox(width: 4),
+                const Icon(CupertinoIcons.chevron_down, size: 12),
+              ],
+            ),
+          );
+          if (wrap_actions) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                month_button,
+                Row(
+                  children: [
+                    previous_button,
+                    next_button,
+                    const Spacer(),
+                    actions,
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
             children: [
-              Row(
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(44, 44),
-                    onPressed: can_go_to_previous_month
-                        ? onPreviousMonth
-                        : null,
-                    child: const Icon(CupertinoIcons.chevron_left, size: 20),
-                  ),
-                  Expanded(
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: onSelectYearMonth,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              year_month,
-                              style: AppTheme.heading_small,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(CupertinoIcons.chevron_down, size: 12),
-                        ],
-                      ),
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(44, 44),
-                    onPressed: can_go_to_next_month ? onNextMonth : null,
-                    child: const Icon(CupertinoIcons.chevron_right, size: 20),
-                  ),
-                  if (!wrap_actions) actions,
-                ],
-              ),
-              if (wrap_actions)
-                Align(alignment: Alignment.centerRight, child: actions),
+              previous_button,
+              Expanded(child: month_button),
+              next_button,
+              actions,
             ],
           );
         },
@@ -153,6 +161,10 @@ class CalendarMonthView<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final weekday_style = AppTheme.body_small;
+    final weekday_height =
+        MediaQuery.textScalerOf(context).scale(weekday_style.fontSize!) *
+        weekday_style.height!;
     return TableCalendar<T>(
       key: calendar_key,
       firstDay: DateTime.utc(2000, 1, 1),
@@ -161,7 +173,9 @@ class CalendarMonthView<T> extends StatelessWidget {
       calendarFormat: calendar_format,
       locale: 'ko_KR',
       headerVisible: false,
-      daysOfWeekHeight: days_of_week_height,
+      daysOfWeekHeight: weekday_height > days_of_week_height
+          ? weekday_height
+          : days_of_week_height,
       rowHeight: row_height,
       availableCalendarFormats: available_calendar_formats,
       availableGestures: AvailableGestures.horizontalSwipe,
@@ -471,13 +485,10 @@ class _CellLayoutMetrics {
         selection_box_size: 48,
         selection_box_offset_y: 8,
       ),
-      CalendarCellLayout.badge => const _CellLayoutMetrics(
+      CalendarCellLayout.badge ||
+      CalendarCellLayout.dots => const _CellLayoutMetrics(
         selection_box_size: 58,
         selection_box_offset_y: 4,
-      ),
-      CalendarCellLayout.dots => const _CellLayoutMetrics(
-        selection_box_size: 50,
-        selection_box_offset_y: 3,
       ),
     };
   }

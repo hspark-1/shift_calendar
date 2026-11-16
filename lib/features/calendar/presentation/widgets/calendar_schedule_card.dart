@@ -51,7 +51,11 @@ class CalendarScheduleCard extends StatelessWidget {
             ),
             Expanded(
               child: total_count == 0
-                  ? const SingleChildScrollView(child: CalendarEmptySchedule())
+                  ? const Center(
+                      child: SingleChildScrollView(
+                        child: CalendarEmptySchedule(),
+                      ),
+                    )
                   : SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -80,6 +84,7 @@ class CalendarScheduleCard extends StatelessWidget {
   }
 }
 
+/// 날짜/공휴일/요약을 실제 가용 폭에 맞춰 통째로 다음 줄에 배치한다.
 class CalendarScheduleHeader extends StatelessWidget {
   const CalendarScheduleHeader({
     super.key,
@@ -87,108 +92,87 @@ class CalendarScheduleHeader extends StatelessWidget {
     this.holiday_name,
     this.total_count,
     this.trailing,
+    this.summary_chips = const [],
+    this.header_key = const ValueKey('selected-day-header'),
+    this.summary_key,
   });
 
   final DateTime selected_date;
   final String? holiday_name;
   final int? total_count;
   final Widget? trailing;
+  final List<CalendarScheduleSummaryChip> summary_chips;
+  final Key header_key;
+  final Key? summary_key;
 
   @override
   Widget build(BuildContext context) {
+    final summaries = <Widget>[
+      ...summary_chips,
+      if (total_count != null)
+        CalendarScheduleSummaryChip(
+          key: const ValueKey('selected-day-schedule-count'),
+          label: '일정 $total_count개',
+        ),
+      if (trailing != null) trailing!,
+    ];
     return Container(
-      key: const ValueKey('selected-day-header'),
+      key: header_key,
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spacing_md,
         vertical: AppTheme.spacing_sm,
       ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
         ),
       ),
-      child: MediaQuery.textScalerOf(context).scale(16) > 20
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  DateFormat('M월 d일 EEEE', 'ko_KR').format(selected_date),
-                  style: AppTheme.heading_small,
-                ),
-                if (holiday_name != null)
-                  Text(
-                    holiday_name!,
-                    style: AppTheme.body_medium.copyWith(
-                      color: AppTheme.accent_red_color,
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (total_count != null)
-                      CalendarScheduleSummaryChip(label: '일정 $total_count개'),
-                    if (trailing != null) trailing!,
-                  ],
-                ),
-              ],
-            )
-          : SizedBox(
-              height: 28,
-              child: Row(
-                key: const ValueKey('selected-day-header-content'),
-                crossAxisAlignment: CrossAxisAlignment.end,
+      child: Wrap(
+        key: const ValueKey('selected-day-header-content'),
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        spacing: AppTheme.spacing_sm,
+        runSpacing: AppTheme.spacing_sm,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 28),
+            child: Align(
+              alignment: AlignmentDirectional.bottomStart,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Wrap(
+                key: const ValueKey('selected-day-title-content'),
+                crossAxisAlignment: WrapCrossAlignment.end,
+                spacing: AppTheme.spacing_sm,
+                runSpacing: AppTheme.spacing_xs,
                 children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 28,
-                      child: Row(
-                        key: const ValueKey('selected-day-title-content'),
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            DateFormat(
-                              'M월 d일 EEEE',
-                              'ko_KR',
-                            ).format(selected_date),
-                            style: AppTheme.heading_small,
-                          ),
-                          if (holiday_name != null) ...[
-                            const SizedBox(width: AppTheme.spacing_sm),
-                            Flexible(
-                              child: Text(
-                                holiday_name!,
-                                key: const ValueKey(
-                                  'selected-day-holiday-name',
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTheme.body_small.copyWith(
-                                  color: AppTheme.accent_red_color,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                  Text(
+                    DateFormat('M월 d일 EEEE', 'ko_KR').format(selected_date),
+                    style: AppTheme.heading_small,
+                  ),
+                  if (holiday_name != null)
+                    Text(
+                      holiday_name!,
+                      key: const ValueKey('selected-day-holiday-name'),
+                      style: AppTheme.body_small.copyWith(
+                        color: AppTheme.accent_red_color,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
-                  if (total_count != null) ...[
-                    const SizedBox(width: AppTheme.spacing_sm),
-                    CalendarScheduleSummaryChip(
-                      key: const ValueKey('selected-day-schedule-count'),
-                      label: '일정 $total_count개',
-                    ),
-                  ],
-                  if (trailing != null) ...[
-                    const SizedBox(width: AppTheme.spacing_sm),
-                    trailing!,
-                  ],
                 ],
               ),
             ),
+          ),
+          if (summaries.isNotEmpty)
+            Wrap(
+              key: summary_key,
+              spacing: 6,
+              runSpacing: AppTheme.spacing_sm,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              children: summaries,
+            ),
+        ],
+      ),
     );
   }
 }
@@ -226,6 +210,38 @@ class CalendarScheduleSummaryChip extends StatelessWidget {
   }
 }
 
+/// 근무·개인 일정·그룹 구성원 행이 공유하는 색상과 간격.
+class CalendarScheduleItem extends StatelessWidget {
+  const CalendarScheduleItem({
+    super.key,
+    required this.color,
+    required this.child,
+    this.include_margin = true,
+  });
+
+  final Color color;
+  final Widget child;
+  final bool include_margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: AppTheme.input_border_radius,
+        border: Border(left: BorderSide(color: color, width: 4)),
+      ),
+      child: child,
+    );
+    if (!include_margin) return item;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: item,
+    );
+  }
+}
+
 class CalendarWorkShiftItem extends StatelessWidget {
   const CalendarWorkShiftItem({
     super.key,
@@ -241,13 +257,9 @@ class CalendarWorkShiftItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(work_shift.shiftTypeColor ?? 0xFF8E8E93);
-    final item = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: AppTheme.input_border_radius,
-        border: Border(left: BorderSide(color: color, width: 4)),
-      ),
+    return CalendarScheduleItem(
+      color: color,
+      include_margin: include_margin,
       child: Row(
         children: [
           Container(
@@ -281,12 +293,6 @@ class CalendarWorkShiftItem extends StatelessWidget {
         ],
       ),
     );
-
-    if (!include_margin) return item;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: item,
-    );
   }
 }
 
@@ -308,15 +314,9 @@ class CalendarEventItem extends StatelessWidget {
         ? '종일'
         : '${DateFormat('HH:mm', 'ko_KR').format(event.startAt)} - ${DateFormat('HH:mm', 'ko_KR').format(event.endAt)}';
 
-    final item = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.primary_color.withValues(alpha: 0.08),
-        borderRadius: AppTheme.input_border_radius,
-        border: const Border(
-          left: BorderSide(color: AppTheme.primary_color, width: 4),
-        ),
-      ),
+    return CalendarScheduleItem(
+      color: AppTheme.primary_color,
+      include_margin: include_margin,
       child: Row(
         children: [
           Container(
@@ -340,7 +340,9 @@ class CalendarEventItem extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     Text(
                       time_text,
@@ -349,15 +351,12 @@ class CalendarEventItem extends StatelessWidget {
                       ),
                     ),
                     if (event.place != null && event.place!.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          '• ${event.place}',
-                          style: AppTheme.body_small.copyWith(
-                            color: AppTheme.on_surface_variant_color,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        '• ${event.place}',
+                        style: AppTheme.body_small.copyWith(
+                          color: AppTheme.on_surface_variant_color,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
@@ -379,12 +378,6 @@ class CalendarEventItem extends StatelessWidget {
           if (trailing != null) trailing!,
         ],
       ),
-    );
-
-    if (!include_margin) return item;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: item,
     );
   }
 }
@@ -423,7 +416,7 @@ String formatWorkShiftTime(WorkShiftApiModel work_shift) {
   if (work_shift.startTime == null || work_shift.endTime == null) {
     return '근무없음';
   }
-  return '${formatApiTime(work_shift.startTime!)} ~ ${formatApiTime(work_shift.endTime!)}';
+  return '${formatApiTime(work_shift.startTime!)} - ${formatApiTime(work_shift.endTime!)}';
 }
 
 String formatApiTime(String time) {

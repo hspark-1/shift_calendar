@@ -34,7 +34,7 @@
           <mxGeometry x="340" y="310" width="450" height="110" as="geometry"/>
         </mxCell>
 
-        <mxCell id="gate_level" value="Gate C&#10;friend_level >= visibility_level ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+        <mxCell id="gate_level" value="Gate C&#10;friend_level >= visibility_level ?&#10;개인 일정1~5, 친구 레벨0은 근무표만" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="830" y="330" width="320" height="110" as="geometry"/>
         </mxCell>
 

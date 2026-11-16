@@ -2,7 +2,66 @@
 
 import 'package:flutter/cupertino.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import 'calendar_month_view.dart';
+
+/// 달력 뒤 남은 공간을 일정에 배정하고 좁은 높이·확대 글자를 처리한다.
+class CalendarPageBody extends StatelessWidget {
+  const CalendarPageBody({
+    super.key,
+    required this.calendar,
+    required this.schedule,
+    required this.key_prefix,
+  });
+
+  final Widget calendar;
+  final Widget schedule;
+  final String key_prefix;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      key: ValueKey('$key_prefix-layout'),
+      builder: (context, constraints) {
+        final text_scaler = MediaQuery.textScalerOf(context);
+        final calendar_max_height =
+            constraints.maxHeight -
+            text_scaler.scale(144) -
+            AppTheme.spacing_xs -
+            AppTheme.spacing_md;
+        final needs_scroll =
+            calendar_max_height < 100 || text_scaler.scale(16) > 20;
+        if (needs_scroll) {
+          return SingleChildScrollView(
+            key: ValueKey('$key_prefix-scroll'),
+            child: Column(
+              children: [
+                calendar,
+                const SizedBox(height: AppTheme.spacing_sm),
+                SizedBox(height: text_scaler.scale(280), child: schedule),
+                const SizedBox(height: AppTheme.spacing_md),
+              ],
+            ),
+          );
+        }
+        return Column(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: calendar_max_height),
+              child: SingleChildScrollView(
+                key: ValueKey('$key_prefix-grid-scroll'),
+                child: calendar,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacing_xs),
+            Expanded(child: schedule),
+            const SizedBox(height: AppTheme.spacing_md),
+          ],
+        );
+      },
+    );
+  }
+}
 
 /// 세 캘린더가 공유하는 연월 헤더와 수평 스와이프 경계.
 ///
@@ -21,6 +80,7 @@ class CalendarViewport extends StatelessWidget {
     this.grid_wrapper,
     this.header_key,
     this.onToday,
+    this.today_key,
   });
 
   final DateTime focused_day;
@@ -34,6 +94,7 @@ class CalendarViewport extends StatelessWidget {
   final Widget Function(Widget child)? grid_wrapper;
   final Key? header_key;
   final VoidCallback? onToday;
+  final Key? today_key;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +118,7 @@ class CalendarViewport extends StatelessWidget {
             onSelectYearMonth: onSelectYearMonth,
             trailing: trailing,
             onToday: onToday,
+            today_key: today_key,
           ),
         ),
         calendar_grid,

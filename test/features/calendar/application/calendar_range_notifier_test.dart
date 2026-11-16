@@ -19,6 +19,128 @@ WorkShiftApiModel _workShift(DateTime date, {String id = 'shift-1'}) {
 }
 
 void main() {
+  EventApiModel eventAt(
+    String id,
+    DateTime start,
+    DateTime end, {
+    String title = '약속',
+  }) => EventApiModel(
+    eventId: id,
+    title: title,
+    allDay: true,
+    startAt: start,
+    endAt: end,
+    visibilityLevel: 2,
+    isPrivate: true,
+  );
+
+  test('수정 기간 이동/축소는 모든 구 날짜에서 제거하고 다른 일정과 근무를 보존한다', () {
+    final notifier = CalendarRangeNotifier(
+      loader: ({required start_date, required end_date}) async =>
+          CalendarRangeData(workShifts: [], events: []),
+    );
+    final old = eventAt('edit', DateTime(2026, 11, 29), DateTime(2026, 12, 3));
+    final other = eventAt(
+      'other',
+      DateTime(2026, 12, 1),
+      DateTime(2026, 12, 2),
+    );
+    notifier.addEvent(old);
+    notifier.addEvent(other);
+    notifier.upsertWorkShifts([_workShift(DateTime(2026, 12, 1))]);
+    final updated = eventAt(
+      'edit',
+      DateTime(2026, 12, 1),
+      DateTime(2026, 12, 2),
+      title: '수정',
+    );
+    notifier.replaceEvent(updated);
+    expect(notifier.state.eventsFor(DateTime(2026, 11, 29)), isEmpty);
+    expect(notifier.state.eventsFor(DateTime(2026, 12, 2)), isEmpty);
+    expect(
+      notifier.state
+          .eventsFor(DateTime(2026, 12, 1))
+          .map((event) => event.eventId),
+      ['other', 'edit'],
+    );
+    expect(notifier.state.workShiftFor(DateTime(2026, 12, 1)), isNotNull);
+    notifier.dispose();
+  });
+
+  for (final delete in [false, true]) {
+    test('늦은 GET이 ${delete ? '삭제 근무' : '이전 근무'}를 복원하지 않는다', () async {
+      final response = Completer<CalendarRangeData>();
+      final notifier = CalendarRangeNotifier(
+        loader: ({required start_date, required end_date}) => response.future,
+      );
+      final date = DateTime(2026, 11, 12);
+      final old = _workShift(date);
+      final updated = _workShift(date, id: 'updated-shift');
+      final load = notifier.ensureMonthLoaded(date);
+      notifier.upsertWorkShifts([updated]);
+      if (delete) notifier.removeWorkShift(date);
+      response.complete(CalendarRangeData(workShifts: [old], events: []));
+      await load;
+      expect(
+        notifier.state.workShiftFor(date),
+        delete ? isNull : same(updated),
+      );
+      notifier.dispose();
+    });
+
+    test(
+      'mutation 이후 도착한 GET이 ${delete ? '삭제 일정' : '수정 이전 값'}을 복원하지 않는다',
+      () async {
+        final response = Completer<CalendarRangeData>();
+        final notifier = CalendarRangeNotifier(
+          loader: ({required start_date, required end_date}) => response.future,
+        );
+        final old = eventAt(
+          'edit',
+          DateTime(2026, 11, 12),
+          DateTime(2026, 11, 15),
+        );
+        final load = notifier.ensureMonthLoaded(DateTime(2026, 11));
+        final updated = eventAt(
+          'edit',
+          DateTime(2026, 12, 1),
+          DateTime(2026, 12, 2),
+        );
+        notifier.replaceEvent(updated);
+        if (delete) notifier.removeEvent('edit');
+        response.complete(CalendarRangeData(workShifts: [], events: [old]));
+        await load;
+        expect(notifier.state.eventsFor(DateTime(2026, 11, 12)), isEmpty);
+        expect(
+          notifier.state.eventsFor(DateTime(2026, 12, 1)),
+          delete ? isEmpty : [updated],
+        );
+        notifier.dispose();
+      },
+    );
+  }
+
+  test('목록 재확인은 서버에서 사라진 일정의 다일 캐시를 제거한다', () async {
+    var calls = 0;
+    final event = eventAt(
+      'edit',
+      DateTime(2026, 11, 12),
+      DateTime(2026, 11, 15),
+    );
+    final notifier = CalendarRangeNotifier(
+      loader: ({required start_date, required end_date}) async =>
+          CalendarRangeData(
+            workShifts: [],
+            events: calls++ == 0 ? [event] : [],
+          ),
+    );
+    await notifier.ensureMonthLoaded(DateTime(2026, 11));
+    await notifier.refreshMonth(DateTime(2026, 11));
+    expect(calls, 2);
+    expect(notifier.state.events_by_date, isEmpty);
+    notifier.dispose();
+  });
+
   test('같은 월의 중복 요청을 하나로 합치고 3개월 데이터를 병합한다', () async {
     final completer = Completer<CalendarRangeData>();
     var request_count = 0;

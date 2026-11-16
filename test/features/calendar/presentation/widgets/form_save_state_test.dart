@@ -93,10 +93,6 @@ void main() {
       ),
     );
     await tester.enterText(find.byType(CupertinoTextField).first, '야간 근무 후 약속');
-    final details = find.byKey(const Key('personal-event-details-toggle'));
-    await tester.ensureVisible(details);
-    await tester.tap(details);
-    await tester.pumpAndSettle();
     final memo = find.byKey(const Key('personal-event-memo-field'));
     await tester.enterText(memo, '보존할 메모');
     await tester.tap(find.text('일정 저장'));
