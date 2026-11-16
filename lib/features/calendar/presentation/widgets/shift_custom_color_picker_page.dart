@@ -308,10 +308,9 @@ class _ShiftCustomColorPickerPageState
         backgroundColor: AppTheme.background_color,
         navigationBar: CupertinoNavigationBar(
           automaticallyImplyLeading: false,
+          automaticBackgroundVisibility: false,
           backgroundColor: AppTheme.background_color,
-          border: const Border(
-            bottom: BorderSide(color: AppTheme.outline_variant_color, width: 1),
-          ),
+          border: null,
           leading: CupertinoButton(
             key: const Key('shift_custom_color_back_button'),
             minimumSize: const Size(44, 44),
@@ -355,31 +354,53 @@ class _ShiftCustomColorPickerPageState
               constraints: const BoxConstraints(maxWidth: 480),
               child: AbsorbPointer(
                 absorbing: _is_completing,
-                child: Column(
-                  children: [
-                    if (MediaQuery.viewInsetsOf(context).bottom == 0)
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Column(
+                    children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        child: _buildPreviewSection(),
-                      ),
-                    Expanded(
-                      child: ListView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          16,
-                          16,
-                          bottom_safe_area + 24,
+                        padding: const EdgeInsets.all(16),
+                        child: _buildPreviewSection(
+                          compact: constraints.maxHeight < 420,
                         ),
-                        children: [
-                          _buildColorControlsCard(),
-                          const SizedBox(height: 24),
-                          _buildRecentColorsSection(),
-                        ],
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: Container(
+                          key: const Key('shift_custom_color_controls_panel'),
+                          margin: EdgeInsets.fromLTRB(
+                            16,
+                            0,
+                            16,
+                            bottom_safe_area + 24,
+                          ),
+                          decoration: AppTheme.cardDecoration(),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.card_radius,
+                            ),
+                            child: SingleChildScrollView(
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildColorControlsCard(),
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      24,
+                                    ),
+                                    child: _buildRecentColorsSection(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -389,16 +410,26 @@ class _ShiftCustomColorPickerPageState
     );
   }
 
-  Widget _buildPreviewSection() {
+  Widget _buildPreviewSection({required bool compact}) {
+    final details = [
+      const Text('적용될 색상', style: AppTheme.body_medium),
+      if (!compact) const SizedBox(height: 4),
+      Text(
+        '#${_storageValueForColor(_selected_color)}',
+        key: const Key('shift_custom_color_final_hex'),
+        style: AppTheme.body_large,
+      ),
+    ];
     return Container(
-      padding: const EdgeInsets.all(16),
+      key: const Key('shift_custom_color_preview_card'),
+      padding: EdgeInsets.all(compact ? 12 : 16),
       decoration: AppTheme.cardDecoration(),
       child: Row(
         children: [
           Container(
             key: const Key('shift_custom_color_preview'),
-            width: 56,
-            height: 56,
+            width: compact ? 32 : 56,
+            height: compact ? 32 : 56,
             decoration: BoxDecoration(
               color: _selected_color,
               borderRadius: BorderRadius.circular(AppTheme.input_radius),
@@ -407,18 +438,17 @@ class _ShiftCustomColorPickerPageState
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('적용될 색상', style: AppTheme.body_medium),
-                const SizedBox(height: 4),
-                Text(
-                  '#${_storageValueForColor(_selected_color)}',
-                  key: const Key('shift_custom_color_final_hex'),
-                  style: AppTheme.body_large,
-                ),
-              ],
-            ),
+            child: compact
+                ? Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: details,
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: details,
+                  ),
           ),
         ],
       ),
@@ -429,7 +459,6 @@ class _ShiftCustomColorPickerPageState
     return Container(
       key: const Key('shift_custom_color_wheel_card'),
       padding: const EdgeInsets.all(16),
-      decoration: AppTheme.cardDecoration(),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final wheel_size = math.min(200.0, constraints.maxWidth - 24);
@@ -768,7 +797,7 @@ class _ShiftCustomColorPickerPageState
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('옅게', style: AppTheme.body_medium),
-            Text('원래 색', style: AppTheme.body_medium),
+            Text('짙게', style: AppTheme.body_medium),
           ],
         ),
       ],

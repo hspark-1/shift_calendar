@@ -704,7 +704,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('22:30 – 다음 날 07:00'), findsOneWidget);
+    expect(find.text('22:30 - 다음 날 07:00'), findsOneWidget);
     await tester.ensureVisible(
       find.byKey(const Key('shift_type_duration_summary')),
     );

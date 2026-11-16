@@ -61,6 +61,109 @@ void main() {
     });
   });
 
+  for (final scenario in [
+    (size: const Size(320, 568), text_scale: 1.0, keyboard: 0.0),
+    (size: const Size(375, 667), text_scale: 1.0, keyboard: 0.0),
+    (size: const Size(667, 375), text_scale: 1.0, keyboard: 0.0),
+    (size: const Size(375, 667), text_scale: 3.2, keyboard: 0.0),
+    (size: const Size(768, 1024), text_scale: 1.0, keyboard: 0.0),
+    (size: const Size(320, 568), text_scale: 1.0, keyboard: 240.0),
+  ]) {
+    testWidgets('적용색은 고정되고 독립 패널 안에서 조절한다 $scenario', (tester) async {
+      await tester.binding.setSurfaceSize(scenario.size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        CupertinoApp(
+          theme: AppTheme.lightTheme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: const EdgeInsets.only(top: 20, bottom: 34),
+              textScaler: TextScaler.linear(scenario.text_scale),
+              viewInsets: EdgeInsets.only(bottom: scenario.keyboard),
+              disableAnimations: true,
+            ),
+            child: child!,
+          ),
+          home: const ShiftCustomColorPickerPage(
+            initial_color: Color(0xFFF5A623),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final preview = find.byKey(const Key('shift_custom_color_preview_card'));
+      final header_background = find
+          .descendant(
+            of: find.byType(CupertinoNavigationBar),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is DecoratedBox &&
+                  widget.decoration is BoxDecoration &&
+                  (widget.decoration as BoxDecoration).color != null,
+            ),
+          )
+          .first;
+      final initial_header =
+          tester.widget<DecoratedBox>(header_background).decoration
+              as BoxDecoration;
+      expect(initial_header.color, AppTheme.background_color);
+      expect(initial_header.border, isNull);
+      final panel = find.byKey(const Key('shift_custom_color_controls_panel'));
+      final controls = find.byKey(const Key('shift_custom_color_wheel_card'));
+      final initial_preview_rect = tester.getRect(preview);
+      final initial_panel_rect = tester.getRect(panel);
+      final initial_controls_y = tester.getTopLeft(controls).dy;
+      expect(initial_panel_rect.top - initial_preview_rect.bottom, 16);
+      final scroll = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+
+      // 휠/슬라이더 밖의 본문에서 실제 세로 드래그한다.
+      final viewport = find
+          .ancestor(of: controls, matching: find.byType(Scrollable))
+          .first;
+      final viewport_rect = tester.getRect(viewport);
+      await tester.dragFrom(
+        Offset(viewport_rect.left + 4, viewport_rect.center.dy),
+        const Offset(0, -40),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.pixels, greaterThan(0));
+      expect(
+        tester.widget<DecoratedBox>(header_background).decoration,
+        initial_header,
+      );
+      expect(tester.getRect(preview), initial_preview_rect);
+      expect(tester.getRect(panel), initial_panel_rect);
+      expect(
+        initial_controls_y - tester.getTopLeft(controls).dy,
+        closeTo(scroll.pixels, 0.01),
+      );
+
+      scroll.jumpTo(scroll.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<DecoratedBox>(header_background).decoration,
+        initial_header,
+      );
+      expect(
+        find.byKey(const Key('shift_custom_color_recent_5')).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('shift_custom_color_recent_5')));
+      await tester.pumpAndSettle();
+      expect(find.text('#BA1A1A').hitTestable(), findsOneWidget);
+      expect(tester.getRect(preview), initial_preview_rect);
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<DecoratedBox>(header_background).decoration,
+        initial_header,
+      );
+      expect(tester.getRect(preview), initial_preview_rect);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('시안의 전체 화면 구조와 초기 색상 정보를 표시한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -129,7 +232,7 @@ void main() {
       find.byType(Scrollable).first,
     );
     expect(scroll_state.position.maxScrollExtent, greaterThanOrEqualTo(0));
-    await tester.dragFrom(const Offset(8, 500), const Offset(0, -1200));
+    await tester.dragFrom(const Offset(20, 500), const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(scroll_state.position.pixels, greaterThanOrEqualTo(0));
     expect(find.text('최근 사용한 색상'), findsOneWidget);
@@ -225,7 +328,7 @@ void main() {
     expect(scroll.pixels, initial_scroll);
     await gesture.cancel();
     await tester.pumpAndSettle();
-    await tester.dragFrom(const Offset(8, 400), const Offset(0, -80));
+    await tester.dragFrom(const Offset(20, 400), const Offset(0, -80));
     await tester.pumpAndSettle();
     expect(scroll.pixels, greaterThan(0));
     final current_scroll = scroll.pixels;
@@ -371,7 +474,7 @@ void main() {
     await tester.pumpWidget(buildCustomPickerApp());
     await tester.pumpAndSettle();
 
-    await tester.dragFrom(const Offset(8, 500), const Offset(0, -1200));
+    await tester.dragFrom(const Offset(20, 500), const Offset(0, -1200));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_custom_color_recent_2')));
     await tester.pump();
@@ -398,7 +501,7 @@ void main() {
 
     await tester.pumpWidget(buildCustomPickerApp());
     await tester.pumpAndSettle();
-    await tester.dragFrom(const Offset(8, 500), const Offset(0, -1200));
+    await tester.dragFrom(const Offset(20, 500), const Offset(0, -1200));
     await tester.pumpAndSettle();
 
     expect(
@@ -494,7 +597,7 @@ void main() {
     );
     await tester.tap(find.text('커스텀 열기'));
     await tester.pumpAndSettle();
-    await tester.dragFrom(const Offset(8, 500), const Offset(0, -1400));
+    await tester.dragFrom(const Offset(20, 500), const Offset(0, -1400));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_custom_color_recent_0')));
     await tester.pump();
@@ -536,7 +639,7 @@ void main() {
     });
     await tester.pumpWidget(buildCustomPickerApp());
     await tester.pumpAndSettle();
-    await tester.dragFrom(const Offset(8, 500), const Offset(0, -1400));
+    await tester.dragFrom(const Offset(20, 500), const Offset(0, -1400));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_custom_color_recent_0')));
     await tester.pump();
@@ -573,10 +676,23 @@ void main() {
         .state<ScrollableState>(find.byType(Scrollable).first)
         .position;
     final initial_scroll = scroll.pixels;
-    await tester.tap(slider);
+    final gesture_area = find.byKey(
+      const Key('shift_color_intensity_gesture_area'),
+    );
+    final preview = find.byKey(const Key('shift_custom_color_preview'));
+    final initial_preview_rect = tester.getRect(preview);
+    final initial_color =
+        (tester.widget<Container>(preview).decoration! as BoxDecoration).color;
+    await tester.tap(gesture_area);
     await tester.pumpAndSettle();
     expect(tester.widget<CupertinoSlider>(slider).value, closeTo(0.5, 0.02));
-    await tester.drag(slider, const Offset(40, 0));
+    expect(preview.hitTestable(), findsOneWidget);
+    expect(tester.getRect(preview), initial_preview_rect);
+    expect(
+      (tester.widget<Container>(preview).decoration! as BoxDecoration).color,
+      isNot(initial_color),
+    );
+    await tester.drag(gesture_area, const Offset(40, 0));
     await tester.pumpAndSettle();
     expect(tester.widget<CupertinoSlider>(slider).value, greaterThan(0.5));
     expect(scroll.pixels, initial_scroll);
@@ -634,7 +750,7 @@ void main() {
 
     await tester.tap(find.text('커스텀 열기'));
     await tester.pumpAndSettle();
-    await tester.dragFrom(const Offset(8, 500), const Offset(0, -1200));
+    await tester.dragFrom(const Offset(20, 500), const Offset(0, -1200));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('shift_custom_color_recent_4')));
     await tester.pump();

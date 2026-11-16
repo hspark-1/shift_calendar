@@ -42,10 +42,7 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
         automaticallyImplyLeading: false,
-        backgroundColor: AppTheme.background_color,
-        border: const Border(
-          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 1),
-        ),
+        border: null,
         leading: CupertinoButton(
           minimumSize: const Size(40, 40),
           padding: EdgeInsets.zero,

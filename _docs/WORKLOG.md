@@ -86,6 +86,22 @@
 
 ## 2026-11-12
 
+- [DONE] (FE/UI) 커스텀 색상 헤더의 스크롤 배경 고정
+  - 목적: 헤더와 겹치지 않는 독립 패널 스크롤에도 헤더가 흰색으로 변하는 현상을 메인·친구 목록과 같은 정책으로 맞춘다.
+  - 변경/Behavior change: 커스텀 navigationBar에 automaticBackgroundVisibility=false·backgroundColor=AppTheme.background_color를 추가하고 border=null을 유지했다. 기존 미리보기/패널·색상/저장 동작과 다른 상세 화면 헤더는 보존한다. 신규 파일/상태/의존성·API/DB/env 변경은 없다.
+  - 파일/문서: 기존 커스텀 페이지/회귀와 header_background 렌더러의 커스텀 기대값·PROJECT_CONTEXT·ADR-0058 후속 결정·이번 일지. 기존 미커밋 변경을 보존했다.
+  - 테스트: 수정 전6조건 모두 실제 드래그 후 #FFF8F9FB→#E6FFFFFF 전환으로 실패해 제보를 재현했다. 수정 후 색상/커스텀30 pass,6조건(작은/가로/글자3.2배/키보드/태블릿)에서 스크롤·최하단·맨 위 복귀의 렌더된 배경/경계 불변을 확인했다. 변경 Dart3개 분석 진단0건·포맷/diff 검사 통과.
+  - 렌더/한계: 기존 헤더 렌더러의 임시 사본 /private/tmp/shift_custom_header_fixed_render_test.dart로1 pass. /private/tmp/shift_custom_header_fixed_2026-11-12의PNG22개/측정 JSON에서375x667·667x375의 커스텀 헤더가 전후 #FFF8F9FB로 동일하고 Flutter 예외0건임을 확인했다. 작은 화면 스크롤 후 PNG를 직접 확인했다. 기존 렌더 산출물은 당시 기록으로 보존한다. 전체 suite·실기기·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 헤더 속성·검증·문서 추가분만 되돌린다.
+
+- [DONE] (FE/UX) 조절 중 적용색 상시 표시와 스크롤 패널 경계 정리
+  - 목적: 사용자 정정에 따라 최종색을 보면서 휠/RGB/농도를 조절할 수 있게 한다.
+  - 변경/Behavior change: 미리보기를 상단 고정으로 복구하고 키보드 시에도 숨기지 않는다. 미리보기와16px 간격으로 분리된 둥근 패널 안에서만 기준색/휠/RGB/농도/최근 색상을 스크롤한다. 외곽 테두리/클리핑은 고정해 이동 카드가 미리보기 밑에서 잘리던 경계를 해소했다. 본문 가용 높이420px 미만은 샘플32px·패딩12px·정보 Wrap으로 공간을 확보한다.
+  - 파일/영향: 기존 커스텀 페이지·커스텀/프리셋 회귀·PROJECT_CONTEXT·ADR-0069·이번 일지. ADR-0065는 대체된 기록으로 표시했다. 신규 저장소 파일은 없다. 색상/농도 계산·최근 기록·휠 제스처·저장/취소·라우트/API/DB/env/상태와 기존 미커밋 작업은 보존했다.
+  - 테스트: 관련4개 파일53 pass/조작 경고0건.320x568·375x667·667x375·글자3.2배·768x1024·키보드240px에서 실제 세로 드래그 시 미리보기/패널 Rect 고정·16px 간격·최근 색상 선택 즉시 고정 HEX 갱신을 확인했다. 농도 트랙의 실제 탭/드래그 중 샘플 색상 변경·미리보기 위치·스크롤 유지도 확인했다. 변경 Dart3개 분석 진단0건·포맷 변경0건·diff 검사 통과.
+  - 시각/한계: 기존 농도 렌더러 임시 사본 /private/tmp/shift_custom_fixed_preview_render_test.dart로1 pass/PNG10개/측정 JSON을 /private/tmp/shift_custom_fixed_preview_2026-11-12에 생성했다. 실제 번들 폰트의320px 하단·키보드·844x390 가로에서 고정 미리보기/독립 패널을 직접 확인했고320/390px·글자2배·태블릿을 포함해 Flutter 예외0건이다. 기존 회귀의 패널 밖 x8px 드래그는 새 패널 내부 x20px로 보정했다. 전체 suite·실기기/VoiceOver·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 페이지 배치·관련 검증·문서 추가분만 되돌린다.
+
 - [DONE] (FE/UX) 작은 화면의 선택일 헤더 겹침·잘림 방지
   - 목적: 날짜와 근무 인원·일정 수가 좁은 영역에서 경쟁해 글자가 잘리는 현상을 해결한다.
   - 원인/변경: 실제 폰트의320px 그룹 페이지에서 날짜가 두 줄이 되지만 콘텐츠 슬롯은28px인 문제를 수정 전 테스트로 재현했다. 고정 Row/SizedBox와 배율 임계값을 중첩 Wrap/최소28px로 바꿔 날짜/공휴일·요약이 실제 폭에 맞춰 줄을 나누고 헤더 높이를 확보한다. 실제/미리보기 그룹도 CalendarScheduleHeader에 요약 칩을 주입해 같은 규칙을 사용한다. 공간이 충분하면 기존 한 줄/44.5px를 유지한다.
@@ -116,6 +132,32 @@
   - 파일/문서: calendar_schedule_card.dart·shift_type_info.dart·shift_type_form_modal.dart, 기존 메인·친구 캘린더/근무 타입 편집 테스트 및 PROJECT_CONTEXT·ADR-0066·이번 로그. 신규 파일은 없다. ShiftTypeInfo에 남아 있던 snake_case 분석 진단6건은 프로젝트 방식의 예외 선언으로, deprecated color.value 진단1건은 동일 ARGB 정수를 반환하는 toARGB32()로 정리했다.
   - 테스트: `flutter test --no-pub test/features/calendar/presentation/pages/calendar_page_test.dart test/features/friend/presentation/pages/friend_calendar_page_test.dart test/features/calendar/presentation/widgets/shift_type_form_modal_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` 73 pass. 변경 Dart6개 정적 분석 진단0건·포맷 변경0건·git diff --check 통과. SDK wrapper의 cache 쓰기 및 Dart telemetry 파일 권한 문제는 SDK 내 dart 직접 호출과 `--suppress-analytics`로 해결해 분석/포맷 exit0을 확인했다. 실기기 실행·커밋/푸시는 수행하지 않았다.
   - 롤백: 이번 구분자·기존 테스트 기대값·관련 문서 추가분만 되돌린다.
+
+- [DONE] (FE/UX) 커스텀 색상 미리보기 아래 스크롤 단절 수정
+  - 목적: 색상 조절 카드가 고정된 ‘적용될 색상’ 아래에서 갑자기 잘려 보이는 현상을 해소한다.
+  - 원인/변경: 고정 미리보기+별도 ListView 경계가 조절 카드를 자르고 있었다. 수정 전320/375px·큰 글자 실제 드래그에서 본문21.17px/미리보기0px 이동을 재현했다. 미리보기→16px 간격→조절 카드→최근 색상을 하나의 SingleChildScrollView/Column으로 연결했다. 초기 ListView 통합 시 발생한 화면 밖 미리보기 unmount를 제거해 기존 입력/미리보기 유지 계약도 보존했다.
+  - 영향/Behavior change: 미리보기도 본문과 함께 스크롤하며 맨 위에서 다시 확인한다. 기존 미커밋 헤더 재질, 완료/뒤로가기·키보드 시 미리보기 접기·색상 계산/기록·휠 제스처·최대폭/안전영역은 유지한다. API/DB/env·domain state/provider·의존성 변경은 없다.
+  - 파일/문서: 기존 커스텀 색상 페이지/테스트·PROJECT_CONTEXT·ADR-0065·이번 로그. 신규 저장소 파일은 없다. 농도 조작 테스트는 IgnorePointer 하위 슬라이더 대신 실제 gesture 영역을 눌러 기존 hit-test 경고2건도 해소했다.
+  - 테스트: 관련4개 파일51 pass, 마지막 테스트 조작 대상 보완 후 커스텀19 pass/경고0건.320x568·375x667·667x375·375px 글자3.2배의 동일 스크롤 이동량·간격 유지·최근 색상 접근·맨 위 복귀, 기존 휠/HEX/RGB/농도·최근 기록·완료/취소를 확인했다. 변경 Dart2개 분석 진단0건·포맷 변경0건·git diff --check 통과.
+  - 시각 검증/한계: 기존 header_background 및 custom_color_intensity 렌더러의 임시 사본을 /private/tmp에 실행해2 pass, PNG16개/측정 JSON2개를 /private/tmp/shift_custom_scroll_2026-11-12에 생성했다.375px 중간 스크롤의 두 카드 간격, 가로 하단의 최근 색상 접근,320px 키보드 입력을 직접 확인했다.320/390px·글자2배·키보드240px·844x390·768x1024의 실제 번들 폰트 렌더에 Flutter 예외0건이다. 최초 가로 회귀는 최대폭480 바깥을 드래그해 테스트 좌표를 본문 안으로 보정했다. debug-live로 페이지 build 중단점을 확인하고 이번 중단점을 제거했으며 기존 iPhone 실행 세션은 보존했다. 전체 suite/실기기/VoiceOver·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 커스텀 색상 배치·관련 검증·문서 추가분만 되돌린다.
+
+- [DONE] (FE/UX) 구분선 중심 헤더를 공통 흰색 재질로 통일
+  - 목적: 사용자 요청에 따라 친구 정보·근무 타입 추가/편집·색상/커스텀 색상 선택의 같은 배경/하단 선 방식을 1번 배경 변화 방식으로 바꾼다.
+  - 변경/범위: 네 navigationBar는 공통 테마 배경을 사용하고 하단 선을 제거한다. 친구 추가 모달도 제목 아래 고정선을 제거하고 흰 헤더와 본문 배경을 구분한다. 기존 메인/친구/그룹 캘린더 및 목록 헤더의 배경 고정 예외와 카드 내부 선은 유지한다.
+  - 변경/Behavior change: 네 navigationBar의 개별 backgroundColor를 제거하고 border=null로 공통 테마의 흰색 배경 전환만 사용한다. 친구 추가는 공통 테마의 고정 흰 헤더와 연한 본문으로 구분하며 선 제거로 본문 공간이 1px 늘어난다. 신규 앱 state/provider/공용 위젯은 없다.
+  - 파일/문서: 기존 다섯 화면 구현 및 PROJECT_CONTEXT·ADR-0064·이번 일지, 신규 artifacts/header_background_2026-11-12/render_test.dart·PNG22개·measurements.json. 렌더러의 역할/의존성/재생성 명령은 컨텍스트에 기록했다. 동시에 진행된 작은 화면 작업의 ADR-0063/친구 추가 배치를 보존했다.
+  - 테스트: 관련 기존 여섯 파일의54 pass, 검토 렌더1 pass.375x667·667x375에서 실제 헤더 색상 #FFF8F9FB→#E6FFFFFF·border=null·맨 위 복귀와 예외0건을 확인했다. 색상 선택375px는 실제 스크롤 여유0이라 색상을 유지하며 가로 화면에서 전환을 확인했다. 변경 Dart6개 정적 분석 진단0건·포맷 변경0건(최종 확인)·diff 검사 통과. 기존 색상 농도 슬라이더의 tap/drag hit-test 경고2건은 이전 작업 로그에도 있는 기존 경고이며 헤더 렌더에는 조작 경고가 없다.
+  - 시각/한계: 친구 정보·근무 타입 편집의 스크롤 후 흰 헤더/선 없음, 친구 추가의 흰 헤더와 본문을 PNG로 확인했다. 로컬 SDK 캐시/telemetry 쓰기는 허용된 도구 실행으로 처리했다. 검토 렌더의 최초 실패는 스크롤 여유0에서도 이동을 요구한 조건을 수정했다. debug-live의 test/ 밖 렌더 검색은 기존 iPhone 세션만 반환해 실제 변수 확인은 못 했으며 이번 중단점만 제거하고 기존 세션은 유지했다. 최종 실측 JSON에 실제 스크롤 범위를 기록했다. 전체 suite·실기기/VoiceOver·배포·커밋/푸시는 수행하지 않았다.
+  - 롤백: 이번 헤더 표시 및 문서 추가분만 되돌린다.
+
+- [DONE] (FE/UX) 배경색 유지·하단 구분선 방식의 헤더 사용처 조사
+  - 목적: 친구 정보·근무 타입·색상 선택을 포함해 배경색 변화 대신 선으로 헤더를 구분하는 화면을 찾는다.
+  - 범위: 공용 테마와 전체 presentation 헤더 선언/진입 경로를 읽고 명시적 구분선과 기본 자동 배경 전환을 구분한다. 앱 코드는 변경하지 않는다.
+  - 결과/변경: 화면 상단은 친구 정보(1px), 근무 타입 추가/편집(0.5px), 색상 선택(1px), 커스텀 색상 선택(1px)의 네 구현/다섯 화면이다. 추가로 친구 추가 모달의 제목 아래 고정선(1px)을 확인했다. 실제 색상은 검정이 아닌 outline_variant_color(#C1C7D2)다. 세부 진입/내부 카드 헤더/미사용 ShiftInputSheet 구분은 PROJECT_CONTEXT에 기록했다.
+  - 테스트: lib 전체 navigationBar 및 수동 Border/구분선·관련 생성 호출·공용 테마를 읽고 로컬 Flutter SDK nav_bar.dart의 색상/경계 보간을 대조했다. 네 화면은 배경이 동일해 스크롤 시 색상은 그대로이고 경계만 나타날 수 있다. 런타임 테스트/실기기 확인은 수행하지 않았다.
+  - 파일/영향: PROJECT_CONTEXT와 이번 일지만 갱신했다. 앱 코드·API/DB/동작/의존성/라우트 변경이나 신규 파일/ADR은 없다. 기존 미커밋 작업은 보존했다.
+  - 롤백: 이번 조사 문서 기록만 제거한다.
 
 - [DONE] (FE/UX) 작은 화면의 날짜·시간 및 입력 UI 배치 전반 검토
   - 목적: 제보된 시간 줄바꿈과 작은 화면에서의 유사한 배치 불안정을 코드·실제 레이아웃으로 확인하고 수정한다.

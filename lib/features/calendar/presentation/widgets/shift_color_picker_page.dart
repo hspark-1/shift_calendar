@@ -129,10 +129,7 @@ class _ShiftColorPickerPageState extends State<ShiftColorPickerPage> {
       backgroundColor: AppTheme.background_color,
       navigationBar: CupertinoNavigationBar(
         automaticallyImplyLeading: false,
-        backgroundColor: AppTheme.background_color,
-        border: const Border(
-          bottom: BorderSide(color: AppTheme.outline_variant_color, width: 1),
-        ),
+        border: null,
         leading: CupertinoButton(
           key: const Key('shift_color_back_button'),
           minimumSize: const Size(44, 44),

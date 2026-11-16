@@ -49,6 +49,14 @@
 - 검증/한계: 실제 GroupDetail/GroupSummary/GroupCalendarHeader를 호출하는 외부 임시 진단 스크립트 `/private/tmp/group_owner_deletion_repro.dart`로 생성자 문자열 성공 → null일 때 목록/캘린더 성공·상세 TypeError를 재현했다. 실행 예: `/opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart /private/tmp/group_owner_deletion_repro.dart`. 순수 Dart 모델에만 의존하며 서버/DB/인증 정보를 사용하지 않는다. 임시 스크립트는 저장소 산출물이 아니다. 사용자가 겪은 실제 API 응답·배포 코드·운영 DB 값은 이번에 수집하지 않았다.
 - 영향/후속: 이번 작업은 분석/문서만 추가하고 앱·서버·API·DB 동작을 변경하지 않는다. 수정 지점은 FE 생성자 타입과 파서의 nullable 수용 및 생성자 탈퇴 후 상세/화면 회귀다. 소유권 판단을 생성자 ID로 대체하거나 새 소유자를 과거 생성자로 덮어쓰지 않는다. 새 설계 결정이 없어 ADR은 추가하지 않으며 이번 조사 문서만 제거하면 롤백된다.
 
+## 커스텀 색상 고정 미리보기와 독립 조절 패널 (2026-11-12)
+
+- 헤더 후속 정책: ADR-0058의 배경 고정 예외를 이 화면에도 적용한다. 고정 미리보기 아래 패널만 스크롤하므로 navigationBar에 automaticBackgroundVisibility=false·backgroundColor=AppTheme.background_color·border=null을 지정해 메인/친구 목록과 같이 흰색 재질로 전환하지 않는다. 기존6조건 회귀는 실제 스크롤/최하단/맨 위 복귀의 렌더된 헤더 BoxDecoration 색상/경계 불변도 검증한다. 기존 헤더 렌더러의 커스텀 기대값도 갱신했다. 미리보기/패널 배치·조절/저장·다른 상세 화면 헤더는 유지한다.
+
+- 목적/현재 정책: ADR-0069가 ADR-0065를 대체한다. 사용자가 적용색을 보면서 조절해야 한다고 정정해 ‘적용될 색상’을 상단 고정으로 복구했다. 키보드가 열려도 숨기지 않는다. 아래 조절 패널은 미리보기와16px 떨어져 있으며 외곽 테두리/둥근 경계가 고정되고 내용만 스크롤한다. 이동하는 카드의 테두리가 미리보기 아래에서 잘리던 기존 구조와 구분한다.
+- 구현/Behavior change: Column → 고정 미리보기 → Expanded(공용 카드 장식/ClipRRect → SingleChildScrollView → 기준색·휠·RGB·농도·최근 색상)이다. 별도 스크롤 패널은 최대폭480·좌우16px·하단 안전영역+24px를 사용한다. 본문 가용 높이420px 미만은 미리보기 패딩12/샘플32px·라벨/HEX Wrap으로 공간을 확보하며 일반 화면은 기존 패딩16/샘플56px·세로 정보 배치를 유지한다. 글자 배율을 제한하지 않는다. 입력/미리보기는 마운트 상태를 유지하며 기준색/최종색 계산·휠 제스처·기록·route/저장 계약과 기존 헤더 재질은 유지한다. 신규 provider/controller/패키지/API/DB/env 변경은 없다.
+- 파일/검증: 기존 shift_custom_color_picker_page.dart·shift_custom_color_picker_page_test.dart·shift_color_picker_page_test.dart를 갱신한다.320x568·375x667·667x375·375px 글자3.2배·768x1024·키보드240px에서 실제 드래그 후 미리보기/패널 Rect 고정·16px 간격·최근 색상 접근/선택 즉시 최종 HEX 갱신을 검증한다. 농도 트랙 실제 탭/드래그 중 샘플 색상 갱신과 위치/스크롤 유지도 확인한다. 스크롤 조작은 패널 내부 여백에서 시작한다. 실행 예: `flutter test --no-pub test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart test/features/calendar/presentation/widgets/shift_color_picker_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 최종 결과/시각 검증/롤백은 WORKLOG를 따른다. 신규 저장소 파일은 없다.
+
 ## 선택일 헤더의 좁은 폭·확대 글자 대응 (2026-11-12)
 
 - 목적/현재 정책: ADR-0068. 실제 그룹의 선택일 날짜가 좁은 Row에서 두 줄이 되지만 높이는28px에 고정돼 잘리는 문제를 수정했다. 날짜/공휴일과 요약 표시를 각각 자연 크기로 배치하고 함께 들어가지 않으면 요약 묶음을 다음 줄로 옮긴다. 요약끼리도 공간이 부족하면 줄을 나누며, 날짜/공휴일 자체가 한 줄보다 길면 전체 내용을 줄바꿈한다. 텍스트 축소·말줄임으로 숨기지 않는다.
@@ -70,6 +78,14 @@
 - 범위/Behavior change: 공용 일정 카드의 `formatWorkShiftTime`, `ShiftTypeInfo.timeDisplay`, 근무 타입 편집 요약의 구분자만 통일한다. 개인 일정·근무 타입 카드의 기존 하이픈, `근무없음`/`시간 없음`/`종일`, 시간 값과 저장 계약은 유지한다. 메인·친구는 공용 일정 카드에 반영되며 API/DB·라우트·상태/의존성 변경은 없다. 수정한 ShiftTypeInfo의 기존 분석 진단은 프로젝트 snake_case 예외 선언과 같은 ARGB 정수 변환의 현행 API(`toARGB32`)로 해소했다.
 - 검증/롤백: 기존 메인·친구 캘린더 및 근무 타입 편집 테스트 기대값을 갱신했다. 신규 파일은 없으며 결과는 WORKLOG를 따른다. 이번 구분자·관련 분석 정리·테스트 기대값·문서 추가분만 되돌린다.
 
+## 커스텀 색상 미리보기와 본문의 연속 스크롤 (2026-11-12)
+
+- 상태: 사용자 후속 정정으로 ADR-0069가 대체한 이전 구현 기록이다. 현재는 미리보기를 고정하고 독립 패널 안에서 조절한다.
+
+- 목적/최신 정책: ADR-0065. 고정 미리보기 아래에서 조절 카드가 잘리는 경계를 없애기 위해 ‘적용될 색상’ → 16px 간격 → 기준색/휠/RGB/농도 → 최근 색상을 하나의 SingleChildScrollView 안에 배치한다. 스크롤 시 미리보기도 같은 거리로 이동하며 고정 완료/뒤로가기 헤더는 ADR-0064를 유지한다.
+- 범위/Behavior change: 기존 Column의 고정 미리보기 + Expanded(ListView)를 스크롤 가능한 하나의 Column으로 변경했다. 소수의 입력 영역은 마운트 상태를 유지한다. 본문 최대폭480·좌우16px·하단 안전영역+24px, 키보드 표시 시 미리보기 접기와 드래그로 키보드 닫기, 색상/농도 계산·휠 제스처·최근 기록·route 결과 계약은 유지한다. 신규 상태/controller/provider/패키지/API/DB/env 변경은 없다.
+- 검증/파일: 기존 shift_custom_color_picker_page_test.dart에320x568·375x667·667x375·375x667 글자3.2배의 실제 드래그 전후 미리보기/조절 카드 동일 이동량·간격 보존·최근 색상 접근·맨 위 복귀 회귀를 추가했다. 실행: `flutter test --no-pub test/features/calendar/presentation/widgets/shift_custom_color_picker_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`. 최종 결과·시각 검증·롤백은 WORKLOG를 따른다. 신규 저장소 파일은 없다.
+
 ## 작은 화면의 날짜·시간과 상태 화면 배치 (2026-11-12)
 
 - 최신 정책/Behavior change: ADR-0063. 개인 일정의 날짜·시간3:2 분할과 너비300px/배율1.25 경계를 실제 번들 폰트·TextScaler·굵은 글자 기준 폭 측정으로 대체한다. 시작/종료 두 행은 긴 값의 폭을 함께 예약한다. 부족하면 라벨을 위로 옮기고, 날짜와 시간도 컨트롤 단위로 세로 배치한다. 글자를 축소하거나 날짜/시간을 말줄임하지 않는다. 매우 큰 글자의 긴 날짜/요약은 내용 전체를 줄바꿈한다.
@@ -77,6 +93,25 @@
 - 상태/검색: 친구·그룹 빈 목록/오류는 가운데 정렬을 유지하면서 본문 높이가 부족하면 스크롤한다. 친구 추가 시트는 낮은 본문(<250px) 또는 큰 글자(scale(16)>24)에서 검색 입력과 결과 영역을 함께 스크롤한다. 최대 글자 크기의 헤더는 제목/취소를 분리한다. 기존 검색/검증/높이 조절/저장·provider/API/권한·DB/env는 유지한다.
 - 신규 파일 역할/의존성/사용 예: `lib/core/widgets/scrollable_centered_body.dart`는 Flutter widgets만 사용하는 공용 빈 목록/오류 프레임이며 현재는 ADR-0075에 따라 `SliverCenteredBody(children: [...])`를 친구·그룹의 공통 새로고침 스크롤 안에서 사용한다. `lib/features/calendar/presentation/widgets/picker_selection_summary.dart`는 Cupertino/AppTheme/TextPainter에 의존하며 `PickerSelectionSummary(icon: ..., value: ..., action_label: ..., onAction: ...)`로 시간/연월 선택값과 빠른 선택을 배치한다. 신규 provider/controller/패키지는 없다.
 - 검증 파일/산출물: `test/features/calendar/presentation/widgets/compact_layout_test.dart`는 실제 팝업·WidgetTester·intl·번들 Cafe24/Cupertino 폰트에 의존한다. 작은 화면/가로/태블릿·글자1~3.2배의 텍스트 박스·정렬·연도/종일 보존·저장 위치·실제 휠 접근을 검증한다. `COMPACT_LAYOUT_RENDER_OUTPUT=artifacts/compact_layout_2026-11-12 flutter test --no-pub test/features/calendar/presentation/widgets/compact_layout_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 해당 폴더에 PNG를 생성한다. `_docs/SMALL_SCREEN_LAYOUT_REVIEW_2026-11-12.md`는 코드/재현/수정/검증 범위를 구분한 검토 기록이며 런타임 의존성은 없다. 최종 결과·한계·롤백은 WORKLOG를 따른다.
+
+## 상세·편집·색상 선택 헤더의 흰색 재질 통일 (2026-11-12)
+
+- 후속 예외: 커스텀 색상 선택은 독립 패널 도입 후 사용자 요청으로 ADR-0058의 배경 고정 정책을 따른다. 아래 흰색 자동 전환은 다른 상세·편집·색상 선택 화면에 유지한다.
+
+- 목적/최신 정책: ADR-0064. 아래 조사에서 찾은 친구 정보·근무 타입 추가/편집·색상 선택·커스텀 색상 선택의 배경 고정/선 구분을 사용자 요청의 1번 방식으로 변경했다. 각 CupertinoNavigationBar의 backgroundColor override를 제거해 기존 CupertinoTheme.barBackgroundColor를 따르고 border=null로 기본 선까지 제거한다. 라이트 테마는 최상단에서 기존 scaffold 배경(#F8F9FB), 세로 스크롤 시 공통 반투명 흰색(#E6FFFFFF)으로 전환한다. 별도 스크롤 감지/state/provider/공용 위젯은 추가하지 않았다.
+- 모달/영향: 친구 추가 모달은 제목 아래 1px 고정선을 제거하고 기존 드래그 헤더에 공통 CupertinoTheme.barBackgroundColor와 상단 반경을 적용한다. 본문은 AppTheme.background_color로 구분하며 고정 헤더이므로 처음부터 흰 재질이다. 선 제거로 본문 가용 높이는 1px 늘어난다. 제목·저장/완료·뒤로가기·모달 크기/드래그/키보드/검색·페이지별 본문 및 하단 버튼 동작을 유지한다. 기존 메인/친구/그룹 캘린더와 친구·그룹 목록의 ADR-0058 배경 고정 예외 및 카드 내부 날짜 헤더 선은 이 요청 범위에서 변경하지 않는다. 현재 메인은 자동 흰색 전환이 아닌 배경 고정 상태이므로 사용자의 명시적인 ‘1번’ 정의에 맞춰 상세 화면에 공통 테마 전환을 적용했다.
+- 파일/의존성/사용 예: 기존 friend_detail_page.dart·shift_type_form_modal.dart·shift_color_picker_page.dart·shift_custom_color_picker_page.dart·add_friend_modal.dart의 표시만 바꾼다. 신규 artifacts/header_background_2026-11-12/render_test.dart는 실제 여섯 화면/모달 상태·Flutter test/Riverpod/SharedPreferences 모의 저장소·번들 Cafe24/Cupertino 폰트로 375x667 및 667x375에서 스크롤 전후 PNG22개와 measurements.json을 생성한다. `flutter test --no-pub artifacts/header_background_2026-11-12/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 재생성하며 실제 헤더 색상/경계·맨 위 복귀·레이아웃 예외를 검증한다. 콘텐츠가 화면에 들어가 스크롤 공간이 없으면 기존 배경을 유지하는 정상 동작도 확인한다. 친구/근무 정보는 예시이며 API 호출은 없다.
+- 검증/롤백: 관련 기존 친구 정보·친구 추가·근무 타입/색상/커스텀 색상·저장 상태 회귀와 변경 파일 분석·렌더 결과는 WORKLOG를 따른다. API/DB/라우트/접근권한/analytics·domain state·의존성/환경변수는 바꾸지 않았다. 이번 헤더 변경·검토 산출물/문서만 되돌리며 기존 미커밋 배치 작업은 보존한다.
+
+## 배경색 유지·하단 구분선 헤더 조사 (2026-11-12)
+
+- 상태: 수정 전 조사 기록이다. 위 ADR-0064 적용 절이 현재 동작을 설명한다.
+
+- 목적/결과: 사용자 요청의 ‘헤더 배경색은 그대로이고 선으로 구분하는 경우’를 현재 코드에서 조사했다. 화면 상단은 FriendDetailPage(친구 정보, 1px), ShiftTypeFormModal(근무 타입 추가/편집, 0.5px), ShiftColorPickerPage(색상 선택, 1px), ShiftCustomColorPickerPage(커스텀 색상 선택, 1px)의 네 구현/다섯 화면이다. 모두 scaffold와 navigationBar에 동일한 AppTheme.background_color(#F8F9FB)를 지정하고 하단 Border를 명시한다. 선은 검정이 아니라 AppTheme.outline_variant_color(#C1C7D2)다.
+- 표시 조건/근거: 네 구현은 automaticBackgroundVisibility의 기본 true를 사용한다. 로컬 Flutter SDK의 cupertino/nav_bar.dart는 scaffold 배경에서 명시 배경으로 색상을 보간하고 투명 경계에서 명시 Border로 보간한다. 두 배경색이 같아 색상은 그대로이며 세로 스크롤에 따라 선만 나타날 수 있다. ‘처음부터 항상 선이 보인다’는 뜻은 아니다. 공통 테마의 흰 재질로 전환하는 다른 기본 navigationBar와 구분한다.
+- 진입: 친구 목록 → 친구 캘린더의 설정 → 친구 정보. 설정 → 근무 패턴 설정 → 타입 추가/편집 → 표시 색상 → 색상 선택 → 선택한 색상 조절 → 커스텀 색상 선택. 기존 Navigator/CupertinoPageRoute 경로를 코드로 확인했으며 변경하지 않았다.
+- 추가 사용처: 친구 목록에서 여는 AddFriendModal은 흰 surface 배경을 공유하고 제목 바로 아래 1px 고정선을 둔다. 화면 내부 헤더까지 포함하면 메인/친구의 CalendarScheduleHeader(메인 근무 설정 카드에도 사용)와 실제/미리보기 그룹의 날짜 상세 카드도 같은 배경 위 0.5px 하단선을 사용한다. ShiftInputSheet의 ‘근무 추가’ 헤더도 0.5px 선이 있으나 현재 lib에 생성 호출/다른 파일의 import가 없어 활성 화면 목록에서는 제외한다.
+- 검증/영향/롤백: lib 전체의 CupertinoNavigationBar 선언과 수동 Border/구분선 및 관련 진입 호출을 읽고 공용 토큰/로컬 SDK와 대조한 정적 조사다. 앱 코드·동작·API/DB/상태/라우트/의존성은 변경하지 않았고 런타임 테스트/실기기 확인은 수행하지 않았다. 신규 파일/설계 결정은 없으며 이번 컨텍스트/WORKLOG 조사 기록만 제거하면 롤백된다.
 
 ## 메인 캘린더 남은 일정 공간과 작은 화면 경계 (2026-11-12)
 

@@ -414,7 +414,7 @@ void main() {
     expect(find.byType(ShiftCustomColorPickerPage), findsOneWidget);
     expect(find.text('HEX 코드'), findsOneWidget);
 
-    await tester.dragFrom(const Offset(8, 500), const Offset(0, -1200));
+    await tester.dragFrom(const Offset(20, 500), const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(find.text('최근 사용한 색상'), findsOneWidget);
     await tester.tap(find.byKey(const Key('shift_custom_color_recent_5')));

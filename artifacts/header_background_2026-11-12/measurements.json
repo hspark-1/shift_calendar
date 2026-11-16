@@ -1,0 +1,92 @@
+{
+  "friend_detail_small": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 58.0,
+    "framework_errors": 0
+  },
+  "shift_edit_small": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 320.0,
+    "framework_errors": 0
+  },
+  "shift_create_small": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 218.0,
+    "framework_errors": 0
+  },
+  "color_small": {
+    "header_argb_before_after": [
+      4294507003,
+      4294507003
+    ],
+    "scroll_extent": 0.0,
+    "framework_errors": 0
+  },
+  "custom_color_small": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 381.0,
+    "framework_errors": 0
+  },
+  "add_friend_small": {
+    "header_argb_before_after": [],
+    "scroll_extent": null,
+    "framework_errors": 0
+  },
+  "friend_detail_landscape": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 330.0,
+    "framework_errors": 0
+  },
+  "shift_edit_landscape": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 522.0,
+    "framework_errors": 0
+  },
+  "shift_create_landscape": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 420.0,
+    "framework_errors": 0
+  },
+  "color_landscape": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 273.0,
+    "framework_errors": 0
+  },
+  "custom_color_landscape": {
+    "header_argb_before_after": [
+      4294507003,
+      3875536895
+    ],
+    "scroll_extent": 1981.0,
+    "framework_errors": 0
+  },
+  "add_friend_landscape": {
+    "header_argb_before_after": [],
+    "scroll_extent": null,
+    "framework_errors": 0
+  }
+}

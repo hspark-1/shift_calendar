@@ -219,7 +219,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
   String get _time_summary {
     if (!_has_time) return '시간 없음';
     if (_startTime == null || _endTime == null) return '시간을 선택해주세요';
-    return '${_timeOfDayToDisplayString(_startTime!)} – '
+    return '${_timeOfDayToDisplayString(_startTime!)} - '
         '${_crosses_midnight ? '다음 날 ' : ''}'
         '${_timeOfDayToDisplayString(_endTime!)}';
   }
@@ -438,13 +438,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
         backgroundColor: AppTheme.background_color,
         navigationBar: CupertinoNavigationBar(
           automaticallyImplyLeading: false,
-          backgroundColor: AppTheme.background_color,
-          border: const Border(
-            bottom: BorderSide(
-              color: AppTheme.outline_variant_color,
-              width: 0.5,
-            ),
-          ),
+          border: null,
           middle: Text(
             is_edit ? '근무 타입 편집' : '근무 타입 추가',
             style: AppTheme.heading_small,
@@ -646,7 +640,7 @@ class _ShiftTypeFormModalState extends State<ShiftTypeFormModal> {
 
   Widget _buildIdentityCard() {
     final code_field = _buildTextField(
-      label: '캘린더 표시 코드',
+      label: '표시 코드',
       controller: _codeController,
       placeholder: '예: D, N, OFF',
       focus_node: _code_focus_node,
