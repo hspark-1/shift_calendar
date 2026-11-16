@@ -1,5 +1,31 @@
 # 프로젝트 컨텍스트
 
+## USB iPad Release 실행 확인 (2026-11-16)
+
+- 사용자 요청에 따라 개발자 모드를 켠 iPad Pro12.9형5세대 / iPadOS26.5.2에 현재 UIScene 수정본을 개발 서명의 Release AOT 1.0.0(6)으로 설치했다. CLI 빌드 번호만6이며 pubspec은1.0.0+5, 기존 App Store Archive/IPA는 빌드5 그대로다. **현재 기존 IPA를 다시 업로드하면 UIScene 수정본이 아니다.** 재제출용 새 Archive/IPA 생성이 필요하다.
+- 동작 확인: 앱 시작→사용자 직접 네이버 인증→캘린더 표시→devicectl 완전 종료/새 프로세스 재실행→로그인 상태와 실제 캘린더 복원을 확인했다. 첫PID571, 재실행PID668이며 캡처/기기 앱 목록으로 설치 버전6을 확인했다. 앱/서버 데이터 삭제와 소스/SDK/lock·기기군 변경은 없다.
+- 빌드/설치 규칙: 기존 `.env`의 운영 define으로 `flutter build ios --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=6` 실행 후, 신규 iPad가 빠진 일반 개발 profile을 대상UDID의 `xcodebuild build ... -destination 'id=<UDID>' -allowProvisioningUpdates -allowProvisioningDeviceRegistration`로 갱신했다. 검증한 `build/ios/Release-iphoneos/Runner.app`만 devicectl로 설치한다. 단일FlutterSceneDelegate·AOT instruction·서명/profile 기기 포함·기존 Archive/IPA 보존을 확인했다.
+- 산출물 역할/의존성/사용 예: 위 Runner.app은USB 실기기용 개발 서명 AOT 앱이며 현재 소스·.env define·Xcode 개발 profile에 의존한다. `xcrun devicectl device install app --device <UDID> build/ios/Release-iphoneos/Runner.app`, 이어 `device process launch --device <UDID> --terminate-existing com.hspark.shiftmate`로 재현한다. 로컬 `/private/tmp/shiftmate_ipad_release_20261116/`의 빌드 로그·검증/설치/실행JSON·재실행 캡처 역할은 WORKLOG를 따른다. 계정/기기 진단 자료는 Git에 추가하지 않는다.
+- 한계/롤백: 개발 서명이므로 APNs는development며 App Store Distribution과 다르다. 심사OS27.3 실기기·나머지OAuth·푸시·홈 복귀·새IPA/업로드/재제출은 미완료다. 기존iOS27.0 시뮬레이터 결과와 이번26.5.2 실물 결과를 구분한다. 설계 변경/신규 영구 소스 파일은 없다. 이번 로컬build6/문서만 제거하면 작업 롤백되며 소스와 사용자 데이터는 유지한다. 기기 앱 복원이 필요하면 이전 개발 서명 앱을 재설치한다.
+
+## 빌드 5 실행 크래시 원인과 UIScene 전환 (2026-11-16, ADR-0082)
+
+- 원본 근거: 사용자가 제공한 Downloads의 `crashlog-7C82B0B2-7971-4881-86D0-C4B22FD5FBD1.ips`와 `crashlog-31BF3142-134C-459B-8D43-0F43E155D995.ips`는1.0.0(5)/iPad15,3/iPhone OS27.3 Beta(24C5037i)다. 두 건 모두 main thread의 `___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke`에서 EXC_BREAKPOINT/SIGTRAP이며 Runner UUID는 보관 Archive와 일치한다. 원본은 읽기 전용으로 유지한다. 아래 로그 미확보 절은 첨부 전의1차 조사 이력이다.
+- 심볼리케이션: Xcode CrashSymbolicator.py와 기존dSYMs로 두 보고서의 Runner 프레임을 AppDelegate.main까지 복원했다. `UIKitCore +3526812` 시스템 프레임1곳은 해당OS 심볼이 없어 남았으며 완전 심볼리케이션이라고 표시하지 않는다. 크래시 최상단 검사 함수는 원본부터 식별된다. Dart App.framework가 로드되기 전 네이티브 시작 단계에서 종료되었다.
+- 재현: 수정 전 네이티브 앱을iOS27.0/iPad Air11-inch(M4) 시뮬레이터에서 실행해 `Application failed to launch: UIScene life cycle is required for apps built with this SDK`를 확인했다. 실제 심사27.3/M3 기기와는 구분한다.
+- **Behavior change**: `Info.plist`의 UIApplicationSceneManifest → 단일 UIWindowScene / FlutterSceneDelegate / Main storyboard → implicit Flutter engine → AppDelegate.didInitializeImplicitFlutterEngine(engine_bridge) → GeneratedPluginRegistrant → 기존 Dart main 순서로 시작한다. Flutter3.38.5 내장 API와 공식 migration을 사용한다. FlutterAppDelegate.super의 앱 이벤트 전달은 유지한다. 기기군[1]·최소iOS15·SDK/lock/env/버전·Dart route/provider/API/DB 변경은 없다.
+- 파일 역할/의존성/사용 예: 기존 `ios/Runner/Info.plist`는UIKit Scene 설정, `ios/Runner/AppDelegate.swift`는엔진 생성 후 플러그인 등록을 담당한다. 별도SceneDelegate/영구 신규 파일은 없다. 기존 `ios/RunnerTests/RunnerTests.swift`의 자리표시자 테스트를 실제 UIWindowScene·FlutterViewController·주요8개 플러그인 등록 검사로 교체했다. `xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner -destination 'platform=iOS Simulator,id=<UDID>' -only-testing:RunnerTests`로 실행한다. define/빌드 경로는 기존iOS 실행 규칙에 맞춘다.
+- callback 검토: 설치된 네이버/Google 플러그인은addSceneDelegate로등록한다. Kakao의기존AppDelegate openURL은Flutter3.38.5 엔진의sceneFallbackOpenURLContexts가 전달한다. 수동중복 전달/패키지수정은 추가하지 않았다. 실제OAuth/알림/복귀 인수는 별도로 남는다.
+- 검증: 동일 iOS27.0 iPad 시뮬레이터의 수정 후 네이티브 테스트 1개(실제 Scene/엔진과 8개 플러그인 등록) / 0 failures, Dart 시작과 version-policy 응답200을 확인했다. 관련 Flutter 시작/푸시/공휴일/업데이트 회귀 16 pass, Info.plist lint·코드/문서 공백 검사 통과. 최초 홈 화면 캡처는 앱 화면 검증 증거로 사용하지 않는다. 전체 명령/자료와 디스크 부족 중 임시 빌드 캐시 정리 이력은 WORKLOG를 따른다.
+- 배포/롤백: 심사 OS27.3 Release 실기기·실계정 로그인/푸시·새 IPA/업로드/재제출은 아직 미완료다. 기존 빌드5 Archive/IPA를 보존한다. 이번 AppDelegate/scene manifest/네이티브 테스트·문서만 되돌릴 수 있으나 원래 크래시도 재발한다.
+
+## 빌드 5 App Review 실행 크래시 통지 (2026-11-16)
+
+- 사용자 전달 심사 메시지: 제출 ID `b445e709-c2ae-4c17-ba7d-f3f476305e13`, 버전1.0(5), iPad Air 11-inch(M3) / iPadOS27.3에서 실행 직후 크래시로 Guideline2.1(a) 검토 불가. 포털을 직접 조회한 결과는 아니다. 아래11-14의 패키징 검증 통과는 실행 크래시 해결을 의미하지 않는다.
+- 로컬 근거: 보관 Archive의1.0.0(5)·SDK27.1·최소iOS15·UIDeviceFamily=[1], IPA24,755,597bytes·기존SHA-256 일치·flutter_assets/.env 존재를 다시 확인했다. Runner UUID=`F20B9F47-6145-3218-92C9-D9CCB7DFAB87`, App UUID=`1A05136D-860B-3261-844C-163EFEBACF84`이며 각 바이너리와 기존dSYM이 일치한다. 역할/의존성/사용 예는 아래 빌드5 절과 동일하다. 해당 Archive를 보존하고 원본 심사 로그의UUID와 대조해야 한다.
+- 조사 범위/한계: AppDelegate의 플러그인 등록과main의env→Kakao→locale/timezone→공휴일 캐시→Firebase→runApp 경로를 읽었다. 대화에 원본 로그가 없고 작업 폴더 전체의.ips/.crash 검색 결과도0건이다. 종료 스택·예외·원인은 미확정이며 코드/설정/버전은 변경하지 않았다. 로컬 기기 목록에 심사OS27.3은 없으며 이번에 앱 실행·실기기 설치·심볼리케이션은 수행하지 않았다.
+- 후속: 원본 로그 확보→UUID 대조/심볼리케이션→재현/수정→iPad 호환 실행을 포함한Release 실기기 확인→새 빌드 제출. ADR-0030의iPhone 전용은iPad 호환 실행 차단을 뜻하지 않는다. 설계/정책 변경과 신규 파일은 없으며 롤백은 이번 조사 문서 추가분만 제거한다.
+
 ## 심사 재제출용 iOS 빌드 5 (2026-11-14)
 
 - 사용자 요청으로 현재 작업 트리의 기존 미커밋 변경을 포함한 App Store용 1.0.0(5)를 생성했다. 현재 `pubspec.yaml`은 `1.0.0+5`, Release API 호환 번호는 기존 `1`이다. 빌드 번호 증가 외 이번 작업의 앱 기능/설계 변경은 없고 새 ADR은 추가하지 않는다. 아래 빌드 4 절은 당시 이력이다.

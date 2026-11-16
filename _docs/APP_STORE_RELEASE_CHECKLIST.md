@@ -1,5 +1,34 @@
 # ShiftMate App Store 심사 준비 및 진행 기록
 
+## USB iPad Release 1.0.0(6) 실행 확인 — 2026-11-16
+
+- [x] iPad Pro12.9형5세대 / iPadOS26.5.2에서 Developer Mode·USB 페어링·개발 provisioning 확인
+- [x] 운영 define의 Release AOT 빌드6 설치·실행, 사용자 직접 네이버 로그인 후 캘린더 표시
+- [x] 완전 종료/새PID 재실행 후 로그인 상태·캘린더 화면 복원 확인
+- [ ] 실제 심사OS27.3 실기기 / 나머지OAuth·푸시·홈 복귀 인수
+- [ ] 재제출용 App Store Archive/IPA6 생성·업로드·선택·재제출
+- 현재 USB 앱은 개발 서명(APNs development)이다. App Store Distribution 검증과 구분한다. **기존 `build/ios/ipa/ShiftMate.ipa`와 Archive는 수정 전 빌드5를 보존한 것이며 제출에 재사용하지 않는다.** pubspec은5이고 이번에 CLI override6으로 기기 검증만 했다. 상세 실행/자료 역할·롤백은 WORKLOG와 PROJECT_CONTEXT의 USB iPad 절을 따른다.
+
+## 빌드 5 첨부 로그 분석·UIScene 수정 — 2026-11-16
+
+- 사용자 제공 원본 2건에서 빌드5 UUID 일치와 UIKit UIScene 미도입 강제 종료를 확인했다. Runner 프레임 심볼리케이션 완료·시스템 프레임 1곳 미해결. 수정 전 iOS27.0 iPad 시뮬레이터에서 동일한 검사 실패를 재현했다. 아래 첨부 미확보 체크리스트는 1차 조사 이력이며 현재 상태는 이 절을 따른다.
+- [x] 원본 로그 확보·빌드 UUID 대조·원인 분류/수정 전 재현
+- [x] 현재 Flutter3.38.5로 단일 FlutterSceneDelegate 설정·implicit engine 플러그인 등록 전환(ADR-0082)
+- [x] 수정 후 iOS27.0 iPad 네이티브 시작/8개 플러그인 등록 테스트 1 pass, 관련 Flutter 회귀 16 pass
+- [ ] 심사 OS27.3 호환 실기기 Release·OAuth/푸시/복귀 인수
+- [ ] 새 빌드 번호로 IPA 생성·업로드/선택·재제출
+- 산출물/롤백: 심볼리케이션·시뮬레이터 결과는 로컬 `/private/tmp/shiftmate_scene_20261116/`에 보관하며 기존 Archive/IPA는 유지한다. 코드·테스트 파일 역할과 실행은 PROJECT_CONTEXT, 이번 변경만 복구하는 롤백은 WORKLOG를 따른다. 아직 새 빌드나 심사 통과로 표시하지 않는다.
+
+## 빌드 5 실행 크래시 심사 통지 — 2026-11-16
+
+- 사용자 전달 메시지 기준 제출ID `b445e709-c2ae-4c17-ba7d-f3f476305e13`,1.0(5),iPad Air11-inch(M3)/iPadOS27.3 실행 직후 크래시로 Guideline2.1(a) 검토 불가다. 포털 직접 조회·회신·재제출은 수행하지 않았다. 아래11-14의 업로드/제출 미수행은 당시 로컬 작업 이력이다.
+- 1차 확인 완료: 보관 Archive/IPA가1.0.0(5)이고 IPA기존해시가 일치하며 Runner/App 바이너리와dSYM의UUID도 일치한다. 상세 근거는 PROJECT_CONTEXT·WORKLOG의2026-11-16 절을 따른다. 크래시 원인/해결은 미확정이다.
+- [ ] 심사 첨부 원본 .ips/.crash 확보(대화·작업 폴더에 없음)
+- [ ] 로그UUID와Archive 대조·심볼리케이션·원인 재현/수정
+- [ ] iPad 호환 실행을 포함한Release 실기기 검증
+- [ ] 새 빌드 생성·업로드·선택·재제출
+- iPhone 전용 기기군[1]은iPad 호환 실행 차단이 아니다(ADR-0030). 코드/기기군/버전/산출물 변경은 없으며 이번 기록만 제거하면 문서 롤백된다.
+
 ## 심사 재제출용 빌드 5 생성·검증 — 2026-11-14
 
 - 최신 로컬 빌드: **iOS 1.0.0(5), API 호환 번호1**. 현재 작업 트리의 기존 미커밋 수정 사항을 포함했다. 이번 작업에서 업로드·Connect 빌드 교체·심사 재제출은 수행하지 않았다. 아래 빌드4 선택/미제출 기록은 해당 날짜의 이력이며 현재 포털 상태를 새로 확인한 결과가 아니다.

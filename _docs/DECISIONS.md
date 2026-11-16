@@ -1,5 +1,15 @@
 # 아키텍처 결정사항
 
+## ADR-0082: iOS 시작 경로를 Flutter UIScene 생명주기로 전환한다
+
+- 배경(문제): 빌드5 심사 로그2건(7C82B0B2… / 31BF3142…)은 동일한 Runner UUID와 UIKit `___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption_block_invoke`에서 EXC_BREAKPOINT/SIGTRAP을 기록한다. SDK27.1로 만든 앱의 Info.plist에는 UIApplicationSceneManifest가 없고 AppDelegate는 didFinishLaunching에서 플러그인을 등록했다. Flutter/Apple 공식 문서는 최신SDK에서 UIScene 미도입 앱의 시작 실패를 명시한다.
+- 선택지(대안): 기존 시작 경로 유지 / Flutter SDK 전체 업그레이드 / 현재 Flutter3.38.5에 포함된 UIScene API로 수동 전환.
+- 결정(무엇을 선택): 세 번째. 기존 Info.plist에 단일 UIWindowScene·FlutterSceneDelegate·Main storyboard 설정을 추가한다. AppDelegate가 FlutterImplicitEngineDelegate를 채택하고 didInitializeImplicitFlutterEngine의 engine_bridge.pluginRegistry에 GeneratedPluginRegistrant를 등록한다. 앱 생명주기는 FlutterAppDelegate의 super 구현을 유지한다.
+- 근거(왜): 설치 엔진 헤더/소스와 Flutter3.38.5의 migration 템플릿에서 해당 API를 확인했다. 별도 SceneDelegate/수동 엔진/윈도우 생성 없이 공식 기본 경로를 사용한다. 네이버·Google은 scene delegate 등록, Kakao는 Flutter 엔진의 sceneFallbackOpenURLContexts → 기존 application:openURL:options: 경로를 사용하므로 플러그인 패키지를 임의 수정하지 않는다.
+- 결과/영향(좋은 점/트레이드오프): **Behavior change**: OS가 FlutterSceneDelegate로 UI scene을 생성하고 엔진 초기화 callback에서 플러그인을 등록한다. iOS 시작/복귀·외부 로그인 callback·알림 탭을 재검증해야 한다. Dart route/상태/API/DB/env·기기군[1]·최소iOS15·SDK/lock·버전 번호는 이 결정으로 변경하지 않는다. 롤백은 AppDelegate 등록 위치와 Info.plist scene 추가분을 복구하지만 심사 크래시도 다시 발생할 수 있다.
+- 추후 과제(언제 다시 평가): 실제 심사OS27.3 실기기/배포Release 실행, OAuth4종과 푸시·복귀 인수 후 재제출한다. 로컬 재현/수정 검증 결과와 한계는 WORKLOG의2026-11-16 절에 기록한다.
+- 근거 문서: [Flutter UIScene 전환](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate), [Apple scene 생명주기 전환](https://developer.apple.com/documentation/uikit/transitioning-to-the-uikit-scene-based-life-cycle).
+
 ## ADR-0081: Google 전화번호 권한을 기본 인증과 분리해 선택 요청한다
 
 - 배경(문제): 사용자가 Google 사진 수집 중단과 전화번호 수집을 요청했고 콘솔에 phone scope를 추가했다. 기존 SDK/서버 전송은 ID Token만 지원한다.
