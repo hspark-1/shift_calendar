@@ -151,6 +151,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   final FocusNode _workplace_focus = FocusNode();
   final GlobalKey _name_field_key = GlobalKey();
   final GlobalKey _phone_field_key = GlobalKey();
+  final GlobalKey _save_error_key = GlobalKey();
   final ScrollController _profile_scroll = ScrollController();
   bool _name_blurred = false;
   bool _phone_blurred = false;
@@ -503,6 +504,19 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       }
       if (widget.is_editing) {
         setState(() => _save_error = error ?? '저장하지 못했어요. 다시 시도해주세요.');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final error_context = _save_error_key.currentContext;
+          if (error_context != null) {
+            Scrollable.ensureVisible(
+              error_context,
+              alignment: 1,
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
+            );
+          }
+        });
       } else if (error != null) {
         _showErrorDialog(error);
       }
@@ -551,8 +565,10 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     return PopScope<void>(
       canPop: !_is_busy,
       child: CupertinoPageScaffold(
-        backgroundColor: AppTheme.background_color,
+        backgroundColor: AppTheme.surface_color,
         navigationBar: CupertinoNavigationBar(
+          backgroundColor: AppTheme.surface_color,
+          border: null,
           automaticallyImplyLeading: !widget.is_editing && !_is_busy,
           leading: widget.is_editing
               ? CupertinoButton(
@@ -571,19 +587,19 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                 )
               : null,
           middle: Text(
-            widget.is_editing ? '프로필 수정' : '프로필 설정',
+            widget.is_editing ? '프로필 수정' : '회원가입',
             style: const TextStyle(fontSize: 18),
           ),
         ),
         child: SafeArea(
           child: !_profile_loaded
               ? Center(
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (_profile_fetching)
+                        if (_profile_fetching || _profile_load_error == null)
                           const CupertinoActivityIndicator()
                         else ...[
                           Text(_profile_load_error ?? '개인정보를 불러오는 중이에요.'),
@@ -600,7 +616,10 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                 )
               : LayoutBuilder(
                   builder: (context, constraints) {
-                    final gutter = constraints.maxWidth < 360 ? 16.0 : 20.0;
+                    final gutter = constraints.maxWidth < 360 ? 20.0 : 24.0;
+                    final compact_action =
+                        constraints.maxHeight < 360 ||
+                        MediaQuery.textScalerOf(context).scale(14) > 20;
                     return Align(
                       alignment: Alignment.topCenter,
                       child: ConstrainedBox(
@@ -620,9 +639,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                       ScrollViewKeyboardDismissBehavior.onDrag,
                                   padding: EdgeInsets.fromLTRB(
                                     gutter,
-                                    20,
+                                    16,
                                     gutter,
-                                    24,
+                                    32,
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
@@ -635,7 +654,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                           'profile_edit_basic_section',
                                         ),
                                         title: '기본 정보',
-                                        icon: CupertinoIcons.person,
                                         children: [
                                           KeyedSubtree(
                                             key: _name_field_key,
@@ -664,35 +682,40 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                                   : _phone_focus.requestFocus(),
                                             ),
                                           ),
-                                          const SizedBox(height: 16),
+                                          const SizedBox(height: 20),
                                           PhoneVerificationSection(
                                             code_focus: _phone_code_focus,
-                                            phone_input: KeyedSubtree(
-                                              key: _phone_field_key,
-                                              child: _ProfileField(
-                                                field_key: const Key(
-                                                  'profile_phone_field',
+                                            phone_input_builder: (action) =>
+                                                KeyedSubtree(
+                                                  key: _phone_field_key,
+                                                  child: _ProfileField(
+                                                    field_key: const Key(
+                                                      'profile_phone_field',
+                                                    ),
+                                                    label: '휴대폰 번호',
+                                                    trailing: action,
+                                                    required_field: true,
+                                                    controller:
+                                                        _phone_controller,
+                                                    focus_node: _phone_focus,
+                                                    enabled: !_is_busy,
+                                                    placeholder:
+                                                        '010-1234-5678',
+                                                    keyboard_type:
+                                                        TextInputType.phone,
+                                                    autofill_hints: const [
+                                                      AutofillHints
+                                                          .telephoneNumberNational,
+                                                    ],
+                                                    input_formatters: [
+                                                      KoreanMobilePhoneInputFormatter(),
+                                                    ],
+                                                    error_text: _phone_error,
+                                                    onSubmitted: (_) =>
+                                                        _job_focus
+                                                            .requestFocus(),
+                                                  ),
                                                 ),
-                                                label: '휴대폰 번호',
-                                                required_field: true,
-                                                controller: _phone_controller,
-                                                focus_node: _phone_focus,
-                                                enabled: !_is_busy,
-                                                placeholder: '010-1234-5678',
-                                                keyboard_type:
-                                                    TextInputType.phone,
-                                                autofill_hints: const [
-                                                  AutofillHints
-                                                      .telephoneNumberNational,
-                                                ],
-                                                input_formatters: [
-                                                  KoreanMobilePhoneInputFormatter(),
-                                                ],
-                                                error_text: _phone_error,
-                                                onSubmitted: (_) =>
-                                                    _job_focus.requestFocus(),
-                                              ),
-                                            ),
                                             onEditPhone: () =>
                                                 _phone_focus.requestFocus(),
                                             state: phone_state,
@@ -714,15 +737,20 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                                 )
                                                 .verifyCode(code),
                                           ),
+                                          if (compact_action &&
+                                              _requires_phone_verification &&
+                                              !phone_state.is_verified) ...[
+                                            const SizedBox(height: 12),
+                                            _buildVerificationHint(),
+                                          ],
                                         ],
                                       ),
-                                      const SizedBox(height: 24),
+                                      const SizedBox(height: 32),
                                       _buildSection(
                                         section_key: const Key(
                                           'profile_edit_work_section',
                                         ),
                                         title: '근무 정보',
-                                        icon: CupertinoIcons.briefcase,
                                         optional: true,
                                         children: [
                                           _ProfileField(
@@ -737,7 +765,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                             onSubmitted: (_) =>
                                                 _workplace_focus.requestFocus(),
                                           ),
-                                          const SizedBox(height: 16),
+                                          const SizedBox(height: 20),
                                           _ProfileField(
                                             field_key: const Key(
                                               'profile_workplace_field',
@@ -759,7 +787,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                           Text(
                                             widget.is_editing
                                                 ? '비워두고 저장하면 근무 정보가 삭제돼요.'
-                                                : '지금 입력하지 않아도 괜찮아요. 설정에서 언제든 추가할 수 있어요.',
+                                                : '직종과 소속 정보는 나중에 설정에서 추가할 수 있습니다.',
                                             style: AppTheme.body_medium
                                                 .copyWith(
                                                   color: AppTheme
@@ -770,6 +798,11 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                       ),
                                       const SizedBox(height: 24),
                                       _buildAccount(),
+                                      if (compact_action &&
+                                          _save_error != null) ...[
+                                        const SizedBox(height: 16),
+                                        _buildSaveError(),
+                                      ],
                                       if (!widget.is_editing) ...[
                                         const SizedBox(height: 24),
                                         const _PrivacyNotice(),
@@ -778,7 +811,10 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                   ),
                                 ),
                               ),
-                              _buildBottomAction(gutter),
+                              _buildBottomAction(
+                                gutter,
+                                compact: compact_action,
+                              ),
                             ],
                           ),
                         ),
@@ -793,214 +829,280 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
   Widget _buildIdentity() {
     final image_url = _initial_user.profile_image_url;
-    final selected_name = _name_controller.text.trim();
-    return Row(
-      children: [
-        CupertinoButton(
-          key: const Key('profile_image_button'),
-          padding: EdgeInsets.zero,
-          onPressed: _is_busy ? null : _pickProfileImage,
-          child: Semantics(
-            label: '프로필 사진 변경',
-            child: ExcludeSemantics(
-              child: Container(
-                key: const Key('profile_avatar'),
-                width: 72,
-                height: 72,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: AppTheme.surface_container_low_color,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.outline_variant_color),
-                ),
-                child: _selected_profile_image != null
-                    ? Image.memory(
-                        _selected_profile_image!.bytes,
-                        fit: BoxFit.cover,
-                      )
-                    : ProfileImage(
-                        image_url: image_url ?? '',
-                        fallback: const Icon(
-                          CupertinoIcons.person_fill,
-                          size: 32,
-                          color: AppTheme.outline_color,
+    return Container(
+      key: const Key('profile_identity_panel'),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          CupertinoButton(
+            key: const Key('profile_image_button'),
+            padding: EdgeInsets.zero,
+            onPressed: _is_busy ? null : _pickProfileImage,
+            child: Semantics(
+              label: '프로필 사진 변경',
+              child: ExcludeSemantics(
+                child: SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Stack(
+                    children: [
+                      Container(
+                        key: const Key('profile_avatar'),
+                        width: 72,
+                        height: 72,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface_container_low_color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppTheme.outline_variant_color,
+                          ),
+                        ),
+                        child: _selected_profile_image != null
+                            ? Image.memory(
+                                _selected_profile_image!.bytes,
+                                fit: BoxFit.cover,
+                              )
+                            : ProfileImage(
+                                image_url: image_url ?? '',
+                                fallback: const Icon(
+                                  CupertinoIcons.person_fill,
+                                  size: 30,
+                                  color: AppTheme.outline_color,
+                                ),
+                              ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary_color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppTheme.surface_color,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.camera_fill,
+                            size: 14,
+                            color: AppTheme.surface_color,
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                selected_name.isEmpty ? '내 프로필' : selected_name,
-                style: AppTheme.heading_small,
-              ),
-              CupertinoButton(
-                key: const Key('profile_edit_photo_button'),
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(44, 44),
-                onPressed: _is_busy ? null : _pickProfileImage,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_is_picking_image)
-                      const CupertinoActivityIndicator(radius: 8)
-                    else
-                      const Icon(CupertinoIcons.camera, size: 16),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        _is_picking_image ? '사진 불러오는 중' : '사진 변경',
-                        style: AppTheme.body_medium.copyWith(
-                          color: AppTheme.primary_color,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '프로필 사진',
+                  style: AppTheme.body_large.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                CupertinoButton(
+                  key: const Key('profile_edit_photo_button'),
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(48, 48),
+                  onPressed: _is_busy ? null : _pickProfileImage,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_is_picking_image) ...[
+                        const ExcludeSemantics(
+                          child: CupertinoActivityIndicator(radius: 8),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: Text(
+                          _is_picking_image ? '사진 불러오는 중' : '사진 변경',
+                          style: AppTheme.body_medium.copyWith(
+                            color: AppTheme.primary_dark_color,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      if (!_is_picking_image) ...[
+                        const SizedBox(width: 4),
+                        const ExcludeSemantics(
+                          child: Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 12,
+                            color: AppTheme.primary_dark_color,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildSection({
     required Key section_key,
     required String title,
-    required IconData icon,
     bool optional = false,
-    bool read_only = false,
     required List<Widget> children,
   }) {
-    return Container(
+    return Column(
       key: section_key,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: read_only
-            ? AppTheme.surface_container_low_color
-            : AppTheme.surface_color,
-        borderRadius: AppTheme.card_border_radius,
-        border: Border.all(color: AppTheme.outline_variant_color),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Semantics(
-            header: true,
-            child: Row(
-              children: [
-                ExcludeSemantics(
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary_color.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 18,
-                      color: AppTheme.primary_dark_color,
-                    ),
-                  ),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          header: true,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTheme.heading_small.copyWith(fontSize: 18),
                 ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(title, style: AppTheme.heading_small)),
-                if (optional)
-                  Text(
+              ),
+              if (optional)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface_container_low_color,
+                    borderRadius: AppTheme.input_border_radius,
+                  ),
+                  child: Text(
                     '선택',
                     style: AppTheme.body_medium.copyWith(
                       color: AppTheme.on_surface_variant_color,
                     ),
                   ),
-              ],
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(height: 1, color: AppTheme.surface_container_high_color),
+        const SizedBox(height: 20),
+        ...children,
+      ],
+    );
+  }
+
+  Widget _buildAccount() {
+    return Container(
+      key: const Key('profile_edit_account_section'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface_container_low_color,
+        borderRadius: AppTheme.card_border_radius,
+      ),
+      child: Column(
+        key: const Key('profile_email_field'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const ExcludeSemantics(
+                child: Icon(
+                  CupertinoIcons.lock,
+                  size: 16,
+                  color: AppTheme.on_surface_variant_color,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    '계정 정보',
+                    style: AppTheme.body_medium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text('이메일', style: AppTheme.body_medium),
+          const SizedBox(height: 4),
+          Text(_initial_user.email, style: AppTheme.body_large),
+          const SizedBox(height: 8),
+          Text(
+            '로그인에 사용하는 이메일은 변경할 수 없어요.',
+            style: AppTheme.body_medium.copyWith(
+              color: AppTheme.on_surface_variant_color,
             ),
           ),
-          const SizedBox(height: 20),
-          ...children,
         ],
       ),
     );
   }
 
-  Widget _buildAccount() {
-    return _buildSection(
-      section_key: const Key('profile_edit_account_section'),
-      title: '계정 정보',
-      icon: CupertinoIcons.lock,
-      read_only: true,
-      children: [
-        Column(
-          key: const Key('profile_email_field'),
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '이메일',
-              style: AppTheme.body_medium.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Text(_initial_user.email, style: AppTheme.body_large),
-            const SizedBox(height: 8),
-            Text(
-              '로그인에 사용하는 이메일은 변경할 수 없어요.',
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-            ),
-          ],
-        ),
-      ],
+  Widget _buildVerificationHint() {
+    return Text(
+      '휴대폰 인증을 완료하면 저장할 수 있어요.',
+      key: const Key('profile_phone_verification_required'),
+      textAlign: TextAlign.center,
+      style: AppTheme.body_medium.copyWith(
+        color: AppTheme.on_surface_variant_color,
+      ),
     );
   }
 
-  Widget _buildBottomAction(double gutter) {
+  Widget _buildSaveError() {
+    return Semantics(
+      key: _save_error_key,
+      liveRegion: true,
+      child: Text(
+        _save_error!,
+        key: const Key('profile_edit_save_error'),
+        style: AppTheme.body_medium.copyWith(color: AppTheme.error_text_color),
+      ),
+    );
+  }
+
+  Widget _buildBottomAction(double gutter, {required bool compact}) {
     return Container(
       key: const Key('profile_setup_bottom_action'),
       padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 12),
       decoration: const BoxDecoration(
-        color: AppTheme.background_color,
+        color: AppTheme.surface_color,
         border: Border(
-          top: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
+          top: BorderSide(color: AppTheme.surface_container_high_color),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_requires_phone_verification &&
+          if (!compact &&
+              _requires_phone_verification &&
               !ref
                   .read(phone_verification_controller_provider(_phone_scope))
                   .is_verified) ...[
-            Text(
-              '휴대폰 인증을 완료하면 저장할 수 있어요.',
-              key: const Key('profile_phone_verification_required'),
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.on_surface_variant_color,
-              ),
-            ),
+            _buildVerificationHint(),
             const SizedBox(height: 8),
           ],
-          if (_save_error != null) ...[
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                _save_error!,
-                key: const Key('profile_edit_save_error'),
-                style: AppTheme.body_medium.copyWith(
-                  color: AppTheme.error_text_color,
-                ),
-              ),
-            ),
+          if (!compact && _save_error != null) ...[
+            _buildSaveError(),
             const SizedBox(height: 8),
           ],
           ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
+            constraints: const BoxConstraints(minHeight: 56),
             child: CupertinoButton(
               key: const Key('profile_setup_submit_button'),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1020,7 +1122,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                   : Text(
                       widget.is_editing
                           ? (_save_error == null ? '변경사항 저장' : '다시 저장')
-                          : '저장하고 시작하기',
+                          : '가입 완료',
                       style: AppTheme.body_large.copyWith(
                         fontWeight: FontWeight.w600,
                         color: _can_save || _is_loading
@@ -1039,6 +1141,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 class _ProfileField extends StatelessWidget {
   final Key field_key;
   final String label;
+  final Widget? trailing;
   final bool required_field;
   final TextEditingController controller;
   final FocusNode focus_node;
@@ -1055,6 +1158,7 @@ class _ProfileField extends StatelessWidget {
   const _ProfileField({
     required this.field_key,
     required this.label,
+    this.trailing,
     this.required_field = false,
     required this.controller,
     required this.focus_node,
@@ -1072,6 +1176,43 @@ class _ProfileField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final field_label = required_field ? '$label, 필수' : label;
+    final input = Semantics(
+      label: field_label,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: CupertinoTextField(
+          enabled: enabled,
+          controller: controller,
+          focusNode: focus_node,
+          placeholder: placeholder,
+          keyboardType: keyboard_type,
+          autofillHints: autofill_hints,
+          inputFormatters: input_formatters,
+          textInputAction: text_input_action,
+          onSubmitted: onSubmitted,
+          maxLength: max_length,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: focus_node.hasFocus
+                ? AppTheme.surface_color
+                : AppTheme.surface_container_low_color,
+            borderRadius: AppTheme.input_border_radius,
+            border: Border.all(
+              color: error_text != null
+                  ? AppTheme.error_text_color
+                  : focus_node.hasFocus
+                  ? AppTheme.primary_color
+                  : AppTheme.outline_color,
+              width: focus_node.hasFocus ? 1.5 : 0.5,
+            ),
+          ),
+          style: AppTheme.body_large,
+          placeholderStyle: AppTheme.body_large.copyWith(
+            color: AppTheme.outline_color,
+          ),
+        ),
+      ),
+    );
     return Column(
       key: field_key,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1092,40 +1233,33 @@ class _ProfileField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Semantics(
-          label: field_label,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
-            child: CupertinoTextField(
-              enabled: enabled,
-              controller: controller,
-              focusNode: focus_node,
-              placeholder: placeholder,
-              keyboardType: keyboard_type,
-              autofillHints: autofill_hints,
-              inputFormatters: input_formatters,
-              textInputAction: text_input_action,
-              onSubmitted: onSubmitted,
-              maxLength: max_length,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppTheme.background_color,
-                borderRadius: AppTheme.input_border_radius,
-                border: Border.all(
-                  color: error_text != null
-                      ? AppTheme.error_text_color
-                      : focus_node.hasFocus
-                      ? AppTheme.primary_color
-                      : AppTheme.outline_variant_color,
-                ),
-              ),
-              style: AppTheme.body_large,
-              placeholderStyle: AppTheme.body_large.copyWith(
-                color: AppTheme.outline_color,
-              ),
-            ),
+        if (trailing == null)
+          input
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 300 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 18) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [input, const SizedBox(height: 8), trailing!],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: input),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth * 0.45,
+                    ),
+                    child: trailing!,
+                  ),
+                ],
+              );
+            },
           ),
-        ),
         if (error_text != null) ...[
           const SizedBox(height: 6),
           Semantics(
@@ -1149,26 +1283,23 @@ class _PrivacyNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: AppTheme.surface_container_low_color,
-        border: Border.all(color: AppTheme.surface_container_high_color),
-        borderRadius: BorderRadius.circular(AppTheme.input_radius),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            CupertinoIcons.shield_lefthalf_fill,
-            size: 18,
-            color: AppTheme.outline_color,
+          ExcludeSemantics(
+            child: Icon(
+              CupertinoIcons.shield_lefthalf_fill,
+              size: 18,
+              color: AppTheme.on_surface_variant_color,
+            ),
           ),
           SizedBox(width: 9),
           Expanded(
             child: Text(
               '입력한 정보는 서비스 제공에 필요한 범위에서만 사용하며 안전하게 보호합니다.',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 height: 1.5,
                 color: AppTheme.on_surface_variant_color,
               ),

@@ -201,6 +201,7 @@ Future<void> _pumpEditPage(
   FakeFirebasePhoneService? firebase,
   Future<ProfileImageUpload?> Function()? profile_image_picker,
   bool as_route = false,
+  double text_scale = 1,
 }) async {
   repository.profile = user;
   await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -212,6 +213,12 @@ Future<void> _pumpEditPage(
         ...phoneAuthOverrides(repository: phone_repository, firebase: firebase),
       ],
       child: CupertinoApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(text_scale)),
+          child: child!,
+        ),
         home: Builder(
           builder: (context) {
             final page = ProfileSetupPage.edit(
@@ -399,18 +406,19 @@ void main() {
       '01012345678',
     );
     await tester.pumpAndSettle();
-    final section = find.byKey(const Key('phone_verification_section'));
-    final before_height = tester.getSize(section).height;
     final send = find.byKey(const Key('phone_send_button'));
+    final phone_rect = tester.getRect(
+      _textFieldInside(const Key('profile_phone_field')),
+    );
+    final send_rect = tester.getRect(send);
+    expect(send_rect.left, greaterThan(phone_rect.right));
+    expect(send_rect.center.dy, closeTo(phone_rect.center.dy, 1));
+    expect(send_rect.height, greaterThanOrEqualTo(52));
     await tester.ensureVisible(send);
     await tester.tap(send);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('profile_phone_field')), findsNothing);
     expect(find.text('010-1234-5678'), findsOneWidget);
-    expect(
-      tester.getSize(section).height,
-      lessThanOrEqualTo(before_height + 16),
-    );
     final code = find.byKey(const Key('phone_code_field'));
     final code_field = tester.widget<CupertinoTextField>(code);
     expect(code_field.focusNode!.hasFocus, isTrue);
@@ -856,7 +864,7 @@ void main() {
     );
     expect(find.text('프로필 수정'), findsOneWidget);
     expect(find.text('변경사항 저장'), findsOneWidget);
-    expect(find.text('저장하고 시작하기'), findsNothing);
+    expect(find.text('가입 완료'), findsNothing);
     expect(find.text('user@example.com'), findsOneWidget);
     expect(
       tester
@@ -1053,6 +1061,41 @@ void main() {
     expect(repository.update_count, 2);
     repository.pending_update!.complete(_existing_user.copyWith(name: '새 이름'));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('작은 화면의 최대 글자에서도 저장 실패 이유를 스크롤해 보여주고 재시도한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository()
+      ..update_error = ApiException(
+        code: 'NETWORK_ERROR',
+        message: '연결을 확인한 뒤 다시 저장해주세요.',
+      );
+    await _pumpEditPage(tester, repository, text_scale: 3.2);
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '새 이름',
+    );
+    await tester.pumpAndSettle();
+    final save = find.byKey(const Key('profile_setup_submit_button'));
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('연결을 확인한 뒤 다시 저장해주세요.').hitTestable(), findsOneWidget);
+    expect(
+      tester.getBottomLeft(find.byKey(const Key('profile_edit_save_error'))).dy,
+      lessThanOrEqualTo(
+        tester
+            .getTopLeft(find.byKey(const Key('profile_setup_bottom_action')))
+            .dy,
+      ),
+    );
+    expect(tester.widget<CupertinoButton>(save).onPressed, isNotNull);
+    expect(repository.update_count, 1);
+    expect(tester.takeException(), isNull);
+    repository.update_error = null;
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(repository.update_count, 2);
   });
 
   testWidgets('편집은 정보를 먼저 배치하고 변경 불가 이메일을 마지막에 표시한다', (tester) async {
@@ -1376,17 +1419,17 @@ void main() {
     expect(find.text('휴대폰 번호 *'), findsOneWidget);
     expect(find.text('근무 정보'), findsOneWidget);
     expect(find.text('선택'), findsOneWidget);
-    expect(find.textContaining('지금 입력하지 않아도 괜찮아요.'), findsOneWidget);
+    expect(find.text('직종과 소속 정보는 나중에 설정에서 추가할 수 있습니다.'), findsOneWidget);
     expect(
       find.byKey(const Key('profile_setup_submit_button')),
       findsOneWidget,
     );
-    expect(find.text('저장하고 시작하기'), findsOneWidget);
+    expect(find.text('가입 완료'), findsOneWidget);
     expect(find.text('완료'), findsNothing);
     expect(find.byKey(const Key('profile_image_button')), findsOneWidget);
     expect(find.byKey(const Key('profile_timezone_field')), findsNothing);
-    expect(find.text('프로필 설정'), findsOneWidget);
-    expect(find.text('내 프로필'), findsOneWidget);
+    expect(find.text('회원가입'), findsOneWidget);
+    expect(find.text('프로필 사진'), findsOneWidget);
     expect(find.text('사진 변경'), findsOneWidget);
     expect(find.text('소속 · 부서'), findsOneWidget);
     expect(find.text('계정 정보'), findsOneWidget);
@@ -1589,7 +1632,7 @@ void main() {
     expect(repository.complete_request?['workplace'], 'ShiftMate 프로덕트팀');
   });
 
-  testWidgets('가입과 편집은 같은 정보 카드와 입력 디자인을 사용하고 근무 플레이스홀더가 없다', (tester) async {
+  testWidgets('가입과 편집은 같은 입력 흐름을 제공하고 근무 플레이스홀더가 없다', (tester) async {
     for (final is_editing in [false, true]) {
       final repository = _ProfileSetupAuthRepository();
       if (is_editing) {
@@ -1602,10 +1645,7 @@ void main() {
         'profile_edit_work_section',
         'profile_edit_account_section',
       ]) {
-        final section = tester.widget<Container>(find.byKey(Key(section_key)));
-        final decoration = section.decoration! as BoxDecoration;
-        expect(decoration.borderRadius, AppTheme.card_border_radius);
-        expect(decoration.border, isNotNull);
+        expect(find.byKey(Key(section_key)), findsOneWidget);
       }
       for (final field_key in [
         'profile_job_type_field',
@@ -1624,7 +1664,7 @@ void main() {
       expect(tester.getTopLeft(name).dy, lessThan(tester.getTopLeft(email).dy));
       await tester.ensureVisible(email);
       await tester.pumpAndSettle();
-      expect(email.hitTestable(), findsOneWidget);
+      expect(find.text(repository.profile.email).hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();

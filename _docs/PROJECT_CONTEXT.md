@@ -1,5 +1,19 @@
 # 프로젝트 컨텍스트
 
+## 회원가입·프로필 수정의 간결한 정보 입력 UI (2026-11-22, ADR-0104)
+
+- 전송 버튼 후속 배치: 사용자 요청으로 `인증번호 받기`를 휴대폰 입력 오른쪽8px 간격·중앙 정렬의 파란 버튼(최소56)으로 옮겼다. Google 안내/자세히는 입력 행 아래에 남긴다. 가용 폭300미만 또는14px 글자의 확대 크기18초과에서는 입력/버튼을 세로 배치한다. 미변경/인증 완료 번호에는 전송 버튼을 표시하지 않고 코드 입력 복귀·재발송/확인·대기/오류 정책을 유지한다. 초기 인증 영역이 짧아져 코드/수신 번호 단계의 높이는 초기보다 늘 수 있다. Page의 `_ProfileField.trailing`과 공용 `PhoneVerificationSection.phone_input_builder(action)`가 AppTheme/Cupertino/기존 controller에 의존하며 별도 파일/패키지 없이 `phone_input_builder: (action) => _ProfileField(trailing: action, ...)`로 사용한다. 기존 프로필 회귀/렌더43 pass·26조건 오류0, 변경3파일 분석 진단0이며 기존 검토 이미지/측정값을 갱신했다. 인증/API/DB/route·상태 수명은 유지하며 롤백은 이번 표시/회귀·검토/문서 변경분만 복원한다.
+
+- 후속 간소화: 사용자 요청으로 기존 휴대폰 번호 아래의 “번호를 변경하면 새 번호 인증이 필요해요.”와 여백을 제거했다. 미변경 번호에는 입력만 표시하며 번호 변경 시 기존 인증 흐름·저장 차단은 유지한다. 기존 공용 phone_verification_section.dart 표시 조건만 변경했고 신규 파일은 없다. 관련 회귀/렌더43 pass·해당 위젯 analyze 진단0, 기존 검토 PNG/측정값을 재생성했다. 롤백은 이번 표시 조건/문서·검토 자료 갱신분만 복원한다.
+
+- 목적/최신 방향: ui-ux-pro-max 스킬 적용 뒤 사용자 후속 지시인 “환영·소개 문구 없이 회원가입에 필요한 정보를 입력하는 마일드한 화면”을 최종 기준으로 한다. 별도 영문 문구/소개 제목·설명/이름 요약/번호 장식/사진의 파란 패널은 표시하지 않는다. 상단 제목은 가입 `회원가입`, 편집 `프로필 수정`이며 사진 → 기본 정보 → 선택 근무 정보 → 읽기 전용 계정 순서다. ADR-0043/0086의 카드 배치 설명은 이전 이력이고 이 절이 최신이다.
+- UI/Behavior change: 흰 화면에 72px 사진·사진 변경, 18px 섹션 제목·얇은 구분선, 외부 라벨14/값16·중립 배경 입력 최소56/반경12를 사용한다. 필수 표시는 `*`, 근무 정보는 `선택`으로 구분하며 직종·소속 placeholder는 계속 없다. 상단 큰 소개 영역과 반복 카드 테두리를 없앴다. 가입 버튼은 `가입 완료`, 편집은 기존 `변경사항 저장`/`다시 저장`이다. 너비480, 좌우20(360미만)/24, 사진 변경 터치48, 하단 안전영역·키보드 회피를 유지한다. 전체 앱 다크 테마를 도입하지 않으며 기존 라이트 테마에서 OS 다크 설정도 같은 표면으로 검증했다.
+- 비동기/접근성: 글자14의 실제 크기가20 초과 또는 본문 높이360미만이면 인증 안내/저장 오류를 스크롤 본문에 배치해 하단 버튼이 본문 공간을 과점하지 않게 한다. 편집 저장 실패 시 오류를 보이는 위치로 스크롤하며 입력·사진과 재시도는 보존한다. 최초 GET 이전도 스피너를 표시하고 실패/재시도는 스크롤 가능하게 하여 글자3.2배의 일시적 넘침을 해결했다. 필드 포커스·오류 테두리, 장식 아이콘 의미 제외, OTP 자동완성과 숫자/6자리 입력·인증 상태를 유지한다.
+- Navigation/상태/API: 기존 `AuthWrapper → ProfileSetupPage`와 `SettingsPage → CupertinoPageRoute → ProfileSetupPage.edit`, 가입/변경 번호의 서버 증명 필수·최신 GET 비교·미변경 번호 예외·부분 전송·사진 제한·멱등키·provider autoDispose와 ADR-0103의 확인 없는 뒤로가기를 유지한다. Page의 UI draft/focus/scroll/오류 위치만 사용하고 Riverpod domain state·Dio/ApiException/DB/접근권한·analytics/logging/env/패키지는 바꾸지 않는다. drawio 두 파일은 이전 calendars/calendar_shares 구조이므로 현행 owner_user_id 모델 변경 근거로 사용하지 않았다.
+- 파일 역할/의존성/사용 예: 기존 `profile_setup_page.dart`의 공용 표시와 `profile_setup_page_test.dart`의 화면 회귀를 갱신했다. 기존 `artifacts/phone_verification_2026-11-21/render_test.dart`는 Flutter test·실제 Page·Riverpod 모의 저장소/phone_auth_fakes·번들 Cafe24/Cupertino 폰트에 의존한다. 정상 상/하단·인증 13조건×가입/편집의 PNG32개와 measurements.json을 출력한다. `flutter test --no-pub artifacts/phone_verification_2026-11-21/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --dart-define=PHONE_AUTH_RENDER_DIR=/private/tmp/shiftmate-profile-ui-20261122/render`로 재현한다. SDK 캐시 쓰기 권한이 필요하다.
+- 새 검토 산출물: `artifacts/profile_ui_redesign_2026-11-22/`의 signup_top/edit_top은 최초 화면, signup_bottom/edit_bottom은 하단 근무·계정 영역, signup_normal은 인증 입력, signup_large_text/signup_largest_text는320px 글자2/3.2배, signup_keyboard는240px 모의 키보드다. measurements.json은26조건의 버튼/본문 높이·저장 활성·오류 측정값이다. 위 렌더러 출력에서 해당 PNG8개/JSON을 복사한 자료이며 제품 runtime 의존성은 없다. 예: [회원가입](../artifacts/profile_ui_redesign_2026-11-22/signup_top.png)·[프로필 수정](../artifacts/profile_ui_redesign_2026-11-22/edit_top.png)을 디자인 검토에 사용한다.
+- 검증/한계/롤백: 인증/렌더190 pass, 최종3 Dart파일 분석 진단0·포맷/공백 검사 통과.26조건 오류0·미스 터치 경고0, 저장 버튼 최소56, 실제 스크롤 가용 높이 최소122를 확인했다. 흰색 배경의 기본 글자17.13:1/보조9.37:1/파랑6.47:1/오류6.54:1이다. 실제 OS 사진/키보드·VoiceOver/실문자·서버/배포 인수는 미실행이다. 이번 UI·관련 회귀/렌더·검토 PNG/문서 추가분만 복원하며 기존 미커밋 작업을 보존한다.
+
 ## 프로필 수정 뒤로가기는 미저장 입력을 바로 폐기 (2026-11-22, ADR-0103)
 
 - 사용자 확정/Behavior change: `ProfileSetupPage.edit`의 미저장 변경 확인창과 dirty 상태에 따른 PopScope 차단을 제거했다. 상단 뒤로가기·OS maybePop·iOS 가장자리 스와이프는 확인 없이 이전 화면으로 돌아가며 저장 API를 호출하지 않는다. 다시 열면 서버의 기존 값을 조회한다. 저장은 저장 버튼에서만 수행한다.

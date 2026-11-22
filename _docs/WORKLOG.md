@@ -1,5 +1,35 @@
 # 작업 로그
 
+## 2026-11-22 인증번호 전송 버튼을 번호 입력 오른쪽에 배치
+
+- [DONE] (FE/UI) 인증번호 받기 버튼을 휴대폰 입력 오른쪽으로 옮기고 인증하기와 같은 파란 액션으로 표시했다.
+  - 목적/범위: 사용자 요청의 입력/액션 가로 배치를 가입과 변경 번호 편집에 공통 적용한다. 작은 폭/큰 글자는 읽을 수 있게 세로 배치한다.
+  - 변경/Behavior change: Page 공용 입력의 trailing 슬롯과 PhoneVerificationSection의 phone_input_builder(action)로 발송 버튼을 라벨 아래의 입력 오른쪽8px 간격에 중앙 정렬했다. 버튼 최소56/파랑·대기 비활성/번호 확인 중 표시를 제공하고 Google 안내는 행 아래에 유지한다. 폭300미만/14px 글자18초과면 세로 배치, 액션 폭은 행45% 이내다. 기존 발송/확인·재발송·번호 편집/복귀·저장·API/DB/라우트·상태 수명을 유지한다. 신규 파일은 없다. 초기 영역이 줄어 이전의 전후 동일 높이 검증을 종료하고 가로 위치/높이·기존 인증 전환 검증으로 갱신했다.
+  - 테스트: 기존 profile_setup_page_test.dart와 인증 렌더 **43 pass**,26조건 framework 오류0/미스 터치 경고0, 변경3파일 analyze 진단0·포맷/공백 검사 통과.390px 최초 전송 행과375/320px 인증 입력·큰 글자/발송 중 이미지를 직접 확인했다. 기존 검토 PNG8개/measurements.json을 갱신하고 PROJECT_CONTEXT·ADR-0104에 인터페이스 역할/사용 예·표시 정책을 기록했다. 로그는 /private/tmp/shiftmate-profile-ui-20261122/send-row-*.log다. 실제 기기/실문자 인수는 별도다.
+  - 롤백: 이번 Page/인증 위젯·기존 회귀/검토 자료·문서 변경분만 복원한다.
+
+
+## 2026-11-22 프로필 번호 변경 안내 문구 제거
+
+- [DONE] (FE/UI) 사용자 요청으로 기존 번호 아래의 재인증 안내와 해당 여백을 제거했다.
+  - 목적/변경: 공용 PhoneVerificationSection의 안내 표시만 제거한다. 번호 변경 인증·저장 조건은 유지한다.
+  - 영향: 프로필 수정의 미변경 번호 표시와 검토 이미지/기존 문서. 신규 파일·API/DB 변경은 없다.
+  - 테스트: 기존 profile_setup_page_test.dart/인증 렌더43 pass·26조건 오류0, phone_verification_section.dart analyze 진단0·포맷 변경0·공백 검사 통과. 기존 검토 PNG8개/측정 JSON을 재생성하고 편집 최초 화면을 직접 확인했다. 로그는 /private/tmp/shiftmate-profile-ui-20261122/remove-phone-hint-*.log다. PROJECT_CONTEXT·ADR-0104를 최신화했다.
+  - 롤백: 이번 조건부 표시/문서·검토 이미지 갱신분만 복원한다.
+
+
+## 2026-11-22 회원가입·프로필 수정 전면 UI 재설계
+
+- [DONE] (FE/UI) ui-ux-pro-max 스킬로 두 화면을 소개 문구 없는 간결한 정보 입력 폼으로 재설계했다.
+  - 목적/근거: 사용자 최초 요청과 후속 “환영·소개 없이 필요한 정보 입력/마일드” 방향, PROJECT_CONTEXT 공용 UI/인증과 ADR-0101~0103, Page/공용 인증 위젯/AppTheme/연결 route/기존 회귀/렌더러/DDL·drawio를 직접 확인했다. drawio는 현행과 다른 이전 모델이므로 DB를 변경하지 않았다.
+  - 변경/Behavior change: 흰 화면·72px 사진·기본/선택 근무 정보·중립 입력/얇은 구분선·계정 상자·하단 고정 버튼으로 정리했다. 최종안에는 영문/환영/소개 문구·큰 제목·이름 요약·파란 사진 패널·번호 장식이 없다. 가입 제목/버튼은 회원가입/가입 완료, 편집은 프로필 수정/변경사항 저장이다. 입력 최소56·라벨14/값16·본문 너비480·좌우20/24, 선택 정보 빈 placeholder·필수 표시를 유지했다. 높이360미만/확대 글자는 인증 안내·저장 오류를 본문으로 옮기며 오류를 스크롤해 표시한다. 최초 프로필 GET 전 스피너, 실패 영역 스크롤로3.2배 일시적22px 넘침도 해결했다.
+  - 범위/파일: 제품은 기존 profile_setup_page.dart만 변경했다. profile_setup_page_test.dart와 기존 phone_verification_2026-11-21/render_test.dart를 갱신했다. 새 검토 PNG8개/측정 JSON의 역할·의존성·재현/사용 예는 PROJECT_CONTEXT 최신 절에 기록했다. 인증 controller/SDK/Dio/저장·DB/route/권한·analytics/env/의존성은 유지하고 ADR-0103의 즉시 뒤로가기도 보존했다. 기존 미커밋 변경은 되돌리지 않았다.
+  - 스킬/진단: design-system 검색의 Flat Design을 참고했으나 웹 랜딩 패턴은 모바일 폼에 적용하지 않았다. product 재검색은 정확한 모바일 온보딩 일치가 없어 근거로 사용하지 않았고 별도 ux 검색의 inline/visible label·Flutter/앱 접근성 체크를 적용했다. debug-live 중단점/테스트 실행을 시도했으나 기존 iPhone Release 세션만 조회되어 테스트 중단이 불가능했다. 기존 세션을 중단하지 않고 이번 중단점만 제거했으며 실제 렌더 오류/화면 크기와 초기 로딩 코드를 확인해 수정·재실행했다. 임시 소스 로그/시스템 설정 변경은 없다.
+  - 테스트: `flutter test --no-pub test/features/auth artifacts/phone_verification_2026-11-21/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --dart-define=PHONE_AUTH_RENDER_DIR=/private/tmp/shiftmate-profile-ui-20261122/render --reporter expanded` **190 pass**. 저장 실패의320px/글자3.2배 오류 가시성·재시도 회귀를 추가했다. 변경3파일 analyze 진단0·포맷/공백 검사 통과. SDK 캐시 제한은 검증 명령의 승인된 권한 확장으로 해소했다.
+  - 렌더/결과: 가입/편집13조건씩26측정·상/하단 등을 포함한 PNG32개.320/375/390·가로844/태블릿768·글자2/3.2배·동작 줄이기·OS 다크 설정/라이트 표면·240px 모의 키보드·인증 발송/실패/완료를 검증했다. 미스 터치 경고를 실패로 처리했고 결과0건, framework 오류0건, 버튼 최소56·스크롤 최소122다. 최종 상/하단·인증·키보드/큰 글자 PNG를 직접 열어 확인했다. 전체 자료와 로그/시작 소스는 `/private/tmp/shiftmate-profile-ui-20261122/`다.
+  - 문서/롤백: PROJECT_CONTEXT 최신 UI/파일·재현 절, ADR-0104, 본 일지를 갱신했다. 이번 UI/회귀·렌더러/새 검토 자료·문서 변경분만 복원한다. 이전 작업이 있는 파일 전체를 git restore하지 않는다.
+  - 한계/다음: 실제 OS 사진/키보드·VoiceOver·실문자·서버/원격 게시 인수는 미실행이다. 사용자 방향을 반영한 최종 화면을 기준으로 실기기 확인한다.
+
 ## 2026-11-22 프로필 수정 미저장 뒤로가기 확인 제거
 
 - [DONE] (FE/UI) 변경사항 버리기 확인과 미저장 변경에 따른 뒤로가기 차단을 제거했다.

@@ -9,7 +9,7 @@ import '../../application/phone_verification_state.dart';
 import '../../data/models/phone_verification_models.dart';
 
 class PhoneVerificationSection extends StatefulWidget {
-  final Widget phone_input;
+  final Widget Function(Widget? action) phone_input_builder;
   final FocusNode code_focus;
   final PhoneVerificationState state;
   final bool required_verification;
@@ -20,7 +20,7 @@ class PhoneVerificationSection extends StatefulWidget {
 
   const PhoneVerificationSection({
     super.key,
-    required this.phone_input,
+    required this.phone_input_builder,
     required this.code_focus,
     required this.state,
     required this.required_verification,
@@ -144,10 +144,13 @@ class _PhoneVerificationSectionState extends State<PhoneVerificationSection> {
     final state = widget.state;
     return CupertinoButton(
       key: const Key('phone_send_button'),
-      minimumSize: const Size(44, 48),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      color: show_code ? null : AppTheme.surface_container_low_color,
-      disabledColor: AppTheme.surface_container_low_color,
+      minimumSize: Size(44, show_code ? 48 : 56),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      color: show_code ? null : AppTheme.primary_color,
+      disabledColor:
+          !show_code && state.stage == PhoneVerificationStage.checking
+          ? AppTheme.primary_color
+          : AppTheme.surface_container_highest_color,
       borderRadius: AppTheme.input_border_radius,
       onPressed: can_send ? _sendCode : null,
       child:
@@ -160,15 +163,22 @@ class _PhoneVerificationSectionState extends State<PhoneVerificationSection> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 8,
                 children: [
-                  const ExcludeSemantics(
-                    child: CupertinoActivityIndicator(radius: 8),
+                  ExcludeSemantics(
+                    child: CupertinoActivityIndicator(
+                      radius: 8,
+                      color: show_code
+                          ? AppTheme.on_surface_variant_color
+                          : AppTheme.surface_color,
+                    ),
                   ),
                   Text(
                     state.stage == PhoneVerificationStage.checking
                         ? '번호 확인 중'
                         : '인증번호 전송 중',
                     style: AppTheme.body_medium.copyWith(
-                      color: AppTheme.on_surface_variant_color,
+                      color: show_code
+                          ? AppTheme.on_surface_variant_color
+                          : AppTheme.surface_color,
                     ),
                   ),
                 ],
@@ -183,7 +193,9 @@ class _PhoneVerificationSectionState extends State<PhoneVerificationSection> {
               textAlign: TextAlign.center,
               style: AppTheme.body_medium.copyWith(
                 color: can_send
-                    ? AppTheme.primary_dark_color
+                    ? (show_code
+                          ? AppTheme.primary_dark_color
+                          : AppTheme.surface_color)
                     : AppTheme.on_surface_variant_color,
               ),
             ),
@@ -386,11 +398,20 @@ class _PhoneVerificationSectionState extends State<PhoneVerificationSection> {
         !state.awaiting_server &&
         isKoreanMobilePhone(state.phone) &&
         state.resend_seconds == 0;
+    final show_send =
+        widget.required_verification &&
+        !state.is_verified &&
+        !(_editing_phone && _showsCode(state));
     return Column(
       key: const Key('phone_verification_section'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!show_code) widget.phone_input,
+        if (!show_code)
+          widget.phone_input_builder(
+            show_send
+                ? _sendButton(can_send: can_send, show_code: false)
+                : null,
+          ),
         if (widget.required_verification && state.is_verified) ...[
           const SizedBox(height: 8),
           Semantics(
@@ -478,9 +499,7 @@ class _PhoneVerificationSectionState extends State<PhoneVerificationSection> {
                     }
                   : null,
               child: Text('인증번호 입력으로 돌아가기', style: AppTheme.body_medium),
-            )
-          else
-            _sendButton(can_send: can_send, show_code: false),
+            ),
         ],
         if (widget.required_verification && state.error != null) ...[
           const SizedBox(height: 8),

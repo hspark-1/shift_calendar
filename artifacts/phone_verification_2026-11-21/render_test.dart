@@ -1,5 +1,6 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -20,6 +21,8 @@ const _user = User(
   id: 'preview',
   email: 'haru@example.com',
   name: '김하루',
+  job_type: '간호사',
+  workplace: '하루병원 응급실',
   phone: '01012345678',
   requires_profile_setup: false,
 );
@@ -64,6 +67,9 @@ void main() {
         entry.key,
       )..addFont(rootBundle.load(entry.value))).load();
     }
+    final measurements = <String, Object>{};
+    WidgetController.hitTestWarningShouldBeFatal = true;
+    addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = false);
     for (final editing in [false, true]) {
       for (final scenario in [
         (
@@ -105,6 +111,20 @@ void main() {
           name: 'large_text',
           size: const Size(320, 568),
           scale: 2.0,
+          keyboard: 0.0,
+          state: 'sent',
+        ),
+        (
+          name: 'largest_text',
+          size: const Size(320, 568),
+          scale: 3.2,
+          keyboard: 0.0,
+          state: 'sent',
+        ),
+        (
+          name: 'dark_system',
+          size: const Size(390, 844),
+          scale: 1.0,
           keyboard: 0.0,
           state: 'sent',
         ),
@@ -169,6 +189,10 @@ void main() {
                 builder: (context, child) => MediaQuery(
                   data: MediaQuery.of(context).copyWith(
                     size: scenario.size,
+                    padding: const EdgeInsets.only(top: 47, bottom: 34),
+                    platformBrightness: scenario.name == 'dark_system'
+                        ? Brightness.dark
+                        : Brightness.light,
                     textScaler: TextScaler.linear(scenario.scale),
                     viewInsets: EdgeInsets.only(bottom: scenario.keyboard),
                     disableAnimations: true,
@@ -186,6 +210,31 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '${editing ? 'edit' : 'signup'}_${scenario.name}_initial',
+        );
+        if (scenario.name == 'normal') {
+          await _capture(
+            tester,
+            capture,
+            '${output.path}/${editing ? 'edit' : 'signup'}_top.png',
+          );
+          final email = find.byKey(const Key('profile_email_field'));
+          await tester.ensureVisible(email);
+          await tester.pumpAndSettle();
+          expect(find.text(_user.email).hitTestable(), findsOneWidget);
+          final footer_top = tester
+              .getTopLeft(find.byKey(const Key('profile_setup_bottom_action')))
+              .dy;
+          expect(tester.getBottomLeft(email).dy, lessThanOrEqualTo(footer_top));
+          await _capture(
+            tester,
+            capture,
+            '${output.path}/${editing ? 'edit' : 'signup'}_bottom.png',
+          );
+        }
         final phone = find.descendant(
           of: find.byKey(const Key('profile_phone_field')),
           matching: find.byType(CupertinoTextField),
@@ -261,6 +310,10 @@ void main() {
         final save = find.byKey(const Key('profile_setup_submit_button'));
         expect(tester.getSize(save).height, greaterThanOrEqualTo(52));
         expect(
+          tester.getBottomLeft(save).dy,
+          lessThanOrEqualTo(scenario.size.height - scenario.keyboard - 34),
+        );
+        expect(
           tester.widget<CupertinoButton>(save).onPressed != null,
           scenario.state == 'verified',
         );
@@ -277,16 +330,42 @@ void main() {
           expect(tester.widget<CupertinoTextField>(code).enabled, isTrue);
           expect(tester.widget<CupertinoButton>(verify).onPressed, isNull);
         }
-        expect(tester.takeException(), isNull);
+        final framework_error = tester.takeException();
+        final save_rect = tester.getRect(save);
+        final scroll_rect = tester.getRect(
+          find.byKey(const Key('profile_setup_scroll_view')),
+        );
+        measurements['${editing ? 'edit' : 'signup'}_${scenario.name}'] = {
+          'width': scenario.size.width,
+          'height': scenario.size.height,
+          'text_scale': scenario.scale,
+          'keyboard_inset': scenario.keyboard,
+          'save_height': save_rect.height,
+          'save_bottom': save_rect.bottom,
+          'scroll_height': scroll_rect.height,
+          'save_enabled':
+              tester.widget<CupertinoButton>(save).onPressed != null,
+          'framework_error': framework_error?.toString(),
+        };
         await _capture(
           tester,
           capture,
           '${output.path}/${editing ? 'edit' : 'signup'}_${scenario.name}.png',
         );
+        expect(
+          framework_error,
+          isNull,
+          reason: '${editing ? 'edit' : 'signup'}_${scenario.name}',
+        );
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
       }
     }
+    await tester.runAsync(() async {
+      await File(
+        '${output.path}/measurements.json',
+      ).writeAsString(const JsonEncoder.withIndent('  ').convert(measurements));
+    });
     await tester.binding.setSurfaceSize(null);
   });
 }
