@@ -8,6 +8,7 @@ import 'package:flutter/semantics.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/korean_holidays.dart';
 import '../../../auth/presentation/pages/settings_page.dart';
@@ -553,38 +554,40 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           child: const Icon(CupertinoIcons.gear),
         ),
       ),
-      child: ColoredBox(
-        color: AppTheme.background_color,
-        child: SafeArea(
-          bottom: false,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CalendarPageBody(
-                key_prefix: 'main-calendar',
-                calendar: _buildCalendarViewport(),
-                schedule: _buildSelectedDayInfo(),
-              ),
-              if (_pendingDeletionCount > 0 &&
-                  _hidden_delete_toast_revision != delete_toast_revision)
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 16,
-                  child: SafeArea(
-                    top: false,
-                    child: CalendarDeleteToast(
-                      key: ValueKey(
-                        'calendar-delete-notice-$delete_toast_revision',
+      child: AppTabBody(
+        child: ColoredBox(
+          color: AppTheme.background_color,
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CalendarPageBody(
+                  key_prefix: 'main-calendar',
+                  calendar: _buildCalendarViewport(),
+                  schedule: _buildSelectedDayInfo(),
+                ),
+                if (_pendingDeletionCount > 0 &&
+                    _hidden_delete_toast_revision != delete_toast_revision)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    child: SafeArea(
+                      top: false,
+                      child: CalendarDeleteToast(
+                        key: ValueKey(
+                          'calendar-delete-notice-$delete_toast_revision',
+                        ),
+                        count: _pendingDeletionCount,
+                        onUndo: _undoPendingDeletes,
+                        onDismiss: () =>
+                            _dismissDeleteToast(delete_toast_revision),
                       ),
-                      count: _pendingDeletionCount,
-                      onUndo: _undoPendingDeletes,
-                      onDismiss: () =>
-                          _dismissDeleteToast(delete_toast_revision),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -48,9 +48,11 @@ class _NotificationPageState extends ConsumerState<NotificationPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: const CupertinoNavigationBar(middle: Text('알림')),
-      child: SafeArea(
-        bottom: false,
-        child: _buildContent(state, group_invitation_state),
+      child: AppTabBody(
+        child: SafeArea(
+          bottom: false,
+          child: _buildContent(state, group_invitation_state),
+        ),
       ),
     );
   }

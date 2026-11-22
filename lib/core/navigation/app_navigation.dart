@@ -35,8 +35,12 @@ class AppTabNavigation extends InheritedWidget {
     super.key,
     required this.selectTab,
     required this.onOpenFriends,
+    this.bottom_inset = 0,
     required super.child,
   });
+
+  /// 플로팅 탭의 실제 높이와 하단 안전영역을 포함한 콘텐츠 예약 공간.
+  final double bottom_inset;
 
   final ValueChanged<int> selectTab;
   final void Function(FriendTabSection section, WidgetBuilder? detail_builder)
@@ -52,5 +56,22 @@ class AppTabNavigation extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<AppTabNavigation>();
 
   @override
-  bool updateShouldNotify(AppTabNavigation oldWidget) => false;
+  bool updateShouldNotify(AppTabNavigation oldWidget) =>
+      bottom_inset != oldWidget.bottom_inset;
+}
+
+/// 화면 배경은 전체 route를 채우고, 본문만 플로팅 탭 위에 배치한다.
+/// 루트 Navigator에서 단독으로 여는 화면에는 추가 여백을 만들지 않는다.
+class AppTabBody extends StatelessWidget {
+  const AppTabBody({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(
+      bottom: AppTabNavigation.maybeOf(context)?.bottom_inset ?? 0,
+    ),
+    child: child,
+  );
 }

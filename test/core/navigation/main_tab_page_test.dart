@@ -1,12 +1,16 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
 import 'package:shift_mate/main.dart' as app_main;
 import 'package:shift_mate/features/auth/presentation/pages/login_page.dart';
 import 'package:shift_mate/features/auth/presentation/pages/profile_setup_page.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -128,11 +132,22 @@ class _FriendService extends FriendService {
 class _GroupRepository implements GroupRepository {
   @override
   Future<PaginatedGroups> getGroups({int page = 1, int limit = 20}) async => (
-    groups: const <GroupSummary>[],
+    groups: [
+      GroupSummary(
+        group_id: 'group-1',
+        name: '초대 그룹',
+        timezone: 'Asia/Seoul',
+        my_role: GroupRole.member,
+        member_count: 0,
+        members_preview: const [],
+        created_at: DateTime(2026),
+        updated_at: DateTime(2026),
+      ),
+    ],
     pagination: const GroupPagination(
       page: 1,
       limit: 20,
-      total: 0,
+      total: 1,
       total_pages: 1,
     ),
   );
@@ -259,8 +274,10 @@ _pumpTabs(
   Size screen_size = const Size(390, 844),
   bool reduce_motion = false,
   bool dark_mode = false,
+  bool high_contrast = false,
   double text_scale = 1,
   bool with_friends = false,
+  EdgeInsets safe_padding = EdgeInsets.zero,
   List<NotificationModel> initial_notifications = const [],
 }) async {
   await tester.binding.setSurfaceSize(screen_size);
@@ -296,10 +313,16 @@ _pumpTabs(
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             size: screen_size,
+            padding: safe_padding,
+            viewPadding: safe_padding,
+            highContrast: high_contrast,
             disableAnimations: reduce_motion,
             textScaler: TextScaler.linear(text_scale),
           ),
-          child: child!,
+          child: RepaintBoundary(
+            key: const ValueKey('main-tabs-capture'),
+            child: child!,
+          ),
         ),
         home: const MainTabPage(),
       ),
@@ -311,6 +334,56 @@ _pumpTabs(
     root_key: root_key,
     notifications: notifications,
   );
+}
+
+Future<void> _expectContinuousTabBackground(
+  WidgetTester tester,
+  Rect bar_rect,
+  Rect page_rect,
+) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const ValueKey('main-tabs-capture')),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final pixels = (await image.toByteData())!;
+      // 같은 세로 전환 음영이 바 위와 홈 인디케이터 영역까지 이어져야 한다.
+      final sample_x = (page_rect.left - 6).floor();
+      final upper_pixel =
+          ((bar_rect.top - 24).floor() * image.width + sample_x) * 4;
+      final lower_pixel = ((image.height - 2) * image.width + sample_x) * 4;
+      for (var channel = 0; channel < 3; channel++) {
+        expect(
+          pixels.getUint8(lower_pixel + channel),
+          closeTo(pixels.getUint8(upper_pixel + channel), 2),
+        );
+      }
+    } finally {
+      image.dispose();
+    }
+  });
+}
+
+Future<void> _captureTabFrame(WidgetTester tester, String name) async {
+  final output_path = Platform.environment['NAV_RENDER_OUTPUT'];
+  if (output_path == null) return;
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const ValueKey('main-tabs-capture')),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final output_dir = Directory(output_path);
+      await output_dir.create(recursive: true);
+      await File(
+        '${output_dir.path}/$name.png',
+      ).writeAsBytes(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
 }
 
 Color _tabIconColor(WidgetTester tester, int index) {
@@ -377,6 +450,16 @@ void main() {
   setUpAll(() async {
     dotenv.testLoad(fileInput: '');
     await initializeDateFormatting('ko_KR');
+    for (final entry in {
+      'Cafe24SsurroundAir': 'assets/fonts/Cafe24SsurroundAir-v1.1.ttf',
+      'Cafe24Ssurround': 'assets/fonts/Cafe24Ssurround-v2.0.ttf',
+      'packages/cupertino_icons/CupertinoIcons':
+          'packages/cupertino_icons/assets/CupertinoIcons.ttf',
+    }.entries) {
+      await (FontLoader(
+        entry.key,
+      )..addFont(rootBundle.load(entry.value))).load();
+    }
   });
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -455,6 +538,120 @@ void main() {
     });
   }
 
+  for (final scenario in [
+    (
+      size: const Size(375, 667),
+      scale: 1.0,
+      dark: false,
+      contrast: false,
+      reduced: false,
+      safe: const EdgeInsets.only(top: 47, bottom: 34),
+    ),
+    (
+      size: const Size(844, 390),
+      scale: 1.0,
+      dark: false,
+      contrast: false,
+      reduced: false,
+      safe: const EdgeInsets.only(bottom: 21),
+    ),
+    (
+      size: const Size(768, 1024),
+      scale: 2.0,
+      dark: true,
+      contrast: false,
+      reduced: false,
+      safe: const EdgeInsets.only(top: 24, bottom: 20),
+    ),
+    (
+      size: const Size(768, 1240),
+      scale: 3.2,
+      dark: false,
+      contrast: true,
+      reduced: true,
+      safe: const EdgeInsets.only(top: 47, bottom: 34),
+    ),
+  ]) {
+    testWidgets('친구 뒤로가기 전환은 하단 탭 뒤까지 전체 화면을 사용한다: ${scenario.size}', (
+      tester,
+    ) async {
+      final screen_size = scenario.size;
+      await _pumpTabs(
+        tester,
+        screen_size: screen_size,
+        with_friends: true,
+        safe_padding: scenario.safe,
+        text_scale: scenario.scale,
+        dark_mode: scenario.dark,
+        high_contrast: scenario.contrast,
+        reduce_motion: scenario.reduced,
+      );
+      final bar = find.byKey(const ValueKey('main-glass-tab-bar'));
+      final bar_rect = tester.getRect(bar);
+      final main_body = tester.getRect(
+        find.byKey(const ValueKey('main-calendar-layout')),
+      );
+      expect(main_body.bottom, closeTo(bar_rect.top, 0.01));
+      expect(screen_size.height - bar_rect.bottom, scenario.safe.bottom);
+      await _captureTabFrame(
+        tester,
+        'calendar-${screen_size.width.toInt()}-${screen_size.height.toInt()}',
+      );
+      await tester.tap(find.byKey(const ValueKey('main-tab-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('friend@example.com'));
+      await tester.pumpAndSettle();
+      final page = find.byType(FriendCalendarPage);
+      final navigator = find
+          .ancestor(of: page, matching: find.byType(Navigator))
+          .first;
+      expect(tester.getRect(navigator).bottom, screen_size.height);
+      expect(tester.getRect(page).bottom, screen_size.height);
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('friend-calendar-layout')))
+            .bottom,
+        closeTo(bar_rect.top, 0.01),
+      );
+      await _captureTabFrame(
+        tester,
+        'friend-${screen_size.width.toInt()}-${screen_size.height.toInt()}',
+      );
+      final gesture_origin = Offset(1, screen_size.height * 0.7);
+      final drag_distance = screen_size.width * 0.4;
+      final gesture = await tester.startGesture(gesture_origin);
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await gesture.moveBy(Offset(drag_distance - 20, 0));
+      await tester.pump();
+      expect(tester.getTopLeft(page).dx, greaterThan(0));
+      expect(tester.getRect(page).bottom, screen_size.height);
+      expect(tester.getRect(bar), bar_rect);
+      await _captureTabFrame(
+        tester,
+        'swipe-${screen_size.width.toInt()}-${screen_size.height.toInt()}',
+      );
+      await _expectContinuousTabBackground(
+        tester,
+        bar_rect,
+        tester.getRect(page),
+      );
+      await gesture.moveBy(Offset(-drag_distance, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(FriendCalendarPage), findsOneWidget);
+      await tester.dragFrom(
+        gesture_origin,
+        Offset(screen_size.width * 0.95, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(FriendCalendarPage), findsNothing);
+      expect(find.byType(FriendListPage), findsOneWidget);
+      expect(tester.getRect(bar), bar_rect);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('동작 줄이기에서는 하단 선택 배경과 아이콘 색상이 즉시 확정된다', (tester) async {
     await _pumpTabs(tester, reduce_motion: true);
     final indicator = find.byKey(const ValueKey('main-tab-indicator'));
@@ -489,7 +686,10 @@ void main() {
     expect(fixture.notifications.load_count, 1);
     await tester.tap(find.byKey(const ValueKey('main-tab-1')));
     await tester.pumpAndSettle();
-    expect(find.text('우리 병동'), findsOneWidget);
+    expect(
+      find.text(AppConstants.group_api_enabled ? '초대 그룹' : '우리 병동'),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const ValueKey('main-tab-0')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('main-tab-0')));
@@ -603,16 +803,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('group-room-footer-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('group-room-preview-card')));
+    final group_card = find.byKey(
+      ValueKey(
+        AppConstants.group_api_enabled
+            ? 'group-room-card-group-1'
+            : 'group-room-preview-card',
+      ),
+    );
+    await tester.tap(group_card);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('main-tab-1')), findsOneWidget);
     expect(fixture.root_key.currentState!.canPop(), isFalse);
     await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('group-room-preview-card')),
-      findsOneWidget,
-    );
+    expect(group_card, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   for (final size in [const Size(375, 667), const Size(768, 1024)]) {

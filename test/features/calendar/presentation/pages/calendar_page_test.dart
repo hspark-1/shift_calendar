@@ -1071,10 +1071,12 @@ void main() {
       scroll_count,
     );
     // 토스트 밖의 날짜 버튼은 배리어 없이 계속 누를 수 있다.
+    // 2주 보기의 마지막 토요일에도 화면 안에 있는 이웃 날짜를 누른다.
+    final neighbor_offset = event.startAt.weekday == DateTime.saturday ? -1 : 1;
     final next_day = DateTime(
       event.startAt.year,
       event.startAt.month,
-      event.startAt.day + 1,
+      event.startAt.day + neighbor_offset,
     );
     final next_cell = find.byKey(
       ValueKey(

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/korean_holidays.dart';
 import '../../../calendar/application/calendar_range_state.dart';
@@ -239,13 +240,15 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
           child: const Icon(CupertinoIcons.gear, semanticLabel: '친구 설정'),
         ),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: CalendarPageBody(
-          key_prefix: 'friend-calendar',
-          calendar: _buildCalendarSection(calendar_range_state),
-          schedule: _buildSelectedDaySchedule(
-            is_content_hidden: calendar_range_state.is_access_denied,
+      child: AppTabBody(
+        child: SafeArea(
+          bottom: false,
+          child: CalendarPageBody(
+            key_prefix: 'friend-calendar',
+            calendar: _buildCalendarSection(calendar_range_state),
+            schedule: _buildSelectedDaySchedule(
+              is_content_hidden: calendar_range_state.is_access_denied,
+            ),
           ),
         ),
       ),

@@ -3,6 +3,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Scaffold;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/app_constants.dart';
@@ -136,40 +137,44 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
       if (next) _schedulePendingNavigation();
     });
     final unread_count = ref.watch(unreadNotificationCountProvider);
-    return AppTabNavigation(
-      selectTab: _selectTab,
-      onOpenFriends: _openFriends,
-      child: ColoredBox(
-        color: CupertinoTheme.of(context).scaffoldBackgroundColor,
-        child: Column(
-          children: [
-            Expanded(
-              child: MediaQuery.removePadding(
-                context: context,
-                removeBottom: true,
-                child: IndexedStack(
-                  index: _selected_tab,
-                  children: List.generate(3, _buildTab),
-                ),
+    return Scaffold(
+      backgroundColor: CupertinoTheme.of(context).scaffoldBackgroundColor,
+      extendBody: true,
+      resizeToAvoidBottomInset: false,
+      // Material Scaffold는 배치만 사용하고 기존 Cupertino 글꼴을 보존한다.
+      body: DefaultTextStyle(
+        style: DefaultTextStyle.of(context).style,
+        child: Builder(
+          builder: (context) => AppTabNavigation(
+            selectTab: _selectTab,
+            onOpenFriends: _openFriends,
+            // Scaffold가 실제 바 높이와 안전영역을 측정해 전달한다.
+            bottom_inset: MediaQuery.paddingOf(context).bottom,
+            child: MediaQuery.removePadding(
+              context: context,
+              removeBottom: true,
+              child: IndexedStack(
+                index: _selected_tab,
+                children: List.generate(3, _buildTab),
               ),
             ),
-            SafeArea(
-              top: false,
-              minimum: const EdgeInsets.only(bottom: AppTheme.spacing_sm),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Center(
-                  heightFactor: 1,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppTheme.navigation_max_width,
-                    ),
-                    child: _buildGlassBar(unread_count),
-                  ),
-                ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.only(bottom: AppTheme.spacing_sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppTheme.navigation_max_width,
               ),
+              child: _buildGlassBar(unread_count),
             ),
-          ],
+          ),
         ),
       ),
     );

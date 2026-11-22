@@ -76,6 +76,15 @@
   - 렌더/한계: `/private/tmp/shiftmate-friend-calendar-20261121/card_render_test.dart`는 앞선 임시 렌더러와 같은 Flutter/모의 Dio403·FontLoader·RepaintBoundary/dart:io/ui를 사용한다. `flutter test --no-pub <해당경로> --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로375x667·작은 화면 글자2배·가로 글자2배·태블릿의 card_*.png4개를 생성해 렌더1 pass, 대표 화면에서 카드/날짜와 빈 본문을 직접 확인했다. card-regression.log/card-render.log에 결과를 보관했다. 실기기/배포는 미수행이다.
   - 롤백: 이번 카드 옵션·친구 페이지·테스트/문서 추가분만 복구한다. 기존 인증/탭 변경은 보존한다.
 
+## 2026-11-21 하단 바 위치 8px 하향
+
+- [DONE] (FE/UI) 사용자 요청으로 플로팅 탭의 추가 하단8px 여백을 제거했다.
+  - 목적/변경: 하단 바를8px 내려 화면 아래에 가깝게 배치한다. SafeArea의 시스템 여백/최소8px는 유지하고 본문 예약 높이는 기존 측정 흐름으로 갱신한다.
+  - 범위: main_tab_page.dart의 바 외부 패딩, 기존 위치 회귀 기대값, 정본 문서. 다른 미커밋 변경은 보존한다.
+  - 테스트/결과: 기존 main_tab_page_test.dart **22 pass**(탭 탐색·전체 화면 스와이프·바/본문 경계·안전영역·큰 글자/가로/다크), 변경2파일 analyze **진단0**, 포맷 **변경0**, diff 공백 검사 통과. `/private/tmp/shiftmate-nav-lower-20261121/`에4조건 PNG12개를 생성하고375×667의 친구 화면을 직접 확인했다. 바 하단은 기존625px에서633px로8px 내려가고 화면 끝까지34px 안전영역을 유지한다. 로그는 `/private/tmp/shiftmate-nav-lower-{test,analyze}.log`다. 실기기 인수는 수행하지 않았다.
+  - 롤백: 바 외부 패딩의 하단값을0→8로 복구하고 해당 기대값/문서만 되돌린다.
+
+
 ## 2026-11-21 친구 공유 해제 화면을 빈 일정 영역으로 단순화
 
 - [DONE] (FE/UI) 사용자 피드백에 따라 공유 거절 시 잠금 안내/재확인 버튼을 제거하고 달력은 유지하며 근무·일정 영역만 비웠다.
@@ -86,6 +95,18 @@
   - 검증: `flutter test --no-pub test/features/friend/presentation/pages/friend_calendar_page_test.dart test/features/calendar/application/calendar_range_notifier_test.dart test/core/navigation/main_tab_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **52 pass**, 변경 Dart2파일 analyze **진단0**, 포맷/문서·소스 diff 공백 검사 통과. 관련 로그는 `/private/tmp/shiftmate-friend-calendar-20261121/empty-regression.log`다.
   - 화면/한계: 같은 폴더의 `empty_render_test.dart`는 기존 임시 렌더러를 빈 일정 UI에 맞춘 사본이며 Flutter/앱 코드·FontLoader·모의 Dio403·RepaintBoundary/dart:io/ui에 의존한다. `flutter test --no-pub <해당경로> --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 PNG4개(empty_phone/large_text/landscape/tablet)를 생성하고 렌더1 pass를 확인했다. 대표375x667의 달력/빈 일정 영역을 직접 확인했다. 실기기·배포는 미수행이다.
   - 롤백: 이번 친구 페이지/테스트·문서 추가분만 복구하면 직전 잠금 안내로 돌아간다. 다른 기존 작업은 보존한다.
+
+## 2026-11-21 하단 플로팅 탭 배경과 화면 전환 연결
+
+- [DONE] (FE/UI) 친구 상세 뒤로가기 스와이프에서 본문과 하단 탭 배경의 경계가 드러나는 구조를 수정했다.
+  - 목적/원인: 본문 전환의 음영/배경이 하단에서 끊기지 않게 한다. 수정 전 실제375×667 화면·상단47/하단34px에서 Navigator 하단561px를 debug-live로 확인했고 신규 전체 화면 회귀가667px 기대/561px 실제로 실패했다. 기존 Column이 바 높이106px를 Navigator 바깥으로 분리한 것이 원인이다. 중단점/디버그 세션을 정리했다.
+  - 변경/영향: MainTabPage는 Scaffold.extendBody로 route를 화면 끝까지 확장하고 기존 바를 겹쳐 놓는다. 실제 측정한 바/안전영역 높이를 AppTabNavigation.bottom_inset으로 전달해 각 페이지의 AppTabBody가 본문에만 여백을 예약한다. 기존 Cupertino 글꼴/바 크기·재질·간격·탭 이력·동작 줄이기·고대비·배지·root 폼 경로를 유지한다. **Behavior change**: 뒤로가기 중 음영/배경이 하단 안전영역까지 연결된다. API/DB/env/새 패키지·domain 상태 정책은 변경하지 않았다.
+  - 파일/역할: 기존 core/navigation의 main_tab_page.dart·app_navigation.dart, 메인/친구 목록·캘린더·정보/알림/그룹 미리보기·캘린더·정보·받은 초대의9개 페이지에 본문 여백을 적용했다. 신규 저장소 파일은 없다. PROJECT_CONTEXT에 공통 위젯의 역할/의존성·새 탭 화면 적용법·렌더 사용 예를 기록하고 ADR-0092를 추가했다. 기존 인증 및 별도 친구 공유 해제 변경은 보존했다.
+  - 검증 보완: 기존 main_tab_page_test.dart에375×667·844×390·768×1024(다크/2배)·768×1240(고대비/동작 줄이기/3.2배)의 실제 부분 드래그·취소/완료, route 하단·본문/바 경계·안전영역/바 위치 불변, 바 위/화면 맨 아래RGB 연속성(채널 오차2 이내)을 추가했다. 그룹 플래그true에서도 기존 그룹 복귀 시나리오가 실행되도록 모의 그룹/카드 선택을 보완했다. 기존 캘린더 토스트 회귀는2026-11-21의2주 마지막 토요일 다음날 셀이 없음을 디버거로 확인해 토요일에는 표시된 전날을 선택하도록 테스트만 수정했다.
+  - 테스트: 기본 관련 회귀 `flutter test --no-pub test/core/navigation/main_tab_page_test.dart test/features/friend/presentation/pages/friend_list_page_test.dart test/features/friend/presentation/pages/friend_detail_page_test.dart test/features/friend/presentation/pages/group_calendar_preview_page_test.dart test/features/group/presentation/pages test/features/calendar/presentation/pages/calendar_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **104 pass/1 skip**. 그룹 활성 main_tab_page+friend_list_page 회귀(`--dart-define=GROUP_API_ENABLED=true`) **41 pass**. 최종 친구 캘린더 통합 **16 pass**. 변경13 Dart파일 포맷 **변경0**, 변경 UI/회귀 정적 분석 **진단0**, diff 공백 검사 통과. SDK 캐시/분석 세션 쓰기 제한은 필요한 명령의 권한 확장 후 동일 검사 성공으로 해소했다.
+  - 렌더/자료: 선택적 NAV_RENDER_OUTPUT의 PNG 생성은 tester.runAsync 안에서 실행한다. `/private/tmp/shiftmate-nav-render-final-20261121/`의 메인/친구/부분 스와이프 PNG12개를 생성하고 작은 화면·가로·큰 글자·다크 부분 전환을 직접 확인했다. 별도 렌더4 pass·픽셀 회귀4 pass. 로그는 `/private/tmp/shiftmate-nav-{tests-scoped-final,groups-final,friend-integration-final,render-final,pixels-final,analyze-final}.log`다. UI 점검 검색은 실제 플랫폼에 맞는 항목을 찾지 못해 스킬의 일반 고정 요소/안전영역 원칙과 로컬 Flutter Scaffold/route 구현을 근거로 적용했다.
+  - 한계/다음: 실기기 제스처·프레임 성능·VoiceOver는 미실행이다. 앱 전체 다크 모드는 도입하지 않았다. 검증 중390×844/글자3.2배의 메인 일정 추가 Row에서 기존14px 가로 overflow를 관찰했으며 탭 전환 배치와 별개인 본문 접근성 후속 항목으로 남긴다. 최종3.2배 전환 검증은768×1240에서 수행했다.
+  - 롤백: MainTabPage 배치·AppTabNavigation/AppTabBody·적용 페이지·이번 관련 테스트/문서만 함께 되돌린다. 기존 미커밋 인증/친구 공유 해제 변경과 데이터는 유지한다.
 
 ## 2026-11-21 친구 캘린더 공유 해제 안내 구현
 

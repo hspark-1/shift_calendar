@@ -7,6 +7,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../calendar/presentation/controllers/calendar_viewport_controller.dart';
 import '../../../calendar/presentation/models/calendar_day_presentation.dart';
@@ -118,7 +119,9 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
           ],
         ),
       ),
-      child: SafeArea(bottom: false, child: _buildBody(state)),
+      child: AppTabBody(
+        child: SafeArea(bottom: false, child: _buildBody(state)),
+      ),
     );
   }
 

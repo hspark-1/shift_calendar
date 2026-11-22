@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../application/group_providers.dart';
 import '../../domain/entities/group_models.dart';
@@ -32,7 +33,7 @@ class _ReceivedGroupInvitationsPageState
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: const CupertinoNavigationBar(middle: Text('받은 그룹 초대')),
-      child: SafeArea(child: _buildBody(state)),
+      child: AppTabBody(child: SafeArea(child: _buildBody(state))),
     );
   }
 

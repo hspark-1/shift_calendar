@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/profile_image.dart';
 import '../../data/models/friend_model.dart';
@@ -79,24 +80,26 @@ class _FriendDetailPageState extends ConsumerState<FriendDetailPage> {
                 ),
         ),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            24,
-            16,
-            MediaQuery.paddingOf(context).bottom + 32,
+      child: AppTabBody(
+        child: SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              24,
+              16,
+              MediaQuery.paddingOf(context).bottom + 32,
+            ),
+            children: [
+              _buildProfileSection(),
+              const SizedBox(height: 28),
+              _buildLevelSection(),
+              const SizedBox(height: 14),
+              _buildViewSettingSection(),
+              const SizedBox(height: 32),
+              _buildDeleteSection(),
+            ],
           ),
-          children: [
-            _buildProfileSection(),
-            const SizedBox(height: 28),
-            _buildLevelSection(),
-            const SizedBox(height: 14),
-            _buildViewSettingSection(),
-            const SizedBox(height: 32),
-            _buildDeleteSection(),
-          ],
         ),
       ),
     );

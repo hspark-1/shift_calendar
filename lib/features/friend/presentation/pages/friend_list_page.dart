@@ -65,51 +65,53 @@ class FriendListPageState extends ConsumerState<FriendListPage> {
         ),
         trailing: _buildNavigationActions(),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: CupertinoSlidingSegmentedControl<FriendTabSection>(
-                  groupValue: _selected_section,
-                  children: const {
-                    FriendTabSection.friends: Padding(
-                      key: ValueKey('friend-list-footer-button'),
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('친구'),
-                    ),
-                    FriendTabSection.groups: Padding(
-                      key: ValueKey('group-room-footer-button'),
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('그룹'),
-                    ),
-                  },
-                  onValueChanged: (section) {
-                    if (section != null) showSection(section);
-                  },
+      child: AppTabBody(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: CupertinoSlidingSegmentedControl<FriendTabSection>(
+                    groupValue: _selected_section,
+                    children: const {
+                      FriendTabSection.friends: Padding(
+                        key: ValueKey('friend-list-footer-button'),
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text('친구'),
+                      ),
+                      FriendTabSection.groups: Padding(
+                        key: ValueKey('group-room-footer-button'),
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text('그룹'),
+                      ),
+                    },
+                    onValueChanged: (section) {
+                      if (section != null) showSection(section);
+                    },
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: PageView(
-                key: const ValueKey('friend-group-page-view'),
-                controller: _page_controller,
-                onPageChanged: (index) =>
-                    _selectSection(FriendTabSection.values[index]),
-                children: [
-                  _KeepAliveSection(child: _buildContent(state)),
-                  _KeepAliveSection(
-                    child: _has_opened_groups
-                        ? _buildGroupRoomList()
-                        : const SizedBox.shrink(),
-                  ),
-                ],
+              Expanded(
+                child: PageView(
+                  key: const ValueKey('friend-group-page-view'),
+                  controller: _page_controller,
+                  onPageChanged: (index) =>
+                      _selectSection(FriendTabSection.values[index]),
+                  children: [
+                    _KeepAliveSection(child: _buildContent(state)),
+                    _KeepAliveSection(
+                      child: _has_opened_groups
+                          ? _buildGroupRoomList()
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

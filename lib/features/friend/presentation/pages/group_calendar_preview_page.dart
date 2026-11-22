@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../calendar/presentation/controllers/calendar_viewport_controller.dart';
 import '../../../calendar/presentation/models/calendar_day_presentation.dart';
@@ -380,16 +381,18 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
           ),
         ),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: CalendarPageBody(
-          key_prefix: 'group-preview',
-          calendar: Container(
-            key: const ValueKey('group-preview-calendar-section'),
-            color: AppTheme.background_color,
-            child: _buildCalendarViewport(),
+      child: AppTabBody(
+        child: SafeArea(
+          bottom: false,
+          child: CalendarPageBody(
+            key_prefix: 'group-preview',
+            calendar: Container(
+              key: const ValueKey('group-preview-calendar-section'),
+              color: AppTheme.background_color,
+              child: _buildCalendarViewport(),
+            ),
+            schedule: _buildSelectedDayDetail(selected_day_data),
           ),
-          schedule: _buildSelectedDayDetail(selected_day_data),
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/navigation/app_navigation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../friend/data/models/friend_model.dart';
@@ -49,7 +50,9 @@ class _GroupManagementPageState extends ConsumerState<GroupManagementPage> {
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
       navigationBar: const CupertinoNavigationBar(middle: Text('그룹 정보')),
-      child: SafeArea(child: _buildBody(detail_state, group)),
+      child: AppTabBody(
+        child: SafeArea(child: _buildBody(detail_state, group)),
+      ),
     );
   }
 

@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
+import 'package:shift_mate/core/navigation/app_navigation.dart';
 import 'package:shift_mate/features/friend/presentation/providers/friend_calendar_range_provider.dart';
 import 'package:shift_mate/core/utils/korean_holidays.dart';
 import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
@@ -401,6 +402,59 @@ void main() {
       isEmpty,
     );
   });
+
+  for (final scenario in [
+    (size: Size(375, 667), scale: 1.0, brightness: Brightness.light),
+    (size: Size(320, 568), scale: 2.0, brightness: Brightness.light),
+    (size: Size(844, 390), scale: 2.0, brightness: Brightness.dark),
+    (size: Size(768, 1024), scale: 1.0, brightness: Brightness.dark),
+  ]) {
+    testWidgets('공유 거절은 작은 화면·큰 글자·하단 탭에서도 빈 일정과 달력을 표시한다 $scenario', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(scenario.size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final requests = <RequestOptions>[];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            friendServiceProvider.overrideWithValue(
+              _accessService([_accessDenied()], requests),
+            ),
+          ],
+          child: CupertinoApp(
+            theme: CupertinoThemeData(brightness: scenario.brightness),
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: scenario.size,
+                padding: const EdgeInsets.only(top: 44, bottom: 34),
+                textScaler: TextScaler.linear(scenario.scale),
+                disableAnimations: true,
+              ),
+              child: AppTabNavigation(
+                selectTab: (_) {},
+                onOpenFriends: (_, _) {},
+                bottom_inset: 96,
+                child: FriendCalendarPage(friend: _accessFriend()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final check = find.byKey(const ValueKey('friend-calendar-today-button'));
+      await tester.ensureVisible(check);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(check).height, greaterThanOrEqualTo(44));
+      expect(tester.getSize(check).width, greaterThanOrEqualTo(44));
+      expect(
+        tester.getRect(check).bottom,
+        lessThanOrEqualTo(scenario.size.height - 96),
+      );
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('일정 목록 스크롤이 친구 이름 헤더의 배경을 바꾸지 않는다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));

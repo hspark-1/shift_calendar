@@ -14,6 +14,17 @@
 - 새 검토 산출물: `artifacts/profile_ui_redesign_2026-11-22/`의 signup_top/edit_top은 최초 화면, signup_bottom/edit_bottom은 하단 근무·계정 영역, signup_normal은 인증 입력, signup_large_text/signup_largest_text는320px 글자2/3.2배, signup_keyboard는240px 모의 키보드다. measurements.json은26조건의 버튼/본문 높이·저장 활성·오류 측정값이다. 위 렌더러 출력에서 해당 PNG8개/JSON을 복사한 자료이며 제품 runtime 의존성은 없다. 예: [회원가입](../artifacts/profile_ui_redesign_2026-11-22/signup_top.png)·[프로필 수정](../artifacts/profile_ui_redesign_2026-11-22/edit_top.png)을 디자인 검토에 사용한다.
 - 검증/한계/롤백: 인증/렌더190 pass, 최종3 Dart파일 분석 진단0·포맷/공백 검사 통과.26조건 오류0·미스 터치 경고0, 저장 버튼 최소56, 실제 스크롤 가용 높이 최소122를 확인했다. 흰색 배경의 기본 글자17.13:1/보조9.37:1/파랑6.47:1/오류6.54:1이다. 실제 OS 사진/키보드·VoiceOver/실문자·서버/배포 인수는 미실행이다. 이번 UI·관련 회귀/렌더·검토 PNG/문서 추가분만 복원하며 기존 미커밋 작업을 보존한다.
 
+## 하단 플로팅 탭과 전체 화면 전환 (2026-11-21, ADR-0092)
+
+- 위치 후속 조정(2026-11-21): 사용자 요청으로 바 외부의 추가 하단8px 패딩을 제거했다. 바는 직전보다8px 아래에 놓이며 시스템 하단 안전영역(없거나8px 미만이면 최소8px)을 유지한다. 측정 기반 본문 예약은 자동으로8px 줄어든다.
+
+- 목적/Behavior change: 친구 탭의 뒤로가기 스와이프에서 본문과 바 배경이 갈라지는 경계를 없앤다. MainTabPage는 Scaffold(extendBody: true, resizeToAvoidBottomInset: false)의 body에 기존 IndexedStack/Navigator를, bottomNavigationBar에 기존 글라스 바를 둔다. 본문/바 분리 Column을 대체하며 바의 크기·안전영역·선택/배지·탭 이력은 보존한다. Material Scaffold가 기존 Cupertino 글꼴을 덮지 않도록 body에 기존 DefaultTextStyle을 복원한다.
+- 흐름/규칙: Scaffold가 측정한 바+안전영역 높이 → AppTabNavigation.bottom_inset → 각 CupertinoPageScaffold.child의 AppTabBody. 페이지 배경/전환 음영은 전체 화면, 콘텐츠만 바 위까지 배치한다. Navigator에 전달하는 MediaQuery.padding.bottom은0으로 유지해 기존 SafeArea/footer와 중복 계산하지 않는다. 높이 하드코딩·별도 상태/controller/provider·API/DB/env/패키지 변경은 없다.
+- 적용/사용 예: 기존 calendar_page·friend_list_page·friend_calendar_page·friend_detail_page·notification_page·group_calendar_preview_page·group_calendar_page·group_management_page·received_group_invitations_page의 scaffold 본문을 `AppTabBody(child: SafeArea(...))`로 감싼다. 새 탭 내부 화면에도 적용한다. AppTabNavigation이 없는 root 단독 화면은 추가 여백0이며 생성/편집의 기존 root 이동은 유지한다. 공유 거절의 별도 진행 중 변경은 그대로 보존한다.
+- 파일 역할/의존성: 기존 core/navigation/main_tab_page.dart는 측정/배치, app_navigation.dart의 AppTabBody는 Cupertino/AppTabNavigation에 의존하는 본문 예약 위젯이다. 기존 test/core/navigation/main_tab_page_test.dart는 실제 페이지와 모의 API·번들 폰트·RepaintBoundary로 부분 스와이프/취소/완료·높이/픽셀 연속성을 검증한다. `NAV_RENDER_OUTPUT=/private/tmp/shiftmate-nav-render flutter test --no-pub test/core/navigation/main_tab_page_test.dart --plain-name '친구 뒤로가기 전환은 하단 탭 뒤까지 전체 화면을 사용한다' --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 4조건의 메인/친구/부분 스와이프 PNG12개를 생성한다. 실제 계정/서버는 사용하지 않으며 신규 저장소 파일은 없다.
+- 검증/한계/롤백: 375×667·844×390·768×1024(다크/글자2배)·768×1240(고대비/동작 줄이기/글자3.2배)의 실렌더를 검사한다. 앱 전체 다크 모드 도입이나 실기기 인수는 아니다. 최종 테스트/분석 결과는 WORKLOG를 따른다. 배치·본문 예약·적용 페이지/관련 회귀·문서 추가분을 함께 복구한다.
+
+
 ## 프로필 수정 뒤로가기는 미저장 입력을 바로 폐기 (2026-11-22, ADR-0103)
 
 - 사용자 확정/Behavior change: `ProfileSetupPage.edit`의 미저장 변경 확인창과 dirty 상태에 따른 PopScope 차단을 제거했다. 상단 뒤로가기·OS maybePop·iOS 가장자리 스와이프는 확인 없이 이전 화면으로 돌아가며 저장 API를 호출하지 않는다. 다시 열면 서버의 기존 값을 조회한다. 저장은 저장 버튼에서만 수행한다.
@@ -462,7 +473,7 @@
 ## 글라스 내비게이션 (2026-11-11)
 
 - 목적/범위: 사용자 요청으로 하단 탭을 둥근 플로팅 글라스 스타일로 바꾸고 공통 상단 바 재질을 맞췄다(ADR-0044). Flutter의 제한된 BackdropFilter·반투명 그라데이션으로 표현하며 Apple 시스템 Liquid Glass의 굴절/광학 효과를 구현한 것은 아니다.
-- 하단: 좌우 16px·최대 너비 480px·반경 28px·내부 4px·일반 높이 64px이다. 홈 인디케이터 안전영역과 바 사이에 추가 8px(안전영역이 없으면 합계 최소 16px)을 확보한다. 흰색/어두운 표면의 94→82% 농도와 18px 블러·얕은 그림자를 사용한다. 기존 Column에서 본문과 바 공간을 분리하며 일정 카드와 바 경계의 16px 간격을 유지한다. 아래에 겹치는 일정이 없어 글라스의 뒤 배경 변화는 제한적이다.
+- 하단: 좌우 16px·최대 너비 480px·반경 28px·내부 4px·일반 높이 64px이다. 후속 위치 조정으로 추가 하단8px를 제거했으며 홈 인디케이터 안전영역만 확보한다(안전영역이 없으면 최소8px). 흰색/어두운 표면의 94→82% 농도와 18px 블러·얕은 그림자를 사용한다. 현재 ADR-0092에 따라 전체 화면 route 위에 바를 겹쳐 배치하고 본문에 바 높이만큼 여백을 예약한다. 일정 카드와 바 경계의 16px 간격을 유지하며 전환 중의 페이지 배경/음영은 바 뒤까지 이어진다.
 - 선택/접근성: 선택 탭에는 읽기 가능한 전경색의 10% 배경을 표시한다. 아이콘·텍스트·탭별 읽음 수 의미를 유지하고 180ms 색상 전환은 동작 줄이기에서 생략한다. 고대비는 불투명 표면/블러 끄기를 사용한다. 알림 `99+`는 고정 아이콘 슬롯 안에 두고 숫자 글자 확대만 최대 1.2배로 제한해 둥근 경계의 잘림을 막는다. 탭 라벨은 시스템 확대를 따르며 접근성 라벨은 실제 전체 미읽음 수를 읽는다. 숫자 바탕은 기존 error_text_color를 사용한다.
 - 상단: AppTheme.lightTheme/darkTheme의 `navigation_bar_color`를 공유한다. CupertinoNavigationBar의 기존 스크롤 배경 전환·블러를 사용하며, 정지 상태에는 scaffold 배경을 표시할 수 있다. 제목·뒤로가기 위치/동작·탐색 경로는 유지하고 별도 캡슐 장식을 추가하지 않는다. 설정·근무 패턴의 개별 불투명 배경/굵은 경계 override를 제거해 같은 테마를 따른다. API/DB·인증/탭 이력·provider 수명·analytics 정책은 유지한다.
 - 파일 역할/의존성/사용 예: 기존 `main_tab_page.dart`는 글라스 바와 선택 표시, `app_theme.dart`는 공통 내비게이션 색상/치수, 설정/근무 패턴 페이지는 공통 헤더 재질을 사용한다. 신규 `artifacts/glass_navigation_2026-11-11/render_test.dart`는 기존 design_update 렌더러의 공개 모의 repository/notifier·번들 폰트·실제 페이지로 PNG와 `measurements.json`을 만든다. 루트에서 `flutter test --no-pub artifacts/glass_navigation_2026-11-11/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 재생성한다. 각 PNG는 같은 이름의 화면/조건 캡처이며 JSON은 크기·글자배율·접근성 조건·바/배지 좌표·카드 간격·예외를 기록한다. 계정/알림 수는 예시다. [캘린더](../artifacts/glass_navigation_2026-11-11/calendar.png), [설정 헤더](../artifacts/glass_navigation_2026-11-11/settings.png), [큰 글자](../artifacts/glass_navigation_2026-11-11/text2.png).
