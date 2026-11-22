@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../calendar/application/calendar_range_notifier.dart';
 import '../../../calendar/application/calendar_range_state.dart';
 import '../../data/services/friend_service.dart';
@@ -13,6 +14,10 @@ final friendCalendarRangeProvider = StateNotifierProvider.autoDispose
     ) {
       final service = ref.watch(friendServiceProvider);
       return CalendarRangeNotifier(
+        access_denied_when: (error) =>
+            error is ApiException &&
+            error.statusCode == 403 &&
+            error.code == 'CALENDAR_ACCESS_DENIED',
         loader: ({required start_date, required end_date}) async {
           final response = await service.getFriendCalendarRange(
             friendUserId: friend_user_id,

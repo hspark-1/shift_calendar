@@ -7,11 +7,16 @@ import '../data/models/work_shift_api_model.dart';
 import 'calendar_range_state.dart';
 
 class CalendarRangeNotifier extends StateNotifier<CalendarRangeState> {
-  CalendarRangeNotifier({required CalendarRangeLoader loader})
-    : _loader = loader,
-      super(const CalendarRangeState());
+  CalendarRangeNotifier({
+    required CalendarRangeLoader loader,
+    bool Function(Object error)? access_denied_when,
+  }) : _loader = loader,
+       _access_denied_when = access_denied_when,
+       super(const CalendarRangeState());
 
   final CalendarRangeLoader _loader;
+  final bool Function(Object error)? _access_denied_when;
+  int _access_revision = 0;
   final Map<String, Future<void>> _in_flight_by_month = {};
   final Map<String, Object> _request_tokens_by_month = {};
   final Map<Object, Map<String, EventApiModel?>> _event_changes_by_request = {};
@@ -64,6 +69,7 @@ class CalendarRangeNotifier extends StateNotifier<CalendarRangeState> {
     required Object request_token,
     required bool refresh,
   }) async {
+    final access_revision = _access_revision;
     state = state.copyWith(
       loading_months: {...state.loading_months, ...range_month_keys},
       clear_error: true,
@@ -74,7 +80,7 @@ class CalendarRangeNotifier extends StateNotifier<CalendarRangeState> {
         start_date: range.start_date,
         end_date: range.end_date,
       );
-      if (!mounted) return;
+      if (!mounted || access_revision != _access_revision) return;
       final work_shifts = Map<DateTime, WorkShiftApiModel>.from(
         state.work_shifts_by_date,
       );
@@ -130,9 +136,22 @@ class CalendarRangeNotifier extends StateNotifier<CalendarRangeState> {
           request_token,
         ),
         clear_error: true,
+        is_access_denied: false,
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || access_revision != _access_revision) return;
+      if (_access_denied_when?.call(error) == true) {
+        // 거절 이전에 시작한 다른 월 요청도 캐시를 복원하지 못하게 한다.
+        _access_revision += 1;
+        _in_flight_by_month.clear();
+        _request_tokens_by_month.clear();
+        state = CalendarRangeState(
+          is_access_denied: true,
+          last_error: error,
+          error_revision: state.error_revision + 1,
+        );
+        return;
+      }
       state = state.copyWith(
         loading_months: _loadingMonthsAfterRequest(
           range_month_keys,

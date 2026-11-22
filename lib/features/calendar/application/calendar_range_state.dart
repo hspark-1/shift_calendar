@@ -30,6 +30,7 @@ class CalendarRangeState {
     this.loading_months = const {},
     this.last_error,
     this.error_revision = 0,
+    this.is_access_denied = false,
   });
 
   final Map<DateTime, WorkShiftApiModel> work_shifts_by_date;
@@ -38,6 +39,7 @@ class CalendarRangeState {
   final Set<String> loading_months;
   final Object? last_error;
   final int error_revision;
+  final bool is_access_denied;
 
   bool get is_loading => loading_months.isNotEmpty;
 
@@ -57,6 +59,7 @@ class CalendarRangeState {
     Object? last_error,
     bool clear_error = false,
     int? error_revision,
+    bool? is_access_denied,
   }) {
     return CalendarRangeState(
       work_shifts_by_date: work_shifts_by_date ?? this.work_shifts_by_date,
@@ -65,6 +68,7 @@ class CalendarRangeState {
       loading_months: loading_months ?? this.loading_months,
       last_error: clear_error ? null : last_error ?? this.last_error,
       error_revision: error_revision ?? this.error_revision,
+      is_access_denied: is_access_denied ?? this.is_access_denied,
     );
   }
 }

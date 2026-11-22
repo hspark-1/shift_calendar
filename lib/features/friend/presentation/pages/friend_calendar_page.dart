@@ -215,6 +215,12 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
             previous?.error_revision == next.error_revision) {
           return;
         }
+        final error = next.last_error;
+        if (error is ApiException &&
+            error.statusCode == 403 &&
+            error.code == 'CALENDAR_ACCESS_DENIED') {
+          return;
+        }
         _showErrorDialog(_getErrorMessage(next.last_error));
       },
     );
@@ -230,7 +236,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: _navigateToSettings,
-          child: const Icon(CupertinoIcons.gear),
+          child: const Icon(CupertinoIcons.gear, semanticLabel: '친구 설정'),
         ),
       ),
       child: SafeArea(
@@ -238,7 +244,9 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
         child: CalendarPageBody(
           key_prefix: 'friend-calendar',
           calendar: _buildCalendarSection(calendar_range_state),
-          schedule: _buildSelectedDaySchedule(),
+          schedule: _buildSelectedDaySchedule(
+            is_content_hidden: calendar_range_state.is_access_denied,
+          ),
         ),
       ),
     );
@@ -307,7 +315,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
     return AppTheme.on_surface_color;
   }
 
-  Widget _buildSelectedDaySchedule() {
+  Widget _buildSelectedDaySchedule({bool is_content_hidden = false}) {
     final selectedDate = _normalizeDate(_selectedDay);
     final workShift = _getWorkShiftForDay(selectedDate);
     final events = _getEventsForDay(selectedDate);
@@ -321,6 +329,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
       work_shift: workShift,
       events: events,
       holiday_name: holiday_name,
+      is_content_hidden: is_content_hidden,
     );
   }
 }

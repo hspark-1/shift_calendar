@@ -1,5 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:async';
+
 import '../../../../helpers/calendar_header_assertions.dart';
 
 import 'package:dio/dio.dart';
@@ -9,14 +11,88 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
+import 'package:shift_mate/core/network/api_exception.dart';
+import 'package:shift_mate/features/friend/presentation/providers/friend_calendar_range_provider.dart';
 import 'package:shift_mate/core/utils/korean_holidays.dart';
 import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
+import 'package:shift_mate/features/calendar/presentation/widgets/calendar_schedule_card.dart';
 import 'package:shift_mate/features/calendar/data/models/work_shift_api_model.dart';
 import 'package:shift_mate/features/friend/data/models/friend_model.dart';
 import 'package:shift_mate/features/friend/data/services/friend_service.dart';
 import 'package:shift_mate/features/friend/presentation/pages/friend_calendar_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+FriendService _accessService(
+  List<Object> responses,
+  List<RequestOptions> requests,
+) {
+  final dio = Dio();
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final index = requests.length;
+        requests.add(options);
+        final result = responses[index];
+        if (result is ApiException) {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: result.statusCode == null
+                  ? DioExceptionType.connectionError
+                  : DioExceptionType.badResponse,
+              response: result.statusCode == null
+                  ? null
+                  : Response<dynamic>(
+                      requestOptions: options,
+                      statusCode: result.statusCode,
+                      data: <String, dynamic>{
+                        'success': false,
+                        'error': <String, dynamic>{
+                          'code': result.code,
+                          'message': result.message,
+                        },
+                      },
+                    ),
+            ),
+          );
+          return;
+        }
+        final data = result is Completer<Map<String, dynamic>>
+            ? await result.future
+            : result;
+        handler.resolve(
+          Response<dynamic>(
+            requestOptions: options,
+            statusCode: 200,
+            data: data,
+          ),
+        );
+      },
+    ),
+  );
+  return FriendService(dio);
+}
+
+Map<String, dynamic> _emptyCalendar() => <String, dynamic>{
+  'success': true,
+  'data': <String, dynamic>{'work_shifts': <dynamic>[], 'events': <dynamic>[]},
+};
+
+FriendModel _accessFriend({bool can_view = true}) => FriendModel(
+  userId: 'access-friend',
+  name: '공유 친구',
+  email: 'access@example.com',
+  friendLevel: 5,
+  canView: can_view,
+  createdAt: DateTime(2026, 11, 21),
+);
+
+ApiException _accessDenied() => ApiException(
+  code: 'CALENDAR_ACCESS_DENIED',
+  message: '친구 캘린더를 볼 수 없습니다.',
+  statusCode: 403,
+);
 
 class _FakeFriendService extends FriendService {
   _FakeFriendService(this.response) : super(Dio());
@@ -117,6 +193,214 @@ void main() {
   });
 
   tearDown(KoreanHolidays.resetForTesting);
+
+  for (final can_view in [true, false]) {
+    testWidgets('공유 거절은 내 공유 설정 $can_view 와 무관하게 빈 일정 영역을 표시하고 설정에 접근한다', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(390, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final requests = <RequestOptions>[];
+      await tester.pumpWidget(
+        _buildTestApp(
+          screen_height: 800,
+          response: CalendarRangeResponse(
+            success: true,
+            data: CalendarRangeData(workShifts: [], events: []),
+          ),
+          friend: _accessFriend(can_view: can_view),
+          service: _accessService([_accessDenied()], requests),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(requests.length, 1);
+      final card = find.byKey(
+        const ValueKey('friend-selected-day-schedule-card'),
+      );
+      expect(card, findsOneWidget);
+      final card_container = tester.widget<Container>(
+        find.descendant(of: card, matching: find.byType(Container)).first,
+      );
+      expect(card_container.decoration, AppTheme.cardDecoration());
+      expect(find.byKey(const ValueKey('selected-day-header')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('selected-day-schedule-count')),
+        findsNothing,
+      );
+      expect(find.byType(CalendarEmptySchedule), findsNothing);
+      expect(find.text('공유되지 않은 캘린더예요'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('calendar-hidden-schedule-content')),
+        findsOneWidget,
+      );
+      expect(find.byIcon(CupertinoIcons.lock), findsNothing);
+      expect(find.byKey(const ValueKey('friend-calendar')), findsOneWidget);
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      await tester.tap(find.byIcon(CupertinoIcons.gear));
+      await tester.pumpAndSettle();
+      expect(find.text('내 캘린더 공유'), findsOneWidget);
+      expect(
+        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+        can_view,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('오늘 버튼 재조회는 빈 일정을 유지하고 중복 요청을 합치며 성공 시 일정을 복구한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final requests = <RequestOptions>[];
+    final response = Completer<Map<String, dynamic>>();
+    await tester.pumpWidget(
+      _buildTestApp(
+        screen_height: 800,
+        response: CalendarRangeResponse(
+          success: true,
+          data: CalendarRangeData(workShifts: [], events: []),
+        ),
+        friend: _accessFriend(),
+        service: _accessService([
+          _accessDenied(),
+          _accessDenied(),
+          ApiException(code: 'NETWORK_ERROR', message: '네트워크 연결을 확인해주세요.'),
+          response,
+        ], requests),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final check = find.byKey(const ValueKey('friend-calendar-today-button'));
+    await tester.tap(check);
+    await tester.pumpAndSettle();
+    expect(requests.length, 2);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    await tester.tap(check);
+    await tester.pumpAndSettle();
+    expect(find.text('네트워크 연결을 확인해주세요.'), findsOneWidget);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    expect(find.text('공유되지 않은 캘린더예요'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('calendar-hidden-schedule-content')),
+      findsOneWidget,
+    );
+    expect(find.byIcon(CupertinoIcons.lock), findsNothing);
+    await tester.tap(check);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(requests.length, 4);
+    expect(
+      find.byKey(const ValueKey('calendar-hidden-schedule-content')),
+      findsOneWidget,
+    );
+    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+    expect(find.byKey(const ValueKey('friend-calendar')), findsOneWidget);
+    await tester.tap(check);
+    await tester.pump();
+    expect(requests.length, 4);
+    response.complete(_emptyCalendar());
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('calendar-hidden-schedule-content')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('friend-calendar')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final error in [
+    ApiException(
+      code: 'OTHER_PERMISSION_DENIED',
+      message: '다른 권한 오류',
+      statusCode: 403,
+    ),
+    ApiException(
+      code: 'CALENDAR_ACCESS_DENIED',
+      message: '서버 오류',
+      statusCode: 500,
+    ),
+  ]) {
+    testWidgets('다른 실패 ${error.statusCode}/${error.code} 는 기존 오류 알림을 유지한다', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(390, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        _buildTestApp(
+          screen_height: 800,
+          response: CalendarRangeResponse(
+            success: true,
+            data: CalendarRangeData(workShifts: [], events: []),
+          ),
+          friend: _accessFriend(),
+          service: _accessService([error], []),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(error.message), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('calendar-hidden-schedule-content')),
+        findsNothing,
+      );
+    });
+  }
+
+  testWidgets('조회 중 공유가 거절되면 달력을 유지하고 이전 일정을 숨긴다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final requests = <RequestOptions>[];
+    final data = _emptyCalendar();
+    data['data']['events'] = <dynamic>[
+      {
+        'event_id': 'old-event',
+        'title': '이전에 공유된 일정',
+        'all_day': false,
+        'start_at': DateTime.now().toIso8601String(),
+        'end_at': DateTime.now()
+            .add(const Duration(hours: 1))
+            .toIso8601String(),
+        'visibility_level': 1,
+      },
+    ];
+    await tester.pumpWidget(
+      _buildTestApp(
+        screen_height: 800,
+        response: CalendarRangeResponse(
+          success: true,
+          data: CalendarRangeData(workShifts: [], events: []),
+        ),
+        friend: _accessFriend(),
+        service: _accessService([data, _accessDenied()], requests),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('이전에 공유된 일정'), findsOneWidget);
+    final card = find.byKey(
+      const ValueKey('friend-selected-day-schedule-card'),
+    );
+    final card_rect = tester.getRect(card);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(FriendCalendarPage)),
+    );
+    final refresh = container
+        .read(friendCalendarRangeProvider('access-friend').notifier)
+        .refreshMonth(DateTime.now());
+    await tester.pumpAndSettle();
+    await refresh;
+    expect(find.text('이전에 공유된 일정'), findsNothing);
+    expect(tester.getRect(card), card_rect);
+    expect(find.byType(CalendarEmptySchedule), findsNothing);
+    expect(find.byKey(const ValueKey('selected-day-header')), findsOneWidget);
+    expect(find.byKey(const ValueKey('friend-calendar')), findsOneWidget);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(
+      container
+          .read(friendCalendarRangeProvider('access-friend'))
+          .events_by_date,
+      isEmpty,
+    );
+  });
 
   testWidgets('일정 목록 스크롤이 친구 이름 헤더의 배경을 바꾸지 않는다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));

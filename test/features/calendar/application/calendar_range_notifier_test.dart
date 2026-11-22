@@ -34,6 +34,106 @@ void main() {
     isPrivate: true,
   );
 
+  for (final late_failure in [false, true]) {
+    test(
+      '공유 거절은 캐시를 폐기하고 이전 요청의 늦은 ${late_failure ? '실패' : '성공'} 응답을 무시한다',
+      () async {
+        final pending = <Completer<CalendarRangeData>>[];
+        final notifier = CalendarRangeNotifier(
+          access_denied_when: (error) =>
+              error is StateError && error.message == 'denied',
+          loader: ({required start_date, required end_date}) {
+            final response = Completer<CalendarRangeData>();
+            pending.add(response);
+            return response.future;
+          },
+        );
+        addTearDown(notifier.dispose);
+        final first = notifier.ensureMonthLoaded(DateTime(2026, 1));
+        pending[0].complete(
+          CalendarRangeData(
+            workShifts: [_workShift(DateTime(2026, 1, 2))],
+            events: [
+              eventAt('cached', DateTime(2026, 1, 2), DateTime(2026, 1, 3)),
+            ],
+          ),
+        );
+        await first;
+        final stale = notifier.ensureMonthLoaded(DateTime(2026, 5));
+        final denied = notifier.refreshMonth(DateTime(2026, 1));
+        await Future<void>.delayed(Duration.zero);
+        pending[2].completeError(StateError('denied'));
+        await denied;
+        expect(notifier.state.is_access_denied, isTrue);
+        expect(notifier.state.loaded_months, isEmpty);
+        expect(notifier.state.work_shifts_by_date, isEmpty);
+        expect(notifier.state.events_by_date, isEmpty);
+        expect(notifier.state.loading_months, isEmpty);
+
+        // 미완료인 다른 월을 기다리지 않고 같은 월의 권한을 새로 확인한다.
+        final retry = notifier.refreshMonth(DateTime(2026, 5));
+        await Future<void>.delayed(Duration.zero);
+        expect(pending.length, 4);
+        expect(notifier.state.is_access_denied, isTrue);
+        pending[3].complete(CalendarRangeData(workShifts: [], events: []));
+        await retry;
+        expect(notifier.state.is_access_denied, isFalse);
+        if (late_failure) {
+          pending[1].completeError(StateError('denied'));
+        } else {
+          pending[1].complete(
+            CalendarRangeData(
+              workShifts: [_workShift(DateTime(2026, 5, 2))],
+              events: [
+                eventAt('stale', DateTime(2026, 5, 2), DateTime(2026, 5, 3)),
+              ],
+            ),
+          );
+        }
+        await stale;
+        expect(notifier.state.is_access_denied, isFalse);
+        expect(notifier.state.last_error, isNull);
+        expect(notifier.state.work_shifts_by_date, isEmpty);
+        expect(notifier.state.events_by_date, isEmpty);
+        expect(notifier.state.is_loading, isFalse);
+      },
+    );
+  }
+
+  test('거절 후 일반 오류는 열람 불가를 유지하고 성공한 재확인만 복구한다', () async {
+    var calls = 0;
+    final notifier = CalendarRangeNotifier(
+      access_denied_when: (error) =>
+          error is StateError && error.message == 'denied',
+      loader: ({required start_date, required end_date}) async {
+        calls++;
+        if (calls == 1) throw StateError('denied');
+        if (calls == 2) throw StateError('network');
+        return CalendarRangeData(workShifts: [], events: []);
+      },
+    );
+    addTearDown(notifier.dispose);
+    await notifier.ensureMonthLoaded(DateTime(2026, 1));
+    await notifier.refreshMonth(DateTime(2026, 1));
+    expect(notifier.state.is_access_denied, isTrue);
+    expect(notifier.state.error_revision, 2);
+    await notifier.refreshMonth(DateTime(2026, 1));
+    expect(notifier.state.is_access_denied, isFalse);
+    expect(notifier.state.last_error, isNull);
+  });
+
+  test('옵션 없는 개인 캘린더의 오류는 기존 캐시를 유지한다', () async {
+    final notifier = CalendarRangeNotifier(
+      loader: ({required start_date, required end_date}) async =>
+          throw StateError('denied'),
+    );
+    addTearDown(notifier.dispose);
+    notifier.upsertWorkShifts([_workShift(DateTime(2026, 1, 2))]);
+    await notifier.ensureMonthLoaded(DateTime(2026, 1));
+    expect(notifier.state.is_access_denied, isFalse);
+    expect(notifier.state.work_shifts_by_date, isNotEmpty);
+  });
+
   test('수정 기간 이동/축소는 모든 구 날짜에서 제거하고 다른 일정과 근무를 보존한다', () {
     final notifier = CalendarRangeNotifier(
       loader: ({required start_date, required end_date}) async =>

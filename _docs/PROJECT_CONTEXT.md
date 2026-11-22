@@ -1513,6 +1513,12 @@ FriendListPage → AddFriendModal
 
 ### 친구 캘린더 조회 흐름
 
+- 공유 해제 처리(2026-11-21, ADR-0093 / Behavior change): 사용자 피드백으로 ADR-0091의 잠금 안내/설명/재확인 버튼을 제거했다. `403 + CALENDAR_ACCESS_DENIED`에서는 오류 팝업 없이 달력과 하단 일정 카드의 배경·테두리·크기·날짜 헤더를 유지하고 카드 안만 빈칸으로 표시한다. 기존 CalendarScheduleCard의 선택적 `is_content_hidden`(기본 false)은 일정 수·본문·“일정 없음” 안내/footer를 숨긴다. FriendCalendarPage가 거절 상태를 해당 옵션으로 전달하며 나머지 화면의 기본 표시는 유지한다. 친구 이름/설정/뒤로가기·AppTabBody와 기존 CalendarPageBody 배치는 유지한다.
+- 상태/동시성: autoDispose family인 `friendCalendarRangeProvider`만 `access_denied_when` 판정을 주입한다. 공용 `CalendarRangeState.is_access_denied`는 기본 false다. 거절 시 전체 근무/일정·loaded/loading 캐시와 진행 요청 등록을 폐기하고 접근 revision 이전의 늦은 성공/실패를 무시한다. 재확인은 전용 버튼 없이 오늘/월 이동/날짜 선택·화면 재진입의 기존 조회를 사용한다. 거절 상태는 조회 시작/실패에 유지하고 성공에서만 해제해 일정 카드를 복구한다. 일반403·통신/서버 오류는 기존 ApiException 팝업을 유지한다. 본인 캘린더는 옵션을 주입하지 않아 기존 오류/캐시 정책을 유지한다.
+- 경계/검증: 새 route·API/DB·환경변수/패키지·analytics는 추가하지 않는다. 목록 canView로 상대 열람 권한을 추정하지 않으며 열린 화면의 원격 설정 변경은 다음 서버 조회 응답부터 반영한다. 기존 두 테스트 파일에 실제 FriendService/Dio 오류 변환·화면 복구/설정·작은 화면/글자2배/가로·캐시 폐기/늦은 응답 회귀를 추가했다. 새 영구 파일은 없다. 구체 실행 결과·임시 렌더러 역할/사용법·실기기 인수 한계·이번 변경만 되돌리는 롤백은 WORKLOG 해당 항목을 따른다.
+
+- 수정 전 공유 해제 오류 알림 진단 이력(2026-11-21): 현행 로컬 서버는 친구→조회자의 `can_view=false`/설정 없음에 `403 CALENDAR_ACCESS_DENIED`와 “친구 캘린더를 볼 수 없습니다.”를 반환한다. 앱은 진입 즉시 조회하며 `FriendService → handleApiError(ApiException) → CalendarRangeNotifier.last_error/error_revision → FriendCalendarPage.ref.listen → _showErrorDialog`로 전달해 제목 “오류”를 표시한다. 공유 비활성 상태를 별도로 처리하지 않는 UI 경로를 동일403을 주입한 격리 위젯2건으로 재현했다. 목록의 `FriendModel.canView`는 나→친구 공유 설정이므로 역방향 열람 판정에 사용할 수 없다. 제품 동작은 이번 조사에서 수정하지 않았다. 실제 사용자 응답/운영 로그는 미확인이며 상세 근거·테스트12 pass·재현 파일 역할/사용법·롤백은 WORKLOG 해당 항목을 따른다.
+
 ```
 FriendListPage
   → FriendCalendarPage

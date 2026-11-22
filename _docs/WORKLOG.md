@@ -66,6 +66,51 @@
   - 롤백: 이번 인증 widget/호출부·회귀/렌더러·검토 PNG·문서 변경분만 복원한다. 작업 시작 widget은 위 임시 폴더의 phone_verification_section.before.dart다. 기존 미커밋 작업과 인증 필수 정책은 보존한다.
   - 한계/다음: 실문자·실기기 키보드/VoiceOver·원격 게시·개별 계약의 법적 적합성 검증은 미실행이다. 실제 수신자/이전·보관/삭제/적용 근거를 확정하고 정책2·3·6·7항 및 필요한 사전 동의/입증 기록을 보완한 뒤 안내의 추가 이동을 재평가한다.
 
+## 2026-11-21 공유 해제 시 빈 일정 카드 외곽 유지
+
+- [DONE] (FE/UI) 공유 거절에서도 하단 네모 카드의 배경·테두리·크기와 날짜 헤더를 유지하고 내용만 빈칸으로 표시했다.
+  - 목적/변경: 직전 빈 SizedBox로 카드 전체가 사라진 표시를 수정한다. 공용 CalendarScheduleCard의 선택적 내용 숨김으로 날짜 헤더를 유지하고 일정 수·본문·빈 일정 안내·footer는 숨긴다. 기본 동작은 유지한다.
+  - 영향/테스트: 친구 페이지·공용 카드 옵션·기존 친구 화면 회귀. 공유 전후 카드 외곽/크기 유지와 빈 내용, 재조회 복구·일반 캘린더 회귀·분석/포맷을 확인한다. 권한/API/DB·range 상태 정책은 변경하지 않는다.
+  - 구현/결과: 기존 CalendarScheduleCard에 기본 false인 is_content_hidden 옵션을 추가하고 FriendCalendarPage는 카드 전체를 항상 생성해 거절 상태만 전달한다. 기존 화면 회귀에 카드 BoxDecoration/날짜 헤더/안내·일정 수 숨김과 거절 전후 카드 Rect 동일 검증을 보강했다. PROJECT_CONTEXT와 ADR-0093의 빈칸 의미를 현재 동작으로 명확히 했다. 신규 영구 파일은 없다.
+  - 검증: `flutter test --no-pub test/features/friend/presentation/pages/friend_calendar_page_test.dart test/features/calendar/presentation/widgets/calendar_schedule_header_test.dart test/features/calendar/presentation/pages/calendar_page_test.dart test/features/group/presentation/pages/group_calendar_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **100 pass**, 수정 Dart3파일 analyze 진단0·포맷/공백 검사 통과.
+  - 렌더/한계: `/private/tmp/shiftmate-friend-calendar-20261121/card_render_test.dart`는 앞선 임시 렌더러와 같은 Flutter/모의 Dio403·FontLoader·RepaintBoundary/dart:io/ui를 사용한다. `flutter test --no-pub <해당경로> --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로375x667·작은 화면 글자2배·가로 글자2배·태블릿의 card_*.png4개를 생성해 렌더1 pass, 대표 화면에서 카드/날짜와 빈 본문을 직접 확인했다. card-regression.log/card-render.log에 결과를 보관했다. 실기기/배포는 미수행이다.
+  - 롤백: 이번 카드 옵션·친구 페이지·테스트/문서 추가분만 복구한다. 기존 인증/탭 변경은 보존한다.
+
+## 2026-11-21 친구 공유 해제 화면을 빈 일정 영역으로 단순화
+
+- [DONE] (FE/UI) 사용자 피드백에 따라 공유 거절 시 잠금 안내/재확인 버튼을 제거하고 달력은 유지하며 근무·일정 영역만 비웠다.
+  - 목적: 공유 상태에 대한 별도 안내 없이 조용한 빈 화면을 제공한다.
+  - 변경/영향: 친구 캘린더 UI와 관련 화면 회귀·문서. 정확한403 판정·캐시 폐기/늦은 응답 차단·다른 오류 알림 정책은 유지한다. 기존 월 이동/오늘/날짜 선택·화면 재진입으로 다시 조회하며 전용 재확인 버튼은 제공하지 않는다.
+  - 테스트: 빈 일정/팝업·잠금·버튼 없음, 설정 접근·기존 조회 액션으로 복구, 캐시 제거와 기존 친구/탐색 회귀.
+  - 구현/결과: 기존 FriendCalendarPage의 안내 위젯/import를 제거하고 CalendarPageBody는 항상 유지한다. is_access_denied일 때 schedule만 빈 SizedBox로 표시해 “일정 없음” 카드도 숨긴다. 기존 공용 range/provider의 정확한 거절 판정·캐시 폐기/동시성 방어는 수정하지 않았다. 기존 화면 테스트를 today 버튼 기반 재조회·빈 영역/설정/화면 크기 기대값으로 갱신했다. PROJECT_CONTEXT·ADR-0093을 현재 동작으로 갱신하고 ADR-0091의 안내 UI 대체를 기록했다. 새 영구 파일은 없다.
+  - 검증: `flutter test --no-pub test/features/friend/presentation/pages/friend_calendar_page_test.dart test/features/calendar/application/calendar_range_notifier_test.dart test/core/navigation/main_tab_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **52 pass**, 변경 Dart2파일 analyze **진단0**, 포맷/문서·소스 diff 공백 검사 통과. 관련 로그는 `/private/tmp/shiftmate-friend-calendar-20261121/empty-regression.log`다.
+  - 화면/한계: 같은 폴더의 `empty_render_test.dart`는 기존 임시 렌더러를 빈 일정 UI에 맞춘 사본이며 Flutter/앱 코드·FontLoader·모의 Dio403·RepaintBoundary/dart:io/ui에 의존한다. `flutter test --no-pub <해당경로> --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 PNG4개(empty_phone/large_text/landscape/tablet)를 생성하고 렌더1 pass를 확인했다. 대표375x667의 달력/빈 일정 영역을 직접 확인했다. 실기기·배포는 미수행이다.
+  - 롤백: 이번 친구 페이지/테스트·문서 추가분만 복구하면 직전 잠금 안내로 돌아간다. 다른 기존 작업은 보존한다.
+
+## 2026-11-21 친구 캘린더 공유 해제 안내 구현
+
+- [DONE] (FE) 공유 거절을 전용 열람 불가 상태로 표시하고 수동 재확인으로 복구한다.
+  - 목적/기획: 정확한 HTTP403/CALENDAR_ACCESS_DENIED만 오류 팝업 대신 잠금 아이콘·열람 불가 설명·다시 확인 버튼으로 표시한다. 친구 이름/설정/뒤로가기를 유지하며 서버 설정의 역방향을 추정하지 않는다.
+  - 변경/영향: 친구 provider가 주입하는 거절 판정, 공용 range 상태의 선택적 접근 거절 처리와 캐시 폐기/이전 요청 무효화, 친구 페이지의 안내/재확인 및 관련 회귀. 재시도 중·일반 오류 후에도 거절 상태를 유지하고 성공 응답에서만 달력을 복구한다. 서버/DB/목록 API/공유 토글 정책은 유지한다.
+  - 테스트: 최초403, 다른403/통신 오류, 재확인 성공/실패/중복 클릭, 기존 일정 제거·늦은 응답 차단, 설정 접근·작은 화면/큰 글자, 기존 캘린더·탐색 회귀와 분석/포맷.
+  - 구현/파일: 기존 `calendar_range_state.dart`에 기본 false인 is_access_denied, `calendar_range_notifier.dart`에 선택적 access_denied_when과 접근 revision을 추가했다. 거절 시 모든 범위 데이터/로딩·요청 등록을 폐기하고 이전 revision의 성공·실패는 무시한다. 기존 `friend_calendar_range_provider.dart`만403/코드 판정을 주입한다. 기존 `friend_calendar_page.dart`는 해당 오류 팝업을 생략하고 스크롤 가능한 잠금 안내/설명/다시 확인 버튼을 표시한다. 재확인 중 disabled/spinner·성공 시 복구, 친구 설정의 접근성 이름·상하단 안전영역을 적용한다. 기존 AppTabBody 변경은 보존했다. 상태는 기존 autoDispose friend family가 소유하며 새 영구 파일/route/API/의존성은 없다. PROJECT_CONTEXT와 ADR-0091에 동작/경계를 기록했다.
+  - 회귀/분석: `flutter test --no-pub test/features/calendar/application test/features/friend test/core/navigation/main_tab_page_test.dart test/features/calendar/presentation/pages/calendar_page_test.dart /private/tmp/shiftmate-friend-calendar-20261121/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **171 pass**(기존 관련 회귀+렌더1건). 새 회귀는 기존 range 테스트4건·친구 화면10건에 추가했다. 수정 Dart6파일 analyze 진단0·최종 포맷 변경0·diff 공백 검사 통과. 초기 테스트의 pending Dio 요청은100ms pump로 대기하고, fakeAsync 안에서 직접 await해 완료되지 않던 refresh는 pump 후 await하도록 고쳤다. 테스트 harness의 대기 문제이며 제품 코드 우회는 없다. Flutter SDK cache sandbox 거부는 승인된 같은 명령 재실행으로 해결했다.
+  - 렌더/자료: `/private/tmp/shiftmate-friend-calendar-20261121/render_test.dart`는 기존 Flutter/앱·FontLoader(앱 TTF/패키지 CupertinoIcons)·RepaintBoundary·dart:io/ui에 의존하는 임시 화면 검증 스크립트다. `flutter test --no-pub <해당경로> --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로375x667·320x568 글자2배·844x390 글자2배/어두운 OS 선호·768x1024 어두운 OS 선호의 PNG4개를 생성한다. 최종4개 이미지를 직접 열어 아이콘·텍스트·스크롤 결과를 확인했다. 모의 상단44/하단34 안전영역·탭 예약96·동작 줄이기로 재확인 버튼44pt 이상과 스크롤 접근/오버플로 없음 확인. 앱의 기존 라이트 배경/텍스트 토큰을 유지하며 전면 다크 테마 도입은 아니다. regression.log/final-regression.log/render.log는 실행 결과다.
+  - 한계/인수: 실제 두 계정의 원격 공유 토글/실기기·VoiceOver·빌드/스토어 배포는 이번에 수행하지 않았다. 이미 열린 화면의 권한 변경은 다음 서버 조회 응답에서 감지하며 자동 polling/push는 추가하지 않았다. 서버/DB/운영 설정과 사용자 기존 인증·하단 탭 작업은 보존했다.
+  - 롤백: 이번 공용 range 옵션/상태·친구 provider/페이지·관련 테스트·문서 추가분만 복구하고 기존 하단 탭/인증 변경은 보존한다.
+
+## 2026-11-21 친구 캘린더 공유 해제 시 오류 알림 조사
+
+- [DONE] (FE/BE 진단) 공유 해제에 따른 정상적인 서버 권한 거절을 앱이 일반 오류 팝업으로 표시하는 경로를 확인했다.
+  - 목적: 정상적인 공유 권한 거절과 앱 오류 표시의 연결 경로를 확인한다.
+  - 범위: 앱의 친구 목록/설정/캘린더·공통 API 오류 처리와 로컬 서버 관련 코드 읽기, 가능한 재현 및 문서화. 제품 동작 수정·서버/DB 변경은 포함하지 않는다.
+  - 원인/근거: 로컬 서버 `friendService.ts:237`은 owner=친구/viewer=나의 설정이 없거나 can_view=false이면 CALENDAR_ACCESS_DENIED를 throw하고, `friendController.ts:40`은 HTTP403/“친구 캘린더를 볼 수 없습니다.”로 응답한다. 앱 FriendListPage439행은 모든 친구를 캘린더로 이동시키고 FriendCalendarPage55행은 첫 프레임 후 조회한다. FriendService→handleApiError가 code/message/status를 보존한 ApiException을 생성하고 CalendarRangeNotifier가 last_error/error_revision에 저장한다. FriendCalendarPage211~218행은 오류 코드를 구분하지 않고 _showErrorDialog를 호출하며194행의 제목은 항상 “오류”다. 공유 차단 전용 화면 상태가 없는 것이 해당 알림의 원인이다.
+  - 설정 방향: 서버 목록 SELECT의 fls.owner_user_id=:user_id는 나→친구 설정이다. 따라서 FriendModel.canView로 친구→나 열람 권한을 사전 판단할 수 없다. 목록에 친구가 유지되고 진입 가능한 이유와 구분한다. 근무표 레벨0이라도 can_view=false의 접근 거절이 우선한다. drawio2개는 calendars/calendar_shares가 남은 구형 도면임을 확인했으며 현행 AGENTS 단일 캘린더 DDL과 실제 코드를 기준으로 판단했다.
+  - 검증: Dio 경계에 서버와 동일한403 JSON을 주입하고 실제 서비스·오류 변환·provider·화면을 사용하는 위젯 진단2건(나→친구 canView true/false 모두)에서 요청1회·“오류”/서버 문구 팝업·error_revision=1·loaded_months 비어 있음·미처리 예외 없음 확인. 기존 CalendarRangeNotifier10건과 함께 **12 pass**. 명령: `flutter test --no-pub /private/tmp/shiftmate-friend-calendar-20261121/diagnostic_test.dart test/features/calendar/application/calendar_range_notifier_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`(최초 실행은 임시로 test/features/friend/presentation/pages에 둔 같은 파일). 새 진단 파일의 역할은 공유 거절 UI 재현이며 기존 Flutter/Dio/Riverpod·앱 코드에 의존한다. 영구 테스트/제품 파일은 추가하지 않았다.
+  - 한계/정리: DebugMCP 시작 호출이 완료되지 않아 중단하고 no-session을 확인한 뒤 중단점을 정리했다. 값 관찰 성공으로 기록하지 않는다. CLI 격리 재현은 성공했으나 사용자 실계정의 실제 응답/운영 로그·DB를 이번에 조회하지 않았으며 로컬 서버 코드를 배포 상태로 간주하지 않는다. 제품 동작·서버·DB는 변경하지 않고 PROJECT_CONTEXT와 이 일지만 갱신했다. 새 설계 결정이 없어 ADR 추가 없음.
+  - 후속 수정 방향: CALENDAR_ACCESS_DENIED를 공유 비활성 상태로 분기하고 오류 팝업 대신 열람 불가 안내를 제공한다. 일반403 전체를 숨기거나 목록의 canView를 역방향 권한으로 사용하지 않는다. 이번 요청은 원인 조사이므로 구현하지 않았다.
+  - 롤백: 이번 진단 문서 추가분만 복구하며 기존 미커밋 변경은 보존한다.
+
 ## 2026-11-21 휴대폰 인증 실기기 실패 조사
 
 - [DONE] (FE/Auth 진단) 실기기 실패 지점을 Firebase SMS 요청의 internal-error로 확인하고, 사용자 확인으로 Stage Spark 유지에 따른 실문자 필수 조건 미충족을 확인했다. 결제 전환 후 실제 성공 인수는 남아 있다.

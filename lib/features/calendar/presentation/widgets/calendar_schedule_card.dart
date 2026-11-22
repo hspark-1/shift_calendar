@@ -21,6 +21,7 @@ class CalendarScheduleCard extends StatelessWidget {
     this.work_shift_item_builder,
     this.event_item_builder,
     this.footer,
+    this.is_content_hidden = false,
   });
 
   final DateTime selected_date;
@@ -30,6 +31,7 @@ class CalendarScheduleCard extends StatelessWidget {
   final WorkShiftItemBuilder? work_shift_item_builder;
   final EventItemBuilder? event_item_builder;
   final Widget? footer;
+  final bool is_content_hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +49,14 @@ class CalendarScheduleCard extends StatelessWidget {
             CalendarScheduleHeader(
               selected_date: selected_date,
               holiday_name: holiday_name,
-              total_count: total_count,
+              total_count: is_content_hidden ? null : total_count,
             ),
             Expanded(
-              child: total_count == 0
+              child: is_content_hidden
+                  ? const SizedBox.expand(
+                      key: ValueKey('calendar-hidden-schedule-content'),
+                    )
+                  : total_count == 0
                   ? const Center(
                       child: SingleChildScrollView(
                         child: CalendarEmptySchedule(),
@@ -76,7 +82,7 @@ class CalendarScheduleCard extends StatelessWidget {
                       ),
                     ),
             ),
-            if (footer != null) footer!,
+            if (!is_content_hidden && footer != null) footer!,
           ],
         ),
       ),
