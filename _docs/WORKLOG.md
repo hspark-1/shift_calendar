@@ -53,6 +53,18 @@
   - 자료/한계: 시작 소스·모든 로그/PNG는 `/private/tmp/shiftmate-phone-optimistic-20261122/`에 보존했다. 실제 SMS·실기기 키보드/VoiceOver·APNs/reCAPTCHA·단계별 지연 수치·원격 배포는 미검증이다. 네트워크 완료 시간 단축을 주장하지 않는다.
   - 롤백: 이번 state/controller/widget·fake/회귀/렌더러·검토 PNG·문서 추가분만 복구한다. 시작 소스는 위 임시 폴더의 같은 이름3개다. 이전 UI·정책 HTML과 다른 미커밋 변경을 보존한다.
 
+## 2026-11-22 개인정보 HTML 휴대폰 인증 고지 보완
+
+- [DONE] (문서/웹) Firebase Phone Auth의 확인된 처리 내역을 privacy.html과 동일 정책 MD v1.2에 반영했다.
+  - 목적: 앱 인증 흐름에 필요한 처리 내역이 공개 정책 파일에 누락된 상태를 해소한다. 작업 전 PROJECT_CONTEXT·ADR-0101·직전 WORKLOG와 공개 HTML/MD·인증 SDK/모델·이전 개인정보 검토를 직접 읽었다.
+  - 변경/영향:2항에 번호/문자코드·인증 정보·SDK IP/사용자 에이전트·인증과 Google 전반 악용 방지 목적,3항에 외부 인증 보관,6항에 FCM과 별도 서비스,7항에 미국·전송 시점/방법·Firebase 공식 보관 기준·Google 공개 문의 이메일·거부 영향/권리 요청을 추가했다. 버전1.2/최종수정2026-11-22·개정 이력을 동기화했다. 최초 시행일·기존 연령/동의/다른 처리 내용·CSS는 유지했다. 공개 정책의 Behavior change이며 앱/API/DB/동의 기록·사용자 삭제 동작은 변경하지 않았다.
+  - 근거/범위: Firebase 공식 Phone Auth의 번호 전송/저장·서비스 전반 악용 방지·사전 동의 요구, 개인정보 안내의 미국 처리·IP 수 주/그 외 사용자 삭제 요청 전 보관·요청 후180일 이내 제거를 재확인했다. Google 한국어 개인정보방침의 공개 문의 이메일을 사용했다. Firebase 일반 기준임을 명시하고 실제 삭제 기능/적법한 동의 확보/특정 계정 계약 완료로 쓰지 않았다. 출처/후속 확인은 PRIVACY_REVIEW v1.2에 기록했다.
+  - 파일/문서: 기존 app_store_web/privacy.html·PRIVACY_POLICY.md·PRIVACY_REVIEW.md, PROJECT_CONTEXT·PHONE_VERIFICATION_FLUTTER_PLAN·ADR-0101 후속·본 로그를 갱신했다. 새 영구 파일은 없다. UI 작업 당시 정책 누락/수정 없음 기록과 이번 로컬 보완을 구분했다.
+  - 검증: 표준 HTMLParser로 중첩·14절/5표·모든 MD/HTML 표 셀 일치·기존 표 행 및1/4/5/8~13절·CSS 보존·버전/날짜를 확인했다. 실제 Chrome CDP viewport320/375/1440에서5표의 헤더/본문 열x/열수 일치·페이지 가로 넘침 없음 확인,375/1440의 새 인증 행/거부 문구 렌더를 직접 열어 확인했다. diff 공백 검사 통과. 문안 변경이라 앱 테스트는 반복하지 않았다.
+  - 검증 도구: 초기 제한 환경 Chrome 종료134는 승인된 로컬 렌더 권한 확장으로 해소했다. headless window-size의 캡처 잘림/스크롤 빈 화면은 검토 근거에서 제외하고 CDP device metrics·실제 innerWidth 대조·paint 대기 캡처로 교체했다. 검사 코드/시작 사본·DOM·최종 PNG·geometry.json은 `/private/tmp/shiftmate-privacy-phone-20261122/`에 보존했다. 임시 도구는 표준 Python/Node23·설치 Chrome만 사용하며 저장소 의존성을 추가하지 않았다.
+  - 롤백: 이번 정책/문서의 추가분만 복원한다. 원본 HTML/MD는 위 임시 폴더의 privacy.before.html·PRIVACY_POLICY.before.md다. 기존 UI와 다른 미커밋 작업은 보존한다.
+  - 한계/다음: **원격 서버에는 게시하지 않았다.** 공개 시점/필요 고지·동의와 실제 수신자 계약·이전 근거·Firebase 사용자 소유 대조/삭제 절차를 확인한 뒤 `/privacy` HTML을 교체하고 실제 앱 링크를 점검한다. 문안 수정으로 법적 요건 충족을 확정하지 않는다. 실기기 Safari/VoiceOver는 미실행이다.
+
 ## 2026-11-22 회원가입 휴대폰 인증 UI 개선·안내 검토
 
 - [DONE] (FE/UI) 전화번호와 인증번호 입력을 단계별로 교체하고 Google 안내 이동의 조건/미확정 사항을 기록했다.
