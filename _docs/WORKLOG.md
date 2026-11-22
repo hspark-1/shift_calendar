@@ -1,5 +1,18 @@
 # 작업 로그
 
+## 2026-11-16 심사 제출용 iOS 빌드 6
+
+- [DONE] (FE/iOS) 현재 작업 트리를 App Store 제출용 1.0.0(6) IPA로 빌드했다.
+  - 목적: UIScene 크래시 수정·세로 방향·네이버 SDK5.2.1·최신 가입 UI를 포함한 심사 재제출 파일을 생성한다.
+  - 범위: 기존 빌드5 Archive/IPA를 보존하고 pubspec 빌드 번호를6으로 올린다. 기존 운영 .env·Release 서명·lock을 사용하며 기존 미커밋 소스와 사용자 데이터는 보존한다.
+  - 테스트: Release Archive·App Store IPA 생성, 버전/운영 환경·UIScene/방향·SDK·서명/profile·ZIP 무결성·심볼을 확인한다.
+  - 실행/결과: `flutter build ipa --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=6 --export-method=app-store` 종료0. Archive44.0초·IPA60.4초. `build/ios/ipa/ShiftMate.ipa` 24,731,032bytes, SHA-256 `dd5554bba77dd33411673d6eefb2a48ec53640a2232dab5ef69409a4476e0e3e`. `pubspec.yaml`은1.0.0+6, API 호환 번호1 유지. 기존 빌드5 해시/Archive 버전 확인 후 `build/ios/releases/1.0.0-5/`에 보존했다.
+  - 검증 완료: IPA ZIP CRC·Apple Distribution deep/strict 서명·App Store profile/만료일·production APNs/Apple 로그인 권한·운영 API/Firebase/OAuth·Stage/로컬 API 문자열 부재·URL scheme 치환·단일 FlutterSceneDelegate·iPhone/iPad portrait/UIRequiresFullScreen·NidThirdPartyLogin5.2.1·Archive/IPA 버전6·Runner/App dSYM UUID 일치 및 diff 공백 검사 통과. 기존 기본 LaunchImage placeholder 경고1건은 유지한다. 이전 최신 코드의 인증125개/렌더 검증을 재사용했고 이번 변경은 빌드 번호/문서뿐이므로 앱 테스트를 재실행하지 않았다.
+  - 산출물/자료: Archive/IPA/내보내기 설정·진단 자료의 역할/의존성/사용 예는 PROJECT_CONTEXT 상단을 따른다. `/private/tmp/shiftmate-appstore-build6-20261116.log`는 Flutter/Xcode 빌드 로그, `/private/tmp/shiftmate_appstore_build6_verify_20261116.py`는 이전 빌드 검증기를 확장한 Python 표준 라이브러리·codesign/security/xcrun 기반 검증 스크립트, `/private/tmp/shiftmate_appstore_build6_20261116/`는 추출 Payload와 credential 비포함 verification.json이다. `python3 /private/tmp/shiftmate_appstore_build6_verify_20261116.py`로 재현한다. 산출물/기존 .env/네이티브 설정에 의존하며 환경·기기·인증 자료는 커밋하지 않는다.
+  - 영향/한계: 이번에 스토어 업로드·Connect 처리/빌드 선택·심사 재제출·새 IPA 실기기 설치를 하지 않았다. 앞선 개발 서명 Release6의 iPad 실행 확인과 이번 Distribution IPA 생성/검증을 구분한다. 설계 변경이 없어 새 ADR은 추가하지 않았다.
+  - 요청 정정: 최초 요청을 기기 실행으로 해석해 Debug 실행을 시작했으나 사용자가 심사 제출용 파일 생성으로 정정했다. 해당 Flutter 세션55398을 Ctrl-C로 종료했다. 기기 실행 성공을 주장하지 않는다. `/private/tmp/shiftmate-build-run-20261116.log`는 중단된 시도의 임시 로그다.
+  - 롤백: 이번 pubspec/문서 변경을 되돌리고 신규 산출물을 제거한다. 보존한 빌드5와 기존 소스는 유지한다.
+
 ## 2026-11-16 회원가입 개인정보 입력 디자인 통합
 
 - [DONE] (FE/Auth) 회원가입에 개인정보 편집 입력 UI를 재사용하고 직종·회사 플레이스홀더를 제거했다.

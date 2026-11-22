@@ -1,5 +1,12 @@
 # 프로젝트 컨텍스트
 
+## 심사 제출용 App Store 빌드6 생성 (2026-11-16)
+
+- 사용자 요청으로 최신 작업 트리의 UIScene 수정·세로 방향·네이버 SDK5.2.1·가입 UI를 포함한1.0.0(6)을 생성했다. `pubspec.yaml`은1.0.0+6, API 호환 번호는1이다. 이전 빌드5의 Archive/IPA는 해시/버전 확인 후 `build/ios/releases/1.0.0-5/`에 보존했다. 아래 기존 IPA5/새 Archive 필요 기록은 이 생성 이전의 이력이다.
+- 실행/역할/의존성/사용 예: `flutter build ipa --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=6 --export-method=app-store`. 기존 Flutter3.38.5/Dart3.10.4·Xcode27.1·lock·운영 .env·Apple 서명 환경에 의존한다. `build/ios/archive/Runner.xcarchive`는 Release 앱·Runner/App dSYM이며 Xcode 검증/배포에 사용한다. `build/ios/ipa/ShiftMate.ipa`는 Apple Distribution 서명 App Store 제출 파일로 Transporter에 전달한다. 같은 폴더의 ExportOptions.plist는 재내보내기 설정, DistributionSummary.plist/Packaging.log는 로컬 패키징 진단 자료이며 커밋하지 않는다.
+- 결과: Archive44.0초·IPA60.4초 성공, IPA24,731,032bytes·SHA-256 `dd5554bba77dd33411673d6eefb2a48ec53640a2232dab5ef69409a4476e0e3e`. ZIP/서명/profile·운영 API/Firebase/OAuth·production APNs/Apple 로그인·URL scheme·단일 FlutterSceneDelegate·portrait/전체화면 호환·SDK5.2.1·버전6·dSYM 일치를 검증했다. 기존 LaunchImage placeholder 경고1건 유지. 임시 검증 스크립트/로그 역할과 결과는 WORKLOG를 따른다.
+- 영향/한계/롤백: 빌드 번호·출시 문서만 이번에 수정했다. 새 기능/설계·서버/환경/lock 변경은 없다. 업로드/심사 재제출/새 IPA 실기기 인수는 미수행이다. 앞선 개발 서명 iPad6 실행 결과와 구분한다. 이번 버전/문서 diff를 복구하고 신규 산출물을 제거하면 롤백되며 보존한 빌드5와 기존 사용자 수정은 유지한다.
+
 ## 회원가입·개인정보 편집 입력 UI 통합 (2026-11-16, ADR-0086)
 
 - 목적/Behavior change: 사용자 요청으로 가입의 이전 행 형태 입력을 제거하고 개인정보 편집 디자인을 재사용한다. `ProfileSetupPage`의 가입/편집이 사진·이름 요약 → 기본 정보(이름·휴대폰) → 선택 근무 정보(직종·소속/부서) → 읽기 전용 이메일 → 고정 버튼을 같은 위젯으로 표시한다. 두 모드 모두 직종·회사 입력의 placeholder는 null이며 외부 라벨·선택 표시를 유지한다. 카드 반경16·입력 반경12/최소52·최대 너비480·여백/타이포는 기존 편집 디자인과 같다.

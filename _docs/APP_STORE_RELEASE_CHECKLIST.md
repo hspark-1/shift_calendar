@@ -1,5 +1,14 @@
 # ShiftMate App Store 심사 준비 및 진행 기록
 
+## 심사 제출용 빌드6 생성·검증 — 2026-11-16
+
+- 최신 제출 파일: **iOS1.0.0(6), API 호환 번호1**. UIScene 크래시 수정·세로 방향·Naver SDK5.2.1·최신 가입 UI가 포함됐다. 아래 새 Archive/IPA 필요·기존 파일5 설명은 이번 생성 전의 이력이다.
+- [x] `flutter build ipa --release --no-pub --dart-define-from-file=.env --build-name=1.0.0 --build-number=6 --export-method=app-store` 성공(Archive44.0초·IPA60.4초)
+- [x] Apple Distribution 서명·App Store profile·production APNs/Apple 로그인·운영 API/Firebase/OAuth·URL scheme·ZIP CRC·버전/식별자·단일Scene·세로 방향·네이버SDK·Runner/App dSYM UUID 검증
+- [x] 기존 빌드5를 `build/ios/releases/1.0.0-5/`에 보존, pubspec/버전 정책/컨텍스트/일지 최신화
+- [ ] Transporter/Xcode 업로드·Connect 처리 확인·빌드6 선택·심사 재제출
+- 산출물: `build/ios/ipa/ShiftMate.ipa` 24,731,032bytes, SHA-256 `dd5554bba77dd33411673d6eefb2a48ec53640a2232dab5ef69409a4476e0e3e`; Archive는 `build/ios/archive/Runner.xcarchive`. 역할·의존성·재현·영향·롤백은 PROJECT_CONTEXT/WORKLOG 상단을 따른다. 기존 LaunchImage placeholder 경고1건은 유지한다. 이번 Distribution IPA 실기기 설치와 실제 심사OS27.3 검증은 수행하지 않았다.
+
 ## iPhone·iPad 세로 방향 고정 — 2026-11-16
 
 - [x] 사용자 확정으로 기본/~ipad 지원 방향을portrait만 허용하고 UIRequiresFullScreen 호환 설정 추가(ADR-0083)
