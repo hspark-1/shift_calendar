@@ -2,7 +2,6 @@
 
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -10,7 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'device_remote_datasource.dart';
-import 'firebase_environment_options.dart';
+import '../firebase/firebase_initializer.dart';
 import 'installation_id_service.dart';
 
 const String push_android_channel_id = 'shiftmate_high';
@@ -70,14 +69,8 @@ class PushDeduplicationStore {
 }
 
 Future<bool> initializePushFirebase() async {
-  if (!FirebaseEnvironmentOptions.is_configured) {
-    debugPrint('Firebase push 설정이 없어 푸시 기능을 비활성화합니다.');
-    return false;
-  }
   try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: FirebaseEnvironmentOptions.current);
-    }
+    await FirebaseInitializer.ensureInitialized();
     return true;
   } catch (error) {
     debugPrint('Firebase 초기화 실패: ${error.runtimeType}');

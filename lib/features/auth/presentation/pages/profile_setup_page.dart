@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -12,6 +13,12 @@ import '../../../../core/widgets/profile_image.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/profile_image_upload.dart';
 import '../providers/auth_provider.dart';
+import '../../application/phone_verification_controller.dart';
+import '../../application/phone_verification_state.dart';
+import '../../data/models/phone_verification_models.dart';
+import '../../data/repositories/auth_repository_impl.dart';
+import '../../../../core/network/api_exception.dart';
+import '../widgets/phone_verification_section.dart';
 
 const Map<String, String> _legacy_job_type_labels = {
   'NURSE': '간호사',
@@ -123,7 +130,14 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   late final TextEditingController _phone_controller;
   late final TextEditingController _job_type_controller;
   late final TextEditingController _workplace_controller;
-  late final String _initial_job_type_text;
+  late String _initial_job_type_text;
+  late User _initial_user;
+  late final PhoneVerificationScope _phone_scope;
+  bool _profile_loaded = false;
+  bool _profile_fetching = false;
+  String? _profile_load_error;
+  String? _submission_key;
+  bool _initializing = true;
   late String _selected_timezone;
   late final Future<void> _timezone_future;
   ProfileImageUpload? _selected_profile_image;
@@ -132,6 +146,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   bool _is_picking_image = false;
   final FocusNode _name_focus = FocusNode();
   final FocusNode _phone_focus = FocusNode();
+  final FocusNode _phone_code_focus = FocusNode();
   final FocusNode _job_focus = FocusNode();
   final FocusNode _workplace_focus = FocusNode();
   final GlobalKey _name_field_key = GlobalKey();
@@ -139,8 +154,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   final ScrollController _profile_scroll = ScrollController();
   bool _name_blurred = false;
   bool _phone_blurred = false;
-  bool _allow_pop = false;
-  bool _confirming_leave = false;
   String? _save_error;
 
   bool get _is_busy => _is_loading || _is_picking_image;
@@ -148,19 +161,29 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   @override
   void initState() {
     super.initState();
-    _name_controller = TextEditingController(text: widget.user.name);
+    _initial_user = widget.user;
+    _phone_scope = PhoneVerificationScope(
+      widget.user.id,
+      widget.is_editing
+          ? PhoneVerificationPurpose.phone_change
+          : PhoneVerificationPurpose.signup,
+      initial_phone: phoneDigits(widget.user.phone ?? ''),
+    );
+    _profile_loaded = !widget.is_editing;
+    _name_controller = TextEditingController(text: _initial_user.name);
     _phone_controller = TextEditingController(
-      text: KoreanMobilePhoneInputFormatter.format(widget.user.phone ?? ''),
+      text: KoreanMobilePhoneInputFormatter.format(_initial_user.phone ?? ''),
     );
     _initial_job_type_text =
-        _legacy_job_type_labels[widget.user.job_type] ??
-        widget.user.job_type ??
+        _legacy_job_type_labels[_initial_user.job_type] ??
+        _initial_user.job_type ??
         '';
     _job_type_controller = TextEditingController(text: _initial_job_type_text);
     _workplace_controller = TextEditingController(
-      text: widget.user.workplace ?? '',
+      text: _initial_user.workplace ?? '',
     );
-    _selected_timezone = widget.user.timezone ?? AppConstants.default_timezone;
+    _selected_timezone =
+        _initial_user.timezone ?? AppConstants.default_timezone;
     _timezone_future = widget.is_editing
         ? Future<void>.value()
         : _loadDeviceTimezone();
@@ -176,6 +199,67 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     _phone_focus.addListener(_onPhoneFocusChanged);
     _job_focus.addListener(_onProfileFocusChanged);
     _workplace_focus.addListener(_onProfileFocusChanged);
+    _initializing = false;
+    if (widget.is_editing) Future<void>.microtask(_loadProfile);
+  }
+
+  Future<void> _loadProfile() async {
+    if (_profile_fetching) return;
+    setState(() {
+      _profile_fetching = true;
+      _profile_load_error = null;
+    });
+    try {
+      final user = await ref.read(authRepositoryProvider).getProfile();
+      if (!mounted) return;
+      if (user.id != widget.user.id) {
+        throw const FormatException('Profile owner mismatch');
+      }
+      _initializing = true;
+      _initial_user = user;
+      _name_controller.text = user.name;
+      _phone_controller.text = KoreanMobilePhoneInputFormatter.format(
+        user.phone ?? '',
+      );
+      _initial_job_type_text =
+          _legacy_job_type_labels[user.job_type] ?? user.job_type ?? '';
+      _job_type_controller.text = _initial_job_type_text;
+      _workplace_controller.text = user.workplace ?? '';
+      _selected_timezone = user.timezone ?? AppConstants.default_timezone;
+      ref
+          .read(phone_verification_controller_provider(_phone_scope).notifier)
+          .setPhone(_phone_digits);
+      setState(() {
+        _profile_loaded = true;
+        _initializing = false;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _profile_load_error = error is ApiException
+              ? error.message
+              : '개인정보를 불러오지 못했어요. 다시 시도해주세요.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _profile_fetching = false);
+    }
+  }
+
+  bool get _requires_phone_verification =>
+      !widget.is_editing || _has_phone_changed;
+
+  bool get _can_save {
+    final phone_state = ref.read(
+      phone_verification_controller_provider(_phone_scope),
+    );
+    return _profile_loaded &&
+        !_is_busy &&
+        !phone_state.is_busy &&
+        _is_required_input_valid &&
+        (!widget.is_editing || _has_changes) &&
+        (!_requires_phone_verification ||
+            (phone_state.is_verified && phone_state.phone == _phone_digits));
   }
 
   @override
@@ -186,6 +270,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     _workplace_controller.dispose();
     _name_focus.dispose();
     _phone_focus.dispose();
+    _phone_code_focus.dispose();
     _job_focus.dispose();
     _workplace_focus.dispose();
     _profile_scroll.dispose();
@@ -193,6 +278,11 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   }
 
   void _onProfileChanged() {
+    if (_initializing) return;
+    _submission_key = null;
+    ref
+        .read(phone_verification_controller_provider(_phone_scope).notifier)
+        .setPhone(_phone_digits);
     setState(() => _save_error = null);
   }
 
@@ -213,17 +303,17 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   }
 
   bool get _has_changes =>
-      _name_controller.text.trim() != widget.user.name ||
+      _name_controller.text.trim() != _initial_user.name ||
       _has_phone_changed ||
       _job_type_controller.text.trim() != _initial_job_type_text ||
-      _workplace_controller.text.trim() != (widget.user.workplace ?? '') ||
+      _workplace_controller.text.trim() != (_initial_user.workplace ?? '') ||
       _selected_profile_image != null;
 
   String get _phone_digits =>
       _phone_controller.text.replaceAll(RegExp('[^0-9]'), '');
 
   String? get _name_error {
-    if (!_has_submitted && !(widget.is_editing && _name_blurred)) return null;
+    if (!_has_submitted && !_name_blurred) return null;
     final name = _name_controller.text.trim();
     if (name.isEmpty) return '이름을 입력해주세요.';
     if (name.length > 50) return '이름은 50자 이하로 입력해주세요.';
@@ -231,7 +321,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   }
 
   String? get _phone_error {
-    if (!_has_submitted && !(widget.is_editing && _phone_blurred)) return null;
+    if (!_has_submitted && !_phone_blurred) return null;
     if (widget.is_editing && !_has_phone_changed) return null;
     if (_phone_digits.isEmpty) return '휴대폰 번호를 입력해주세요.';
     if (!_is_valid_korean_mobile_phone) {
@@ -245,7 +335,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
   bool get _has_phone_changed =>
       _phone_digits !=
-      (widget.user.phone ?? '').replaceAll(RegExp('[^0-9]'), '');
+      (_initial_user.phone ?? '').replaceAll(RegExp('[^0-9]'), '');
 
   bool get _is_required_input_valid =>
       _name_controller.text.trim().isNotEmpty &&
@@ -272,35 +362,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     });
   }
 
-  Future<void> _requestLeave() async {
-    if (_is_busy || _confirming_leave) return;
-    if (_has_changes) {
-      _confirming_leave = true;
-      final discard = await showCupertinoDialog<bool>(
-        context: context,
-        builder: (dialog_context) => CupertinoAlertDialog(
-          title: const Text('변경사항을 버릴까요?'),
-          content: const Text('저장하지 않은 내용은 사라져요.'),
-          actions: [
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () => Navigator.of(dialog_context).pop(false),
-              child: const Text('계속 수정'),
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              onPressed: () => Navigator.of(dialog_context).pop(true),
-              child: const Text('변경사항 버리기'),
-            ),
-          ],
-        ),
-      );
-      _confirming_leave = false;
-      if (!mounted || discard != true) return;
-    }
-    setState(() => _allow_pop = true);
-    await WidgetsBinding.instance.endOfFrame;
-    if (mounted) Navigator.of(context).pop();
+  void _requestLeave() {
+    if (_is_busy) return;
+    Navigator.of(context).maybePop();
   }
 
   Future<void> _loadDeviceTimezone() async {
@@ -328,6 +392,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       }
       setState(() {
         _selected_profile_image = selected_image;
+        _submission_key = null;
         _save_error = null;
       });
     } catch (_) {
@@ -353,7 +418,14 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   }
 
   Future<void> _handleSave() async {
-    if (_is_busy) return;
+    if (_is_busy || !_profile_loaded) return;
+    final phone_controller = ref.read(
+      phone_verification_controller_provider(_phone_scope).notifier,
+    );
+    final verification_token = _requires_phone_verification
+        ? phone_controller.tokenFor(_phone_digits)
+        : null;
+    if (_requires_phone_verification && verification_token == null) return;
     if (widget.is_editing && !_has_changes) return;
     setState(() => _has_submitted = true);
     if (!_is_required_input_valid) {
@@ -371,16 +443,17 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
     final job_type = _job_type_controller.text.trim();
     final workplace = _workplace_controller.text.trim();
+    _submission_key ??= const Uuid().v4();
     final notifier = ref.read(authProvider.notifier);
     final bool success;
     if (widget.is_editing) {
       final name = _name_controller.text.trim();
-      final changed_name = name != widget.user.name ? name : null;
+      final changed_name = name != _initial_user.name ? name : null;
       final changed_phone = _has_phone_changed ? _phone_digits : null;
       final changed_job_type = job_type != _initial_job_type_text
           ? job_type
           : null;
-      final changed_workplace = workplace != (widget.user.workplace ?? '')
+      final changed_workplace = workplace != (_initial_user.workplace ?? '')
           ? workplace
           : null;
       final has_changes =
@@ -394,6 +467,8 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           await notifier.updateProfile(
             name: changed_name,
             phone: changed_phone,
+            phone_verification_token: verification_token,
+            idempotency_key: _submission_key,
             job_type: changed_job_type,
             workplace: changed_workplace,
             profile_image: _selected_profile_image,
@@ -403,6 +478,8 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
         name: _name_controller.text.trim(),
         timezone: _selected_timezone,
         phone: _phone_digits,
+        phone_verification_token: verification_token!,
+        idempotency_key: _submission_key!,
         profile_image: _selected_profile_image,
         job_type: job_type.isEmpty ? null : job_type,
         workplace: workplace.isEmpty ? null : workplace,
@@ -412,10 +489,18 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     if (!mounted) return;
     setState(() {
       _is_loading = false;
-      if (success && widget.is_editing) _allow_pop = true;
     });
     if (!success) {
-      final error = ref.read(authProvider).error;
+      final error_state = ref.read(authProvider);
+      final error = error_state.error;
+      final api_error = error_state.api_error;
+      if (api_error != null &&
+          (api_error.code.startsWith('PHONE_VERIFICATION_') ||
+              api_error.code.startsWith('PHONE_FIREBASE_') ||
+              api_error.code == 'PHONE_CHALLENGE_EXPIRED' ||
+              api_error.code == 'PHONE_ALREADY_EXISTS')) {
+        phone_controller.invalidateProof(api_error);
+      }
       if (widget.is_editing) {
         setState(() => _save_error = error ?? '저장하지 못했어요. 다시 시도해주세요.');
       } else if (error != null) {
@@ -454,11 +539,17 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope<void>(
-      canPop: !_is_busy && (!widget.is_editing || !_has_changes || _allow_pop),
-      onPopInvokedWithResult: (did_pop, _) {
-        if (widget.is_editing && !did_pop && !_is_busy) _requestLeave();
+    final phone_state = ref.watch(
+      phone_verification_controller_provider(_phone_scope),
+    );
+    ref.listen<PhoneVerificationState>(
+      phone_verification_controller_provider(_phone_scope),
+      (previous, next) {
+        if (previous?.proof != next.proof) _submission_key = null;
       },
+    );
+    return PopScope<void>(
+      canPop: !_is_busy,
       child: CupertinoPageScaffold(
         backgroundColor: AppTheme.background_color,
         navigationBar: CupertinoNavigationBar(
@@ -485,166 +576,223 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
           ),
         ),
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final gutter = constraints.maxWidth < 360 ? 16.0 : 20.0;
-              return Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: GestureDetector(
-                    key: const Key('profile_setup_keyboard_dismiss_area'),
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: !_profile_loaded
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            key: const Key('profile_setup_scroll_view'),
-                            controller: _profile_scroll,
-                            keyboardDismissBehavior:
-                                ScrollViewKeyboardDismissBehavior.onDrag,
-                            padding: EdgeInsets.fromLTRB(
-                              gutter,
-                              20,
-                              gutter,
-                              24,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _buildIdentity(),
-                                const SizedBox(height: 24),
-                                _buildSection(
-                                  section_key: const Key(
-                                    'profile_edit_basic_section',
-                                  ),
-                                  title: '기본 정보',
-                                  icon: CupertinoIcons.person,
-                                  children: [
-                                    KeyedSubtree(
-                                      key: _name_field_key,
-                                      child: _ProfileField(
-                                        field_key: const Key(
-                                          'profile_name_field',
-                                        ),
-                                        label: '이름',
-                                        required_field: true,
-                                        controller: _name_controller,
-                                        focus_node: _name_focus,
-                                        enabled: !_is_busy,
-                                        placeholder: '이름을 입력해주세요',
-                                        max_length: 50,
-                                        error_text: _name_error,
-                                        autofill_hints: const [
-                                          AutofillHints.name,
-                                        ],
-                                        onSubmitted: (_) =>
-                                            _phone_focus.requestFocus(),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    KeyedSubtree(
-                                      key: _phone_field_key,
-                                      child: _ProfileField(
-                                        field_key: const Key(
-                                          'profile_phone_field',
-                                        ),
-                                        label: '휴대폰 번호',
-                                        required_field: true,
-                                        controller: _phone_controller,
-                                        focus_node: _phone_focus,
-                                        enabled: !_is_busy,
-                                        placeholder: '010-1234-5678',
-                                        keyboard_type: TextInputType.phone,
-                                        autofill_hints: const [
-                                          AutofillHints.telephoneNumberNational,
-                                        ],
-                                        input_formatters: [
-                                          KoreanMobilePhoneInputFormatter(),
-                                        ],
-                                        error_text: _phone_error,
-                                        onSubmitted: (_) =>
-                                            _job_focus.requestFocus(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-                                _buildSection(
-                                  section_key: const Key(
-                                    'profile_edit_work_section',
-                                  ),
-                                  title: '근무 정보',
-                                  icon: CupertinoIcons.briefcase,
-                                  optional: true,
-                                  children: [
-                                    _ProfileField(
-                                      field_key: const Key(
-                                        'profile_job_type_field',
-                                      ),
-                                      label: '직종',
-                                      controller: _job_type_controller,
-                                      focus_node: _job_focus,
-                                      enabled: !_is_busy,
-                                      max_length: 20,
-                                      onSubmitted: (_) =>
-                                          _workplace_focus.requestFocus(),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _ProfileField(
-                                      field_key: const Key(
-                                        'profile_workplace_field',
-                                      ),
-                                      label: '소속 · 부서',
-                                      controller: _workplace_controller,
-                                      focus_node: _workplace_focus,
-                                      enabled: !_is_busy,
-                                      max_length: 100,
-                                      autofill_hints: const [
-                                        AutofillHints.organizationName,
-                                      ],
-                                      text_input_action: TextInputAction.done,
-                                      onSubmitted: (_) =>
-                                          _workplace_focus.unfocus(),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      widget.is_editing
-                                          ? '비워두고 저장하면 근무 정보가 삭제돼요.'
-                                          : '지금 입력하지 않아도 괜찮아요. 설정에서 언제든 추가할 수 있어요.',
-                                      style: AppTheme.body_medium.copyWith(
-                                        color:
-                                            AppTheme.on_surface_variant_color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-                                _buildAccount(),
-                                if (!widget.is_editing) ...[
-                                  const SizedBox(height: 24),
-                                  const _PrivacyNotice(),
-                                ],
-                              ],
-                            ),
+                        if (_profile_fetching)
+                          const CupertinoActivityIndicator()
+                        else ...[
+                          Text(_profile_load_error ?? '개인정보를 불러오는 중이에요.'),
+                          const SizedBox(height: 12),
+                          CupertinoButton(
+                            key: const Key('profile_load_retry'),
+                            onPressed: _loadProfile,
+                            child: const Text('다시 불러오기'),
                           ),
-                        ),
-                        _buildBottomAction(gutter),
+                        ],
                       ],
                     ),
                   ),
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final gutter = constraints.maxWidth < 360 ? 16.0 : 20.0;
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: GestureDetector(
+                          key: const Key('profile_setup_keyboard_dismiss_area'),
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  key: const Key('profile_setup_scroll_view'),
+                                  controller: _profile_scroll,
+                                  keyboardDismissBehavior:
+                                      ScrollViewKeyboardDismissBehavior.onDrag,
+                                  padding: EdgeInsets.fromLTRB(
+                                    gutter,
+                                    20,
+                                    gutter,
+                                    24,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _buildIdentity(),
+                                      const SizedBox(height: 24),
+                                      _buildSection(
+                                        section_key: const Key(
+                                          'profile_edit_basic_section',
+                                        ),
+                                        title: '기본 정보',
+                                        icon: CupertinoIcons.person,
+                                        children: [
+                                          KeyedSubtree(
+                                            key: _name_field_key,
+                                            child: _ProfileField(
+                                              field_key: const Key(
+                                                'profile_name_field',
+                                              ),
+                                              label: '이름',
+                                              required_field: true,
+                                              controller: _name_controller,
+                                              focus_node: _name_focus,
+                                              enabled: !_is_busy,
+                                              placeholder: '이름을 입력해주세요',
+                                              max_length: 50,
+                                              error_text: _name_error,
+                                              autofill_hints: const [
+                                                AutofillHints.name,
+                                              ],
+                                              onSubmitted: (_) =>
+                                                  _phone_code_focus
+                                                          .context
+                                                          ?.mounted ==
+                                                      true
+                                                  ? _phone_code_focus
+                                                        .requestFocus()
+                                                  : _phone_focus.requestFocus(),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          PhoneVerificationSection(
+                                            code_focus: _phone_code_focus,
+                                            phone_input: KeyedSubtree(
+                                              key: _phone_field_key,
+                                              child: _ProfileField(
+                                                field_key: const Key(
+                                                  'profile_phone_field',
+                                                ),
+                                                label: '휴대폰 번호',
+                                                required_field: true,
+                                                controller: _phone_controller,
+                                                focus_node: _phone_focus,
+                                                enabled: !_is_busy,
+                                                placeholder: '010-1234-5678',
+                                                keyboard_type:
+                                                    TextInputType.phone,
+                                                autofill_hints: const [
+                                                  AutofillHints
+                                                      .telephoneNumberNational,
+                                                ],
+                                                input_formatters: [
+                                                  KoreanMobilePhoneInputFormatter(),
+                                                ],
+                                                error_text: _phone_error,
+                                                onSubmitted: (_) =>
+                                                    _job_focus.requestFocus(),
+                                              ),
+                                            ),
+                                            onEditPhone: () =>
+                                                _phone_focus.requestFocus(),
+                                            state: phone_state,
+                                            required_verification:
+                                                _requires_phone_verification,
+                                            enabled: !_is_busy,
+                                            onSend: () => ref
+                                                .read(
+                                                  phone_verification_controller_provider(
+                                                    _phone_scope,
+                                                  ).notifier,
+                                                )
+                                                .sendCode(),
+                                            onVerify: (code) => ref
+                                                .read(
+                                                  phone_verification_controller_provider(
+                                                    _phone_scope,
+                                                  ).notifier,
+                                                )
+                                                .verifyCode(code),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 24),
+                                      _buildSection(
+                                        section_key: const Key(
+                                          'profile_edit_work_section',
+                                        ),
+                                        title: '근무 정보',
+                                        icon: CupertinoIcons.briefcase,
+                                        optional: true,
+                                        children: [
+                                          _ProfileField(
+                                            field_key: const Key(
+                                              'profile_job_type_field',
+                                            ),
+                                            label: '직종',
+                                            controller: _job_type_controller,
+                                            focus_node: _job_focus,
+                                            enabled: !_is_busy,
+                                            max_length: 20,
+                                            onSubmitted: (_) =>
+                                                _workplace_focus.requestFocus(),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          _ProfileField(
+                                            field_key: const Key(
+                                              'profile_workplace_field',
+                                            ),
+                                            label: '소속 · 부서',
+                                            controller: _workplace_controller,
+                                            focus_node: _workplace_focus,
+                                            enabled: !_is_busy,
+                                            max_length: 100,
+                                            autofill_hints: const [
+                                              AutofillHints.organizationName,
+                                            ],
+                                            text_input_action:
+                                                TextInputAction.done,
+                                            onSubmitted: (_) =>
+                                                _workplace_focus.unfocus(),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            widget.is_editing
+                                                ? '비워두고 저장하면 근무 정보가 삭제돼요.'
+                                                : '지금 입력하지 않아도 괜찮아요. 설정에서 언제든 추가할 수 있어요.',
+                                            style: AppTheme.body_medium
+                                                .copyWith(
+                                                  color: AppTheme
+                                                      .on_surface_variant_color,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 24),
+                                      _buildAccount(),
+                                      if (!widget.is_editing) ...[
+                                        const SizedBox(height: 24),
+                                        const _PrivacyNotice(),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              _buildBottomAction(gutter),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ),
     );
   }
 
   Widget _buildIdentity() {
-    final image_url = widget.user.profile_image_url;
+    final image_url = _initial_user.profile_image_url;
     final selected_name = _name_controller.text.trim();
     return Row(
       children: [
@@ -797,7 +945,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
               style: AppTheme.body_medium.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            Text(widget.user.email, style: AppTheme.body_large),
+            Text(_initial_user.email, style: AppTheme.body_large),
             const SizedBox(height: 8),
             Text(
               '로그인에 사용하는 이메일은 변경할 수 없어요.',
@@ -825,6 +973,19 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (_requires_phone_verification &&
+              !ref
+                  .read(phone_verification_controller_provider(_phone_scope))
+                  .is_verified) ...[
+            Text(
+              '휴대폰 인증을 완료하면 저장할 수 있어요.',
+              key: const Key('profile_phone_verification_required'),
+              style: AppTheme.body_medium.copyWith(
+                color: AppTheme.on_surface_variant_color,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (_save_error != null) ...[
             Semantics(
               liveRegion: true,
@@ -848,9 +1009,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                   ? AppTheme.primary_color
                   : AppTheme.surface_container_highest_color,
               borderRadius: AppTheme.input_border_radius,
-              onPressed: _is_busy || (widget.is_editing && !_has_changes)
-                  ? null
-                  : _handleSave,
+              onPressed: _can_save ? _handleSave : null,
               child: _is_loading
                   ? Semantics(
                       label: '저장 중',
@@ -864,9 +1023,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                           : '저장하고 시작하기',
                       style: AppTheme.body_large.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: _is_busy || (widget.is_editing && !_has_changes)
-                            ? AppTheme.on_surface_variant_color
-                            : AppTheme.surface_color,
+                        color: _can_save || _is_loading
+                            ? AppTheme.surface_color
+                            : AppTheme.on_surface_variant_color,
                       ),
                     ),
             ),

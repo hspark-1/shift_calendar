@@ -172,7 +172,9 @@ class ApiClient {
               try {
                 final retryResponse = await dio.fetch(options);
                 return handler.resolve(retryResponse);
-              } catch (e) {
+              } on DioException catch (retry_error) {
+                return handler.next(retry_error);
+              } catch (_) {
                 return handler.next(error);
               }
             }

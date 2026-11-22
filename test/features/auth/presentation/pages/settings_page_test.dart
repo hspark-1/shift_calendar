@@ -68,6 +68,8 @@ class _SettingsAuthRepository implements AuthRepository {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) async {
@@ -80,6 +82,8 @@ class _SettingsAuthRepository implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
@@ -158,9 +162,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('profile_edit_back_button')));
     await tester.pumpAndSettle();
-    expect(find.text('변경사항을 버릴까요?'), findsOneWidget);
-    await tester.tap(find.text('변경사항 버리기'));
-    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+    expect(find.text('설정'), findsOneWidget);
     expect(repository.update_count, 0);
     expect(find.text('사용자'), findsOneWidget);
     expect(find.text('저장 안 한 이름'), findsNothing);

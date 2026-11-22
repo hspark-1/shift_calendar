@@ -6,12 +6,14 @@ class ApiException implements Exception {
   final String message;
   final int? statusCode;
   final String? request_id;
+  final int? retry_after_seconds;
 
   ApiException({
     required this.code,
     required this.message,
     this.statusCode,
     this.request_id,
+    this.retry_after_seconds,
   });
 
   @override

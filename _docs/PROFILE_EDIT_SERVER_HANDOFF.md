@@ -1,5 +1,7 @@
 # 프로필 수정·사진 변경 서버 요청서
 
+> 2026-11-21 후속: 전화번호 변경 저장의 Firebase Phone Auth는 **Flutter 구현·모의 검증 완료, 서버 구현/배포 전**이다. [PHONE_VERIFICATION_SERVER_HANDOFF.md](PHONE_VERIFICATION_SERVER_HANDOFF.md)를 함께 적용한다. 기존 사진/선택값/부분 수정 계약을 유지하고, 번호 생략/동일 번호는 인증 없이 저장하되 다른 번호는 새 일회용 증명이 필요하다.
+
 작성일: 2026-11-10 (Asia/Seoul)
 대상: `shift_calendar_server` Express/Sequelize 서버 담당자
 상태: Flutter 구현·로컬 모의 검증 완료, 서버 요청 준비 완료. **서버 구현·배포·실기기 연동은 별도 인수 필요.**

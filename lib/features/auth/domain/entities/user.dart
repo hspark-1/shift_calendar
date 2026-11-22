@@ -91,6 +91,7 @@ class User with _$User {
     String? profile_image_url,
     String? timezone,
     String? phone,
+    @FlexibleDateTimeConverter() DateTime? phone_verified_at,
     String? job_type,
     String? workplace,
     bool? requires_profile_setup,

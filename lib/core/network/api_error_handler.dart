@@ -12,6 +12,10 @@ Exception handleApiError(DioException error) {
         message: errorData['message'] as String? ?? '알 수 없는 오류가 발생했습니다.',
         statusCode: error.response!.statusCode,
         request_id: data['request_id'] as String?,
+        retry_after_seconds: _retryAfter(
+          error,
+          errorData['retry_after_seconds'],
+        ),
       );
     }
 
@@ -52,4 +56,11 @@ Exception handleApiError(DioException error) {
     message: '알 수 없는 오류가 발생했습니다.',
     statusCode: null,
   );
+}
+
+int? _retryAfter(DioException error, Object? value) {
+  final seconds = value is int
+      ? value
+      : int.tryParse(error.response?.headers.value('Retry-After') ?? '');
+  return seconds != null && seconds > 0 ? seconds : null;
 }

@@ -29,12 +29,16 @@ const _preview_user = User(
 
 class _PreviewRepository implements AuthRepository {
   @override
+  Future<User> getProfile() async => _preview_user;
+  @override
   Future<User> updateProfile({
     String? name,
     String? timezone,
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) async => throw ApiException(

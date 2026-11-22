@@ -16,11 +16,23 @@ import 'package:shift_mate/core/network/api_exception.dart';
 
 class _ProfileUploadAdapter implements HttpClientAdapter {
   final bool require_refresh;
+  final bool reject_after_refresh;
   final requests =
-      <({String path, String? auth, String? content_type, String body})>[];
+      <
+        ({
+          String path,
+          String? auth,
+          String? content_type,
+          String? save_key,
+          String body,
+        })
+      >[];
   int profile_request_count = 0;
 
-  _ProfileUploadAdapter({this.require_refresh = false});
+  _ProfileUploadAdapter({
+    this.require_refresh = false,
+    this.reject_after_refresh = false,
+  });
 
   @override
   Future<ResponseBody> fetch(
@@ -36,6 +48,7 @@ class _ProfileUploadAdapter implements HttpClientAdapter {
       path: options.path,
       auth: options.headers['Authorization'] as String?,
       content_type: options.contentType,
+      save_key: options.headers['Idempotency-Key'] as String?,
       body: utf8.decode(bytes, allowMalformed: true),
     ));
     if (options.path == ApiConstants.auth_refresh) {
@@ -61,6 +74,22 @@ class _ProfileUploadAdapter implements HttpClientAdapter {
       return ResponseBody.fromString(
         jsonEncode({'success': false}),
         401,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      );
+    }
+    if (reject_after_refresh) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': false,
+          'error': {
+            'code': 'PHONE_VERIFICATION_EXPIRED',
+            'message': '다시 인증해주세요.',
+          },
+          'request_id': 'proof-expired-request',
+        }),
+        410,
         headers: {
           Headers.contentTypeHeader: ['application/json'],
         },
@@ -493,6 +522,9 @@ void main() {
       addTearDown(dio.close);
       await AuthRemoteDataSource(dio).updateProfile(
         workplace: '',
+        phone: '01012345678',
+        phone_verification_token: 'phone-proof',
+        idempotency_key: 'save-key',
         profile_image: ProfileImageUpload(
           bytes: Uint8List.fromList([1, 2, 3]),
           filename: 'profile.png',
@@ -507,9 +539,49 @@ void main() {
       expect(adapter.requests.first.auth, 'Bearer old-token');
       expect(adapter.requests.last.auth, 'Bearer new-token');
       expect(adapter.requests.last.body, adapter.requests.first.body);
+      expect(adapter.requests.first.save_key, 'save-key');
+      expect(adapter.requests.last.save_key, 'save-key');
+      expect(adapter.requests.last.body, contains('phone-proof'));
       expect(
         adapter.requests.last.body,
         contains('name="workplace"\r\n\r\n\r\n'),
+      );
+    });
+
+    test('401 갱신 후 증명 만료 응답은 원래 401 대신 410과 오류 코드를 보존한다', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'access_token': 'old-token',
+        'refresh_token': 'refresh-token',
+        'expires_at': DateTime.now()
+            .add(const Duration(hours: 1))
+            .toIso8601String(),
+      });
+      final adapter = _ProfileUploadAdapter(
+        require_refresh: true,
+        reject_after_refresh: true,
+      );
+      final dio = ApiClient.createDio()..httpClientAdapter = adapter;
+      addTearDown(dio.close);
+      await expectLater(
+        AuthRemoteDataSource(dio).updateProfile(
+          phone: '01012345678',
+          phone_verification_token: 'phone-proof',
+          idempotency_key: 'save-key',
+        ),
+        throwsA(
+          isA<ApiException>()
+              .having(
+                (error) => error.code,
+                'code',
+                'PHONE_VERIFICATION_EXPIRED',
+              )
+              .having((error) => error.statusCode, 'status', 410)
+              .having(
+                (error) => error.request_id,
+                'request',
+                'proof-expired-request',
+              ),
+        ),
       );
     });
 
@@ -642,6 +714,8 @@ void main() {
       );
 
       final user = await AuthRemoteDataSource(dio).completeProfile(
+        phone_verification_token: 'phone-proof',
+        idempotency_key: 'save-key',
         name: '김간호',
         timezone: 'Asia/Seoul',
         phone: '01012345678',
@@ -655,6 +729,7 @@ void main() {
         'name': '김간호',
         'timezone': 'Asia/Seoul',
         'phone': '01012345678',
+        'phone_verification_token': 'phone-proof',
         'job_type': 'NURSE',
         'workplace': '제일병원 중환자실',
       });
@@ -691,6 +766,8 @@ void main() {
       );
 
       await AuthRemoteDataSource(dio).completeProfile(
+        phone_verification_token: 'phone-proof',
+        idempotency_key: 'save-key',
         name: '사용자',
         timezone: 'Asia/Seoul',
         phone: '01012345678',
@@ -700,6 +777,7 @@ void main() {
         'name': '사용자',
         'timezone': 'Asia/Seoul',
         'phone': '01012345678',
+        'phone_verification_token': 'phone-proof',
       });
     });
 
@@ -731,6 +809,8 @@ void main() {
       );
 
       final user = await AuthRemoteDataSource(dio).completeProfile(
+        phone_verification_token: 'phone-proof',
+        idempotency_key: 'save-key',
         name: '사용자',
         timezone: 'Asia/Seoul',
         phone: '01012345678',
@@ -746,6 +826,7 @@ void main() {
         'name': '사용자',
         'timezone': 'Asia/Seoul',
         'phone': '01012345678',
+        'phone_verification_token': 'phone-proof',
       });
       expect(form_data.files.single.key, 'profile_image');
       expect(form_data.files.single.value.filename, 'profile.png');

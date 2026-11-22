@@ -19,6 +19,7 @@ import 'core/navigation/app_navigation.dart';
 import 'core/push/push_coordinator.dart';
 import 'core/push/push_providers.dart';
 import 'features/app_update/presentation/app_update_gate.dart';
+import 'features/auth/data/services/firebase_phone_auth_service.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -57,10 +58,19 @@ void main() async {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   }
 
+  final phone_auth = NativeFirebasePhoneAuthService();
+  if (firebase_enabled) {
+    try {
+      await phone_auth.clearSessions();
+    } catch (_) {
+      /* 다음 인증 시작 때도 정리한다. */
+    }
+  }
   runApp(
     ProviderScope(
       overrides: [
         pushFirebaseEnabledProvider.overrideWithValue(firebase_enabled),
+        firebase_phone_auth_service_provider.overrideWithValue(phone_auth),
       ],
       child: const ShiftMateApp(),
     ),

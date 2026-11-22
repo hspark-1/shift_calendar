@@ -1,5 +1,7 @@
 # Flutter FCM 푸시 알림 가이드
 
+> 2026-11-21 Phone Auth 준비: 기존 FCM 설정을 보존하면서 추가로 필요한 Firebase/플랫폼/서버 운영 설정은 [FIREBASE_PHONE_AUTH_CONSOLE_SETUP.md](FIREBASE_PHONE_AUTH_CONSOLE_SETUP.md)를 따른다. 푸시 구성 존재만으로 Phone Auth 콘솔/앱 확인 준비 완료를 의미하지 않는다. 이번 추가는 문서 연결이며 푸시 코드·콘솔 설정은 변경하지 않았다.
+
 ## 1. 지원 범위와 의존성
 
 - iOS 15 이상

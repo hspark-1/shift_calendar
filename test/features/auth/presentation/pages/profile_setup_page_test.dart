@@ -8,9 +8,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_mate/core/theme/app_theme.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:shift_mate/features/auth/application/phone_verification_controller.dart';
+import 'package:shift_mate/features/auth/data/repositories/phone_verification_repository.dart';
+import 'package:shift_mate/features/auth/data/models/phone_verification_models.dart';
+import 'package:shift_mate/features/auth/data/services/firebase_phone_auth_service.dart';
 import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.dart';
 import 'package:shift_mate/features/auth/presentation/pages/profile_setup_page.dart';
+import '../../../../helpers/phone_auth_fakes.dart';
 
 class _ProfileSetupAuthRepository implements AuthRepository {
   Map<String, String?>? complete_request;
@@ -18,16 +23,26 @@ class _ProfileSetupAuthRepository implements AuthRepository {
   int update_count = 0;
   Object? update_error;
   Completer<User>? pending_update;
+  User profile = _existing_user;
+  Object? profile_error;
+  Completer<User>? pending_profile;
+  int get_count = 0;
+  String? last_proof;
+  String? last_save_key;
 
   @override
   Future<User> completeProfile({
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) async {
+    last_proof = phone_verification_token;
+    last_save_key = idempotency_key;
     complete_request = {
       'name': name,
       'timezone': timezone,
@@ -55,7 +70,12 @@ class _ProfileSetupAuthRepository implements AuthRepository {
   Future<String?> getAccessToken() async => null;
 
   @override
-  Future<User> getProfile() => throw UnimplementedError();
+  Future<User> getProfile() async {
+    get_count += 1;
+    if (profile_error != null) throw profile_error!;
+    if (pending_profile != null) return pending_profile!.future;
+    return profile;
+  }
 
   @override
   Future<bool> isLoggedIn() async => false;
@@ -85,9 +105,13 @@ class _ProfileSetupAuthRepository implements AuthRepository {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) async {
+    last_proof = phone_verification_token;
+    last_save_key = idempotency_key;
     update_count += 1;
     update_request = {
       'name': name,
@@ -126,14 +150,30 @@ Future<void> _pumpPage(
   WidgetTester tester,
   _ProfileSetupAuthRepository repository, {
   required VoidCallback on_completed,
+  FakePhoneRepository? phone_repository,
+  FakeFirebasePhoneService? firebase,
   Future<ProfileImageUpload?> Function()? profile_image_picker,
   Future<String> Function()? timezone_loader,
+  Duration Function()? phone_elapsed,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repository),
+        ...phoneAuthOverrides(repository: phone_repository, firebase: firebase),
+        if (phone_elapsed != null)
+          phone_verification_controller_provider.overrideWith(
+            (ref, scope) => PhoneVerificationController(
+              ref.watch(phone_verification_repository_provider),
+              ref.watch(firebase_phone_auth_service_provider),
+              scope.purpose,
+              initial_phone: scope.initial_phone,
+              elapsed: phone_elapsed,
+            ),
+          ),
+      ],
       child: CupertinoApp(
         home: ProfileSetupPage(
           user: const User(
@@ -157,14 +197,20 @@ Future<void> _pumpEditPage(
   _ProfileSetupAuthRepository repository, {
   User user = _existing_user,
   VoidCallback? on_completed,
+  FakePhoneRepository? phone_repository,
+  FakeFirebasePhoneService? firebase,
   Future<ProfileImageUpload?> Function()? profile_image_picker,
   bool as_route = false,
 }) async {
+  repository.profile = user;
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repository),
+        ...phoneAuthOverrides(repository: phone_repository, firebase: firebase),
+      ],
       child: CupertinoApp(
         home: Builder(
           builder: (context) {
@@ -196,7 +242,562 @@ Future<void> _pumpEditPage(
   }
 }
 
+Future<void> _verifyPhone(WidgetTester tester) async {
+  final send = find.byKey(const Key('phone_send_button'));
+  await tester.ensureVisible(send);
+  await tester.pumpAndSettle();
+  await tester.tap(send);
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byKey(const Key('phone_code_field')), '000123');
+  final verify = find.byKey(const Key('phone_verify_button'));
+  await tester.ensureVisible(verify);
+  await tester.pumpAndSettle();
+  await tester.tap(verify);
+  await tester.pumpAndSettle();
+  expect(find.byKey(const Key('phone_verification_success')), findsOneWidget);
+}
+
 void main() {
+  testWidgets('중복 확인 후 SDK 준비·문자 콜백을 기다리지 않고 코드 입력을 연다', (tester) async {
+    final phone_repository = FakePhoneRepository()
+      ..pending_challenge = Completer();
+    final firebase = FakeFirebasePhoneService()
+      ..pending_start = Completer<void>()
+      ..auto_send = false;
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      phone_repository: phone_repository,
+      firebase: firebase,
+    );
+    final phone = _textFieldInside(const Key('profile_phone_field'));
+    await tester.enterText(phone, '01012345678');
+    await tester.pumpAndSettle();
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pump();
+    expect(find.text('번호 확인 중'), findsOneWidget);
+    expect(find.byKey(const Key('phone_code_field')), findsNothing);
+    expect(firebase.start_count, 0);
+    phone_repository.pending_challenge!.complete(
+      PhoneChallenge(
+        challenge_id: 'pending',
+        phone: '01012345678',
+        phone_e164: '+821012345678',
+        purpose: PhoneVerificationPurpose.signup,
+        server_now: DateTime.utc(2000),
+        expires_at: DateTime.utc(2000, 1, 1, 0, 10),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final code = find.byKey(const Key('phone_code_field'));
+    final verify = find.byKey(const Key('phone_verify_button'));
+    expect(code, findsOneWidget);
+    expect(find.text('인증번호 *'), findsOneWidget);
+    expect(find.text('수신 번호'), findsOneWidget);
+    expect(find.text('인증번호 전송 중'), findsOneWidget);
+    expect(tester.widget<CupertinoTextField>(code).enabled, isTrue);
+    expect(tester.widget<CupertinoTextField>(code).focusNode!.hasFocus, isTrue);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('phone_destination_summary'))).dy,
+      greaterThan(tester.getBottomLeft(code).dy),
+    );
+    await tester.enterText(code, '001234');
+    await tester.pump();
+    expect(tester.widget<CupertinoButton>(verify).onPressed, isNull);
+    expect(firebase.request_count, 0);
+    firebase.pending_start!.complete();
+    await tester.pump();
+    expect(firebase.request_count, 1);
+    expect(tester.widget<CupertinoButton>(verify).onPressed, isNull);
+    firebase.codeSent!('sent', 7);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CupertinoTextField>(code).controller!.text, '001234');
+    expect(tester.widget<CupertinoButton>(verify).onPressed, isNotNull);
+    expect(firebase.sign_in_count, 0);
+  });
+
+  testWidgets('중복 번호는 코드 입력으로 넘어가지 않고 오류를 표시한다', (tester) async {
+    final phone_repository = FakePhoneRepository()
+      ..create_error = ApiException(
+        code: 'PHONE_ALREADY_EXISTS',
+        message: '이미 사용 중인 전화번호입니다.',
+        statusCode: 409,
+      );
+    final firebase = FakeFirebasePhoneService();
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      phone_repository: phone_repository,
+      firebase: firebase,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    await tester.pumpAndSettle();
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(find.text('이미 사용 중인 전화번호입니다.'), findsOneWidget);
+    expect(find.byKey(const Key('phone_code_field')), findsNothing);
+    expect(find.byKey(const Key('profile_phone_field')), findsOneWidget);
+    expect(firebase.start_count, 0);
+  });
+
+  testWidgets('선표시 중 발송 실패는 번호 입력으로 복귀하고 오류·재시도를 제공한다', (tester) async {
+    final firebase = FakeFirebasePhoneService()..auto_send = false;
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      firebase: firebase,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    await tester.pumpAndSettle();
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const Key('phone_code_field')), findsOneWidget);
+    firebase.failure!(
+      ApiException(code: 'PHONE_AUTH_FAILED', message: '전송하지 못했어요.'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phone_code_field')), findsNothing);
+    expect(find.text('전송하지 못했어요.'), findsOneWidget);
+    expect(_textFieldInside(const Key('profile_phone_field')), findsOneWidget);
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('profile_setup_submit_button')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('발송 후 입력 영역을 교체하고 수신 번호를 입력 라벨과 분리한다', (tester) async {
+    final firebase = FakeFirebasePhoneService();
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      firebase: firebase,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    await tester.pumpAndSettle();
+    final section = find.byKey(const Key('phone_verification_section'));
+    final before_height = tester.getSize(section).height;
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profile_phone_field')), findsNothing);
+    expect(find.text('010-1234-5678'), findsOneWidget);
+    expect(
+      tester.getSize(section).height,
+      lessThanOrEqualTo(before_height + 16),
+    );
+    final code = find.byKey(const Key('phone_code_field'));
+    final code_field = tester.widget<CupertinoTextField>(code);
+    expect(code_field.focusNode!.hasFocus, isTrue);
+    await tester.showKeyboard(
+      _textFieldInside(const Key('profile_name_field')),
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CupertinoTextField>(code).focusNode!.hasFocus, isTrue);
+    expect(code_field.autofillHints, contains(AutofillHints.oneTimeCode));
+    final verify = find.byKey(const Key('phone_verify_button'));
+    expect(tester.widget<CupertinoButton>(verify).onPressed, isNull);
+    await tester.enterText(code, '12345');
+    await tester.pump();
+    expect(tester.widget<CupertinoButton>(verify).onPressed, isNull);
+    await tester.enterText(code, '001234');
+    await tester.pump();
+    expect(tester.widget<CupertinoButton>(verify).onPressed, isNotNull);
+    expect(tester.widget<CupertinoButton>(send).onPressed, isNull);
+    expect(firebase.request_count, 1);
+  });
+
+  testWidgets('번호 변경을 열었다 돌아가면 코드를 유지하고 번호를 바꾸면 입력 단계로 초기화한다', (tester) async {
+    final firebase = FakeFirebasePhoneService();
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      firebase: firebase,
+    );
+    final phone = _textFieldInside(const Key('profile_phone_field'));
+    await tester.enterText(phone, '01012345678');
+    await tester.pumpAndSettle();
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    final code = find.byKey(const Key('phone_code_field'));
+    await tester.enterText(code, '001234');
+    await tester.pumpAndSettle();
+    final change = find.byKey(const Key('phone_change_button'));
+    await tester.ensureVisible(change);
+    await tester.tap(change);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CupertinoTextField>(phone).focusNode!.hasFocus,
+      isTrue,
+    );
+    await tester.showKeyboard(
+      _textFieldInside(const Key('profile_name_field')),
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CupertinoTextField>(phone).focusNode!.hasFocus,
+      isTrue,
+    );
+    final resume = find.byKey(const Key('phone_resume_code_button'));
+    await tester.ensureVisible(resume);
+    await tester.tap(resume);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CupertinoTextField>(code).controller!.text, '001234');
+    expect(firebase.request_count, 1);
+    await tester.ensureVisible(change);
+    await tester.tap(change);
+    await tester.pumpAndSettle();
+    await tester.enterText(phone, '01099998888');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phone_resume_code_button')), findsNothing);
+    expect(code, findsNothing);
+    expect(
+      tester.widget<CupertinoTextField>(phone).controller!.text,
+      '010-9999-8888',
+    );
+    expect(tester.widget<CupertinoButton>(send).onPressed, isNull);
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('profile_setup_submit_button')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('재발송은 대기 후 가능하고 이전 인증번호를 비운다', (tester) async {
+    var elapsed = Duration.zero;
+    final firebase = FakeFirebasePhoneService();
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      firebase: firebase,
+      phone_elapsed: () => elapsed,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    await tester.pumpAndSettle();
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    final code = find.byKey(const Key('phone_code_field'));
+    await tester.enterText(code, '001234');
+    elapsed = const Duration(seconds: 61);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(tester.widget<CupertinoButton>(send).onPressed, isNotNull);
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(firebase.request_count, 2);
+    expect(tester.widget<CupertinoTextField>(code).controller!.text, isEmpty);
+    expect(
+      tester
+          .widget<CupertinoButton>(find.byKey(const Key('phone_verify_button')))
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('서버 결과 재확인은 코드를 잠그고 같은 인증 결과로 복구한다', (tester) async {
+    final firebase = FakeFirebasePhoneService();
+    final phone_repository = FakePhoneRepository()
+      ..verify_error = ApiException(
+        code: 'NETWORK_ERROR',
+        message: '연결을 확인해주세요.',
+      );
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      firebase: firebase,
+      phone_repository: phone_repository,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    await tester.pumpAndSettle();
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    final code = find.byKey(const Key('phone_code_field'));
+    await tester.enterText(code, '001234');
+    await tester.pumpAndSettle();
+    final verify = find.byKey(const Key('phone_verify_button'));
+    await tester.ensureVisible(verify);
+    await tester.tap(verify);
+    await tester.pumpAndSettle();
+    expect(find.text('인증 결과 다시 확인'), findsOneWidget);
+    expect(tester.widget<CupertinoTextField>(code).enabled, isFalse);
+    expect(tester.widget<CupertinoButton>(send).onPressed, isNull);
+    final verify_key = phone_repository.last_verify_key;
+    phone_repository.verify_error = null;
+    await tester.ensureVisible(verify);
+    await tester.tap(verify);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phone_verification_success')), findsOneWidget);
+    expect(phone_repository.last_verify_key, verify_key);
+    expect(firebase.sign_in_count, 1);
+  });
+
+  testWidgets('Google 요약 안내와 상세·정책 링크는 문자 발송 전에 확인할 수 있다', (tester) async {
+    final firebase = FakeFirebasePhoneService();
+    await _pumpPage(
+      tester,
+      _ProfileSetupAuthRepository(),
+      on_completed: () {},
+      firebase: firebase,
+    );
+    expect(find.text('번호가 Google에 전송·저장돼요.'), findsOneWidget);
+    final notice = find.byKey(const Key('phone_notice_button'));
+    await tester.ensureVisible(notice);
+    await tester.tap(notice);
+    await tester.pumpAndSettle();
+    expect(find.text('휴대폰 인증 안내'), findsOneWidget);
+    expect(find.textContaining('Google 서비스의 스팸·악용 방지'), findsOneWidget);
+    expect(find.text('개인정보처리방침'), findsOneWidget);
+    expect(firebase.request_count, 0);
+    await tester.tap(find.text('닫기'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
+  });
+  testWidgets('가입은 유효한 번호도 서버 증명까지 받아야 저장한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    final phone_repository = FakePhoneRepository();
+    final firebase = FakeFirebasePhoneService();
+    await _pumpPage(
+      tester,
+      repository,
+      on_completed: () {},
+      phone_repository: phone_repository,
+      firebase: firebase,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '홍길동',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    await tester.pump();
+    final save = find.byKey(const Key('profile_setup_submit_button'));
+    expect(tester.widget<CupertinoButton>(save).onPressed, isNull);
+    expect(repository.complete_request, isNull);
+    await _verifyPhone(tester);
+    expect(firebase.last_e164, '+821012345678');
+    expect(tester.widget<CupertinoButton>(save).onPressed, isNotNull);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(repository.last_proof, startsWith('proof-'));
+    expect(repository.last_save_key, isNotEmpty);
+  });
+
+  testWidgets('번호 인증 후 재수정은 저장을 막고 최초 번호 복귀는 타 필드만 저장한다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    await _pumpEditPage(tester, repository);
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '새 이름',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01099998888',
+    );
+    await tester.pump();
+    await _verifyPhone(tester);
+    await tester.ensureVisible(
+      _textFieldInside(const Key('profile_phone_field')),
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01088887777',
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('profile_setup_submit_button')),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
+    await tester.pumpAndSettle();
+    expect(repository.update_request?['phone'], isNull);
+    expect(repository.last_proof, isNull);
+    expect(repository.update_request?['name'], '새 이름');
+  });
+
+  testWidgets('최초 조회 실패 시 편집을 막고 재시도한 최신 번호를 비교 기준으로 쓴다', (tester) async {
+    final repository = _ProfileSetupAuthRepository()
+      ..profile_error = ApiException(code: 'NETWORK_ERROR', message: '불러오기 실패');
+    await _pumpEditPage(tester, repository);
+    expect(find.byKey(const Key('profile_phone_field')), findsNothing);
+    expect(find.text('불러오기 실패'), findsOneWidget);
+    repository.profile_error = null;
+    repository.profile = _existing_user.copyWith(phone: '010-9999-8888');
+    await tester.tap(find.byKey(const Key('profile_load_retry')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<CupertinoTextField>(
+            _textFieldInside(const Key('profile_phone_field')),
+          )
+          .controller!
+          .text,
+      '010-9999-8888',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '새 이름',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
+    await tester.pumpAndSettle();
+    expect(repository.get_count, 2);
+    expect(repository.update_request?['phone'], isNull);
+    expect(repository.update_count, 1);
+  });
+
+  testWidgets('인증 서버가 준비되지 않으면 SDK와 저장을 호출하지 않는다', (tester) async {
+    final repository = _ProfileSetupAuthRepository();
+    final firebase = FakeFirebasePhoneService();
+    final phone_repository = FakePhoneRepository()
+      ..create_error = ApiException(
+        code: 'PHONE_VERIFICATION_UNAVAILABLE',
+        message: '휴대폰 인증을 준비 중이에요.',
+      );
+    await _pumpPage(
+      tester,
+      repository,
+      on_completed: () {},
+      firebase: firebase,
+      phone_repository: phone_repository,
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_name_field')),
+      '홍길동',
+    );
+    await tester.enterText(
+      _textFieldInside(const Key('profile_phone_field')),
+      '01012345678',
+    );
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.pumpAndSettle();
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(find.text('휴대폰 인증을 준비 중이에요.'), findsOneWidget);
+    expect(firebase.request_count, 0);
+    expect(repository.complete_request, isNull);
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('profile_setup_submit_button')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  for (final failure in [
+    ApiException(
+      code: 'PHONE_CHALLENGE_EXPIRED',
+      message: '인증 요청이 만료됐어요.',
+      statusCode: 410,
+    ),
+    ApiException(
+      code: 'PHONE_VERIFICATION_INVALID',
+      message: '인증 요청이 취소됐어요.',
+      statusCode: 400,
+    ),
+  ]) {
+    testWidgets('${failure.code} 뒤 같은 번호로 다시 인증하고 가입한다', (tester) async {
+      final repository = _ProfileSetupAuthRepository();
+      final phone_repository = FakePhoneRepository()..create_error = failure;
+      var completed = false;
+      await _pumpPage(
+        tester,
+        repository,
+        phone_repository: phone_repository,
+        on_completed: () => completed = true,
+      );
+      await tester.enterText(
+        _textFieldInside(const Key('profile_name_field')),
+        '홍길동',
+      );
+      final phone = _textFieldInside(const Key('profile_phone_field'));
+      await tester.enterText(phone, '01012345678');
+      final send = find.byKey(const Key('phone_send_button'));
+      await tester.ensureVisible(send);
+      await tester.pumpAndSettle();
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      final failed_key = phone_repository.last_challenge_key;
+      expect(find.text(failure.message), findsOneWidget);
+      final save = find.byKey(const Key('profile_setup_submit_button'));
+      expect(tester.widget<CupertinoButton>(save).onPressed, isNull);
+      expect(repository.complete_request, isNull);
+      phone_repository.create_error = null;
+      await _verifyPhone(tester);
+      expect(phone_repository.last_challenge_key, isNot(failed_key));
+      expect(
+        tester.widget<CupertinoTextField>(phone).controller!.text,
+        '010-1234-5678',
+      );
+      expect(tester.widget<CupertinoButton>(save).onPressed, isNotNull);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(completed, isTrue);
+      expect(repository.last_proof, isNotNull);
+      expect(repository.complete_request?['phone'], '01012345678');
+    });
+  }
+
   testWidgets('Google 전화번호는 가입 화면에 미리 채우고 사진 null은 기본 아바타로 표시한다', (
     tester,
   ) async {
@@ -205,7 +806,10 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          authRepositoryProvider.overrideWithValue(repository),
+          ...phoneAuthOverrides(),
+        ],
         child: CupertinoApp(
           home: ProfileSetupPage(
             user: const User(
@@ -361,7 +965,7 @@ void main() {
       '0212345678',
     );
     await tester.pump();
-    await tester.tap(find.text('변경사항 저장'));
+    FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
     expect(repository.update_count, 0);
     expect(find.text('한국 휴대폰 번호 형식을 확인해주세요.'), findsOneWidget);
@@ -370,6 +974,7 @@ void main() {
       '01099998888',
     );
     await tester.pump();
+    await _verifyPhone(tester);
     await tester.tap(find.text('변경사항 저장'));
     await tester.pumpAndSettle();
     expect(repository.update_request?['phone'], '01099998888');
@@ -492,7 +1097,7 @@ void main() {
     );
   });
 
-  testWidgets('포커스 이탈 오류를 표시하고 아래에서 저장해도 첫 오류로 이동한다', (tester) async {
+  testWidgets('포커스 이탈 오류를 표시하고 필수 입력이 잘못되면 저장을 막는다', (tester) async {
     final repository = _ProfileSetupAuthRepository();
     await _pumpEditPage(tester, repository);
     final name = _textFieldInside(const Key('profile_name_field'));
@@ -514,11 +1119,15 @@ void main() {
       find.byKey(const Key('profile_workplace_field')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
-    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('profile_setup_submit_button')),
+          )
+          .onPressed,
+      isNull,
+    );
     expect(repository.update_count, 0);
-    expect(tester.widget<CupertinoTextField>(name).focusNode!.hasFocus, isTrue);
-    expect(name.hitTestable(), findsOneWidget);
   });
 
   testWidgets('미변경 레거시 전화번호가 없어도 이름만 부분 저장한다', (tester) async {
@@ -541,37 +1150,95 @@ void main() {
     expect(find.text('휴대폰 번호를 입력해주세요.'), findsNothing);
   });
 
-  testWidgets('변경 후 뒤로가기는 계속 수정하거나 버릴 수 있고 저장 요청을 하지 않는다', (tester) async {
+  for (final back_action in ['button', 'system', 'swipe']) {
+    testWidgets('수정 후 $back_action 뒤로가기는 확인 없이 나가고 미저장 입력을 폐기한다', (
+      tester,
+    ) async {
+      final repository = _ProfileSetupAuthRepository();
+      final phone_repository = FakePhoneRepository();
+      await _pumpEditPage(
+        tester,
+        repository,
+        as_route: true,
+        phone_repository: phone_repository,
+      );
+      await tester.enterText(
+        _textFieldInside(const Key('profile_name_field')),
+        '저장 전 이름',
+      );
+      await tester.enterText(
+        _textFieldInside(const Key('profile_phone_field')),
+        '01099998888',
+      );
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      switch (back_action) {
+        case 'button':
+          await tester.tap(find.byKey(const Key('profile_edit_back_button')));
+        case 'system':
+          await Navigator.of(
+            tester.element(find.byType(ProfileSetupPage)),
+          ).maybePop();
+        case 'swipe':
+          await tester.dragFrom(const Offset(1, 300), const Offset(350, 0));
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(find.byType(ProfileSetupPage), findsNothing);
+      expect(find.text('프로필 열기'), findsOneWidget);
+      expect(repository.update_count, 0);
+      expect(repository.complete_request, isNull);
+      expect(phone_repository.create_count, 0);
+      await tester.tap(find.text('프로필 열기'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<CupertinoTextField>(
+              _textFieldInside(const Key('profile_name_field')),
+            )
+            .controller!
+            .text,
+        _existing_user.name,
+      );
+      expect(
+        tester
+            .widget<CupertinoTextField>(
+              _textFieldInside(const Key('profile_phone_field')),
+            )
+            .controller!
+            .text,
+        '010-1234-5678',
+      );
+    });
+  }
+
+  testWidgets('인증번호 전송 대기 중 뒤로가기는 저장 없이 인증 세션을 정리한다', (tester) async {
     final repository = _ProfileSetupAuthRepository();
-    await _pumpEditPage(tester, repository, as_route: true);
+    final firebase = FakeFirebasePhoneService()..auto_send = false;
+    await _pumpEditPage(tester, repository, as_route: true, firebase: firebase);
     await tester.enterText(
-      _textFieldInside(const Key('profile_name_field')),
-      '저장 전 이름',
+      _textFieldInside(const Key('profile_phone_field')),
+      '01099998888',
     );
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('profile_edit_back_button')));
     await tester.pumpAndSettle();
-    expect(find.text('변경사항을 버릴까요?'), findsOneWidget);
-    await tester.tap(find.text('계속 수정'));
+    final send = find.byKey(const Key('phone_send_button'));
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const Key('phone_code_field')), findsOneWidget);
+    final late_code_sent = firebase.codeSent!;
+    await Navigator.of(
+      tester.element(find.byType(ProfileSetupPage)),
+    ).maybePop();
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<CupertinoTextField>(
-            _textFieldInside(const Key('profile_name_field')),
-          )
-          .controller!
-          .text,
-      '저장 전 이름',
-    );
-    final context = tester.element(find.byType(ProfileSetupPage));
-    Navigator.of(context).maybePop();
-    await tester.pumpAndSettle();
-    expect(find.text('변경사항을 버릴까요?'), findsOneWidget);
-    await tester.tap(find.text('변경사항 버리기'));
-    await tester.pumpAndSettle();
-    expect(find.text('프로필 열기'), findsOneWidget);
     expect(find.byType(ProfileSetupPage), findsNothing);
+    expect(find.byType(CupertinoAlertDialog), findsNothing);
     expect(repository.update_count, 0);
+    expect(firebase.close_count, 1);
+    late_code_sent('late', 7);
+    await tester.pump();
+    expect(find.text('프로필 열기'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('미변경 뒤로가기와 저장 성공은 확인창 없이 이전 화면으로 복귀한다', (tester) async {
@@ -730,7 +1397,7 @@ void main() {
             find.byKey(const Key('profile_setup_submit_button')),
           )
           .onPressed,
-      isNotNull,
+      isNull,
     );
     expect(find.text('소속 병원 및 부서'), findsNothing);
 
@@ -782,6 +1449,7 @@ void main() {
       '010-1234-5678',
     );
 
+    await _verifyPhone(tester);
     await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
     await tester.pumpAndSettle();
 
@@ -800,7 +1468,7 @@ void main() {
       _textFieldInside(const Key('profile_phone_field')),
       '0212345678',
     );
-    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
+    FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
 
     expect(find.text('한국 휴대폰 번호 형식을 확인해주세요.'), findsOneWidget);
@@ -811,7 +1479,11 @@ void main() {
     final repository = _ProfileSetupAuthRepository();
     await _pumpPage(tester, repository, on_completed: () {});
 
-    await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
+    await tester.tap(_textFieldInside(const Key('profile_name_field')));
+    await tester.pump();
+    await tester.tap(_textFieldInside(const Key('profile_phone_field')));
+    await tester.pump();
+    FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
 
     expect(find.text('이름을 입력해주세요.'), findsOneWidget);
@@ -832,6 +1504,7 @@ void main() {
       _textFieldInside(const Key('profile_phone_field')),
       '01012345678',
     );
+    await _verifyPhone(tester);
     await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
     await tester.pumpAndSettle();
 
@@ -875,6 +1548,7 @@ void main() {
       _textFieldInside(const Key('profile_phone_field')),
       '01012345678',
     );
+    await _verifyPhone(tester);
     await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
     await tester.pumpAndSettle();
 
@@ -907,6 +1581,7 @@ void main() {
       _textFieldInside(const Key('profile_workplace_field')),
       'ShiftMate 프로덕트팀',
     );
+    await _verifyPhone(tester);
     await tester.tap(find.byKey(const Key('profile_setup_submit_button')));
     await tester.pumpAndSettle();
 

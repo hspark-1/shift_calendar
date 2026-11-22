@@ -1,5 +1,7 @@
 # 가입 프로필 완료 API·백엔드 구현 요구사항
 
+> 2026-11-21 후속: 가입 완료의 Firebase Phone Auth는 **Flutter 구현·모의 검증 완료, 서버 구현/배포 전**이다. 신규 `phone_verification_token`·idempotency·인증 시각·이행/호환 계약은 [PHONE_VERIFICATION_SERVER_HANDOFF.md](PHONE_VERIFICATION_SERVER_HANDOFF.md)를 함께 적용한다. 이 문서의 기존 필수 정보·이미지·선택값 계약은 유지하되, 새 인증 정책 활성화 후에는 아래 과거 예시의 무증명 요청만으로 가입을 완료할 수 없다.
+
 작성일: 2026-08-19
 최종 수정일: 2026-08-26
 대상: `shift_calendar_server` Express/Sequelize 서버

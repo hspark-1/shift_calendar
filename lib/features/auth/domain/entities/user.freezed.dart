@@ -29,6 +29,8 @@ mixin _$User {
   String? get profile_image_url => throw _privateConstructorUsedError;
   String? get timezone => throw _privateConstructorUsedError;
   String? get phone => throw _privateConstructorUsedError;
+  @FlexibleDateTimeConverter()
+  DateTime? get phone_verified_at => throw _privateConstructorUsedError;
   String? get job_type => throw _privateConstructorUsedError;
   String? get workplace => throw _privateConstructorUsedError;
   bool? get requires_profile_setup => throw _privateConstructorUsedError;
@@ -60,6 +62,7 @@ abstract class $UserCopyWith<$Res> {
     String? profile_image_url,
     String? timezone,
     String? phone,
+    @FlexibleDateTimeConverter() DateTime? phone_verified_at,
     String? job_type,
     String? workplace,
     bool? requires_profile_setup,
@@ -91,6 +94,7 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? profile_image_url = freezed,
     Object? timezone = freezed,
     Object? phone = freezed,
+    Object? phone_verified_at = freezed,
     Object? job_type = freezed,
     Object? workplace = freezed,
     Object? requires_profile_setup = freezed,
@@ -125,6 +129,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
                 ? _value.phone
                 : phone // ignore: cast_nullable_to_non_nullable
                       as String?,
+            phone_verified_at: freezed == phone_verified_at
+                ? _value.phone_verified_at
+                : phone_verified_at // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             job_type: freezed == job_type
                 ? _value.job_type
                 : job_type // ignore: cast_nullable_to_non_nullable
@@ -174,6 +182,7 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
     String? profile_image_url,
     String? timezone,
     String? phone,
+    @FlexibleDateTimeConverter() DateTime? phone_verified_at,
     String? job_type,
     String? workplace,
     bool? requires_profile_setup,
@@ -202,6 +211,7 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? profile_image_url = freezed,
     Object? timezone = freezed,
     Object? phone = freezed,
+    Object? phone_verified_at = freezed,
     Object? job_type = freezed,
     Object? workplace = freezed,
     Object? requires_profile_setup = freezed,
@@ -236,6 +246,10 @@ class __$$UserImplCopyWithImpl<$Res>
             ? _value.phone
             : phone // ignore: cast_nullable_to_non_nullable
                   as String?,
+        phone_verified_at: freezed == phone_verified_at
+            ? _value.phone_verified_at
+            : phone_verified_at // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         job_type: freezed == job_type
             ? _value.job_type
             : job_type // ignore: cast_nullable_to_non_nullable
@@ -279,6 +293,7 @@ class _$UserImpl implements _User {
     this.profile_image_url,
     this.timezone,
     this.phone,
+    @FlexibleDateTimeConverter() this.phone_verified_at,
     this.job_type,
     this.workplace,
     this.requires_profile_setup,
@@ -306,6 +321,9 @@ class _$UserImpl implements _User {
   @override
   final String? phone;
   @override
+  @FlexibleDateTimeConverter()
+  final DateTime? phone_verified_at;
+  @override
   final String? job_type;
   @override
   final String? workplace;
@@ -324,7 +342,7 @@ class _$UserImpl implements _User {
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, timezone: $timezone, phone: $phone, job_type: $job_type, workplace: $workplace, requires_profile_setup: $requires_profile_setup, kakao_id: $kakao_id, apple_id: $apple_id, google_id: $google_id, created_at: $created_at)';
+    return 'User(id: $id, email: $email, name: $name, profile_image_url: $profile_image_url, timezone: $timezone, phone: $phone, phone_verified_at: $phone_verified_at, job_type: $job_type, workplace: $workplace, requires_profile_setup: $requires_profile_setup, kakao_id: $kakao_id, apple_id: $apple_id, google_id: $google_id, created_at: $created_at)';
   }
 
   @override
@@ -340,6 +358,8 @@ class _$UserImpl implements _User {
             (identical(other.timezone, timezone) ||
                 other.timezone == timezone) &&
             (identical(other.phone, phone) || other.phone == phone) &&
+            (identical(other.phone_verified_at, phone_verified_at) ||
+                other.phone_verified_at == phone_verified_at) &&
             (identical(other.job_type, job_type) ||
                 other.job_type == job_type) &&
             (identical(other.workplace, workplace) ||
@@ -366,6 +386,7 @@ class _$UserImpl implements _User {
     profile_image_url,
     timezone,
     phone,
+    phone_verified_at,
     job_type,
     workplace,
     requires_profile_setup,
@@ -399,6 +420,7 @@ abstract class _User implements User {
     final String? profile_image_url,
     final String? timezone,
     final String? phone,
+    @FlexibleDateTimeConverter() final DateTime? phone_verified_at,
     final String? job_type,
     final String? workplace,
     final bool? requires_profile_setup,
@@ -424,6 +446,9 @@ abstract class _User implements User {
   String? get timezone;
   @override
   String? get phone;
+  @override
+  @FlexibleDateTimeConverter()
+  DateTime? get phone_verified_at;
   @override
   String? get job_type;
   @override

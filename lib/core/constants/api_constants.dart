@@ -39,6 +39,8 @@ class ApiConstants {
   static const String auth_apple_challenge = '/auth/apple/challenge';
   static const String auth_apple = '/auth/apple';
   static const String auth_apple_callback = '/auth/apple/callback';
+  static const String auth_phone_challenges = '/auth/phone/challenges';
+  static const String auth_phone_verify = '/auth/phone/verify';
   static const String auth_profile = '/auth/profile';
   static const String auth_profile_complete = '/auth/profile/complete';
   static const String auth_logout = '/auth/logout';

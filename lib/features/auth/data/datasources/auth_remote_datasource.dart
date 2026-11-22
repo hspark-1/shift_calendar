@@ -201,9 +201,9 @@ class AuthRemoteDataSource {
         return User.fromJson(response.data['data'] as Map<String, dynamic>);
       }
 
-      throw Exception(response.data['message'] ?? '프로필 조회에 실패했습니다.');
-    } on DioException catch (e) {
-      throw Exception(_extractErrorMessage(e, '프로필 조회에 실패했습니다.'));
+      throw Exception('프로필 조회에 실패했습니다.');
+    } on DioException catch (error) {
+      throw handleApiError(error);
     }
   }
 
@@ -214,6 +214,8 @@ class AuthRemoteDataSource {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) async {
@@ -225,12 +227,20 @@ class AuthRemoteDataSource {
         data['profile_image_url'] = profile_image_url;
       }
       if (phone != null) data['phone'] = phone;
+      if (phone_verification_token != null) {
+        data['phone_verification_token'] = phone_verification_token;
+      }
       if (job_type != null) data['job_type'] = job_type;
       if (workplace != null) data['workplace'] = workplace;
 
       final response = await _dio.post(
         ApiConstants.auth_profile,
         data: _profileRequestData(data, profile_image),
+        options: Options(
+          headers: {
+            if (idempotency_key != null) 'Idempotency-Key': idempotency_key,
+          },
+        ),
       );
 
       if (response.data['success'] == true) {
@@ -248,6 +258,8 @@ class AuthRemoteDataSource {
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
@@ -257,6 +269,7 @@ class AuthRemoteDataSource {
         'name': name,
         'timezone': timezone,
         'phone': phone,
+        'phone_verification_token': phone_verification_token,
       };
       if (job_type != null) fields['job_type'] = job_type;
       if (workplace != null) fields['workplace'] = workplace;
@@ -264,6 +277,7 @@ class AuthRemoteDataSource {
       final response = await _dio.post(
         ApiConstants.auth_profile_complete,
         data: _profileRequestData(fields, profile_image),
+        options: Options(headers: {'Idempotency-Key': idempotency_key}),
       );
 
       if (response.data['success'] == true) {

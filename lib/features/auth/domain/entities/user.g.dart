@@ -13,6 +13,9 @@ _$UserImpl _$$UserImplFromJson(Map<String, dynamic> json) => _$UserImpl(
   profile_image_url: json['profile_image_url'] as String?,
   timezone: json['timezone'] as String?,
   phone: json['phone'] as String?,
+  phone_verified_at: const FlexibleDateTimeConverter().fromJson(
+    json['phone_verified_at'],
+  ),
   job_type: json['job_type'] as String?,
   workplace: json['workplace'] as String?,
   requires_profile_setup: json['requires_profile_setup'] as bool?,
@@ -31,6 +34,9 @@ Map<String, dynamic> _$$UserImplToJson(
   'profile_image_url': instance.profile_image_url,
   'timezone': instance.timezone,
   'phone': instance.phone,
+  'phone_verified_at': const FlexibleDateTimeConverter().toJson(
+    instance.phone_verified_at,
+  ),
   'job_type': instance.job_type,
   'workplace': instance.workplace,
   'requires_profile_setup': instance.requires_profile_setup,

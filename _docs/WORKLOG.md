@@ -1,5 +1,143 @@
 # 작업 로그
 
+## 2026-11-22 프로필 수정 미저장 뒤로가기 확인 제거
+
+- [DONE] (FE/UI) 변경사항 버리기 확인과 미저장 변경에 따른 뒤로가기 차단을 제거했다.
+  - 목적/근거: 사용자가 이전 discard 제거 결정이 프로필에 반영되지 않았다고 지적했다. PROJECT_CONTEXT·ADR-0043/0102·WORKLOG와 Page의 _requestLeave/PopScope·설정/프로필 탐색 회귀를 직접 읽고 남아 있는 확인창과 dirty guard를 확인했다. 이번 사용자 지시를 최신 정책으로 적용한다.
+  - 변경/Behavior change: _requestLeave는 busy가 아니면 Navigator.maybePop으로 바로 복귀한다. _allow_pop/_confirming_leave·폐기 dialog·변경 시 canPop 차단과 onPop 재확인 분기를 삭제했다. 변경 감지는 저장 버튼 활성화에만 사용하며 뒤로가기 자체는 API 저장을 요청하지 않는다. 기존 저장/사진 선택 중 busy 보호는 유지한다. 미저장 이름/번호 변경은 재진입 시 기존 GET 값으로 돌아간다.
+  - 영향/파일: 제품은 기존 profile_setup_page.dart만 수정했다. 기존 profile_setup_page_test의 확인창 시나리오를 버튼/시스템/실제 iOS edge drag3조건으로 교체하고, 문자 전송 대기 중 뒤로가기/세션 정리·늦은 콜백 무시를 추가했다. settings_page_test의 실제 설정 복귀 회귀에서 이전 확인창 기대를 제거하고 기존 사용자 이름/저장 호출0을 확인한다. 새 파일/패키지·API/DB/native·인증 정책과 다른 화면은 변경하지 않았다. PROJECT_CONTEXT·ADR-0103/0043후속·본 로그를 갱신했다.
+  - 테스트: `flutter test --no-pub test/features/auth/application test/features/auth/presentation test/features/auth/data/repositories/phone_verification_repository_test.dart test/features/auth/data/services/firebase_phone_auth_service_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **119 pass**. 변경3 Dart파일 `flutter analyze --no-pub` **진단0**, 포맷·diff 공백 검사 통과. 최초 설정 회귀에 남은 이전 확인창 기대1건은 새 정책으로 갱신한 뒤 최종 전체 대상 회귀를 통과했다. SDK 캐시 접근 제한은 승인된 검증 명령 권한 확장으로 해소했다.
+  - 검증/자료: 수정 후3경로 즉시 복귀·확인창 없음·저장/가입/문자 요청0·재진입 초깃값 복구, 발송 대기 이탈의 SDK 세션 종료와 늦은 codeSent 무시, 미변경 복귀/성공 저장·저장/사진 선택 중 보호를 확인했다. 구조/스타일을 바꾸지 않아 PNG 렌더는 반복하지 않았다. 시작 소스·로그는 `/private/tmp/shiftmate-profile-back-20261122/`에 있다. 실기기 OS 제스처/VoiceOver는 미실행이다.
+  - 롤백: 이번 Page/탐색 회귀/문서 추가분만 복구한다. 시작 소스는 위 임시 폴더의 profile_setup_page.before.dart다. 앞선 인증/UI·개인정보 정책과 다른 미커밋 작업을 보존한다. 향후 사용자 새 지시 없이 discard 확인을 다시 추가하지 않는다.
+
+## 2026-11-22 번호 중복 확인 후 인증 입력 선표시·라벨 개선
+
+- [DONE] (FE/UI) 서버 challenge 성공 직후 코드 입력을 표시하고 SDK 준비/문자 콜백은 백그라운드에서 계속 진행하도록 변경했다.
+  - 목적/근거: SDK 발송 콜백 대기 때문에 입력을 시작하지 못하는 지연을 줄이고 전화번호가 라벨처럼 보이는 구성을 개선한다. PROJECT_CONTEXT·ADR-0101·WORKLOG·Page/widget/controller/state·SDK/repository·fake/회귀를 직접 읽고 인접 서버 createChallenge의 신규/멱등 복구 경로 모두 assertPhoneAvailable로 중복을 거절함을 확인했다. 원격 배포 상태를 추정하지 않았다. UI/UX 스킬의 라벨/로딩/포커스·큰 글자 기준을 적용했다.
+  - 변경/Behavior change: checking(서버 중복/목적/기한 확인)과 sending(SDK 준비/발송)을 분리했다. 유효한 challenge 직후 sending으로 갱신해 OTP를 보이고 포커스·입력을 허용하되 code_sent 전 확인/저장/재발송은 차단한다. 전송 중 상태를 명시하고 실제 codeSent 후 입력 코드를 보존·6자리 확인을 활성화한다. 기존90초 timeout의 시작을 SDK 준비 전으로 옮겼고 준비/발송 실패는 번호 입력/오류로 복구한다. 늦은 세션/콜백·번호 변경·재발송 대기/멱등 방어는 유지한다.
+  - UI: ‘인증번호 *’ 라벨과 코드/확인 아래에 별도 옅은 ‘수신 번호’ 요약 상자·번호 변경을 배치했다. 입력 아래에 전송 중/재발송을 표시한다. 좁은 폭/큰 글자는 코드/확인 및 번호/변경을 세로로 배치하며 번호는 하이픈 구간 단위로 줄바꿈/전체값 접근성 이름을 유지한다. 기본 크기에서 전체 전화 입력을 누적하지 않고 단계 교체를 유지하며 이전의 높이 완전 동일 검증은 새 요약 상자의8px 변화에 맞춰16px 이내로 갱신했다.
+  - 인증 확인 검토/영향: SDK signInWithCredential→getIdToken(true)→서버 verify→저장 증명/목적/기한 대조를 직접 읽었다. 실제 기기 지연을 계측하지 않았고 이 필수 경로의 생략/임의 낙관적 완료를 적용하지 않았다. 제품 수정은 기존 state/controller/widget뿐이며 Page·SDK 서비스·API/DB/native/env·route/analytics·동의/정책 파일과 다른 미커밋 작업은 보존했다.
+  - 파일/문서: 기존 test/helpers에 SDK 시작 지연/실패 주입을 보강하고 controller 회귀6개·페이지 회귀3개를 추가했다. 기존 렌더러는 발송 대기·큰 글자2조건×가입/편집을 추가해24조건을 생성한다. 기존 검토PNG3개를 갱신하고 signup_sending.png를 추가했다. 역할/의존성·사용 예는 PHONE_VERIFICATION_FLUTTER_PLAN13절, 상태 정책은 PROJECT_CONTEXT·ADR-0102에 기록했다. 새 제품 파일/패키지는 없다.
+  - 테스트: `flutter test --no-pub test/features/auth/application test/features/auth/data/repositories/phone_verification_repository_test.dart test/features/auth/data/services/firebase_phone_auth_service_test.dart test/features/auth/presentation test/features/auth/data/datasources/auth_remote_datasource_test.dart artifacts/phone_verification_2026-11-21/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --dart-define=PHONE_AUTH_RENDER_DIR=/private/tmp/shiftmate-phone-optimistic-20261122/render --reporter expanded` 최종 **136 pass**. 변경7 Dart파일 `flutter analyze --no-pub` **진단0**, 포맷·diff 공백 검사 통과. SDK 캐시 제한은 승인된 검증 명령 권한 확장으로 해소했다.
+  - 실행/렌더: 중복 확인 대기/409거절·SDK 준비 지연/실패·codeSent 지연·준비/콜백90초 timeout·미리 입력6자리 유지·확인 차단/활성·실패 복귀·번호 변경/늦은 성공·실패·기존 재발송/자동 인증/멱등 복구를 확인했다. PNG24개 중375 인증·390 전송 중·320 큰 글자/전송 중을 직접 확인했다. 큰 글자에서 번호 변경 버튼이 번호 폭을 좁히던 구성을 세로로 보완하고 마지막 한 자리만 줄바꿈되던 표시를 하이픈 구간 단위로 수정했다. 초기 렌더의 한 줄 고정 가정은2배 글자에서 자연스러운 최대2줄 기준으로 보완한 최종 회귀를 통과했다.
+  - 자료/한계: 시작 소스·모든 로그/PNG는 `/private/tmp/shiftmate-phone-optimistic-20261122/`에 보존했다. 실제 SMS·실기기 키보드/VoiceOver·APNs/reCAPTCHA·단계별 지연 수치·원격 배포는 미검증이다. 네트워크 완료 시간 단축을 주장하지 않는다.
+  - 롤백: 이번 state/controller/widget·fake/회귀/렌더러·검토 PNG·문서 추가분만 복구한다. 시작 소스는 위 임시 폴더의 같은 이름3개다. 이전 UI·정책 HTML과 다른 미커밋 변경을 보존한다.
+
+## 2026-11-22 회원가입 휴대폰 인증 UI 개선·안내 검토
+
+- [DONE] (FE/UI) 전화번호와 인증번호 입력을 단계별로 교체하고 Google 안내 이동의 조건/미확정 사항을 기록했다.
+  - 목적/근거: 발송 후 입력/버튼이 아래로 누적되는 길이를 줄인다. PROJECT_CONTEXT의 Firebase Phone Auth·프로필 공용 UI, ADR-0088~0090, WORKLOG와 실제 Page/인증 state/controller·SDK·fake/기존 회귀·로컬 공개 정책을 읽었다. schema.drawio/visibility_flow.drawio는 이전 calendars/calendar_shares 모델임을 확인했으며 이번 UI 작업에서 DB 변경 근거로 사용하지 않았다. 현행 owner_user_id/인증 계약을 유지했다.
+  - 변경/Behavior change: 공용 PhoneVerificationSection에 기존 전화 입력과 Page 소유 OTP focus를 전달하고 발송 후 번호 요약/번호 변경·코드/인증·재발송으로 교체한다. 기본 폭은 코드/인증을 가로로, 내부280미만·큰 글자/서버 재확인은 세로로 표시한다. 편집만 열면 코드·세션 유지/복귀, 실제 번호 변경 시 기존 controller 초기화,6자리 전 확인 비활성, 재발송 시 코드 초기화, 서버 결과 복구 중 입력/재발송 차단을 적용했다. 이름 다음 키는 현재 표시된 입력으로 이동한다. Google 전송·저장 요약은 발송 전 유지하고 상세창에 목적·정책 링크를 둔다.
+  - 디버깅/수정: debug-live로 didUpdateWidget 중단점에서 `idle -> code_sent; focus=false`를 직접 확인했다. 비동기 완료가 빠르면 중간 sending 프레임이 생략되므로 이전 상태가 sending인 경우에만 포커스하던 조건을 코드 단계 최초 진입으로 변경했다. 발송 처리에서 코드도 명시적으로 비운다. 추가 회귀의 발송/입력 뒤 rebuild 대기 누락과 실제 Stopwatch에 fake Flutter 시간만 진행하던 검증을 수정했으며 기존 elapsed 주입으로 재발송을 확인했다. 불필요한 재인증 오류가 편집 하단과 중복되던 새 UI 회귀는 인증 필요 시에만 inline 오류를 표시해 해소했다. 디버거 종료·이번 중단점 제거 완료.
+  - 법률/약관: Firebase 공식 Phone Auth·개인정보 문서와 현행 개인정보 보호법 제17·22·28조의8을 확인했다. 일반 약관으로 완전 이동 가능/적법하다고 확정하지 않는다. 계약 이행에 필요한 국외 위탁·보관의 조건부 처리방침 공개 근거와 Google 자체 서비스 전반 이용의 근거를 구분해 실제 계약/필요 동의를 확정해야 한다. Authentication의 미국 처리·삭제 요청 전 보관·signOut과 사용자 삭제의 차이를 기록했다. 로컬 정책은 별도 Phone Auth 항목이 없고 공개 URL은 이번 웹 도구 접근 실패로 최신 게시본 일치 미검증이다. 공개 HTML/기존 연령·동의 본문은 변경하지 않았으며 상세창을 동의 수집으로 표시하지 않는다. PHONE_VERIFICATION_FLUTTER_PLAN12절·PRIVACY_REVIEW에 출처/후속 항목을 기록했다.
+  - 파일/영향: 제품은 기존 profile_setup_page.dart·phone_verification_section.dart만 변경했다. 기존 profile_setup_page_test.dart에5회귀를 추가하고 기존 렌더러의 rebuild/스크롤·초기 캡처를 보완했다. 신규 제품 파일은 없다. 검토 PNG3개(초기/375px 인증/320px2배 글자)의 역할·의존성·사용 예를 모바일 계획12절에 기록했다. PROJECT_CONTEXT·ADR-0101·본 일지를 갱신했다. 인증 controller/autoDispose/API/DB/native/env·기존 route/접근권한/analytics는 유지한다.
+  - 테스트: `flutter test --no-pub test/features/auth/application test/features/auth/data/repositories/phone_verification_repository_test.dart test/features/auth/data/services/firebase_phone_auth_service_test.dart test/features/auth/presentation test/features/auth/data/datasources/auth_remote_datasource_test.dart artifacts/phone_verification_2026-11-21/render_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --dart-define=PHONE_AUTH_RENDER_DIR=/private/tmp/shiftmate-phone-ui-20261122/render --reporter expanded` **127 pass**. 마지막 현재 입력 포커스 보완 뒤 화면 회귀 **35 pass**. 변경4 Dart파일 analyze **진단0**, 포맷·diff 공백 검사 통과. SDK 캐시 쓰기 제한은 검증 명령의 승인된 권한 확장으로 해소했다.
+  - 렌더/검증: 가입/편집18조건+초기2조건 **PNG20개**,320/375/390·가로·태블릿·2배 글자·키보드·오류/완료를 확인했다. 기본 크기에서 발송 전후 인증 영역 높이가 증가하지 않는 회귀와6자리/autofill·자동 포커스·번호 편집/복귀·재발송·동일 서버 인증 결과 복구를 검증했다. 초기·375/320 인증·큰 글자·키보드 PNG를 직접 열어 확인했다. Flutter 전용 스킬 검색은2회 일치0건으로 기존 Cupertino 구현과 스킬 일반 폼/접근성 원칙을 적용했다. 로그와 전체 PNG는 `/private/tmp/shiftmate-phone-ui-20261122/`에 보존했다.
+  - 롤백: 이번 인증 widget/호출부·회귀/렌더러·검토 PNG·문서 변경분만 복원한다. 작업 시작 widget은 위 임시 폴더의 phone_verification_section.before.dart다. 기존 미커밋 작업과 인증 필수 정책은 보존한다.
+  - 한계/다음: 실문자·실기기 키보드/VoiceOver·원격 게시·개별 계약의 법적 적합성 검증은 미실행이다. 실제 수신자/이전·보관/삭제/적용 근거를 확정하고 정책2·3·6·7항 및 필요한 사전 동의/입증 기록을 보완한 뒤 안내의 추가 이동을 재평가한다.
+
+## 2026-11-21 휴대폰 인증 실기기 실패 조사
+
+- [DONE] (FE/Auth 진단) 실기기 실패 지점을 Firebase SMS 요청의 internal-error로 확인하고, 사용자 확인으로 Stage Spark 유지에 따른 실문자 필수 조건 미충족을 확인했다. 결제 전환 후 실제 성공 인수는 남아 있다.
+  - 목적: “휴대폰 인증을 완료하지 못했어요” 공통 안내로 가려진 발생 단계와 실행 오류를 구분한다.
+  - 범위/변경: 관련 controller/repository/SDK adapter·설정·설치 FlutterFire/iOS SDK 코드를 읽고 기존 iPhone Debug 세션에서 중단점으로 확인했다. 이번에는 제품 코드·빌드/의존성·서버·콘솔/결제를 변경하지 않고 PROJECT_CONTEXT·콘솔 가이드·이 일지만 갱신했다. 기존 미커밋 변경은 보존했다. 새 영구 파일/설계 결정이 없어 ADR은 추가하지 않는다.
+  - 실행 근거: `NativeFirebasePhoneAuthService.requestCode`의 verificationFailed callback → `phoneAuthError`에서 error.runtimeType=FirebaseAuthException, code=internal-error, message=“An internal error has occurred, print and inspect the error details for more information.”, stackTrace=null을 직접 읽었다. SMS 발송 요청에서 실패했으며 이후 SDK codeSent/번호 확인·서버 verify 단계의 성공을 확인한 결과가 아니다. 현재 Debug 구성은 Stage를 선택하고 .env의 Stage project ID=shift-mate-stage임을 비밀값 출력 없이 확인했다.
+  - 필수 조건/결론: 사용자가 후속 질문에 **“Spark 유지 중”**이라고 Stage 상태를 재확인했다. [공식 Auth FAQ](https://firebase.google.com/docs/auth/faq-and-troubleshooting)는 SMS 서비스를 사용하려면 Cloud Billing 연결이 필요하다고 명시하고 [공식 한도](https://firebase.google.com/docs/auth/limits)는 검증 SMS를 Blaze 전용으로 명시한다. 현재 실문자 이용 조건 미충족은 확인된 차단 요인이다. 단, NSError의 underlying server response를 확보하지 못해 이번 internal-error의 원문이 BILLING_NOT_ENABLED였다고 단정하거나 다른 오류까지 해소됐다고 표현하지 않는다.
+  - 오류 상세의 경계/제약: 설치 firebase_auth6.5.6의 FLTPhoneNumberVerificationStreamHandler.m은 convertToFlutterError를 호출하며, 이 변환은 NSError.userInfo의 underlying response를 추가 정보에 넣지 않는다. platform interface9.0.5도 callback에 code/message만 넘긴다. DAP output capture는 꺼져 있고 별도 native LLDB attach는 기존 디버거 연결 때문에 불가했다. devicectl은 기본 sandbox에서 초기화 timeout, 읽기 전용 권한 확장 후 기기 확인 성공. 연결 기기 log collect는 root 필요로 실패하여 원본 네이티브 오류 로그는 수집하지 못했다. 이 한계를 앱 버그나 결제 원문 확인으로 혼동하지 않는다.
+  - 테스트/정리: 기존 SDK 테스트 `flutter test --no-pub test/features/auth/data/services/firebase_phone_auth_service_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` **3 pass**. 최초 실행의 Flutter SDK cache sandbox 쓰기 거부는 권한 확장 후 동일 명령 성공으로 해소했다. 문서 diff 공백 검사 통과. 조사 중 Dart 실행을 재개하고 조사용 중단점 전부 제거, 별도 LLDB 프로세스 종료. 사용자의 기존 디버그 앱은 종료하지 않았다. 실문자 성공·플랫폼 재빌드·운영 배포 검증은 수행하지 않았다.
+  - 다음: Stage Firebase Console의 Usage and billing에서 Cloud Billing/Blaze를 연결한 뒤 실기기 SMS 요청→코드 입력→서버 증명→프로필 저장을 재검증한다. 연결 전에는 [공식 Flutter 테스트 안내](https://firebase.google.com/docs/auth/flutter/phone-auth)에 따른 콘솔 테스트 번호/고정 코드로 SMS 없이 흐름을 검증할 수 있으나 실문자 인수를 대체하지 않는다. 결제/콘솔 변경은 이번 조사에서 실행하지 않았다.
+  - 롤백: 이번 세 문서의 진단 추가분만 복구한다. 기존 인증 구현/사용자 변경은 유지한다.
+
+## 2026-11-21 Firebase Phone Auth 앱 재시도 보완
+
+- [DONE] (FE/Auth) 만료·취소 등 복구 불가 challenge 오류 후 같은 번호로 새 요청 키를 사용해 인증을 재시작하도록 수정했다.
+  - 목적: 응답 유실 후 만료된 세션/확정 실패의 키를 계속 재사용하는 앱 재시도 막힘을 해소한다.
+  - 범위: phone controller 오류 분류/키 수명·회귀 테스트·문서. 서버·배포/콘솔/실문자는 변경하지 않는다. 통신 오류/일시적 서버 장애에는 기존 키를 보존한다.
+  - 테스트: 기존 만료200 응답·서버 명시적 만료/취소/확정 실패·통신/503/429 재시도 키와 SDK 호출/인증 상태, 인증 회귀·분석/포맷을 확인한다.
+  - 변경/영향: `_sendFailed`에서 PHONE_CHALLENGE_EXPIRED·PHONE_VERIFICATION_INVALID_RESPONSE 및 HTTP4xx(408/425/429 제외)의 _send_key를 폐기한다. 통신/불확실 실패·5xx·408/425/429는 키를 보존하고 Retry-After 대기를 지킨다. 다음 사용자 발송 시도에서 UUID를 만들며 자동 SMS 재요청은 하지 않는다. verify/프로필 저장 키·기존 가입/번호 변경 인증 조건·화면/route/native 설정은 유지한다.
+  - 파일/역할: 기존 `lib/features/auth/application/phone_verification_controller.dart`의 challenge 오류 분류/키 수명만 수정했다. 기존 controller 테스트에는 실제 RemotePhoneVerificationRepository/Dio DTO의 만료200·타임아웃 복구와 확정/일시 실패9개를, 기존 profile_setup_page_test.dart에는 만료/취소 후 같은 번호 재인증·가입2개를 추가했다. AppTheme/화면 구조 변경은 없고 새 파일도 없다. mock SDK/repository·Dio/기존 앱 테스트에 의존하며 아래 인증 명령으로 재현한다. PROJECT_CONTEXT·모바일 계획·서버 요청서15절·ADR-0090에 목적/계약/영향/롤백을 최신화했다.
+  - 진단/검증: 수정 전 신규 회귀5개 실패를 확인했다. debug-live로 해당 테스트를 실행해 만료 응답이 PHONE_VERIFICATION_INVALID_RESPONSE로 거부된 뒤 challenge=null이고 _send_key는 남아 있음을 확인했고, 실패 분기에서 확정 실패 키 폐기를 추가했다. 디버그 세션 종료/중단점 제거를 완료했다. 수정 후 `flutter test --no-pub test/features/auth --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` **166 pass**, 최종 만료 세션 fixture를 같은 key→같은 만료 응답으로 보강한 controller **23 pass**, 변경 Dart3파일 `flutter analyze --no-pub <3파일>` **진단0**, 포맷 변경0·diff 공백·문서 fence/로컬 링크·ADR 단일 선언 확인 통과.
+  - 자료/한계: `/private/tmp/shiftmate-phone-retry-20261121/`의 before.log는 수정 전 실패, auth-final.log/controller-final.log는 회귀 결과, analyze.log/format-check.log는 정적 검증이다. Flutter SDK/현행 소스·모의 SDK/Dio에 의존한다. 이번에는 UI/native 변경이 없어 렌더/플랫폼 빌드·전체 앱/서버 DB 테스트·실문자·배포는 재실행하지 않았다. 서버가 취소 상태를200으로 숨기면 앱은 알 수 없으므로 서버의 명시적 오류 보완은 여전히 필요하다. 읽기 확인 시 서버 WORKLOG에도 해당 보완/배포가 TODO이며 이번에 서버 완료를 인수하지 않았다. 앱 범위 소스/문서만 수정했다.
+  - 롤백: 이번 controller·테스트·문서 추가분만 복구하고 이전 미커밋 구현을 보존한다.
+
+## 2026-11-21 Firebase Phone Auth 서버 완료 후 연동 검토
+
+- [DONE] (FE/BE 검토) 완료된 서버와 모바일의 인증 계약을 대조하고 정상 연동 및 예외 경로2건을 재현했다. 수정 검토 항목은 아래에 남긴다.
+  - 목적: 가입/변경번호 인증이 실제 서버와 호환되는지, 우회·연동 실패가 없는지 확인한다.
+  - 범위: 로컬 서버 소스/문서·앱 소스 읽기와 검증, 결과 문서화. 배포/결제/실문자/운영 DB 변경은 포함하지 않는다.
+  - 테스트: 양측 인증 테스트와 서버 계약/경계 검토, 필요한 경우 격리된 로컬 검증.
+  - 확인한 서버: 인접 저장소 clean HEAD `f1664b7`(Firebase phone verification and atomic profile receipts). 서버 문서는 로컬 구현 완료·push/배포/Stage 실문자 미수행으로 기록되어 있다. 완료된 소스를 배포 완료로 간주하지 않았다.
+  - 정상 계약: 두 POST 경로·앱 Bearer JWT·UUID Idempotency-Key·SIGNUP/PHONE_CHANGE·국내 숫자/E.164·challenge/proof 응답·본인 phone_verified_at/requires_profile_setup·JSON/multipart 저장이 일치한다. 서버는 최신 DB 전화번호·목적/소유자·Admin 토큰/이벤트 재사용·증명 만료/소비를 검사하고 User/증명/영수증을 transaction으로 저장한다. 미완료 업무 gate·가입 중 push/아바타와 기존 미변경 번호 부분 저장도 확인했다.
+  - 재현1(P2, 앱/서버): challenge 생성 commit 후 응답 유실 → 해당 challenge 만료 → 같은 번호 재시도 시 서버는 기존 만료 세션을200으로 반환한다. 앱 DTO가 PHONE_VERIFICATION_INVALID_RESPONSE로 거부하지만 controller의 _send_key는 유지되어3회 모두 같은 키로 실패하고 SDK 호출0회다. 타임아웃에는 같은 키를 유지하되 만료/복구 불가 오류에는 키를 폐기하고 새 시도를 허용해야 한다. 서버도 만료 세션 재응답을 명시적410으로 구분해야 한다.
+  - 재현2(P2, 서버): challenge 응답 유실 → 다른 요청이 새 challenge를 만들어 기존 세션 취소 → 기존 키 재시도 시 서버가 취소된 challenge도200으로 반환한다. 앱은 정상 발송 대상으로 받아 SDK requestCode1회를 실행하고 이후 verify400 PHONE_VERIFICATION_INVALID로 실패한다. 실제 문자는 발송하지 않았으며 SDK 발송 경로 진입만 확인했다. 서버 createChallenge의 기존 key 반환 전에 세션 활성/취소·목적/소비 상태를 검사하고 복구 불가 응답과 새 key 재시도 계약을 정해야 한다.
+  - 테스트/결과: 앱 인증155 pass. 원본 서버를 수정하지 않고 `/private/tmp/shiftmate-phone-review-20261121/`에 소스/테스트/migration을 복사하고 기존 node_modules를 참조해 strict TypeScript build·단위5 pass·실제 PostgreSQL16/Express 통합19 pass. 추가 Flutter 실제 controller/repository/datasource ↔ loopback Express/일회용 PostgreSQL 계약 검증4개는 정상2개(가입 사진 multipart/편집 JSON·동일 key/타 필드 저장·재업로드 없음)와 위 결함의 현 동작 재현2개다. 이4개 통과를 결함 해결로 표시하지 않는다. Firebase SDK/Admin 외부 경계·S3는 테스트 fake이며 실문자/실제 ADC/IAM/서명/플랫폼 확인·원격 배포 검증은 아니다.
+  - 파일/진단 역할: 기존 코드/정책을 변경하지 않고 PROJECT_CONTEXT·모바일 계획·서버 요청서14절·이 작업 로그를 최신화했다. 신규 제품 파일/ADR은 없다. 임시 review 폴더의 src/test/migrations/dist·node_modules symlink는 서버 격리 build/통합 검증용, build.log/phone-unit.log/phone-integration.log/flutter-auth.log/app-contract.log/app-fixture.log는 실행 근거다. app-fixture.cjs는 loopback Express와 dummy JWT·fake Admin/S3·테스트 전용 만료/취소 제어 경계, app_contract_test.dart는 실제 앱 HTTP/DTO/controller 정상·결함 재현용이다. Node/npm·Flutter·Docker PostgreSQL16·현행 코드에 의존하며 전용 DB 준비 → `node --test test/phoneVerificationIntegration.test.cjs`(고정 reset/env 포함) → `node app-fixture.cjs` → 앱 루트에서 `flutter test --no-pub /private/tmp/shiftmate-phone-review-20261121/app_contract_test.dart` 순서로 사용한다. 테스트 외 제품에 제어 경계를 추가하지 않았다.
+  - 정리/다음: fixture 프로세스를 종료하고 검증용 `shiftmate-phone-review-20261121` 컨테이너·메모리 DB·임시 JWT/secret manifest를 제거했다. 기존 서버 저장소/운영 DB/콘솔/배포는 변경하지 않았다. 서버 요청서14절의2건을 수정한 뒤 재검증하며 Stage 배포/실제 Firebase 앱 확인·SMS 인수는 별도다.
+  - 롤백: 검토 기록 추가분만 제거한다. 기존 미커밋 구현은 보존한다.
+
+## 2026-11-21 Firebase Phone Auth 모바일 구현
+
+- [DONE] (FE/Auth) Firebase 휴대폰 인증과 가입/번호 변경 저장 조건의 모바일 구현·모의 검증을 완료했다. 서버/실문자 연동은 인수 전이다.
+  - 목적: 가입은 인증 증명 필수, 개인정보 편집은 최초 조회 번호에서 변경한 번호만 인증 후 저장하도록 한다.
+  - 범위: Firebase SDK/초기화·인증 상태/공통 UI·서버 DTO/API·프로필 저장·회귀 테스트·문서. 기존 미커밋 가입 UI/빌드 변경을 보존한다. 서버 구현/결제·콘솔 변경은 포함하지 않는다.
+  - 사용자 제공 상태: Stage shift-mate-stage / 운영 shift-mate-b9e32 모두 Phone 활성·KR 단독 SMS 허용, Spark 유지. Android SHA 미등록, Stage 개발 APNs / 운영 개발·프로덕션 APNs 등록. 기존 FCM/키 보존. 이는 사용자 확인 내용이며 이번에 콘솔을 직접 확인한 결과는 아니다.
+  - 선행 한계: 현재 인접 서버에는 신규 phone challenge/verify가 없다. 작성한 요청서 계약으로 구현·모의 검증하며 실제 API 인수/Blaze·Android 지문·Stage APNs 환경/실문자는 별도 확인한다.
+  - 테스트: 신규 SDK/controller/API·가입/편집·이미지/401 회귀, 포맷/분석·플랫폼 빌드와 문서/diff 검사.
+  - 변경/영향: firebase_auth6.5.6 pin과 Auth native 의존성만 추가해 기존 core4.12.1/messaging16.4.3/Firebase iOS12.15.0·기존 lock 버전을 유지했다. 공통 initializer·전용 phone repository/SDK adapter·화면별 controller/state·공통 인증 입력을 추가했다. 가입/변경번호는 서버 증명 전 저장 차단, 편집 최초 GET/재시도·원번호 복귀 시 phone 생략, 코드/자동 인증·만료/재발송·늦은 callback/세션 정리·안전한 오류·멱등 재시도·JSON/multipart/401 증명 보존을 구현했다. User.phone_verified_at은 nullable 파싱하며 SDK 성공만으로 가입 완료하지 않는다. 기존 사용자 가입 UI/버전6·ShiftMate 소셜/JWT·FCM 설정/키·선택값/이미지 부분 저장을 보존했다.
+  - native/파일 역할: iOS Thin Binary 단계의 Python 스크립트가 선택한 IOS_APP_ID의 callback scheme을 built Info.plist에 멱등 주입하고 OAuth URL type을 유지한다. FirebaseAuth12.15.0의 scheme 규칙과 Flutter plugin6.5.6의 SceneDelegate URL 전달을 직접 대조했다. 신규 앱7파일·SDK/HTTP/controller 테스트·fake helper·Python2파일·18조건 렌더러의 역할/의존성/사용 예는 PHONE_VERIFICATION_FLUTTER_PLAN.md11절에 기록했다. PROJECT_CONTEXT·ADR-0089 및 계획/서버 요청/콘솔 가이드·기존 가입/편집 요청서 상태를 최신화했다.
+  - 테스트/결과: 최종 `flutter test --no-pub test/features/auth --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` **155개 통과**. SDK 자동/수동 경합·늦은 로그인/정리·번호/목적/만료·서버 재시도 같은 ID token/key·404/501/429·가입 완료 boolean·증명 없는 저장 차단·최신 GET·사진/401 증명/헤더/오류410 보존을 포함한다. `python3 -m unittest discover -s ios/scripts -p 'test_*.py'` **3개 통과**(환경별/멱등 실행·기존 plist 보존·잘못된 입력 선실패). 변경 Dart31파일 포맷·분석 error/warning0, 변경 파일 진단0. 전체 분석은 기존 미변경 naming info26건으로 종료1이며 해당 관련 없는 파일은 수정하지 않았다. User 코드 생성 성공, 기존 analyzer 언어 버전 안내는 실제 빌드 실패와 구분했다.
+  - 전체 회귀/기존 실패: `flutter test --no-pub --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key` **588 pass / 기존 skip1 / fail1**. 실패는 미변경 `test/features/calendar/presentation/pages/calendar_page_test.dart:1084`의 `3초 삭제 토스트는 달력·카드·추가 버튼의 위치와 크기를 바꾸지 않는다`에서 다음 날짜 셀 ancestor 조회가 비어 발생한다. 같은 테스트 단독 재실행과 수정 전 HEAD를 git archive한 독립 `/private/tmp/.../baseline`에서도 **동일 위치/오류 재현**을 확인했다. 전화 인증 회귀로 판단하지 않으며 목표 외 달력 코드는 수정하지 않았다. 전체 통과라고 표시하지 않는다.
+  - 빌드/렌더: `flutter build ios --debug --no-codesign --no-pub --dart-define-from-file=.env` 성공(Xcode51.7초), built Runner.app의 Stage callback scheme/기존5개 URL type·remote-notification 보존 확인. `flutter build apk --debug --no-pub --dart-define-from-file=.env` 성공(Gradle111.7초). `flutter test --no-pub artifacts/phone_verification_2026-11-21/render_test.dart` 통과: 가입/편집 각각390·320·375px·글자2배·모의 키보드·가로·태블릿·완료·오류 **18조건**, 최소 버튼 크기/저장 gating·framework 오류 없음/PNG18개. 대표 정상·완료·큰 글자·키보드 이미지를 직접 확인했다. 실제 OS 키보드/스크린리더·실기기 앱 확인·실문자·서버 Admin/DB·Release/배포 결과가 아니다.
+  - 진단/자료: 초기 provider initState 갱신의 Riverpod build 중 수정 오류를 debugger로 확인하고 초기 번호를 provider 생성 상태로 옮겨 해결했다. 렌더 테스트는 이미지 캡처를 runAsync로 감싸고 번호 변경 후 프레임을 반영해 해결했다. 디버그 세션 종료/중단점 제거를 확인했다. `/private/tmp/shiftmate-phone-auth-20261121/`의 before.patch는 작업 전 변경 보존 자료, codegen/format/analyze/auth/test-full/ios-build/android-build/render 로그는 로컬 진단, render/PNG는 UI 확인, baseline/은 원본 HEAD 실패 비교용이다. 저장소/Flutter SDK·Python·기존 환경 설정에 의존하며 재실행 명령은 위와 같다. 설정 비밀값은 문서/콘솔에 출력하지 않았다.
+  - 최종 점검: adapter 최종 변경 포함 iOS Debug 재빌드10.9초 성공. 신규 phone provider 변수3개를 snake_case로 정리한 뒤 인증155개/분석을 재확인했다. 변경 Dart31파일 포맷 일치·diff 공백 검사, 관련 문서 fence/로컬 링크10개·JSON/신규 파일 역할 경로·ADR 단일 선언·drawio XML2개 검증 통과. 작업 전 patch로 원본 UI/pubspec을 독립 복원해 기존 빌드6 보존과 이번 pubspec 변경이 firebase_auth 추가뿐임을 확인했다.
+  - 다음/한계: 서버 요청서의 challenge/verify·Admin 검증·DB 증명 소비/영수증/최신 번호 비교·프로필 응답을 구현/배포한 뒤 Stage 양측 인수. Blaze·Android SHA·Stage 프로덕션 APNs 필요 여부·실기기 silent APNs/reCAPTCHA/Play Integrity·실문자·기존 FCM/소셜·동의/보관/공개 정책을 확인하고 출시한다. 결제/콘솔/서버/DB/배포는 이번에 변경하지 않았다. 신규 API 없는 현재 서버에서는 가입/번호 변경이 준비 중 안내로 차단된다.
+  - 롤백: 이번 인증 관련 변경만 되돌리고 이전 사용자 UI/버전/문서 변경은 유지한다.
+
+## 2026-11-21 Firebase 콘솔·운영 사전 작업 조사
+
+- [DONE] (운영 문서) Phone Auth 도입에 필요한 코드 외 Firebase/Google Cloud·Apple/Android 설정을 조사해 실행 체크리스트를 작성했다.
+  - 목적: 프로젝트/결제·Phone 제공자·SMS 지역·앱 확인·서버 IAM·테스트/운영 인수 작업을 담당자가 수행할 수 있게 정리한다.
+  - 범위: 공식 자료와 현재 저장소 설정 확인, 신규 설정 가이드와 기존 계획/컨텍스트 연결. 실제 콘솔/결제/IAM·키 발급·코드/배포 변경은 하지 않는다.
+  - 변경/영향: FIREBASE_PHONE_AUTH_CONSOLE_SETUP.md에 F-01~F-11 담당/순서·콘솔 메뉴·설정값/비밀 전달 구분·완료 증거·Stage/운영 인수표와55개 미완료 체크리스트를 작성했다. Project/Blaze·Phone/KR·API key·Android 서명·iOS APNs/Encoded App ID·서버 ADC/IAM·테스트/App Check·정보 처리/장애 복구를 담았다. 모바일/서버 계획·기존 푸시 가이드·PROJECT_CONTEXT에 연결했고 신규 파일 역할/의존성/사용 예·롤백을 기록했다. 기존 ADR-0088을 유지하여 새 ADR은 추가하지 않았다.
+  - 조사 근거: 현재 FirebaseEnvironmentOptions·pubspec·Android Gradle/서명·iOS Info.plist/entitlements·기존 푸시 문서·인접 서버 Firebase FCM/환경 검증을 읽었다. 공식 Firebase/Google Cloud의 Phone Auth·결제/요금/한도·SMS region·API key·IAM/Admin·App Check·예산 문서를 대조했다. KR 단가US$0.01/발송·일별 첫10건 미청구와 Blaze 연결 요건을 구분하고 가격/쿼터 재확인을 명시했다. 과거 운영 ID 기록과 실제 콘솔 미확인을 구분했으며 secret 원문은 읽어 출력하지 않았다.
+  - 테스트/결과: git diff --check 통과. 설정 가이드·모바일 계획·서버 요청서3개의 로컬 링크10개/기존10절 앵커·fence/개행/공백·JSON 예시5개·필수 메타데이터·55개 체크박스, PROJECT_CONTEXT/푸시 링크와 요금 산식(청구대상1,000건=US$10)을 Python으로 확인했다. 기존 define 이름을 소스와 대조했다. 실제 콘솔/결제/IAM·키 발급·앱/서버 테스트·실문자·배포는 미수행이며 체크리스트를 완료 처리하지 않았다.
+  - 다음: F-01~F-08 담당자가 환경별 설정/자료를 준비하고, SDK/서버 구현 후 F-09~F-11과 실기기 인수를 진행한다. App Check 강제는 대응 SDK/모니터링 후 별도로 판단한다.
+  - 롤백: 이번 문서 추가/연결분만 제거하고 기존 사용자 변경과 인증 설계는 보존한다.
+
+## 2026-11-21 Firebase Phone Auth 참고 글 검토
+
+- [DONE] (문서 검토) 사용자 제공 Velog 예제를 공식 Firebase 규격·ShiftMate 계획과 비교하고 보완사항을 반영했다.
+  - 목적: 예제에서 참고할 SDK 흐름과 프로젝트에 맞게 보완할 가입/번호 처리·timeout·운영 조건을 구분한다.
+  - 범위: 제공 글·공식 문서·관련 현행 코드 확인, 기존 모바일/서버 계획과 컨텍스트·일지에 검토 결과 추가. 구현/패키지/콘솔/배포는 제외한다.
+  - 변경/영향: 모바일 계획10절에 서비스/SDK 흐름 참고와 국내0 제거·이메일 계정 선생성/Firestore 제외·credential 생성과 인증 성공 구분·자동 완료·120초 timeout 의미·원문 오류/과거 비용/기기 경험 구분을 추가했다. 서버 요청서13절에 잘못된 +82010 번호 거부·가입 완료 증거·기한/실문자 인수를 연결하고 PROJECT_CONTEXT에 기록했다. 기존 ADR-0088/정책은 유지하여 새 ADR은 추가하지 않았다. 새 파일 없이 기존 두 계획의 역할/의존성/사용 예를 따른다.
+  - 근거: 제공 글(2024-08-31)의 전체 코드/호출 순서를 읽고 공식 Flutter Phone Auth·password auth·현재 limits로 대조했다. 기존 auth repository/datasource·AuthWrapper·pubspec을 다시 확인했다. 이메일 계정 생성 뒤 연결 실패 시 잔여 계정 가능성은 호출 순서에 근거한 판단으로 명시했다.
+  - 테스트/결과: git diff --check 통과. 두 문서의 로컬 링크/10절 앵커·fence/개행/공백·JSON 예시5개 파싱 통과. 번호 단순 결합과 국내0 제거 변환 예시를 Python 문자열로 확인했다. 문서 검증이며 Flutter SDK 실행/서버 테스트·SMS 검증 결과로 간주하지 않는다. 구현/패키지/콘솔/배포는 변경하지 않았다.
+  - 롤백: 이번 검토 추가분만 제거하고 Firebase 방식 계획과 기존 사용자 변경은 보존한다.
+
+## 2026-11-21 Firebase Phone Auth 방식으로 계획 변경
+
+- [DONE] (FE/BE 문서) 사용자 요청에 따라 SENS + Redis OTP 계획을 Firebase Phone Auth 방식으로 대체했다.
+  - 목적: 가입 인증 필수·편집 변경 번호 인증 조건을 유지하면서 SMS 발송/번호 검증을 Firebase에 맡긴다.
+  - 범위: 공식 Firebase 문서·현행 Firebase/인증 코드 확인, 모바일 계획·서버 요청서·컨텍스트·ADR·관련 계약 갱신. 앱/서버 구현·콘솔 설정·배포는 포함하지 않는다.
+  - 변경/영향: 모바일 계획190행/서버 요청서288행을 기반으로 Firebase SDK 발송/코드 확인 → Admin ID token 검증 → 앱 사용자/번호/목적 binding 증명 → 기존 프로필 원자 저장 방식으로 재작성했다. 후속 검토에서 iOS 알림 권한 분리와 idempotency/key 교체 조건을 보완했다. SENS/서버 Redis OTP·send API·180초/오답5회 정책은 폐기하고 기존 Redis 캐시는 보존한다. PROJECT_CONTEXT·ADR-0088·기존 가입/편집 후속 링크를 갱신했고 ADR-0087/이전 일지는 대체 이력으로 표시했다.
+  - 근거/파일 역할: 기존 Flutter auth 경로·FirebaseEnvironmentOptions·initializePushFirebase·pubspec·iOS APNs/콜백·Android 서명 설정, 인접 서버 firebasePushProvider/환경검증을 직접 확인했다. Firebase 공식 Flutter/Android/iOS Phone Auth·Admin token/claims·native 세션 유지·쿼터 문서로 확인했다. 두 신규 계획 문서의 실제 역할/의존성/사용 예와 구현 예정 파일별 역할은 문서 및 PROJECT_CONTEXT에 기록했다.
+  - 테스트/결과: git diff --check 통과. 두 계획 문서 fence·끝 개행·공백·필수 계약/메타데이터, JSON 예시5개 파싱, 로컬 링크4개, ADR-0088 단일 선언/0087 대체 표시, 기존 가입/편집 링크의 Firebase 방식 전환을 Python으로 확인했다. SENS/Redis 언급이 이전 방식 폐기·기존 캐시/선택적 제한 역할에만 남는지 검색 검토했다. 코드/패키지/콘솔 변경이 없어 Flutter/서버 테스트·빌드·실문자·migration/배포는 실행하지 않았다.
+  - 다음: 서버 OpenAPI·프로젝트/Auth 권한·SDK 호환/플랫폼 설정·Google 번호 처리/보관·기존 회원/업무 API 이행을 확정하고 FE-1~FE-5와 서버 Stage 인수를 진행한다.
+  - 롤백: 이번 문서 변경분만 되돌린다. 이전 SENS 계획은 이력으로 남기되 현행 계획으로 적용하지 않는다.
+
+## 2026-11-21 휴대폰 인증 도입 계획·서버 요청
+
+- 후속 대체: 아래 SENS/Redis OTP 계획은 사용자 요청으로 Firebase Phone Auth 방식(ADR-0088)으로 개정했다. 현행 계획은 상단 개정 작업과 PHONE_VERIFICATION 문서를 따른다.
+
+- [DONE] (FE/BE 문서) 네이버 SENS + Redis OTP 기반 가입·전화번호 변경 인증 계획과 서버 전달 명세를 작성했다.
+  - 목적: 가입 완료에는 인증을 필수로 하고, 개인정보 편집에서는 최초 조회 번호와 다른 번호를 저장할 때 인증하도록 계약을 정의한다.
+  - 범위: 현행 Flutter 인증/프로필 코드·문서·DB 다이어그램 확인, 모바일 실행 계획과 서버 전달 명세 작성. 앱·서버 구현/배포는 이번 범위 밖이다.
+  - 변경/영향: PHONE_VERIFICATION_FLUTTER_PLAN.md에 실제 코드별 FE 단계·최신 프로필 스냅샷·인증 상태/UX·저장 gating·테스트·배포 계획을 기록했다. PHONE_VERIFICATION_SERVER_HANDOFF.md에 보호된 send/verify·SIGNUP/PHONE_CHANGE 증명·기존 JSON/multipart 저장 확장·Redis/SENS 장애/제한·DB 영수증 일회성/재시도·환경변수·OpenAPI·인수를 정리했다. PROJECT_CONTEXT·ADR-0087과 기존 가입/편집 요청서 상단에 계획/구현 전 상태와 연결을 추가했다. 신규 문서의 역할/의존성/사용 예도 기록했다.
+  - 근거: Flutter main/settings/profile/provider/repository/datasource/User·공통 Dio/오류/상수/build 설정, schema.drawio/visibility_flow.drawio, 인접 로컬 서버 routes/controllers/profile service·mutation·User·phone migration/utility·Redis·auth/rate limit·Google/Naver phone writer·account lock·OpenAPI를 직접 확인했다. SENS 발송/서명과 Redis 원자성/TTL은 공식 문서로 확인했다. drawio의 과거 calendar 모델·기존 문서의 과거 서버 상태와 실제 현행 소스 차이를 명시했다. 운영 DB/서버 배포·Redis 가용성을 확인한 것으로 기록하지 않는다.
+  - 테스트/결과: git diff --check 통과. 신규 Markdown 2개의 fence 균형·문서 역할/의존성/사용 예, JSON 예시8개 파싱, 로컬 문서 링크7개, ADR-0087 중복 없음과 기존 계약의 후속 링크, drawio XML2개 파싱을 Python으로 확인했다. 문서 전용 변경이므로 Flutter/서버 테스트·실문자·migration·빌드/배포는 실행하지 않았다. 실제 구현 검증은 계획/요청서의 인수 항목으로 남겼다.
+  - 롤백: 이번 신규 문서와 공통 문서 추가분만 제거하고 기존 미커밋 변경은 보존한다.
+  - 다음: 서버 담당자와 OpenAPI·TTL/한도·기존 회원 이행/미완료 업무 API 접근·수탁/운영 정책을 확정한 뒤 서버 Stage 선준비와 FE-1~FE-5를 진행한다. 담당자 메시지 전송·서버 수정은 이번에 수행하지 않았다.
+
 ## 2026-11-16 심사 제출용 iOS 빌드 6
 
 - [DONE] (FE/iOS) 현재 작업 트리를 App Store 제출용 1.0.0(6) IPA로 빌드했다.

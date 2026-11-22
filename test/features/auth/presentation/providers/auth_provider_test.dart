@@ -76,6 +76,8 @@ class _FakeAuthRepository implements AuthRepository {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) async {
@@ -88,6 +90,8 @@ class _FakeAuthRepository implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
@@ -283,6 +287,8 @@ void main() {
     final success = await container
         .read(authProvider.notifier)
         .completeProfileSetup(
+          phone_verification_token: 'phone-proof',
+          idempotency_key: 'save-key',
           name: '김간호',
           timezone: 'Asia/Seoul',
           phone: '01012345678',
@@ -302,6 +308,62 @@ void main() {
     expect(container.read(authProvider).user, completed_user);
     expect(container.read(authProvider).requires_profile_setup, isFalse);
     expect(container.read(authProvider).is_loading, isFalse);
+  });
+
+  test('인증 증명이 없으면 가입·변경번호 저장을 repository 호출 전에 거부한다', () async {
+    final repository = _FakeAuthRepository();
+    final container = ProviderContainer(overrides: _overrides(repository));
+    addTearDown(container.dispose);
+    final notifier = container.read(authProvider.notifier);
+    expect(
+      await notifier.completeProfileSetup(
+        name: '사용자',
+        timezone: 'Asia/Seoul',
+        phone: '01012345678',
+        phone_verification_token: '',
+        idempotency_key: 'save-key',
+      ),
+      isFalse,
+    );
+    expect(repository.completed_profile_request, isNull);
+    expect(
+      container.read(authProvider).api_error?.code,
+      'PHONE_VERIFICATION_REQUIRED',
+    );
+    expect(await notifier.updateProfile(phone: '01012345678'), isFalse);
+    expect(
+      container.read(authProvider).api_error?.code,
+      'PHONE_VERIFICATION_REQUIRED',
+    );
+  });
+
+  test('서버가 가입 미완료 또는 완료 여부 누락을 반환하면 앱 가입을 완료하지 않는다', () async {
+    for (final requires_setup in [true, null]) {
+      final repository = _FakeAuthRepository()
+        ..completed_profile = User(
+          id: 'user-id',
+          email: 'user@example.com',
+          name: '사용자',
+          requires_profile_setup: requires_setup,
+        );
+      final container = ProviderContainer(overrides: _overrides(repository));
+      final result = await container
+          .read(authProvider.notifier)
+          .completeProfileSetup(
+            name: '사용자',
+            timezone: 'Asia/Seoul',
+            phone: '01012345678',
+            phone_verification_token: 'phone-proof',
+            idempotency_key: 'save-key',
+          );
+      expect(result, isFalse);
+      expect(container.read(authProvider).user, isNull);
+      expect(
+        container.read(authProvider).api_error?.code,
+        'PROFILE_SETUP_INCOMPLETE',
+      );
+      container.dispose();
+    }
   });
 
   test('탈퇴 접수 성공 시 계정 상태를 비인증으로 전환한다', () async {

@@ -1,5 +1,7 @@
 // ignore_for_file: constant_identifier_names, non_constant_identifier_names
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 
@@ -14,6 +16,8 @@ import '../../../friend/presentation/providers/notification_provider.dart';
 import '../../../group/application/group_calendar_provider.dart';
 import '../../../group/application/group_providers.dart';
 import '../../data/models/apple_auth_models.dart';
+import '../../data/services/firebase_phone_auth_service.dart';
+import '../../application/phone_verification_controller.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/services/google_login_service.dart';
 import '../../domain/entities/user.dart';
@@ -44,6 +48,7 @@ class AuthState {
   final User? user;
   final bool requires_profile_setup;
   final String? error;
+  final ApiException? api_error;
   final bool is_loading;
 
   const AuthState({
@@ -51,6 +56,7 @@ class AuthState {
     this.user,
     this.requires_profile_setup = false,
     this.error,
+    this.api_error,
     this.is_loading = false,
   });
 
@@ -59,6 +65,7 @@ class AuthState {
     User? user,
     bool? requires_profile_setup,
     String? error,
+    ApiException? api_error,
     bool? is_loading,
   }) {
     return AuthState(
@@ -67,6 +74,7 @@ class AuthState {
       requires_profile_setup:
           requires_profile_setup ?? this.requires_profile_setup,
       error: error,
+      api_error: api_error,
       is_loading: is_loading ?? this.is_loading,
     );
   }
@@ -85,7 +93,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   AuthNotifier(this._repository, this._ref) : super(const AuthState());
 
+  void _cancelPhoneVerification() {
+    _ref.invalidate(phone_verification_controller_provider);
+    unawaited(
+      _ref
+          .read(firebase_phone_auth_service_provider)
+          .clearSessions()
+          .catchError((Object _) {}),
+    );
+  }
+
   void _invalidateAccountScopedProviders() {
+    _cancelPhoneVerification();
     _ref.invalidate(profileImageBytesProvider);
     _ref.invalidate(calendarRangeProvider);
     _ref.invalidate(friendCalendarRangeProvider);
@@ -146,7 +165,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final errorMessage = e is ApiException
           ? e.message
           : e.toString().replaceAll('Exception: ', '');
-      state = state.copyWith(is_loading: false, error: errorMessage);
+      state = state.copyWith(
+        is_loading: false,
+        error: errorMessage,
+        api_error: e is ApiException ? e : null,
+      );
       return false;
     }
   }
@@ -171,7 +194,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final errorMessage = e is ApiException
           ? e.message
           : e.toString().replaceAll('Exception: ', '');
-      state = state.copyWith(is_loading: false, error: errorMessage);
+      state = state.copyWith(
+        is_loading: false,
+        error: errorMessage,
+        api_error: e is ApiException ? e : null,
+      );
       return false;
     }
   }
@@ -199,7 +226,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final errorMessage = e is ApiException
           ? e.message
           : e.toString().replaceAll('Exception: ', '');
-      state = state.copyWith(is_loading: false, error: errorMessage);
+      state = state.copyWith(
+        is_loading: false,
+        error: errorMessage,
+        api_error: e is ApiException ? e : null,
+      );
       return false;
     }
   }
@@ -227,7 +258,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final errorMessage = e is ApiException
           ? e.message
           : e.toString().replaceAll('Exception: ', '');
-      state = state.copyWith(is_loading: false, error: errorMessage);
+      state = state.copyWith(
+        is_loading: false,
+        error: errorMessage,
+        api_error: e is ApiException ? e : null,
+      );
       return false;
     }
   }
@@ -239,18 +274,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) async {
     state = state.copyWith(is_loading: true, error: null);
 
     try {
+      if (phone != null &&
+          (phone_verification_token == null ||
+              phone_verification_token.trim().isEmpty)) {
+        throw ApiException(
+          code: 'PHONE_VERIFICATION_REQUIRED',
+          message: '휴대폰 인증을 완료해주세요.',
+        );
+      }
       final updatedUser = await _repository.updateProfile(
         name: name,
         timezone: timezone,
         profile_image_url: profile_image_url,
         profile_image: profile_image,
         phone: phone,
+        phone_verification_token: phone_verification_token,
+        idempotency_key: idempotency_key,
         job_type: job_type,
         workplace: workplace,
       );
@@ -268,7 +315,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final errorMessage = e is ApiException
           ? e.message
           : e.toString().replaceAll('Exception: ', '');
-      state = state.copyWith(is_loading: false, error: errorMessage);
+      state = state.copyWith(
+        is_loading: false,
+        error: errorMessage,
+        api_error: e is ApiException ? e : null,
+      );
       return false;
     }
   }
@@ -278,6 +329,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
@@ -285,15 +338,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(is_loading: true, error: null);
 
     try {
+      if (phone_verification_token.trim().isEmpty) {
+        throw ApiException(
+          code: 'PHONE_VERIFICATION_REQUIRED',
+          message: '휴대폰 인증을 완료해주세요.',
+        );
+      }
       final updated_user = await _repository.completeProfile(
         name: name,
         timezone: timezone,
         phone: phone,
+        phone_verification_token: phone_verification_token,
+        idempotency_key: idempotency_key,
         profile_image: profile_image,
         job_type: job_type,
         workplace: workplace,
       );
 
+      if (updated_user.requires_profile_setup != false) {
+        throw ApiException(
+          code: 'PROFILE_SETUP_INCOMPLETE',
+          message: '가입 완료 결과를 확인하지 못했어요. 다시 시도해주세요.',
+        );
+      }
       state = state.copyWith(
         user: updated_user,
         requires_profile_setup: false,
@@ -304,13 +371,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final error_message = error is ApiException
           ? error.message
           : error.toString().replaceAll('Exception: ', '');
-      state = state.copyWith(is_loading: false, error: error_message);
+      state = state.copyWith(
+        is_loading: false,
+        error: error_message,
+        api_error: error is ApiException ? error : null,
+      );
       return false;
     }
   }
 
   /// 로그아웃
   Future<void> logout() async {
+    _cancelPhoneVerification();
     state = state.copyWith(is_loading: true);
 
     try {
@@ -326,6 +398,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// 소셜 연결 해제와 서버 탈퇴 접수를 순차적으로 실행한다.
   Future<AccountDeletionResult> deleteAccount() async {
+    _cancelPhoneVerification();
     final user = state.user;
     if (user == null) {
       state = const AuthState(status: AuthStatus.unauthenticated);

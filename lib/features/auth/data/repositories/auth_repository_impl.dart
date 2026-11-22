@@ -51,6 +51,8 @@ abstract class AuthRepository {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   });
@@ -60,6 +62,8 @@ abstract class AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
@@ -223,15 +227,29 @@ class AuthRepositoryImpl implements AuthRepository {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) async {
+    if (phone != null &&
+        (phone_verification_token == null ||
+            phone_verification_token.trim().isEmpty ||
+            idempotency_key == null ||
+            idempotency_key.isEmpty)) {
+      throw ApiException(
+        code: 'PHONE_VERIFICATION_REQUIRED',
+        message: '휴대폰 인증을 완료해주세요.',
+      );
+    }
     return await _remote_datasource.updateProfile(
       name: name,
       timezone: timezone,
       profile_image_url: profile_image_url,
       profile_image: profile_image,
       phone: phone,
+      phone_verification_token: phone_verification_token,
+      idempotency_key: idempotency_key,
       job_type: job_type,
       workplace: workplace,
     );
@@ -242,14 +260,24 @@ class AuthRepositoryImpl implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
   }) async {
+    if (phone_verification_token.trim().isEmpty || idempotency_key.isEmpty) {
+      throw ApiException(
+        code: 'PHONE_VERIFICATION_REQUIRED',
+        message: '휴대폰 인증을 완료해주세요.',
+      );
+    }
     return await _remote_datasource.completeProfile(
       name: name,
       timezone: timezone,
       phone: phone,
+      phone_verification_token: phone_verification_token,
+      idempotency_key: idempotency_key,
       profile_image: profile_image,
       job_type: job_type,
       workplace: workplace,

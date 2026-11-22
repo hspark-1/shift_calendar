@@ -54,6 +54,8 @@ class _PendingGoogleAuthRepository implements AuthRepository {
     String? profile_image_url,
     ProfileImageUpload? profile_image,
     String? phone,
+    String? phone_verification_token,
+    String? idempotency_key,
     String? job_type,
     String? workplace,
   }) => throw UnimplementedError();
@@ -63,6 +65,8 @@ class _PendingGoogleAuthRepository implements AuthRepository {
     required String name,
     required String timezone,
     required String phone,
+    required String phone_verification_token,
+    required String idempotency_key,
     ProfileImageUpload? profile_image,
     String? job_type,
     String? workplace,
