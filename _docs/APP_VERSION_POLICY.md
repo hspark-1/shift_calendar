@@ -8,18 +8,22 @@
 
 | 값 | 현재 값 | 변경 시점 |
 |---|---|---|
-| `AppConstants.api_compatibility_version` | `1` | 앱이 새로운 서버 호환 규격을 지원하도록 구현했을 때 코드와 함께 증가 |
-| 사용자에게 표시하는 앱 버전 | `1.0.0` | 스토어 새 버전 출시 |
-| iOS 빌드 번호 | `6` | 새 제출용 바이너리 생성(2026-11-16) |
-| 서버 최소 호환 번호 | 기본 `0` | 운영자가 해당 호환 번호 이상의 앱만 허용할 때 변경 |
+| `AppConstants.api_compatibility_version` | `2` | 앱이 새로운 서버 호환 규격을 지원하도록 구현했을 때 코드와 함께 증가 |
+| 사용자에게 표시하는 앱 버전 | `1.1.0` | 스토어 새 버전 출시 |
+| iOS 빌드 번호 | `8` | 새 제출용 바이너리 생성(2026-11-22) |
+| 서버 최소 호환 번호 | 운영 `1`(직접 조회), 기본 `0` | 운영자가 해당 호환 번호 이상의 앱만 허용할 때 변경 |
 
 `앱 호환 번호 < 서버 최소 호환 번호`이면 필수 업데이트다. 같은 값은 허용한다. 서버값 `0`은 차단 비활성이다. 빌드 번호만 올려도 API 호환 번호가 자동으로 증가하지 않는다.
+
+## 2026-11-22 호환2 제출 준비
+
+사용자 요청으로1.1.0(8)의 API 호환 번호를2로 지정했다. 직전1.1.0(7)/호환1은 미제출 보존본이다. 운영 공개 정책은 같은 날짜 직접 조회에서최소1/HTTP200으로 신규 앱2도 허용한다. 서버 최소값을2로 올리는 것은 별도 운영 작업이며 호환2 앱이 App Store에서 제공된 뒤 진행한다. 현재 서버 설정은 변경하지 않았다.
 
 ## 흐름과 상태 수명
 
 ### 로컬 실기기 구버전 테스트
 
-- `DEBUG_API_COMPATIBILITY_VERSION`은 Debug 빌드에서만 앱 내부 호환 번호를 덮어쓴다. 기본값은 1이며 0~2147483647 범위 밖의 값은 1로 복구한다. Profile/Release는 이 옵션과 관계없이 1을 사용한다. `.env`에 테스트 번호를 저장하지 않는다.
+- `DEBUG_API_COMPATIBILITY_VERSION`은 Debug 빌드에서만 앱 내부 호환 번호를 덮어쓴다. 기본값은 2이며 0~2147483647 범위 밖의 값은 2로 복구한다. Profile/Release는 이 옵션과 관계없이 2를 사용한다. `.env`에 테스트 번호를 저장하지 않는다.
 - VS Code/Cursor 실행 구성 `ShiftMate (debug local update test v0)`는 `USE_LOCAL_API=true`와 테스트 번호 0을 전달한다. API는 `http://172.30.1.14:3000/api/v1`, OAuth/Firebase는 기존 Debug Stage 설정을 사용한다. iPhone과 서버의 LAN 접근이 필요하다.
 - 로컬 서버 `APP_UPDATE_IOS_MIN_COMPATIBILITY_VERSION=1` 설정 후 프로세스를 실행한다. 공개 정책 응답에서 최소값 1을 확인하고 앱 번호 0의 차단·업데이트 버튼·앱 복귀·다시 확인을 검증한다. 서버값 0에서는 비활성화되므로 음수 앱 번호로 강제 테스트하지 않는다.
 - CLI: `flutter run --debug --dart-define-from-file=.env --dart-define=USE_LOCAL_API=true --dart-define=DEBUG_API_COMPATIBILITY_VERSION=0 -d <iPhone ID>`.

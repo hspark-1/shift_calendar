@@ -7,7 +7,7 @@ void main() {
   test('빌드 옵션에 맞는 앱 호환 번호를 사용한다', () {
     const expected_version = int.fromEnvironment(
       'EXPECTED_API_COMPATIBILITY_VERSION',
-      defaultValue: 1,
+      defaultValue: 2,
     );
     expect(AppConstants.api_compatibility_version, expected_version);
   });

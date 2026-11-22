@@ -1,13 +1,17 @@
 # 서버 담당자 전달: 앱 API 호환 버전 정책
 
+## 2026-11-22 현재값 보완
+
+사용자 지시로 현재 제출 대상은1.1.0(8)/앱 호환2다. 같은 날짜 운영 공개 정책을 직접 조회한 최소값은1/HTTP200이며 아래 초기 배포 요청은 과거 전달 이력이다. 이 프론트 작업은 서버 최소값을 변경하지 않는다. 호환2 앱이 실제 App Store에서 제공된 뒤 최소값2로 올려 기존 호환1 앱을 업데이트로 유도하는 순서를 따른다.
+
 ## 요청 요약
 
 앱에 **App Store 버전/빌드와 별도인 API 호환 번호**를 추가했다. 서버는 플랫폼별 최소 호환 번호를 인증 없이 내려주고, 앱은 자신의 번호가 그보다 낮으면 이용을 차단하고 스토어 업데이트로 안내한다.
 
 | 항목 | 전달 값 |
 |---|---|
-| 현재 앱 내부 호환 번호 | `1` (`AppConstants.api_compatibility_version`) |
-| 새 iOS 앱 | 표시 버전 `1.0.0`, 빌드 `2` |
+| 현재 앱 내부 호환 번호 | `2` (`AppConstants.api_compatibility_version`,1.1.0 빌드8 제출 준비) |
+| 새 iOS 앱 | 표시 버전 `1.1.0`, 빌드 `8` (2026-11-22 제출 준비) |
 | iOS 업데이트 URL | `https://apps.apple.com/kr/app/id6831957246` |
 | 서버 저장소 | `hspark-1/shift_calendar_server` |
 | 준비된 기능 브랜치 | [codex/app-compatibility-policy](https://github.com/hspark-1/shift_calendar_server/tree/codex/app-compatibility-policy) (`develop` 기반, origin push 완료) |

@@ -1,5 +1,12 @@
 # 프로젝트 컨텍스트
 
+## 1.1.0(8) / API 호환2 심사 제출 파일 (2026-11-22, ADR-0112)
+
+- 사용자 요청/Behavior change: 누적 기능을1752108로 origin/develop에 푸시한 뒤 AppConstants.app_version/pubspec을1.1.0+8, 기본/Release API 호환 번호를2로 맞췄다. 선행1.1.0(7)/호환1과 이전1.0.0(6)은 해시/버전 확인 후 build/ios/releases의버전별 폴더에 보존했다. 변경된 기본 앱은 서버 최소2에서허용/최소3에서차단되며 기존 호환1은최소2에서차단된다. 서버 최소값은 변경하지 않았다. 현재 운영 직접조회는최소1/HTTP200으로 앱2를허용한다. 호환2 앱이 스토어에 제공된 뒤 서버 최소값2를 적용한다.
+- 생성/역할·의존성/사용 예: `flutter build ipa --release --no-pub --dart-define-from-file=.env --build-name=1.1.0 --build-number=8 --export-method=app-store` 성공(Archive72.7초·IPA69.9초). 기존 Flutter/Xcode·운영 env/Apple 서명과 lock에 의존한다. build/ios/ipa/ShiftMate.ipa는 Apple Distribution 제출 파일(26,623,166bytes, SHA-256 `fb2b88efac647985437b60b7ae414e841c2017d60421f4618a68eca4c1b612ae`), archive/Runner.xcarchive는 앱/위젯·dSYM/재내보내기 자료다. 바이너리·인증/환경 파일은 커밋하지 않는다. 신규 _docs/releases/1.1.0.md는 변경사항·복사할 한국어 출시 문구/영문 심사 메모·57검사/해시와 미완료 포털/실기기 항목의정본이다. 기존 출시 체크리스트/버전 정책·실제 IPA에 의존하며 업로드 전 이 문서로 대상8을대조한다.
+- 검증: 전체 Flutter711 pass/기존 skip1, 호환13 pass·Debug0/음수/상한 초과6 pass, 변경 Dart 진단0. 전체 분석은 기존 미변경4파일 naming info26건 유지. IPA의 ZIP·앱/위젯 배포서명/profile·App Groups/개인정보 manifest·버전/UUID·운영 API/Firebase/OAuth/Stage·로컬부재와 새 AOT 등57검사 통과. 실제코드/서명에서 단일FlutterSceneDelegate·portrait/iPad 호환·최소iOS15/기기군[1]을확인했다. 기존LaunchImage placeholder 안내1건 유지.
+- 한계/롤백: 브라우저 제어 중지로 업로드/Connect 처리·빌드선택/메타데이터 저장·최종심사 요청은미수행이며 새빌드 실기기/심사OS·실제WidgetKit 인수도별도다. 로컬 제출 준비를완료한것과심사접수를구분한다. 제출 전 이번릴리스 커밋을복구하고보존본을사용한다. 서버최소값이이미2면호환1복구전에최소값완화가필요하며배포후수정은새빌드/버전으로진행한다. 기존기능롤백은1752108을별도revert한다. 임시검증도구/로그 역할·명령은릴리스문서/WORKLOG를따른다.
+
 ## 작은 화면 3주 보기 (2026-11-22, ADR-0111)
 
 - 최신 Behavior change: 사용자 후속 요청으로750 논리px 미만의 표시를2주에서3주로 바꾼다. 내·친구·실제 그룹·미리보기의 카드 닫힘/열림·근무 입력이 CalendarFormat.threeWeeks를 사용하며750px 이상은 기존 월간/선호 포맷을 유지한다. 아래 ADR-0110의2주 표시는 이번3주로 대체한다. 닫힘은 남은 높이를3행에 배분해 일정 막대 공간을 유지하고 열림의 기존52px 행/최소 카드 공간·부족한 높이의 달력 세로 스크롤은 유지한다. 범위는21일, 가로 스와이프는21일, 기존 연월 화살표/오늘·선택일/상세·근무 초안·인증/권한/API/DB·라우팅은 유지한다.

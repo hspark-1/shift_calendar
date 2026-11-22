@@ -188,6 +188,28 @@ void main() {
     expect(preferences.containsKey(source.cache_key), isFalse);
   });
 
+  test('호환2 기본 앱은 최소2를 허용하고 최소3은 차단하며 기존1은 최소2에서 차단한다', () async {
+    final repository = MemoryPolicyRepository(loader: () async => policy(2));
+    final current = AppUpdateController(repository: repository);
+    addTearDown(current.dispose);
+    expect(current.state.compatibility_version, 2);
+    await current.check();
+    expect(current.state.update_required, isFalse);
+    repository.loader = () async => policy(3);
+    await current.check();
+    expect(current.state.update_required, isTrue);
+    repository.loader = () async => policy(1);
+    await current.check();
+    expect(current.state.update_required, isFalse);
+    final legacy = AppUpdateController(
+      repository: MemoryPolicyRepository(loader: () async => policy(2)),
+      compatibility_version: 1,
+    );
+    addTearDown(legacy.dispose);
+    await legacy.check();
+    expect(legacy.state.update_required, isTrue);
+  });
+
   test('동시 확인은 요청을 합치며 정책 완화는 저장된 차단을 해제한다', () async {
     final pending = Completer<AppUpdatePolicy>();
     final repository = MemoryPolicyRepository(loader: () => pending.future);
@@ -198,7 +220,7 @@ void main() {
     expect(identical(first, second), isTrue);
     await Future<void>.delayed(Duration.zero);
     expect(repository.request_count, 1);
-    pending.complete(policy(2));
+    pending.complete(policy(3));
     await first;
     expect(controller.state.update_required, isTrue);
     repository.loader = () async => policy(0);
@@ -208,7 +230,7 @@ void main() {
   });
 
   test('조회 실패 시 이미 확인한 차단을 유지하고 최초 미확인만 허용한다', () async {
-    for (final cached in [policy(2), null]) {
+    for (final cached in [policy(3), null]) {
       final controller = AppUpdateController(
         repository: MemoryPolicyRepository(
           cached: cached,
@@ -224,7 +246,7 @@ void main() {
   });
 
   test('캐시 쓰기 실패가 새 차단 정책을 무효화하지 않는다', () async {
-    final repository = MemoryPolicyRepository(loader: () async => policy(2))
+    final repository = MemoryPolicyRepository(loader: () async => policy(3))
       ..cache_write_fails = true;
     final controller = AppUpdateController(repository: repository);
     addTearDown(controller.dispose);
@@ -241,7 +263,7 @@ void main() {
     final check = controller.check();
     await Future<void>.delayed(Duration.zero);
     controller.dispose();
-    pending.complete(policy(2));
+    pending.complete(policy(3));
     await check;
   });
 
@@ -278,7 +300,7 @@ void main() {
     );
     expect(find.text('기존 앱 화면'), findsNothing);
     await tester.pump();
-    pending.complete(policy(2));
+    pending.complete(policy(3));
     await tester.pumpAndSettle();
     expect(find.text('업데이트가 필요해요'), findsOneWidget);
     expect(find.text('기존 앱 화면'), findsNothing);
@@ -332,7 +354,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    repository.loader = () async => policy(2);
+    repository.loader = () async => policy(3);
     await controller.check();
     await tester.pumpAndSettle();
     expect(find.text('업데이트가 필요해요'), findsOneWidget);

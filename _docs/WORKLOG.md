@@ -1,11 +1,23 @@
 # 작업 로그
 
+## 2026-11-22 API 호환 번호2의 1.1.0(8) 제출 빌드
+
+- [DONE] (FE/릴리스) 사용자 후속 지시에 따라 앱 API 호환 번호를2로 올리고1.1.0(8) 제출용 파일을 생성·검증했다.
+  - 목적/범위: 스토어 버전1.1.0과 호환 번호를 구분해 이번 앱은 기본/Release 호환2를 사용한다. 서버 최소값 자체는 별도이며 운영 현재값1을 직접 확인했다.
+  - 변경/Behavior change: AppConstants 표시 버전1.1.0·Debug 기본/Release 호환2, pubspec1.1.0+8을 적용했다. Debug의 유효 override는 유지하고 음수/상한 초과 fallback도2다. 기본 controller의 최소2 허용/최소3 차단·기존앱1의최소2 차단을 확인하고 기존 차단 흐름 fixture는 신규 기본2보다 높은 최소3으로 맞췄다. API endpoint/DTO·인증·기존 화면 기능은 유지한다.
+  - 파일/문서: APP_VERSION_POLICY·SERVER_HANDOFF의 현재값과 ADR-0112·PROJECT_CONTEXT·출시 체크리스트를 갱신했다. 새 _docs/releases/1.1.0.md는 검증/해시·한국어 출시 문구와 영문 심사 메모·미완료 포털/실기기 항목의 정본이며 역할/의존성/사용 예는 컨텍스트와 문서 본문을 따른다.
+  - 테스트/실제 빌드: 전체 Flutter **711 pass/기존 skip1/fail0**, 호환 관련13 pass, Debug0/음수/상한초과 각2 pass/총6. 변경3 Dart 분석 진단0·포맷 일치. 운영 define으로Archive72.7초/IPA69.9초 성공했다. ZIP·앱/위젯 Apple Distribution deep/strict 서명/App Store profile/유효기간·App Groups·버전·privacy manifest·dSYM/운영설정/Stage·로컬부재·호환2 소스/새 AOT 등 **57검사 통과**. 기존LaunchImage placeholder 안내1건 유지.
+  - 최종 산출물: build/ios/ipa/ShiftMate.ipa **26,623,166bytes**, SHA-256 `fb2b88efac647985437b60b7ae414e841c2017d60421f4618a68eca4c1b612ae`. Archive는 build/ios/archive/Runner.xcarchive다. 선행7/호환1은 build/ios/releases/1.1.0-7(IPA26,623,165bytes/해시083fce0c3ae091911e80dfc2792f037d78d0dc5bd5a524a34e9f7dc1d1facd2b), 이전1.0.0(6)도버전별 폴더에 보존했다.
+  - 운영/범위: 공개 정책을 다시 조회해HTTP200/schema1/IOS/최소1·신규앱2 허용을 확인했다. 개인정보/지원URL200과Firebase Authentication/휴대폰 인증 공개 문구도확인했다. 서버 최소값은 변경하지 않았으며 스토어에서호환2앱이제공된뒤최소2로올리는순서를문서화했다.
+  - 로그/한계: /private/tmp/shiftmate-110-release의 build-8.log·verification.json/verify_release.py·compatibility-2-all-tests.log·compatibility-2-tests.log·compatibility-debug-*.log·compatibility-2-analyze.log·production-policy-check.json에 보존한다. 검증도구는 Python3와macOS 서명/ZIP/dSYM 도구·로컬env를읽되비밀값을출력하지않는다. 브라우저제어가계속중지상태여서 업로드/Connect 처리·빌드선택/최종심사 요청은미수행이며 새빌드실기기·심사OS/실제WidgetKit 인수도별도다.
+  - 롤백: 호환 상수를1/버전 빌드7로 복구하고 보존한 미제출7을 선택한다. 서버 최소값 변경·최종 App Review 제출은 이 작업에 포함하지 않는다.
+
 ## 2026-11-22 누적 작업 커밋·푸시 및 1.1.0 심사 준비
 
-- [TODO] (FE/릴리스) 누적 캘린더·위젯 변경을 정리해 커밋/푸시하고1.1.0 제출용 서명 빌드와 심사 자료를 준비한다.
+- [DONE] (FE/릴리스) 누적 캘린더·위젯 변경을 커밋/푸시하고 최종1.1.0(8)/호환2의 로컬 제출 파일과 심사 자료를 준비했다.
   - 목적/범위: 월간/작은 화면3주·연속/복수 일정·개인 일정 기간/그룹 제목·상세 유지/드래그·캘린더 탭 오늘·위젯 일정 집계를 버전 관리한다. 기존 배포 파일/서명을 보존하고 새1.1.0을 준비한다.
-  - 계획: 현재 diff/문서·검증 결과/비밀 파일 제외 확인 → 기능 커밋·develop 원격 동기화/푸시 → 버전/다음 빌드 번호 설정 → 기존 산출물 보존 → 운영 define의 App Store IPA/Archive와 확장 서명·권한/버전·실행 설정 검증 → 변경사항/심사 자료·결과 문서 및 릴리스 커밋/푸시.
-  - 테스트: 최신 전체 Flutter710 pass/기존 skip1 근거를 재사용하며 추가 정적 분석/커밋 검사·실제 배포 빌드를 수행한다. 단순 버전 변경으로 API 호환 번호1은 올리지 않는다.
+  - 커밋/푸시: 시작HEAD393d6ff와origin/develop이0/0임을fetch로확인하고검토대상80파일manifest와staged목록을대조했다. 환경/서명파일/자격증명패턴0을확인했으며누적기능을 **1752108**로커밋해 `393d6ff..1752108 HEAD→develop` 푸시성공을확인했다. 아직미푸시상태에서발견한원본README의행끝공백2곳을해당기능커밋에정리했으며최종커밋공백검사를통과했다. 릴리스버전/호환2·관련회귀/문서는별도후속커밋으로보존한다.
+  - 검증: 기능 변경41 Dart 정적 진단0, 전체분석은error/warning0·기존미변경4파일naming info26건이다. 최초1.1.0(7)/호환1은55검사통과후미제출보존했고사용자후속지시로호환2/빌드8을최종대상으로삼았다. 최종전체711 pass/skip1·서명빌드57검사및버전/보존·메모/미완료항목은위후속항목과릴리스1.1.0을따른다.
   - 롤백: 새 릴리스/기능 커밋을 역순 revert하고 이전1.0.0(6) 보존본을 사용한다. 업로드/처리·최종 심사 요청은 관찰한 실제 단계만 기록한다.
 
 ## 2026-11-22 작은 화면 3주 보기

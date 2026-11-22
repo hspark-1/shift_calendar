@@ -10,20 +10,20 @@ class AppConstants {
   static const String app_name = 'ShiftMate';
 
   /// 앱 버전
-  static const String app_version = '1.0.0';
+  static const String app_version = '1.1.0';
 
   /// 서버 API 호환 규격. 스토어 버전·빌드 번호와 독립적으로 관리한다.
-  /// Debug에서만 테스트 번호를 허용하며 Profile/Release는 항상 1이다.
+  /// Debug에서만 테스트 번호를 허용하며 Profile/Release는 항상 2이다.
   static const int _debug_api_compatibility_version = int.fromEnvironment(
     'DEBUG_API_COMPATIBILITY_VERSION',
-    defaultValue: 1,
+    defaultValue: 2,
   );
   static const int api_compatibility_version =
       kDebugMode &&
           _debug_api_compatibility_version >= 0 &&
           _debug_api_compatibility_version <= 2147483647
       ? _debug_api_compatibility_version
-      : 1;
+      : 2;
 
   /// 카카오 Stage Native App Key (--dart-define으로 전달)
   static const String _kakao_stage_native_app_key = String.fromEnvironment(

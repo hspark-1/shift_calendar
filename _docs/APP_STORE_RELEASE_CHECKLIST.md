@@ -1,5 +1,19 @@
 # ShiftMate App Store 심사 준비 및 진행 기록
 
+## 1.1.0(8) / API 호환2 제출 파일 준비 — 2026-11-22
+
+- 최신 로컬 제출 파일: **iOS1.1.0(8), API 호환 번호2**. 누적 캘린더/위젯·가입/휴대폰 인증·기존 UIScene 수정이 포함된다. 아래 빌드6/7 관련 내용은 과거 이력이며 최종 선택 대상은8이다.
+- [x] 누적 기능 커밋1752108을 origin/develop에 푸시, 전체 Flutter711 pass/기존 skip1·변경 정적 진단0 확인.
+- [x] AppConstants 표시 버전1.1.0·Debug 기본/Release 호환2·pubspec1.1.0+8 설정과 최소2/3 허용·차단/Debug override 회귀 확인.
+- [x] 운영 define의 App Store Archive/IPA 생성: Archive72.7초·IPA69.9초. `build/ios/ipa/ShiftMate.ipa` 26,623,166bytes / SHA-256 `fb2b88efac647985437b60b7ae414e841c2017d60421f4618a68eca4c1b612ae`.
+- [x] ZIP·앱/위젯 배포 서명/profile·App Groups·앱/확장 버전/dSYM·운영 설정/Stage·로컬 부재 등57검사 통과. 기존 LaunchImage placeholder 안내1건 유지.
+- [x] 이전1.0.0(6)과 선행1.1.0(7)/호환1 산출물 보존, [릴리스 문구/심사 준비 자료](releases/1.1.0.md) 작성.
+- [x] 운영 공개 정책HTTP200/최소1로 앱2 허용, 개인정보/지원 URL200 확인. 서버 최소값 변경은 미수행.
+- [ ] Transporter/Xcode 업로드 → Connect 처리 완료 → 버전1.1.0/빌드8 선택·수출 규정 확인.
+- [ ] 운영 심사 계정/새빌드 실기기·WidgetKit/현재 심사OS·개인정보/메타데이터/출시 방식 확인.
+- [ ] 최종 App Review 제출. 현재 브라우저 제어가 중지되어 포털 확인/업로드/빌드선택·제출은 수행하지 않았다.
+- 순서: 호환2 앱이 실제 App Store에서 제공된 뒤 서버 최소값2 적용. 현재 서버값을2로 올렸다는 뜻은 아니다. 파일 역할/명령·검증/보존·제출 전 롤백은 릴리스1.1.0과 PROJECT_CONTEXT/WORKLOG를 따른다.
+
 ## 심사 제출용 빌드6 생성·검증 — 2026-11-16
 
 - 최신 제출 파일: **iOS1.0.0(6), API 호환 번호1**. UIScene 크래시 수정·세로 방향·Naver SDK5.2.1·최신 가입 UI가 포함됐다. 아래 새 Archive/IPA 필요·기존 파일5 설명은 이번 생성 전의 이력이다.
