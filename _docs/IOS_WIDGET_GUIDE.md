@@ -2,7 +2,7 @@
 
 ## 범위와 진입
 
-2026-11-21의 홈/잠금 위젯에 2026-11-22 사용자 선택 방안1(오늘/내일 별도 항목)을 적용했다. 같은 extension의 WidgetBundle이 위젯 추가 목록에 **오늘 근무**와 **내일 근무**를 제공한다. WidgetKit 기본 탭 동작으로 ShiftMate를 열고 기존 인증/가입 게이트를 따른다. 새 route/analytics 이벤트는 없다. 월간·친구 근무표·개인 일정·네트워크 백그라운드 갱신은 후속 범위다.
+2026-11-21의 홈/잠금 위젯에 2026-11-22 사용자 선택 방안1(오늘/내일 별도 항목)을 적용했다. 같은 extension의 WidgetBundle이 위젯 추가 목록에 **오늘 근무**와 **내일 근무**를 제공한다. WidgetKit 기본 탭 동작으로 ShiftMate를 열고 기존 인증/가입 게이트를 따른다. 새 route/analytics 이벤트는 없다. ADR-0108로 본인 개인 일정의 건수·유무만 기존 위젯에 추가한다. 월간·친구 근무표/일정·일정 원문·네트워크 백그라운드 갱신은 후속 범위다.
 
 | 표시 위치 | family | 오늘 근무 항목 | 내일 근무 항목 | 최소 iOS |
 | --- | --- | --- | --- | --- |
@@ -19,6 +19,20 @@
 2026-11-22 디자인 검토(ADR-0098)로 홈의 앱 이름을 대상일/`2주 근무`로 대체하고 근무 코드에 기존 앱의 파랑 계열 강조를 사용한다. 배경·보조 글자는 light/dark별 토큰이다. 글자 확대는 기존 최대xxxLarge이며 코드/이름이 가로로 안 들어가면 줄을 나누고, 세로 공간까지 부족하면 코드/시간을 우선한다. 중형의 긴 코드는 읽을 수 없을 정도로 축소하지 않고 줄임 표시한다. 전체 원문은 VoiceOver에 보존한다. 잠금 직사각형은 대상일·코드·이름 요약과 큰 시간의2줄로 배치한다(ADR-0099). 시간은 caption12pt에서 기본22pt/동적 최대26pt로 확대하며 요약행만 끝을 줄인다. 시간을 우선하고 최소 축소 비율은0.85다. 시간의 구분자는 공간 절약을 위해 `23:00–07:00`으로 표시하며 원래 시간/VoiceOver는 보존한다. 원형/한 줄은 기존 역할을 유지한다.
 
 중형의 오늘 날짜는 fullColor에서 채운 캡슐, accented/vibrant에서 윤곽선으로 구분한다. 근무색은 fullColor의 낮은 농도 배경에만 사용하며 단색 모드에서는 배지를 비우고 코드·날짜/윤곽·굵기를 유지한다. `widgetAccentable`은 코드/핵심 제목/오늘에 적용하고 iOS16부터 renderingMode를 읽는다. iOS15 홈은 fullColor 대체 레이아웃이다. 모든 family의 privacySensitive·removable containerBackground와 기존 시스템 여백을 유지한다.
+
+## 개인 일정 유무·건수 (ADR-0108)
+
+기존 근무 중심 디자인에 본인 개인 일정 집계만 추가한다. 소형은 대상일 근무명 아래 **일정 N개**, 중형은 날짜별 근무 코드 아래 **점**과 상단 `· 일정` 범례, 잠금 원형은 대상일 옆 점, 직사각형은 요약행 끝 `일정 N`, 한 줄은 `오늘 · 일정 N개 · 근무 코드/시간`이다. 제목/장소/메모·일정 ID/공개 레벨은 저장하지 않는다. 본인 비공개 일정도 건수에 포함한다. 0건/미확인/미조회/만료는 일정 표시가 없고, 근무 미등록/휴무라도 일정이 있으면 표시한다. 99건 초과는99+로 줄이며 VoiceOver는 정확한 건수를 읽는다. 중형의 점은 날짜별 VoiceOver 건수로 설명하고 잠금 privacySensitive를 유지한다.
+
+iOS16+ 소형은 세로 ViewThatFits의 필요 높이를 고정해 공간에 맞는 일반/compact/축약 배치를 선택한다. 좁은 소형+큰 글자는 코드와 건수·한 줄 시간으로 표시한다. 전체 근무명·시간/익일·후속일은 VoiceOver에 남긴다. iOS15의 기존 compact 대체 경로는 건수를 추가한 채 유지한다.
+
+기존 range 응답의 events를 사용자 시간대의 각 자정~다음 자정에 겹치는지로 집계한다(`start_at < 다음 자정 && end_at > 당일 자정`). 종료는 exclusive여서25일0시~28일0시는25/26/27일에만 표시한다. 겹치는 여러 일정은 별도 건수, 같은 ID 중복 응답은 날짜당1건이다. 조회42일 밖은 기록하지 않으며 현지 Calendar의 DST23/25시간 날에도 정확한 날짜를 사용한다. 종일 여부와 관계없이 서버의 시작/종료 instant를 같은 기준으로 해석한다.
+
+JSON schema1/기존 키에 선택 필드 `event_counts: {"2026-11-21":2}`를 추가한다. 양의 정수만 저장하고 새 빈 맵은 조회 범위 내0건이다. 필드 없는 구 캐시는 일정 미확인(nil)으로 근무만 유지하며 구 extension은 추가 필드를 무시한다. Swift는 집계 키의 날짜/범위·양의 정수를 검증한다. 캐시 소유자/삭제·오프라인/자정/OS 갱신 정책은 기존과 같다.
+
+확정된 CalendarService.createEvent/updateEvent/deleteEvent의 응답 검증 후 선택 on_changed 콜백이 sync(force:true)를 요청한다. UI 삭제 유예/되돌리기는 공유하지 않는다. 조회 실패/미확정 저장은 기존 오류로 반환하며 성공 동기화로 취급하지 않는다. coordinator의 조회용 CalendarService는 mutation provider를 의존하지 않고 동일한 인증 dioProvider만 공유하므로 provider 순환이 없다. 서비스 provider 해제 후 늦은 성공 콜백은 갱신하지 않으며 위젯 동기화 실패가 일정 저장 결과를 바꾸지 않는다.
+
+검토: [전체 디자인](../artifacts/widget_redesign_2026-11-22/events-overview.png), [공간/데이터 경계](../artifacts/widget_redesign_2026-11-22/events-edge-cases.png). 실제 검증 결과는 WORKLOG를 따른다. 이전 아래 디자인 절의 개인 일정 미표시/공유 계약 불변 설명은 이 절로 대체하며 이전 근무 디자인 이력은 남긴다.
 
 ## 홈 소형의 공간·정보 재배치 (ADR-0100)
 
@@ -53,12 +67,12 @@
 AuthWrapper (인증·프로필 완료/계정·시간대 변경, 앱 resumed)
   → WidgetSyncCoordinator.setSession / sync
   → CalendarService.getCalendarRange → 기존 인증 Dio → GET /calendar/range
-  → 응답의 workShifts만 ShiftWidgetSnapshot으로 변환
+  → 응답의 workShifts + events 날짜별 집계만 ShiftWidgetSnapshot으로 변환
   → home_widget 0.10.0 → App Group UserDefaults의 JSON 단일 키
   → WidgetCenter.reloadTimelines(ofKind:) (오늘/내일 각각)
   → ShiftTimelineProvider → SwiftUI family별 화면
 
-근무 추가/수정/배치/확정 삭제·근무 타입 수정/삭제 성공
+근무 추가/수정/배치/확정 삭제·근무 타입 수정/삭제·개인 일정 생성/수정/확정 삭제 성공
   → 서비스 provider의 on_changed → sync(force: true)
 
 로그아웃 시작 / 탈퇴 접수·세션 종료
@@ -82,10 +96,10 @@ AuthWrapper (인증·프로필 완료/계정·시간대 변경, 앱 resumed)
 - 버전: `schema_version=1`
 
 ```json
-{"schema_version":1,"owner_id":"계정UUID","timezone":"Asia/Seoul","updated_at":"2026-11-21T00:00:00.000Z","start_date":"2026-11-16","end_date":"2026-12-27","shifts":[{"date":"2026-11-21","code":"N","name":"나이트","color":4283657726,"start_time":"23:00:00","end_time":"07:00:00"}]}
+{"schema_version":1,"owner_id":"계정UUID","timezone":"Asia/Seoul","updated_at":"2026-11-21T00:00:00.000Z","start_date":"2026-11-16","end_date":"2026-12-27","event_counts":{"2026-11-21":2},"shifts":[{"date":"2026-11-21","code":"N","name":"나이트","color":4283657726,"start_time":"23:00:00","end_time":"07:00:00"}]}
 ```
 
-두 kind는 동일 JSON 키/스키마를 읽는다. reload는 두 kind를 모두 시도하고 하나가 실패해도 다른 요청을 생략하지 않는다. 계정 ID는 캐시 귀속 검사에만 사용한다. 이메일·이름·프로필 사진·근무 ID·메모·개인 일정·JWT/refresh token은 공유하지 않는다. `saveWidgetData(..., null, deleteFile: false, appGroupId: ...)`로 키를 제거하고 갱신을 요청한다. SDK의 새 per-call appGroupId 인자를 사용하므로 전역 groupId 초기화에 의존하지 않는다.
+두 kind는 동일 JSON 키/스키마를 읽는다. reload는 두 kind를 모두 시도하고 하나가 실패해도 다른 요청을 생략하지 않는다. 계정 ID는 캐시 귀속 검사에만 사용한다. 이메일·이름·프로필 사진·근무 ID·메모·개인 일정 원문/식별자·JWT/refresh token은 공유하지 않는다. ADR-0108의 본인 날짜별 일정 건수만 추가 공유한다. `saveWidgetData(..., null, deleteFile: false, appGroupId: ...)`로 키를 제거하고 갱신을 요청한다. SDK의 새 per-call appGroupId 인자를 사용하므로 전역 groupId 초기화에 의존하지 않는다.
 
 서버 사용자 IANA timezone이 유효하면 사용하고, 없거나 잘못되었으면 기기 IANA timezone을 사용한다. work_date는 날짜 성분을 유지하며 UTC instant로 재해석하지 않는다. 해당 시간대의 이번 주 월요일부터 42일을 기존 API로 조회하고 전체 스냅샷을 교체한다. 시간대 식별자를 확보하지 못하면 임의 시간대를 만들지 않고 동기화를 실패시킨다.
 
@@ -109,7 +123,7 @@ Swift는 버전/시간대/정확한 날짜/갱신 시각/93일 미만의 범위�
 
 | 신규 파일 | 역할 / 의존성 / 사용 예 |
 | --- | --- |
-| `lib/features/home_widget/data/shift_widget_snapshot.dart` | 근무 API 모델+timezone을 사용하는 JSON 계약/42일 범위 계산. coordinator에서 `rangeFor(now, timezone)`와 `toJson()` 호출 |
+| `lib/features/home_widget/data/shift_widget_snapshot.dart` | 근무/일정 API 모델+timezone을 사용하는 JSON 계약/42일 범위·날짜별 일정 집계. coordinator에서 `rangeFor(now, timezone)`와 `toJson()` 호출 |
 | `lib/features/home_widget/data/home_widget_store.dart` | 테스트 가능한 저장소 경계와 home_widget adapter. `write(json)`/`write(null)` 후 두 kind의 `reload()` |
 | `lib/features/home_widget/application/widget_sync_coordinator.dart` | Riverpod·기존 CalendarService·FlutterTimezone·저장소의 앱 수명 동기화 경계. `setSession(owner_id: user.id, timezone: user.timezone)` / `sync(force: true)` |
 | `ios/ShiftMateWidget/ShiftWidgetData.swift` | Foundation JSON 검증·날짜/시간·주간/자정 및 ShiftWidgetDay/DayContent의 날짜 선택. provider의 `decode`/`entryDates`, UI의 `ShiftWidgetDayContent(reference_date:snapshot:day:)` 사용 |
@@ -122,7 +136,7 @@ Swift는 버전/시간대/정확한 날짜/갱신 시각/93일 미만의 범위�
 | `ios/ShiftMateWidgetTests/ShiftWidgetDataTests.swift` | 실제 Swift 제품 모델과 Dart 출력 fixture를 함께 실행하는 Foundation 단독 회귀. 아래 swiftc 명령 사용. 앱에 포함하지 않음 |
 | `_docs/IOS_WIDGET_GUIDE.md` | 구현 계약·서명 인수·실행/검증/롤백 안내. 이번 작업의 정본 |
 
-기존 `main.dart`는 auth/lifecycle 연결, `auth_provider.dart`는 세션 종료 정리, 근무/타입 서비스의 선택적 on_changed는 성공 후 갱신 신호만 담당한다. 기존 반환값/에러/API 응답은 유지한다.
+기존 `main.dart`는 auth/lifecycle 연결, `auth_provider.dart`는 세션 종료 정리, 근무/타입·일정 CalendarService의 선택적 on_changed는 응답 검증 성공 후 갱신 신호만 담당한다. 기존 반환값/에러/API 응답은 유지한다.
 
 ## 디자인 검토 산출물·재현
 
@@ -130,8 +144,10 @@ Swift는 버전/시간대/정확한 날짜/갱신 시각/93일 미만의 범위�
 
 | 신규 파일 | 역할 / 의존성 / 사용 예 |
 | --- | --- |
-| `WidgetRenderTests.swift` | 제품 Foundation/SwiftUI와 ImageRenderer/XCTest의9개 조합(오늘5+내일4)×14조건+소형/잠금 직사각형 좁은 폭·큰 글자4개+소형 후속일 근무/큰 글자4개(총134PNG) 렌더러. 라이트/다크·최대 글자·긴 코드·둘의 조합·미등록/시간 없음·로그아웃/만료·다음 주 미조회·연말·좁은 폭(잠금 직사각형150×64 포함)·accented/vibrant를 PNG로 출력 |
+| `WidgetRenderTests.swift` | 제품 Foundation/SwiftUI와 ImageRenderer/XCTest의9개 조합(오늘5+내일4)×14조건+소형/잠금 직사각형 좁은 폭·큰 글자4개+소형 후속일 근무/큰 글자4개(총134PNG)의 기존 렌더러에 ADR-0108 일정0건/구 캐시/다량·큰 글자/좁은 폭을 더해174PNG를 생성한다. 라이트/다크·최대 글자·긴 코드·둘의 조합·미등록/시간 없음·로그아웃/만료·다음 주 미조회·연말·좁은 폭(잠금 직사각형150×64 포함)·accented/vibrant를 PNG로 출력 |
 | `render_widgets.py` | Python3·기존 Ruby/xcodeproj gem·Xcode/Simulator로 임시 프로젝트/제품 표시 사본을 만들어 위 렌더러 실행. 아래 명령 사용. 제품 소스는 수정하지 않으며 읽기 전용 WidgetFamily만 테스트 생성 인자로 치환 |
+| `compose_events.swift` | 새 macOS AppKit 검토판 생성기. 실제 SwiftUI PNG를 읽어 아래 명령으로 events-overview/events-edge-cases.png 생성. runtime 의존성 없음 |
+| `events-overview.png` / `events-edge-cases.png` | ADR-0108의 오늘/내일·2주/잠금 라이트/다크와 좁은 폭·큰 글자·긴 코드·99+·일정0/구 캐시/미등록/로그아웃·단색 분기 검토판. compose_events.swift와 SwiftUI 렌더 PNG에 의존 |
 | `comparison.png` | 같은 기준일/데이터의 전후 소형·중형·잠금 직사각형 비교. 실제 렌더 PNG를 배치한 검토판 |
 | `home-comparison.png` | ADR-0100 직전/이후의 오늘·내일 홈 소형을 비교하는 실제 렌더 검토판. SwiftUI PNG와 macOS AppKit 배치에 의존하며 이 문서/응답에서 열어 검토 |
 | `overview.png` | 개선 후 오늘/내일·2주/잠금 전 형식의 라이트·다크 예시. 최종 디자인 검토용 |
@@ -142,6 +158,13 @@ python3 artifacts/widget_redesign_2026-11-22/render_widgets.py --device <실행�
 ```
 
 로컬에서 확인한 기존 xcodeproj gem 경로를 예시로 사용했다. 환경에 맞는 Ruby/GEM_HOME을 전달하며 새 gem을 설치하지 않는다. 명령은 지정한 시뮬레이터를 사용하므로 종료 상태라면 먼저 실행한다. 표시 사본은 widget 설정/bundle/Preview를 제외한다. 제품 파일의 `#Preview`6개는 Xcode에서 실제 WidgetKit 갤러리/family를 검토하는 진입점이며 자동 실행 인수 결과가 아니다.
+
+
+일정 표시 검토판 재현(앞선 렌더 명령의 `--output`을 `/private/tmp/shiftmate-widget-events-render`로 지정):
+
+```sh
+xcrun swift -module-cache-path /private/tmp/shiftmate-widget-event-swift-cache artifacts/widget_redesign_2026-11-22/compose_events.swift /private/tmp/shiftmate-widget-events-render/renders artifacts/widget_redesign_2026-11-22
+```
 
 ImageRenderer는 실제 WidgetKit host가 아니다. accented/vibrant 환경 분기·텍스트 대비는 확인하지만 OS의 재착색/투명 유리 배경·StandBy 배경 제거·privacySensitive에 의한 가림·시스템 placeholder 합성을 재현하거나 인수 완료로 간주하지 않는다. 정확한 실행 결과·확장 빌드·확인한 이미지는 WORKLOG를 따른다.
 
@@ -159,7 +182,7 @@ Flutter3.38의 generic simulator 빌드가 `arm64 x86_64`를 하나의 요구 �
 
 ## 영향·롤백
 
-Behavior change는 오늘/내일 선택·잠금 익일 문구 생략과 중형2주 표시/갱신 문구 제거, ADR-0098의 홈 제목·코드 강조/오늘 캡슐·잠금3줄/긴 코드 줄임·소형 기준 시각 문구였다. 후속 ADR-0099로 중형 행 라벨/모든 홈 기준 시각을 제거하고 잠금 직사각형을 큰 시간 중심2줄로 바꿨다. ADR-0100은 소형을 코드 배지/시작·종료/후속일 시간3구역으로 재배치한다. 기존 kind/family와 공유 JSON/타임라인 정책을 보존하며 양쪽 kind의 저장/삭제 후 갱신을 요청한다. 중형 다음 주의 날짜가 조회 범위 밖이면 ·/VoiceOver 동기화 필요로 표시해 범위 내 미등록(—)과 구분한다. 기존 서버/API/DB/env·Android 위젯·라우팅·권한 정책·앱 버전·App Groups/서명/extension ID·패키지/lock은 이번 후속 작업에서 변경하지 않는다.
+Behavior change는 오늘/내일 선택·잠금 익일 문구 생략과 중형2주 표시/갱신 문구 제거, ADR-0098의 홈 제목·코드 강조/오늘 캡슐·잠금3줄/긴 코드 줄임·소형 기준 시각 문구였다. 후속 ADR-0099로 중형 행 라벨/모든 홈 기준 시각을 제거하고 잠금 직사각형을 큰 시간 중심2줄로 바꿨다. ADR-0100은 소형을 코드 배지/시작·종료/후속일 시간3구역으로 재배치한다. ADR-0108은 선택 JSON 필드의 일정 집계와 확정 일정 변경 후 동기화·family별 건수/점을 추가한다. 이번 추가분만 복원하면 근무 전용 표시로 돌아가며 구 extension은 추가 집계를 무시한다. 기존 kind/family와 타임라인 정책을 보존하며 양쪽 kind의 저장/삭제 후 갱신을 요청한다. 중형 다음 주의 날짜가 조회 범위 밖이면 ·/VoiceOver 동기화 필요로 표시해 범위 내 미등록(—)과 구분한다. 기존 서버/API/DB/env·Android 위젯·라우팅·권한 정책·앱 버전·App Groups/서명/extension ID·패키지/lock은 이번 후속 작업에서 변경하지 않는다.
 
 배포 전 롤백은 이번 위젯 Dart/native/test·호출부·패키지/lock·Xcode target/entitlement·문서 diff만 복구하고 pub get/pod install 후 재빌드한다. 이미 제공한 빌드의 공유 데이터를 지우려면 제거 전에 기존 `setSession()` 정리를 실행해야 한다. 로컬 코드를 되돌리는 것만으로 설치 기기의 공유 캐시가 삭제되지는 않는다. 기존 미커밋 인증/UI 변경은 보존한다.
 

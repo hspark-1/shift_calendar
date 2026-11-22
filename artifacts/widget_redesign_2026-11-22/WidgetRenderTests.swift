@@ -18,9 +18,10 @@ final class WidgetRenderTests: XCTestCase {
         let formatter = ISO8601DateFormatter()
         let now = formatter.date(from: "2026-11-20T03:00:00Z")!
         let sample = ShiftWidgetSnapshot.sample(now: now)
-        func snapshot(_ shifts: [WidgetShift], end: String? = nil) -> ShiftWidgetSnapshot {
+        func snapshot(_ shifts: [WidgetShift], end: String? = nil, counts: [String: Int]? = nil, legacy: Bool = false) -> ShiftWidgetSnapshot {
             ShiftWidgetSnapshot(schema_version: 1, owner_id: sample.owner_id, timezone: sample.timezone,
-                updated_at: sample.updated_at, start_date: sample.start_date, end_date: end ?? sample.end_date, shifts: shifts)
+                updated_at: sample.updated_at, start_date: sample.start_date, end_date: end ?? sample.end_date, shifts: shifts,
+                event_counts: legacy ? nil : (counts ?? sample.event_counts)?.filter { $0.key <= (end ?? sample.end_date) })
         }
         let long = snapshot(sample.shifts.map {
             WidgetShift(date: $0.date, code: "LONGSHIFT123", name: "아주 긴 사용자 정의 야간 근무", color: 0xFFFFFF00, start_time: "23:00", end_time: "07:00")
@@ -42,18 +43,23 @@ final class WidgetRenderTests: XCTestCase {
             ("rectangular", .accessoryRectangular, CGSize(width: 172, height: 76)),
             ("inline", .accessoryInline, CGSize(width: 300, height: 32))
         ]
-        let variants = ["light", "dark", "large", "long", "long-large", "missing", "no-time", "logged-out", "expired", "uncached-next", "year", "narrow", "accented", "vibrant", "narrow-large", "next-work", "next-work-large"]
+        let variants = ["light", "dark", "large", "long", "long-large", "missing", "no-time", "logged-out", "expired", "uncached-next", "year", "narrow", "accented", "vibrant", "narrow-large", "next-work", "next-work-large", "no-events", "legacy", "many-events", "many-events-large", "many-events-narrow-large"]
         for day in [ShiftWidgetDay.today, .tomorrow] {
             for (name, family, default_size) in families where day == .today || family != .systemMedium {
                 for variant in variants {
-                    if variant == "narrow-large" && family != .accessoryRectangular && family != .systemSmall { continue }
+                    if variant.contains("narrow-large") && family != .accessoryRectangular && family != .systemSmall { continue }
                     if variant.hasPrefix("next-work") && family != .systemSmall { continue }
                     let date = variant == "year" ? formatter.date(from: "2026-12-31T03:00:00Z")! : (variant == "expired" ? formatter.date(from: "2026-12-10T03:00:00Z")! : now)
-                    let data: ShiftWidgetSnapshot? = variant == "logged-out" ? nil : (variant.hasPrefix("next-work") ? next_work : (variant == "year" ? .sample(now: date) : (variant.hasPrefix("long") ? long : (variant == "missing" ? snapshot([]) : (variant == "no-time" ? no_time : (variant == "uncached-next" ? snapshot(sample.shifts, end: "2026-11-22") : sample))))))
-                    let large = variant == "large" || variant == "long-large" || variant == "narrow-large" || variant == "next-work-large"
+                    var data: ShiftWidgetSnapshot? = variant == "logged-out" ? nil : (variant.hasPrefix("next-work") ? next_work : (variant == "year" ? .sample(now: date) : (variant.hasPrefix("long") ? long : (variant == "missing" ? snapshot([]) : (variant == "no-time" ? no_time : (variant == "uncached-next" ? snapshot(sample.shifts, end: "2026-11-22") : sample))))))
+                    if variant == "no-events" { data = snapshot(sample.shifts, counts: [:]) }
+                    if variant == "legacy" { data = snapshot(sample.shifts, legacy: true) }
+                    if variant.hasPrefix("many-events") {
+                        data = snapshot(sample.shifts, counts: Dictionary(uniqueKeysWithValues: sample.shifts.map { ($0.date, 123) }))
+                    }
+                    let large = variant.contains("large")
                     let dark = variant == "dark" || variant == "accented" || variant == "vibrant"
                     let mode: WidgetRenderingMode = variant == "accented" ? .accented : (variant == "vibrant" ? .vibrant : .fullColor)
-                    let size = variant.hasPrefix("narrow") ? CGSize(width: name == "small" ? 140 : (name == "medium" ? 300 : (name == "inline" ? 160 : (name == "rectangular" ? 150 : default_size.width))), height: name == "small" || name == "medium" ? 140 : (name == "rectangular" ? 64 : default_size.height)) : default_size
+                    let size = variant.contains("narrow") ? CGSize(width: name == "small" ? 140 : (name == "medium" ? 300 : (name == "inline" ? 160 : (name == "rectangular" ? 150 : default_size.width))), height: name == "small" || name == "medium" ? 140 : (name == "rectangular" ? 64 : default_size.height)) : default_size
                     let entry = ShiftEntry(date: date, snapshot: data, day: day)
                     let view = ShiftWidgetView(family: family, entry: entry)
                         .environment(\.colorScheme, dark ? .dark : .light)

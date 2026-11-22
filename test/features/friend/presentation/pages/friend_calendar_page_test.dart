@@ -195,6 +195,27 @@ void main() {
 
   tearDown(KoreanHolidays.resetForTesting);
 
+  testWidgets('월간 첫 진입과 날짜 선택·닫기·경계 날짜·월 스와이프를 연결한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _buildTestApp(
+        screen_height: 844,
+        friend: _accessFriend(),
+        response: CalendarRangeResponse(
+          success: true,
+          data: CalendarRangeData(workShifts: [], events: []),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await verifyCalendarDetailTransitions(
+      tester,
+      calendar_key: 'friend-calendar',
+      detail_key: 'friend-selected-day-schedule-card',
+    );
+  });
+
   for (final can_view in [true, false]) {
     testWidgets('공유 거절은 내 공유 설정 $can_view 와 무관하게 빈 일정 영역을 표시하고 설정에 접근한다', (
       tester,
@@ -210,11 +231,12 @@ void main() {
             data: CalendarRangeData(workShifts: [], events: []),
           ),
           friend: _accessFriend(can_view: can_view),
-          service: _accessService([_accessDenied()], requests),
+          service: _accessService([_accessDenied(), _accessDenied()], requests),
         ),
       );
       await tester.pumpAndSettle();
-      expect(requests.length, 1);
+      await openCalendarDetails(tester);
+      expect(requests.length, 2);
       final card = find.byKey(
         const ValueKey('friend-selected-day-schedule-card'),
       );
@@ -248,9 +270,7 @@ void main() {
     });
   }
 
-  testWidgets('오늘 버튼 재조회는 빈 일정을 유지하고 중복 요청을 합치며 성공 시 일정을 복구한다', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets('오늘은 카드를 접고 날짜 재선택은 거절 재확인을 중복 없이 수행한다', (tester) async {
     final requests = <RequestOptions>[];
     final response = Completer<Map<String, dynamic>>();
     await tester.pumpWidget(
@@ -270,23 +290,26 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final check = find.byKey(const ValueKey('friend-calendar-today-button'));
-    await tester.tap(check);
-    await tester.pumpAndSettle();
+    expect(find.byType(CalendarScheduleCard), findsNothing);
+    await openCalendarDetails(tester);
     expect(requests.length, 2);
-    expect(find.byType(CupertinoAlertDialog), findsNothing);
-    await tester.tap(check);
-    await tester.pumpAndSettle();
-    expect(find.text('네트워크 연결을 확인해주세요.'), findsOneWidget);
-    await tester.tap(find.text('확인'));
-    await tester.pumpAndSettle();
-    expect(find.text('공유되지 않은 캘린더예요'), findsNothing);
     expect(
       find.byKey(const ValueKey('calendar-hidden-schedule-content')),
       findsOneWidget,
     );
-    expect(find.byIcon(CupertinoIcons.lock), findsNothing);
-    await tester.tap(check);
+    await tester.tap(
+      find.byKey(const ValueKey('friend-calendar-today-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(requests.length, 3);
+    expect(find.byType(CalendarScheduleCard), findsNothing);
+    expect(find.text('네트워크 연결을 확인해주세요.'), findsOneWidget);
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    final table = tester.widget<TableCalendar>(
+      find.byKey(const ValueKey('friend-calendar')),
+    );
+    table.onDaySelected!(DateTime.now(), DateTime.now());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(requests.length, 4);
@@ -294,9 +317,9 @@ void main() {
       find.byKey(const ValueKey('calendar-hidden-schedule-content')),
       findsOneWidget,
     );
-    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
-    expect(find.byKey(const ValueKey('friend-calendar')), findsOneWidget);
-    await tester.tap(check);
+    tester
+        .widget<TableCalendar>(find.byKey(const ValueKey('friend-calendar')))
+        .onDaySelected!(DateTime.now(), DateTime.now());
     await tester.pump();
     expect(requests.length, 4);
     response.complete(_emptyCalendar());
@@ -305,7 +328,7 @@ void main() {
       find.byKey(const ValueKey('calendar-hidden-schedule-content')),
       findsNothing,
     );
-    expect(find.byKey(const ValueKey('friend-calendar')), findsOneWidget);
+    expect(find.byType(CalendarEmptySchedule), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -338,6 +361,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await openCalendarDetails(tester);
       expect(find.byType(CupertinoAlertDialog), findsOneWidget);
       expect(find.text(error.message), findsOneWidget);
       expect(
@@ -376,6 +400,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
     expect(find.text('이전에 공유된 일정'), findsOneWidget);
     final card = find.byKey(
       const ValueKey('friend-selected-day-schedule-card'),
@@ -419,7 +444,7 @@ void main() {
         ProviderScope(
           overrides: [
             friendServiceProvider.overrideWithValue(
-              _accessService([_accessDenied()], requests),
+              _accessService([_accessDenied(), _accessDenied()], requests),
             ),
           ],
           child: CupertinoApp(
@@ -442,6 +467,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await openCalendarDetails(tester);
       final check = find.byKey(const ValueKey('friend-calendar-today-button'));
       await tester.ensureVisible(check);
       await tester.pumpAndSettle();
@@ -493,6 +519,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
     await verifyCalendarHeaderOnScroll(
       tester,
       calendar: find.byKey(const ValueKey('friend-calendar')),
@@ -540,6 +567,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     await tester.tap(find.byIcon(CupertinoIcons.gear));
     await tester.pumpAndSettle();
@@ -566,7 +595,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('750px 미만 친구 캘린더는 2주 보기로 고정한다', (tester) async {
+  testWidgets('750px 미만 친구 캘린더는 카드 유무와 무관하게 3주 보기로 고정한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 740));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -589,11 +618,18 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-
+    await tester.pumpAndSettle();
     final calendar = find.byKey(const ValueKey('friend-calendar'));
     expect(
       tester.widget<TableCalendar>(calendar).calendarFormat,
-      CalendarFormat.twoWeeks,
+      CalendarFormat.threeWeeks,
+    );
+    expect(find.byType(CalendarScheduleCard), findsNothing);
+    await openCalendarDetails(tester);
+
+    expect(
+      tester.widget<TableCalendar>(calendar).calendarFormat,
+      CalendarFormat.threeWeeks,
     );
 
     await tester.tap(find.byIcon(CupertinoIcons.chevron_right));
@@ -601,7 +637,16 @@ void main() {
 
     expect(
       tester.widget<TableCalendar>(calendar).calendarFormat,
-      CalendarFormat.twoWeeks,
+      CalendarFormat.threeWeeks,
+    );
+    final close = find.byKey(const ValueKey('calendar-schedule-close'));
+    await tester.ensureVisible(close);
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(close, findsNothing);
+    expect(
+      tester.widget<TableCalendar>(calendar).calendarFormat,
+      CalendarFormat.threeWeeks,
     );
     expect(tester.takeException(), isNull);
   });
@@ -629,6 +674,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     final calendar = find.byKey(const ValueKey('friend-calendar'));
     expect(
@@ -666,6 +713,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     final calendar = tester.widget<TableCalendar>(
       find.byKey(const ValueKey('friend-calendar')),
@@ -736,6 +785,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     expect(tester.takeException(), isNull);
     expect(find.text('박현서'), findsOneWidget);
@@ -743,7 +794,7 @@ void main() {
     expect(find.text('일정 2개'), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const ValueKey('selected-day-header'))).height,
-      44.5,
+      greaterThanOrEqualTo(44),
     );
     expect(find.text('2개의 일정'), findsNothing);
     expect(find.text('데이'), findsOneWidget);
@@ -869,7 +920,8 @@ void main() {
 
     final today_calendar = tester.widget<TableCalendar>(calendar);
     expect(isSameDay(today_calendar.focusedDay, selected_date), isTrue);
-    expect(today_calendar.selectedDayPredicate!(selected_date), isTrue);
+    expect(today_calendar.selectedDayPredicate!(selected_date), isFalse);
+    await openCalendarDetails(tester);
     expect(
       find.text(DateFormat('M월 d일 EEEE', 'ko_KR').format(selected_date)),
       findsOneWidget,

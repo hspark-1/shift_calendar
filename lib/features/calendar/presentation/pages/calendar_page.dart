@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:intl/intl.dart';
@@ -39,25 +40,24 @@ class CalendarPage extends ConsumerStatefulWidget {
   const CalendarPage({super.key});
 
   @override
-  ConsumerState<CalendarPage> createState() => _CalendarPageState();
+  ConsumerState<CalendarPage> createState() => CalendarPageState();
 }
 
-class _CalendarPageState extends ConsumerState<CalendarPage>
+class CalendarPageState extends ConsumerState<CalendarPage>
     with WidgetsBindingObserver {
   static final _viewport_controller = const CalendarViewportController();
 
   CalendarFormat _calendar_format = CalendarFormat.month;
   DateTime _focused_day = DateTime.now();
   DateTime? _selected_day;
+  int _overview_focus_revision = 0;
 
   // 근무 추가 모드 상태
   bool _is_shift_add_mode = false;
 
-  // 확장 보기 모드 (날짜 밑에 근무 코드 표시)
-  bool _is_expanded_view = true;
+  DateTime? _detail_day_before_shift;
 
-  // 포인터 시작 위치 (Listener용)
-  double? _pointer_start_y;
+  bool get _is_month_overview => !_is_shift_add_mode && _selected_day == null;
 
   // 임시 스케줄 데이터 (하루에 하나의 근무만 저장)
   final Map<DateTime, String?> _schedules = {};
@@ -85,21 +85,19 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       CalendarLayoutPolicy.visibleFormat(
         screen_height: MediaQuery.sizeOf(context).height,
         preferred_format: _calendar_format,
+        is_month_overview: _is_month_overview,
       );
 
   // 확장 모드 시 행 높이
   double get _calendarRowHeight => CalendarLayoutPolicy.rowHeight(
     screen_height: MediaQuery.sizeOf(context).height,
-    layout_mode: _is_expanded_view
-        ? CalendarCellLayoutMode.detailed
-        : CalendarCellLayoutMode.compact,
+    layout_mode: CalendarCellLayoutMode.detailed,
   );
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _selected_day = _focused_day;
     // 초기 데이터 로딩
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCalendarData(_focused_day);
@@ -338,6 +336,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       if (mounted) {
         setState(() {
           _focused_day = newFocusedDay;
+          if (_is_shift_add_mode) _selected_day = newFocusedDay;
         });
         // 월 변경 시 데이터 로딩
         _loadCalendarData(newFocusedDay);
@@ -355,6 +354,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       if (mounted) {
         setState(() {
           _focused_day = newFocusedDay;
+          if (_is_shift_add_mode) _selected_day = newFocusedDay;
         });
         // 월 변경 시 데이터 로딩
         _loadCalendarData(newFocusedDay);
@@ -377,6 +377,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
     setState(() {
       _focused_day = selected_date;
+      _selected_day = _is_shift_add_mode ? selected_date : null;
     });
     _loadCalendarData(selected_date);
     _loadHolidays(selected_date.year, month: selected_date.month);
@@ -523,6 +524,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         _deleting_event_ids.clear();
         _deleting_work_shift_ids.clear();
         _schedules.clear();
+        _selected_day = null;
+        _detail_day_before_shift = null;
+        _restoreDetailAfterShift();
+        _initial_schedules = null;
       });
     });
     ref.listen<CalendarRangeState>(
@@ -565,7 +570,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
                 CalendarPageBody(
                   key_prefix: 'main-calendar',
                   calendar: _buildCalendarViewport(),
-                  schedule: _buildSelectedDayInfo(),
+                  schedule: _is_month_overview ? null : _buildSelectedDayInfo(),
                 ),
                 if (_pendingDeletionCount > 0 &&
                     _hidden_delete_toast_revision != delete_toast_revision)
@@ -594,11 +599,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
   }
 
-  void _goToToday() {
+  /// 헤더와 현재 하단 탭 재선택이 공유하는 오늘 이동 액션.
+  void goToToday() {
     final today = _normalizeDate(DateTime.now());
     setState(() {
       _focused_day = today;
-      _selected_day = today;
+      _overview_focus_revision++;
+      _selected_day = _is_shift_add_mode ? today : null;
     });
     _loadCalendarData(today);
     _loadHolidays(today.year, month: today.month);
@@ -612,7 +619,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       onPreviousMonth: _goToPreviousMonth,
       onNextMonth: _goToNextMonth,
       onSelectYearMonth: _showYearMonthPicker,
-      onToday: _goToToday,
+      onToday: goToToday,
       trailing: CupertinoButton(
         minimumSize: const Size(44, 44),
         padding: EdgeInsets.zero,
@@ -639,46 +646,32 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           ),
         ),
       ),
-      grid_wrapper: (child) => Listener(
-        onPointerDown: _onPointerDown,
-        onPointerMove: _onPointerMove,
-        onPointerUp: _onPointerUp,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          child: child,
-        ),
-      ),
+      is_month_overview: _is_month_overview,
       month_view: CalendarMonthView<dynamic>(
+        focus_revision: _overview_focus_revision,
         calendar_key: const ValueKey('main-calendar'),
         focused_day: _focused_day,
         selected_day: _selected_day,
         calendar_format: _visibleCalendarFormat,
         row_height: _calendarRowHeight,
-        cell_layout: _is_expanded_view
-            ? CalendarCellLayout.badge
-            : CalendarCellLayout.compact,
+        cell_layout: CalendarCellLayout.badge,
+        is_month_overview: _is_month_overview,
         day_presentation_builder: _getDayPresentation,
         holiday_predicate: _isHoliday,
         available_calendar_formats: const {
           CalendarFormat.month: '월',
+          CalendarFormat.threeWeeks: '3주',
           CalendarFormat.twoWeeks: '2주',
           CalendarFormat.week: '주',
         },
         onDaySelected: (selected_day, focused_day) {
+          final day = _normalizeDate(selected_day);
           setState(() {
-            _selected_day = selected_day;
-            if (focused_day.month != _focused_day.month ||
-                focused_day.year != _focused_day.year) {
-              SchedulerBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() => _focused_day = focused_day);
-                  _loadCalendarData(focused_day);
-                  _loadHolidays(focused_day.year, month: focused_day.month);
-                }
-              });
-            }
+            _selected_day = day;
+            _focused_day = day;
           });
+          _loadCalendarData(day);
+          _loadHolidays(day.year, month: day.month);
         },
         onFormatChanged: _isShortScreen
             ? null
@@ -690,7 +683,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         onPageChanged: (focused_day) {
           SchedulerBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              setState(() => _focused_day = focused_day);
+              setState(() {
+                _focused_day = focused_day;
+                if (_is_shift_add_mode) _selected_day = focused_day;
+              });
               _loadCalendarData(focused_day);
               _loadHolidays(focused_day.year, month: focused_day.month);
             }
@@ -710,6 +706,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     setState(() {
       // 초기 상태 저장 (깊은 복사)
       _initial_schedules = Map.from(_schedules);
+      _detail_day_before_shift = _selected_day;
+      final today = _normalizeDate(DateTime.now());
+      _selected_day ??=
+          _focused_day.year == today.year && _focused_day.month == today.month
+          ? today
+          : _normalizeDate(_focused_day);
+      _focused_day = _selected_day!;
       _is_shift_add_mode = true;
     });
   }
@@ -825,7 +828,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     if (workShifts.isEmpty) {
       // 저장할 근무가 없으면 모드만 종료
       setState(() {
-        _is_shift_add_mode = false;
+        _restoreDetailAfterShift();
         _initial_schedules = null;
       });
       return;
@@ -851,7 +854,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         Navigator.of(context, rootNavigator: true).pop(); // 로딩 다이얼로그 닫기
 
         setState(() {
-          _is_shift_add_mode = false;
+          _restoreDetailAfterShift();
           _initial_schedules = null;
           for (final workShift in response.data.workShifts) {
             final normalizedDate = _normalizeDate(workShift.workDate);
@@ -894,7 +897,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         _schedules.clear();
         _schedules.addAll(_initial_schedules!);
       }
-      _is_shift_add_mode = false;
+      _restoreDetailAfterShift();
       _initial_schedules = null;
     });
   }
@@ -1101,14 +1104,42 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         : (work_shift == null ? null : _getWorkShiftColor(work_shift));
     final indicator = badge_text == null || badge_color == null
         ? null
-        : _is_expanded_view
-        ? CalendarBadgeIndicator(text: badge_text, color: badge_color)
-        : CalendarDotsIndicator(colors: [badge_color], dot_size: 8);
+        : CalendarBadgeIndicator(text: badge_text, color: badge_color);
+    final events = _visibleEventsFor(date);
     return CalendarDayPresentation(
       date_color: _getCalendarDateColor(date),
       indicator: indicator,
+      events: [
+        for (final event in events)
+          CalendarEventPresentation(
+            id: event.eventId,
+            title: event.title,
+            start_at: event.startAt,
+            end_at: event.endAt,
+            color: AppTheme.primary_color,
+          ),
+      ],
     );
   }
+
+  List<EventApiModel> _visibleEventsFor(DateTime day) => ref
+      .read(calendarRangeProvider)
+      .eventsFor(day)
+      .where(
+        (event) =>
+            !_pending_event_deletions.containsKey(event.eventId) &&
+            !_deleting_event_ids.contains(event.eventId),
+      )
+      .toList(growable: false);
+
+  void _restoreDetailAfterShift() {
+    _is_shift_add_mode = false;
+    _selected_day = _detail_day_before_shift;
+    if (_selected_day != null) _focused_day = _selected_day!;
+    _detail_day_before_shift = null;
+  }
+
+  void _closeDetail() => setState(() => _selected_day = null);
 
   Color _getCalendarDateColor(DateTime date) {
     if (_isHoliday(date) || date.weekday == DateTime.sunday) {
@@ -1118,42 +1149,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       return AppTheme.primary_color;
     }
     return AppTheme.on_surface_color;
-  }
-
-  /// 포인터 다운 이벤트 처리
-  void _onPointerDown(PointerDownEvent event) {
-    _pointer_start_y = event.position.dy;
-  }
-
-  /// 포인터 이동 이벤트 처리 (확장/축소 모드 전환)
-  void _onPointerMove(PointerMoveEvent event) {
-    if (_pointer_start_y == null || _is_shift_add_mode) return;
-
-    final currentY = event.position.dy;
-    final deltaY = currentY - _pointer_start_y!;
-
-    // 임계값 (50픽셀 이상 드래그 시 모드 전환)
-    const threshold = 50.0;
-
-    if (deltaY > threshold && !_is_expanded_view) {
-      // 아래로 드래그 - 확장 모드 활성화
-      setState(() {
-        _is_expanded_view = true;
-        _calendar_format = CalendarFormat.month; // 확장 모드는 항상 월 보기
-      });
-      _pointer_start_y = currentY; // 시작점 리셋
-    } else if (deltaY < -threshold && _is_expanded_view) {
-      // 위로 드래그 - 확장 모드 비활성화
-      setState(() {
-        _is_expanded_view = false;
-      });
-      _pointer_start_y = currentY; // 시작점 리셋
-    }
-  }
-
-  /// 포인터 업 이벤트 처리
-  void _onPointerUp(PointerUpEvent event) {
-    _pointer_start_y = null;
   }
 
   /// 선택된 날짜 정보 위젯 (스케줄 화면 + 근무 설정 overlay)
@@ -1166,7 +1161,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     return _buildShiftAddOverlay();
   }
 
-  /// 스케줄 카드 (항상 표시되는 일정 목록)
+  /// 선택된 날짜의 일정 목록.
   Widget _buildScheduleCard() {
     final selectedDate = _selected_day ?? DateTime.now();
     final normalizedDate = _normalizeDate(selectedDate);
@@ -1175,18 +1170,20 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         ? KoreanHolidays.getHolidayName(selectedDate) ?? '공휴일'
         : null;
 
-    final dayEvents = ref
-        .read(calendarRangeProvider)
-        .eventsFor(normalizedDate)
-        .where(
-          (event) =>
-              !_pending_event_deletions.containsKey(event.eventId) &&
-              !_deleting_event_ids.contains(event.eventId),
-        )
-        .toList(growable: false);
+    final dayEvents = _visibleEventsFor(normalizedDate);
+    final range = ref.read(calendarRangeProvider);
+    final is_loaded = range.loaded_months.contains(
+      calendarMonthKey(selectedDate),
+    );
 
     return CalendarScheduleCard(
       key: const ValueKey('calendar-schedule-card'),
+      onClose: _closeDetail,
+      is_loading: !is_loaded && range.last_error == null,
+      load_error: !is_loaded && range.last_error != null
+          ? '일정을 불러오지 못했습니다.'
+          : null,
+      onRetry: () => _loadCalendarData(selectedDate),
       selected_date: selectedDate,
       work_shift: workShift,
       events: dayEvents,
@@ -1223,10 +1220,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
               color: AppTheme.primary_color,
             ),
             const SizedBox(width: AppTheme.spacing_sm),
-            Text(
-              '일정 추가하기...',
-              style: AppTheme.body_medium.copyWith(
-                color: AppTheme.primary_color,
+            Flexible(
+              child: Text(
+                '일정 추가하기...',
+                style: AppTheme.body_medium.copyWith(
+                  color: AppTheme.primary_color,
+                ),
               ),
             ),
           ],
@@ -1490,6 +1489,7 @@ class _RoundedDeleteDismissibleState extends State<_RoundedDeleteDismissible> {
 
         return Dismissible(
           key: widget.dismissible_key,
+          dragStartBehavior: DragStartBehavior.down,
           direction: DismissDirection.endToStart,
           onUpdate: _handleDismissUpdate,
           background: Align(

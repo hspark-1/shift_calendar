@@ -1,5 +1,100 @@
 # 작업 로그
 
+## 2026-11-22 누적 작업 커밋·푸시 및 1.1.0 심사 준비
+
+- [TODO] (FE/릴리스) 누적 캘린더·위젯 변경을 정리해 커밋/푸시하고1.1.0 제출용 서명 빌드와 심사 자료를 준비한다.
+  - 목적/범위: 월간/작은 화면3주·연속/복수 일정·개인 일정 기간/그룹 제목·상세 유지/드래그·캘린더 탭 오늘·위젯 일정 집계를 버전 관리한다. 기존 배포 파일/서명을 보존하고 새1.1.0을 준비한다.
+  - 계획: 현재 diff/문서·검증 결과/비밀 파일 제외 확인 → 기능 커밋·develop 원격 동기화/푸시 → 버전/다음 빌드 번호 설정 → 기존 산출물 보존 → 운영 define의 App Store IPA/Archive와 확장 서명·권한/버전·실행 설정 검증 → 변경사항/심사 자료·결과 문서 및 릴리스 커밋/푸시.
+  - 테스트: 최신 전체 Flutter710 pass/기존 skip1 근거를 재사용하며 추가 정적 분석/커밋 검사·실제 배포 빌드를 수행한다. 단순 버전 변경으로 API 호환 번호1은 올리지 않는다.
+  - 롤백: 새 릴리스/기능 커밋을 역순 revert하고 이전1.0.0(6) 보존본을 사용한다. 업로드/처리·최종 심사 요청은 관찰한 실제 단계만 기록한다.
+
+## 2026-11-22 작은 화면 3주 보기
+
+- [DONE] (FE/UI) 기존750px 미만의2주 보기를3주로 변경했다.
+  - 목적/범위: 카드 닫힘/열림·근무 입력과 내·친구·그룹/미리보기에 같은3주 기준을 적용한다.750px 이상은 기존 월간 정책을 유지한다.
+  - 변경/Behavior change: 설치된 table_calendar3.2.0의 기본 포맷이 month/twoWeeks/week뿐임을 소스로 확인했다. 동일 버전의 라이선스/소스·README를 로컬 경로 의존성으로 보존하고 threeWeeks의21일 범위·3행·페이지 계산을 추가했다. 앱 공용 정책/포맷 목록·overview 높이와 실제 주 인덱스·회귀/렌더를 맞췄다. 기존52px 상세 행/카드 최소 공간과 부족한 높이의 달력 세로 스크롤을 유지한다.
+  - 패키지 범위/유지보수: 원본14 Dart 중 enum/utils·CalendarCore·TableCalendarBase·기본 포맷 TableCalendar의4파일만 변경했으며 원저자/Apache-2.0 LICENSE·수정 고지를 보존했다.10개 Dart는 원본과 byte 일치함을 비교했다. pubspec의 폐기된 author 필드만 제거해 분석 경고를 해소했다. 앱 pubspec/lock의 table_calendar1개만 path로 바뀌었고 버전/다른 의존성은 유지했다. `flutter pub get --offline` 성공이며 pub cache는 수정하지 않았다. 새 로컬 파일/테스트의 역할/의존성/사용 예는 PROJECT_CONTEXT·SHIFTMATE_CHANGES에 기록했다.
+  - 테스트: 전체 Flutter **710 pass/기존 skip1/fail0**. 새 실제 패키지 회귀8 pass는21일/3행과 날짜 연속성·월간35/2주14/1주7의 보존·연도 경계에서21일 전후 스와이프·마지막 행 선택/유지·범위 시작/끝을 검증한다. 기존4화면/탭 관련120 pass도 통과했고749/750·실제 크기 변경·카드 유무/오늘/좌우 이동·마지막 토요일 근무 입력 후 다음 날짜 자동 이동·권한/캐시·삭제 유예/계정/위젯/인증 등 전체 회귀를 확인했다.
+  - 정적/렌더: 앱 변경11 Dart와 로컬 패키지 전체 analyze 진단0·최종 포맷 일치/공백 검사. 실제 MainTabPage 렌더1 pass/7조건 예외0·19PNG/measurements.json을 재생성했다. 작은 화면 overview_format은threeWeeks, 큰 화면4/5/6주는month다.320×568의 닫힘 행87.67px와21개 날짜/3행·막대를 직접 이미지로 확인했고 상세의 기존 세로 스크롤·최소 카드 공간도 확인했다. 새3주 포맷의 공용 정책과 고정 주 페이지의 기준 주 노출 계산을 ADR-0111/PROJECT_CONTEXT에 기록했다.
+  - 로그/한계: /private/tmp/shiftmate-three-weeks-all-tests.log, three-weeks-tests.log, three-weeks-package-tests.log, three-weeks-analyze.log, three-weeks-render.log, three-weeks-pub-get.log에 결과를 보존했다(공통 접두사 shiftmate-). 실기기/운영 빌드·배포 인수는 수행하지 않았다. 기존 캘린더/위젯 미커밋 변경은 보존했다.
+  - 롤백: 로컬 패키지 경로와3주 추가·앱 정책/기대값/렌더/문서만 복원하고 pub get으로 기존 hosted3.2.0을 복구한다. 기존 미커밋 작업은 보존한다.
+
+## 2026-11-22 작은 화면의 카드 닫힘도 2주 표시
+
+- [DONE] (FE/UI) 화면 높이750px 미만은 일정 카드 유무와 무관하게2주 보기로 맞췄다.
+  - 목적/범위: 기존 상세/근무 입력의 높이 기준을 카드 없는 내·친구·그룹/미리보기에도 적용한다.750px 이상은 기존 전체 월간을 유지한다.
+  - 변경: 공용 포맷 정책과 overview의 표시 주 수별 행 높이·기준 주 스크롤 계산을 조정한다. 닫힘의 남은 공간은 표시되는 두 주에 배분해 일정 막대 공간을 유지한다.
+  - 구현/Behavior change: visibleFormat에서 기존750px 미만 검사를 닫힘 월간보다 우선한다. _CalendarOverview에 포맷을 전달해 남은 높이를2행/월4~6행에 배분하고2주 페이지에는 월간 기준 주 offset을 적용하지 않는다. 카드 없는 확장 셀/복수·연속 일정 막대, 최소 행/큰 글자 보호와 낮은 높이의 세로 스크롤은 유지한다.
+  - 테스트: 관련 모델/내·친구·그룹/미리보기·탭 탐색 **120 pass/fail0**.749/750 경계와568px로의 실제 view 크기 변경을 일반/동작 줄이기에서 검증하고 첫 진입/선택/닫기 후2주·월 이동을 확인했다. 친구740px 카드 전후·그룹/미리보기7화면 조건의 첫 진입/오늘/닫기와 기존 CRUD/근무 입력·탭 오늘 회귀도 통과했다. 변경8 Dart 정적 진단0·최종 포맷/공백 검사를 수행했다.
+  - 렌더/문서: 기존 실제 MainTabPage 렌더1 pass/7조건 예외0,19PNG/measurements.json을 갱신하고320×568 및 가로의2주 표시를 직접 확인했다. JSON의 overview_format은 small/phone375/landscape/large_text가twoWeeks, 나머지 일반4/5/6주가month다. 작은320×568의 닫힘 행은131.5px/열림52px다. 기존 *_month.png 이름은 카드 없는 overview 캡처를 뜻한다. PROJECT_CONTEXT·ADR-0110에 최신 정책/흐름·역할/사용 예·롤백을 기록했다.
+  - 조사/로그/한계: debug-live에서 기존 첫 진입 fixture가 surface844여도 실제 MediaQuery 높이는600임을 확인해 의도한844px을 명시했다. 크기 변경 회귀는 tester.view의 실제 크기도 함께 바꾸도록 맞췄다. 제품 임시 로그 없이 중단점/세션을 정리했다. 로그는 /private/tmp/shiftmate-short-overview-tests.log, shiftmate-short-overview-analyze.log, shiftmate-short-overview-render.log다. 실기기 인수는 수행하지 않았고 기존 미커밋 캘린더·위젯 변경을 보존했다.
+  - 롤백: 이번 포맷 우선순위/overview 계산·관련 기대값/렌더/문서 추가분만 복원한다. 기존 미커밋 작업은 보존한다.
+
+## 2026-11-22 개인 일정 카드에 기간 표시
+
+- [DONE] (FE/UI) 개인 일정 카드의 시작일과 종료일이 다르면 간단한 날짜 범위를 추가했다.
+  - 목적/범위: 공용 CalendarEventItem을 쓰는 내/친구 일정 카드에 제목 아래 날짜 범위를 표시한다. 근무 행과 같은 날짜의 기존 시간·장소/메모는 유지한다.
+  - 변경: 시간 일정은 실제 시작/종료 날짜, 종일 일정은 exclusive 종료를 표시용 포함 종료일로 바꿔 비교한다. 같은 연도는 M.d, 연도를 넘으면 양쪽 yyyy.M.d를 사용한다.
+  - 구현/Behavior change: CalendarEventItem._dateRangeLabel과 제목 아래 선택 Text를 추가했다. 기본 예시는11.25 ~ 11.27이며 같은 날짜는 숨긴다. 시간 일정의 자정 종료는 실제 다음 날짜를, 종일은 포함 마지막 날짜를 보여준다. 기존 글자/색상 토큰과 자연스러운 줄바꿈을 사용한다.
+  - 테스트: 공용 카드/헤더·드래그·친구 캘린더 회귀 **67 pass/fail0**. 새14조건은 동일 날짜/여러 날·시간 자정 종료·종일 하루/3일·월/연도 경계7개×글자1/3.2배다.320px 실제 위젯에서 날짜/시간의 글리프 비잘림과 제목 아래 순서, 장소/메모 보존·framework 예외 없음을 확인했다. 변경2 Dart analyze 진단0·포맷 변경0·git diff --check 통과. 로그는 /private/tmp/shiftmate-event-period-tests.log와 shiftmate-event-period-analyze.log다.
+  - 렌더/문서: 기존 캡처 도우미와 번들 폰트로 날짜 조건별 PNG를 /private/tmp/shiftmate-event-period-render에 만들고 기본 다일 카드 및 큰 글자/연도 경계를 직접 확인했다. 기본 다일 카드의 흰 배경 검토 사본 artifacts/calendar_overview_2026-11-22/event_period.png를 추가했다. 기존 UI/근무·API/DB·권한/편집/삭제 유예를 보존하며 PROJECT_CONTEXT·ADR-0109에 역할/의존성/사용 예·날짜 정책/롤백을 기록했다. 실기기 인수는 수행하지 않았다.
+  - 롤백: 이번 CalendarEventItem 기간 표시와 관련 검증/문서 추가분만 복원하고 기존 미커밋 작업은 보존한다.
+
+## 2026-11-22 위젯의 개인 일정 유무 표시
+
+- [DONE] (FE/iOS 위젯) 기존 근무 위젯에 본인 개인 일정 유무·건수를 추가했다.
+  - 목적/범위: 소형은 대상일 일정 건수, 중형2주는 날짜별 점, 잠금은 공간에 맞는 건수/유무를 표시한다. 제목·메모·장소는 공유하지 않는다.
+  - 변경: 기존 range 응답의 events를 사용자 시간대/종료 exclusive 기준으로 날짜별 집계하고 App Group의 선택 필드로 전달한다. 확정된 일정 생성/수정/삭제 성공 후 기존 동기화를 호출한다.
+  - 구현/Behavior change: 소형 근무명 아래 건수, 중형 코드 아래 점/범례, 잠금 원형 점·직사각형 요약행 건수·한 줄의 건수로 표시한다.0건/구 캐시의 미확인/범위 밖은 숨기고99초과는99+/VoiceOver 실제 건수다. iOS16+ 소형의 좁은 폭/큰 글자는 필요 높이를 측정해 코드/건수·한 줄 시간으로 축약한다. 기존 kind/family·앱 열기/자정·세션/오프라인·개인 일정 삭제 유예는 유지한다.
+  - 테스트: 위젯·일정 서비스/캘린더 페이지·인증 정리 관련 Flutter **113 pass/fail0**, 변경5 Dart 포맷 일치/정적 진단0·diff 검사 통과. 날짜별 집계는25~27 연속·겹침/중복 ID·exclusive 자정·범위 밖/무효 기간·23/25시간 DST·민감 필드 미공유를 검증한다. 실제 iOS provider+모의 Dio/MethodChannel로 loader의 일정 포함·CRUD 성공/비공개 응답 미확정/서버 실패·빈 응답/로그아웃 정리를 확인했다. 서비스 provider 해제 후 늦은 일정 성공이 해제된 ref로 갱신하지 않으며 기존 계정 전환/늦은 응답·직렬 write/오프라인 회귀도 통과했다.
+  - native/시각 검증: Dart fixture→Swift 계약/타임라인 **66 checks**, 실제 SwiftUI174PNG/렌더 XCTest1 pass, Debug arm64 simulator unsigned extension **BUILD SUCCEEDED**. 구 캐시 근무 보존/일정 미확인·0건·일정 있는 근무 미등록·잘못된 집계 거절/만료·큰 건수/VoiceOver 문구를 검사했다. 140pt+큰 글자의 잘림을 실제 렌더로 발견해 축약 배치를 추가한 뒤 일반/좁은 폭·긴 코드/큰 글자·다크/단색 분기 이미지를 확인했다. 새 compose_events.swift로 검토판2개를 만들고 직접 확인했다.
+  - 조사/문서: 초기 CalendarService provider↔coordinator 순환을 실제 provider 회귀에서 확인해 조회 전용 서비스가 동일 dioProvider만 공유하도록 분리했다. 변경된 loader 계약의 인증 fixture도 갱신했다. PROJECT_CONTEXT·ADR-0108·IOS_WIDGET_GUIDE에 최소 집계 공유/구 캐시 호환·파일 역할/사용 예·롤백을 기록했다. 기존 캘린더 미커밋 작업은 보존했다.
+  - 로그/한계: /private/tmp/shiftmate-widget-events-final-tests.log, shiftmate-widget-events-analyze.log, shiftmate-widget-events-build.log와 shiftmate-widget-events-render/render.log에 보존했다. 상세 명령은 IOS_WIDGET_GUIDE를 따른다. 실제 WidgetKit 합성/단색 재착색·VoiceOver/잠금 가림·구 iOS 실행/실기기·서명/배포 인수는 수행하지 않았다. SDK 캐시/Simulator 접근 검사만 승인된 권한 확장을 사용했다.
+  - 롤백: 이번 위젯 일정 필드/표시·일정 서비스 콜백·검증/문서 추가분만 복원한다. 선택 JSON 필드는 구 extension이 무시하며 구 캐시는 일정 미확인으로 처리한다.
+
+## 2026-11-22 그룹 일정 막대의 이름 접두사 제거
+
+- [DONE] (FE/UI) 실제 그룹과 미리보기의 일정 막대에 제목만 표시했다.
+  - 목적/변경: 좁은 날짜 칸에서 제목이 더 잘 보이도록 `이름 · ` 접두사를 제거한다. 기존 공개 범위/기간 연결/일정 식별·구성원별 상세는 보존한다.
+  - 영향: 두 페이지의 표시 변환, 기존 관련 회귀·렌더 기대값/검토 이미지와 문서. 새 파일/API/DB·의존성은 없다.
+  - 테스트: 기존 그룹/미리보기 회귀·실제 Flutter 렌더 **21 pass/fail0**, 변경5 Dart 파일 analyze 진단0·포맷 변경0·공백 검사 통과. 공개 일정의 제목 표시/이름 접두사 미노출·DENIED 미노출을 확인하고 기존19PNG/JSON을 재생성했다. group_month.png에서 제목만 표시됨을 직접 확인했다. 로그는 /private/tmp/shiftmate-group-title-only-tests.log 및 shiftmate-group-title-only-analyze.log다.
+  - 문서: PROJECT_CONTEXT와 ADR-0106의 후속 표시 정책을 최신화했다. 기존 미커밋 캘린더/탭 변경을 보존했으며 실기기 인수는 수행하지 않았다.
+  - 롤백: 이번 제목 표시/기대값·검토 이미지·문서 추가분만 복원한다.
+
+## 2026-11-22 캘린더 탭 재선택 시 오늘 이동
+
+- [DONE] (FE/탐색) 캘린더 홈에서 하단 캘린더 탭을 다시 누르면 기존 오늘 액션을 실행한다.
+  - 목적/범위: 다른 달을 보다가 하단 탭 재선택으로 오늘 날짜가 있는 월/위치로 돌아간다. 다른 탭에서 돌아올 때의 상태 보존과 친구/알림 재선택 정책은 유지한다.
+  - 변경: MainTabPage의 캘린더 페이지 key와 기존 오늘 메서드 연결·탐색 회귀/문서. 별도 route/provider/API/DB·패키지는 추가하지 않는다.
+  - 테스트: `flutter test --no-pub test/core/navigation/main_tab_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded` **25 pass/fail0**. 기존 탭 복귀/오늘 테스트를 새 정책으로 갱신하고320/390px·동작 줄이기의 연속 탭/오늘 셀 접근/한 개 페이지 유지와 근무 입력 보존3건을 추가했다. 기존 친구/그룹·알림 목적지/로그인 게이트/하단 전환 회귀도 통과했다. 변경3 Dart 파일 analyze 진단0·포맷 변경0·공백 검사 통과. 로그는 /private/tmp/shiftmate-calendar-tab-today-tests.log 및 shiftmate-calendar-tab-today-analyze.log다.
+  - 문서/영향: PROJECT_CONTEXT·ADR-0107에 최신 동작과 기존 ADR-0067의 캘린더 재선택 예외·GlobalKey/공개 state·공통 액션 역할/사용 예·롤백을 기록했다. 신규 파일/데이터·패키지는 없고 기존 미커밋 월간/막대·카드 변경을 보존했다. 실기기 인수는 수행하지 않았다.
+  - 롤백: 이번 탭 연결/관련 회귀·문서 추가분만 복원하고 기존 미커밋 캘린더 작업을 보존한다.
+
+## 2026-11-22 연속 일정 막대·복수 일정·상세 유지와 카드 드래그
+
+- [DONE] (FE/UI) 사용자 후속5항목을 내·친구·그룹·미리보기에 반영했다.
+  - 목적/범위: 연속 일정을 주 단위 연결 막대로 표시하고 셀 높이에 들어가는 여러 일정을 제공한다. 달력 좌우 탐색 중 선택일 카드를 유지하고 아래 스와이프 닫기를 추가한다. 그룹 그리드에도 공개된 개인 일정을 표시한다.
+  - 변경: 공용 일정 표시 모델/셀 배치·카드 제스처와4페이지 UI 상태/변환부·관련 회귀/렌더. 기존 DTO/API·권한/타임존·삭제 유예와 편집을 보존한다.
+  - 구현/Behavior change: 단일 event_preview를 기간/시작시각/제목/색상의 events 목록으로 바꾸고 실제 일별 결과를 주 단위로 연결한다.25~27일은 한 막대/제목이며 겹침 줄을 배정하고 실제 행/글자 크기까지 표시한다. 그룹은 구성원 이름·그룹 timezone을 적용하고 DENIED/미상 구성원을 그리드에서 제외한다. 좌우 버튼/스와이프는 선택일/상세를 보존한다. 공용 카드 wrapper가 헤더/빈 표면과 목록 최상단의 아래 드래그를 받아240ms easeOutCubic 닫기·짧은 복귀·동작 줄이기를 제공한다. 가로 삭제의 첫 이동량은 DragStartBehavior.down으로 유지한다.
+  - 테스트: 전체 Flutter **677 pass / 기존 skip1 / fail0**. 최종 막대/제스처·그룹/미리보기30 pass. 신규2파일은 exclusive 자정/시간 종료·25~27 단일 구간·겹침/줄 재사용·주/월 경계·누락 날짜 비연결·세 칸 막대/해당 날짜 탭·복수 표시·글자3.2배·짧은 복귀·드래그 중간/끝·동작 줄이기·목록 스크롤을 검증한다.4화면 공통 회귀는 버튼/실제 가로 스와이프로 선택일이 화면 밖에 있어도 카드 날짜가 유지됨을 검증한다. 그룹은 Seoul 날짜·공개 이름/제목 및 DENIED 제목 미노출을 확인한다. 기존 CRUD·삭제 유예/되돌리기·근무 입력·인증/탭 회귀도 통과했다.
+  - 렌더/시각 확인: 기존 모의 API 렌더러에 복수/연속/주·월 경계 데이터와 그룹 저장소·친구 탭 내부 route를 추가했다.7조건의 기존14PNG를 갱신하고 다른 달 상세 유지·내 카드 드래그·그룹 월간/상세/드래그 PNG5개를 추가해 **19PNG/JSON·렌더1 pass·예외0**이다. 실제 연결 막대의 너비/제목1회, 줄 수, 카드 유지/내려가는 모습과 그룹 이름 표시를 직접 이미지로 확인했다. 새2개 테스트/PNG의 역할·의존성·사용 예·명령은 PROJECT_CONTEXT의 ADR-0106 절을 따른다.
+  - 정적 검사/조사: 최종 전체 analyze는 error/warning0·기존 미변경4파일 naming info26건, 변경/신규 Dart 진단0이다. 새 컨트롤러는 initState에서 생성/해제한다. 초기 지연 생성이 dispose에서 ticker를 만들던 오류를 수정했고, debug-live로 동작 줄이기의0초/112px 행을 확인한 뒤 TableCalendar의 AnimatedSize 크기 변경 subtree를 즉시 교체해 layout 재변경 오류를 해결했다. 디버거 세션/중단점을 정리했고 제품 임시 로그는 추가하지 않았다. 새 모의 그룹 응답의 필수 시각/빈 목록 타입·렌더 탐색 대상을 명시한 후 최종 통과했다. 로그는 /private/tmp/shiftmate-calendar-followup-*에 보존한다.
+  - 문서/한계: PROJECT_CONTEXT·ADR-0106에 최신 정책, 새 파일 역할/의존성/명령과 rollback을 기록했다. 이전 ADR-0105의 단일 요약/좌우 닫기 정책을 대체한다. API/DB·권한/route·provider 수명을 변경하지 않았고 전체 다크 테마/실기기·VoiceOver/실계정 공유/배포 인수는 수행하지 않았다. SDK/telemetry 캐시가 필요한 검증만 승인된 권한으로 실행했다.
+  - 롤백: 이번 후속 제품/테스트·검토 자료·컨텍스트/ADR/일지 추가분만 복원하며 앞선 미커밋 월간 구현을 보존한다.
+
+## 2026-11-22 캘린더 월간 보기와 선택일 카드 구현
+
+- [DONE] (FE/UI) 사용자 첨부 인수 문서와 월간/선택일 PNG를 기준으로 내·친구·그룹·미리보기의 월간 확장과 선택일 카드 열기/닫기를 구현했다.
+  - 목적: 첫 진입은 월간 그리드에 공간을 배정하고 날짜 선택에서만 상세를 표시한다.
+  - 변경/영향: 공용 레이아웃·날짜 표시 모델/셀·헤더·페이지 UI 상태와 관련 회귀. 서버/DTO 계약·그룹 domain state·기존 탐색/편집·권한 경계를 보존한다. 문서의 작업 지시는 사용자 요청 범위의 구현 참고 자료로 적용한다.
+  - 정책/Behavior change: 닫힘은 모든 높이에서 월간, 열림/근무 입력은 전체 화면750px 기준의 기존2주 예외를 사용한다. 친구 거절도 첫 진입/닫힘에는 카드를 숨기고 선택하면 날짜/외곽/×만 표시한다. 근무 입력은 진입 전 상세 날짜를 보관하고 종료 시 복원한다. 기존 상세가 있으면 그 날짜의 월로 돌아가고 없으면 마지막 탐색 월을 유지한다. 닫힘의 초기 입력일은 같은 월이면 오늘, 다른 월이면 focused_day로 정한다. 월 탐색/오늘은 접고 회색 날짜는 해당 월의 상세를 연다. 목록은 날짜별로 초기화하고 오늘은 독립 월간 ScrollController의 기준 주로 복귀한다.
+  - 변경/파일: 기존 제품9파일의 공용 모델(event_preview)/정책·본문/viewport·셀·카드 헤더와4페이지를 갱신했다. 세로 드래그 compact 전환을 제거하고 프로그램 focus/포맷 변경과 실제 가로 드래그를 구분한다. 삭제 유예/요청 중 일정은 카드와 월간 요약 모두에서 제외하며 닫기와 무관하게 되돌리기/확정 삭제를 유지한다. 미조회/실패·정상0건·거절을 구분한다. 근무/CRUD·그룹별 domain/권한과 API/DTO·DB·route는 유지한다. 새 runtime 파일/패키지는 없다.
+  - 테스트: 관련 캘린더/친구/그룹/탭 회귀 **367 pass / 기존 skip1**, 전체 Flutter **665 pass / 기존 skip1 / fail0**. 신규 검증은4화면 첫 진입→날짜 탭→닫기→회색 날짜→월 스와이프, 늦은 응답/빠른 선택·중복 조회, 삭제 뒤 닫기/월간 요약/되돌리기/확정, 날짜 변경 목록 첫 위치,740/844px 근무 입력 복원,4/5/6주 정책이다. 최종 헤더32 pass는 폭320~768/글자1~3.2배30조합의44×44 닫기·날짜/요약/공휴일 비겹침을 포함한다. `flutter test --no-pub --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`로 전체 회귀를 재현한다.
+  - 렌더/실측: 새 `artifacts/calendar_overview_2026-11-22/render_test.dart`와 PNG14개/measurements.json의 역할·의존성·재현 명령은 PROJECT_CONTEXT에 기록했다. 실제 MainTabPage/번들 폰트·모의 API를 사용하는7조건(390×844의4/5/6주·320/375px·가로·글자3.2배/OS다크·동작 줄이기) 렌더 **1 pass/예외0**. 기준5주는 월간 행107.8px·열림 행56px·카드255px, 닫기44×44다. 월간/상세·작은 화면/가로/큰 글자를 직접 이미지로 확인했다. 글자3.2배의 기존 일정 추가 Row 넘침은 Flexible 줄바꿈으로 해소했다. 전체 앱의 다크 테마 도입/실기기 OS·VoiceOver/실계정 공유 인수는 수행하지 않았다.
+  - 조사/검사: debug-live에서 테스트의 ensureVisible가 PageView까지 이동시켜 요청 날짜 셀이 사라지는 경로를 확인했다. 날짜를 드러내는 테스트 도우미는 세로 위치만 이동시키고 실제 탭/가로 스와이프로 검증한다. 임시 제품 로그를 추가하지 않았고 디버거 세션/중단점은 정리했다. 초기 SDK 캐시 쓰기 제한은 승인된 Flutter 명령 권한으로 해결했다. 렌더 JSON의 fake async 밖 IO는 runAsync로 완료하도록 수정했다. 최종 전체 analyze는 error/warning0·기존 미변경4파일 naming info26건만 남고 변경/신규 Dart 진단0이다. 포맷/공백 검사 결과와 로그는 `/private/tmp/shiftmate-calendar-*`를 따른다.
+  - 문서: PROJECT_CONTEXT 최신 절과 ADR-0105에 ADR-0004/0060/0072/0093의 표시 정책 변경, 상태/API·파일 역할/의존성·사용 예·검증 한계를 기록했다. drawio의 이전 calendars/calendar_shares 구조로 현행 owner_user_id 계약을 바꾸지 않았다. 외부 인수 원본과 Figma는 수정하지 않았다.
+  - 롤백: 이번 제품/테스트/검토 자료와 컨텍스트·ADR·일지 변경만 함께 복원한다.
+
 ## 2026-11-22 위젯 개발 참고 자료 버전 관리
 
 - [DONE] (개발 환경) 기존 widgets 스킬과 원본 lock을 보존하고 로컬 Gradle 캐시는 버전 관리에서 제외했다.

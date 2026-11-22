@@ -10,12 +10,12 @@ class CalendarPageBody extends StatelessWidget {
   const CalendarPageBody({
     super.key,
     required this.calendar,
-    required this.schedule,
+    this.schedule,
     required this.key_prefix,
   });
 
   final Widget calendar;
-  final Widget schedule;
+  final Widget? schedule;
   final String key_prefix;
 
   @override
@@ -23,6 +23,12 @@ class CalendarPageBody extends StatelessWidget {
     return LayoutBuilder(
       key: ValueKey('$key_prefix-layout'),
       builder: (context, constraints) {
+        if (schedule == null) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppTheme.spacing_md),
+            child: calendar,
+          );
+        }
         final text_scaler = MediaQuery.textScalerOf(context);
         final calendar_max_height =
             constraints.maxHeight -
@@ -54,7 +60,7 @@ class CalendarPageBody extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppTheme.spacing_xs),
-            Expanded(child: schedule),
+            Expanded(child: schedule!),
             const SizedBox(height: AppTheme.spacing_md),
           ],
         );
@@ -81,6 +87,7 @@ class CalendarViewport extends StatelessWidget {
     this.header_key,
     this.onToday,
     this.today_key,
+    this.is_month_overview = false,
   });
 
   final DateTime focused_day;
@@ -95,6 +102,7 @@ class CalendarViewport extends StatelessWidget {
   final Key? header_key;
   final VoidCallback? onToday;
   final Key? today_key;
+  final bool is_month_overview;
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +129,10 @@ class CalendarViewport extends StatelessWidget {
             today_key: today_key,
           ),
         ),
-        calendar_grid,
+        if (is_month_overview)
+          Expanded(child: calendar_grid)
+        else
+          calendar_grid,
       ],
     );
   }

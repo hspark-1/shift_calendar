@@ -132,10 +132,109 @@ class _FakeGroupRepository implements GroupRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _DeniedEventRepository extends _FakeGroupRepository {
+  @override
+  Future<GroupCalendarRange> getGroupCalendarRange({
+    required String group_id,
+    required DateTime start_date,
+    required DateTime end_date,
+  }) async {
+    final result = await super.getGroupCalendarRange(
+      group_id: group_id,
+      start_date: start_date,
+      end_date: end_date,
+    );
+    return GroupCalendarRange(
+      group: result.group,
+      start_date: result.start_date,
+      end_date: result.end_date,
+      members: result.members,
+      work_shifts: result.work_shifts,
+      events: [
+        ...result.events,
+        GroupCalendarEvent(
+          owner_user_id: 'denied',
+          event_id: 'denied-event',
+          title: '숨겨야 하는 제목',
+          all_day: true,
+          start_at: DateTime.utc(2026, 8, 1, 15),
+          end_at: DateTime.utc(2026, 8, 3, 15),
+          visibility_level: 1,
+        ),
+      ],
+    );
+  }
+}
+
 void main() {
   setUpAll(() async {
     timezone_data.initializeTimeZones();
     await initializeDateFormatting('ko_KR');
+  });
+
+  testWidgets('월간 첫 진입과 날짜 선택·닫기·경계 날짜·월 스와이프를 연결한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          groupRepositoryProvider.overrideWithValue(_FakeGroupRepository()),
+        ],
+        child: CupertinoApp(
+          theme: AppTheme.lightTheme,
+          home: MediaQuery(
+            data: const MediaQueryData(size: Size(390, 844)),
+            child: GroupCalendarPage(
+              group_id: 'group-1',
+              initial_date: DateTime(2026, 8, 2),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await verifyCalendarDetailTransitions(
+      tester,
+      calendar_key: 'group-calendar',
+      detail_key: 'group-calendar-selected-day-detail',
+    );
+  });
+
+  testWidgets('그룹 그리드는 타임존에 맞는 공개 일정 제목만 표시한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          groupRepositoryProvider.overrideWithValue(_DeniedEventRepository()),
+        ],
+        child: CupertinoApp(
+          theme: AppTheme.lightTheme,
+          home: GroupCalendarPage(
+            group_id: 'group-1',
+            initial_date: DateTime(2026, 8, 2),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('서울 일정'), findsOneWidget);
+    expect(find.text('나 · 서울 일정'), findsNothing);
+    expect(find.textContaining('숨겨야 하는 제목'), findsNothing);
+    final bar = find.byWidgetPredicate(
+      (widget) =>
+          widget is Container &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'calendar-event-bar-self:event-1-',
+          ),
+    );
+    expect(bar, findsOneWidget);
+    final sunday = find.byKey(const ValueKey('group-day-2026-08-02'));
+    expect(
+      tester.getRect(bar).left,
+      closeTo(tester.getRect(sunday).left + 2, 0.1),
+    );
   });
 
   testWidgets('구성원 목록 스크롤이 그룹 이름 헤더의 배경을 바꾸지 않는다', (tester) async {
@@ -159,6 +258,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
     await verifyCalendarHeaderOnScroll(
       tester,
       calendar: find.byKey(const ValueKey('group-calendar')),
@@ -187,6 +287,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     expect(find.text('우리 병동'), findsOneWidget);
     expect(find.text('3명'), findsOneWidget);
@@ -224,6 +325,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     expect(
       find.byKey(const ValueKey('group-shift-dot-2026-08-02-0')),
@@ -269,6 +371,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await openCalendarDetails(tester);
       final title = find.text('11월 12일 목요일');
       final paragraph = tester.renderObject<RenderParagraph>(title);
       final boxes = paragraph.getBoxesForSelection(
@@ -331,7 +434,7 @@ void main() {
                     calendar_key: ValueKey(layout),
                     focused_day: selected_date,
                     selected_day: selected_date,
-                    calendar_format: CalendarFormat.twoWeeks,
+                    calendar_format: CalendarFormat.threeWeeks,
                     row_height: row_height,
                     cell_layout: layout,
                     day_key_prefix: '${layout.name}-day',
@@ -355,6 +458,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await openCalendarDetails(tester);
         Rect selectionRect(String mode) {
           final selection = tester.getRect(
             find.byKey(ValueKey('$mode-selection-2026-11-12')),

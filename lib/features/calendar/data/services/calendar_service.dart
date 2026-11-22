@@ -1,5 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,19 +9,29 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_error_handler.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../home_widget/application/widget_sync_coordinator.dart';
 import '../models/event_api_model.dart';
 
 /// CalendarService Provider
 final calendarServiceProvider = Provider<CalendarService>((ref) {
   final dio = ref.watch(dioProvider);
-  return CalendarService(dio);
+  var is_disposed = false;
+  ref.onDispose(() => is_disposed = true);
+  return CalendarService(
+    dio,
+    on_changed: () {
+      if (is_disposed) return;
+      unawaited(ref.read(widgetSyncCoordinatorProvider).sync(force: true));
+    },
+  );
 });
 
 /// 일정 조회 서비스
 class CalendarService {
   final Dio _dio;
+  final void Function()? on_changed;
 
-  CalendarService(this._dio);
+  CalendarService(this._dio, {this.on_changed});
 
   /// 날짜 형식 변환 (YYYY-MM-DD)
   String _formatDate(DateTime date) {
@@ -93,7 +105,9 @@ class CalendarService {
           statusCode: response.statusCode,
         );
       }
-      return EventApiModel.fromJson(data);
+      final event = EventApiModel.fromJson(data);
+      on_changed?.call();
+      return event;
     } on DioException catch (e) {
       throw handleApiError(e);
     }
@@ -125,7 +139,9 @@ class CalendarService {
           statusCode: response.statusCode,
         );
       }
-      return EventApiModel.fromJson(data);
+      final event = EventApiModel.fromJson(data);
+      on_changed?.call();
+      return event;
     } on DioException catch (error) {
       throw handleApiError(error);
     }
@@ -140,7 +156,9 @@ class CalendarService {
       final response = await _dio.delete('${ApiConstants.events}/$event_id');
       final response_data = response.data as Map<String, dynamic>;
       final data = response_data['data'] as Map<String, dynamic>;
-      return data['event_id'] as String;
+      final deleted_id = data['event_id'] as String;
+      on_changed?.call();
+      return deleted_id;
     } on DioException catch (error) {
       throw handleApiError(error);
     }

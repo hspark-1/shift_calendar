@@ -1,0 +1,58 @@
+{
+  "normal": {
+    "overview_format": "month",
+    "overview_row_height": 107.8,
+    "detail_row_height": 56.0,
+    "card_height": 255.0,
+    "close_size": "Size(44.0, 44.0)",
+    "exceptions": 0
+  },
+  "four_weeks": {
+    "overview_format": "month",
+    "overview_row_height": 134.75,
+    "detail_row_height": 56.0,
+    "card_height": 311.0,
+    "close_size": "Size(44.0, 44.0)",
+    "exceptions": 0
+  },
+  "six_weeks": {
+    "overview_format": "month",
+    "overview_row_height": 89.83333333333333,
+    "detail_row_height": 56.0,
+    "card_height": 199.0,
+    "close_size": "Size(44.0, 44.0)",
+    "exceptions": 0
+  },
+  "small": {
+    "overview_format": "threeWeeks",
+    "overview_row_height": 87.66666666666667,
+    "detail_row_height": 52.0,
+    "card_height": 144.0,
+    "close_size": "Size(44.0, 44.0)",
+    "exceptions": 0
+  },
+  "phone375": {
+    "overview_format": "threeWeeks",
+    "overview_row_height": 120.66666666666667,
+    "detail_row_height": 52.0,
+    "card_height": 202.0,
+    "close_size": "Size(44.0, 44.0)",
+    "exceptions": 0
+  },
+  "landscape": {
+    "overview_format": "threeWeeks",
+    "overview_row_height": 80.0,
+    "detail_row_height": 52.0,
+    "card_height": 280.0,
+    "close_size": "Size(44.0, 44.0)",
+    "exceptions": 0
+  },
+  "large_text": {
+    "overview_format": "threeWeeks",
+    "overview_row_height": 166.4,
+    "detail_row_height": 52.0,
+    "card_height": 896.0,
+    "close_size": "Size(44.0, 44.0)",
+    "exceptions": 0
+  }
+}

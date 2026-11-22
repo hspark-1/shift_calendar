@@ -15,6 +15,30 @@ struct ShiftWidgetDataTests {
         guard let snapshot = ShiftWidgetSnapshot.decode(raw) else { throw Failure(message: "Dart JSON decode") }
         try expect(snapshot.owner_id == "contract-owner", "Dart owner")
         let today = snapshot.parseDate("2026-11-21")!
+        try expect(snapshot.eventCount(on: today) == 2, "Dart event count")
+        try expect(snapshot.eventCount(on: snapshot.parseDate("2026-11-22")!) == 0, "known zero events")
+        try expect(snapshot.eventCount(on: snapshot.parseDate("2026-12-28")!) == nil, "uncovered event count is unknown")
+        let events_content = ShiftWidgetDayContent(reference_date: today, snapshot: snapshot, day: .today)
+        try expect(events_content.inline_label == "오늘 · 일정 2개 · N 23:00 - 07:00", "inline surfaces events before time")
+        try expect(events_content.lock_accessibility_label.contains("개인 일정 2개"), "VoiceOver event context")
+        var many = snapshot
+        many.event_counts = [snapshot.dateKey(today): 123]
+        let many_content = ShiftWidgetDayContent(reference_date: today, snapshot: many, day: .today)
+        try expect(many_content.event_label == "일정 99+개", "large count stays compact")
+        try expect(many_content.lock_accessibility_label.contains("개인 일정 123개"), "large count VoiceOver stays exact")
+        var legacy_json = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as! [String: Any]
+        legacy_json.removeValue(forKey: "event_counts")
+        let legacy_raw = String(data: try JSONSerialization.data(withJSONObject: legacy_json), encoding: .utf8)!
+        let legacy = ShiftWidgetSnapshot.decode(legacy_raw)
+        try expect(legacy?.shift(on: today)?.code == "N", "old cache keeps shifts")
+        try expect(legacy?.eventCount(on: today) == nil, "old cache does not invent zero events")
+        let invalid_cases: [[String: Any]] = [["2026-11-21": -1], ["2026-02-30": 1], ["2026-12-28": 1], ["2026-11-21": "2"]]
+        for invalid_counts in invalid_cases {
+            var invalid_json = legacy_json
+            invalid_json["event_counts"] = invalid_counts
+            let invalid_raw = String(data: try JSONSerialization.data(withJSONObject: invalid_json), encoding: .utf8)!
+            try expect(ShiftWidgetSnapshot.decode(invalid_raw) == nil, "invalid event counts rejected")
+        }
         try expect(snapshot.shift(on: today)?.code == "N", "Dart date/code")
         try expect(snapshot.shift(on: today)?.time_label == "23:00 - 익일 07:00", "overnight")
         try expect(snapshot.shift(on: today)?.lock_time_label == "23:00 - 07:00", "lock screen hides generated overnight label")
@@ -40,11 +64,13 @@ struct ShiftWidgetDataTests {
         let end_tomorrow = ShiftWidgetDayContent(reference_date: last_covered, snapshot: snapshot, day: .tomorrow)
         try expect(end_today.is_covered, "last day still covers today")
         try expect(!end_tomorrow.is_covered, "tomorrow expires one day earlier")
+        try expect(end_tomorrow.event_count == nil, "expired target has no event indicator")
         try expect(end_tomorrow.inline_label == "ShiftMate · 앱에서 동기화", "out of coverage prompts sync")
         let missing = ShiftWidgetDayContent(reference_date: next_date, snapshot: snapshot, day: .tomorrow)
         try expect(missing.inline_label == "내일 등록된 근무 없음", "known missing is not expired")
         let logged_out = ShiftWidgetDayContent(reference_date: today, snapshot: nil, day: .tomorrow)
         try expect(!logged_out.is_covered, "tomorrow logged out")
+        try expect(logged_out.event_label == nil, "logged out has no event indicator")
         try expect(snapshot.weekDates(for: today).map(snapshot.dateKey).first == "2026-11-16", "Monday week")
         let current_week = snapshot.weekDates(for: today)
         let next_week = snapshot.weekDates(for: today, week_offset: 1)

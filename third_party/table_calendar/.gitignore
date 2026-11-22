@@ -1,0 +1,5 @@
+# Local package tooling outputs; the app-level lock remains versioned.
+.dart_tool/
+.pub/
+build/
+pubspec.lock

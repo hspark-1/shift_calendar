@@ -28,6 +28,7 @@ class MainTabPage extends ConsumerStatefulWidget {
 class _MainTabPageState extends ConsumerState<MainTabPage> {
   final _navigator_keys = List.generate(3, (_) => GlobalKey<NavigatorState>());
   final _friend_list_key = GlobalKey<FriendListPageState>();
+  final _calendar_page_key = GlobalKey<CalendarPageState>();
   final _visited_tabs = <int>{0};
   int _selected_tab = 0;
   bool _pending_check_scheduled = false;
@@ -88,6 +89,8 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
       final navigator = _navigator_keys[index].currentState;
       if (navigator?.canPop() == true) {
         navigator!.popUntil((route) => route.isFirst);
+      } else if (index == 0) {
+        _calendar_page_key.currentState?.goToToday();
       } else if (index == 1) {
         _friend_list_key.currentState?.toggleSection();
       }
@@ -121,7 +124,7 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
           key: _navigator_keys[index],
           onGenerateRoute: (_) => CupertinoPageRoute<void>(
             builder: (_) => switch (index) {
-              0 => const CalendarPage(),
+              0 => CalendarPage(key: _calendar_page_key),
               1 => FriendListPage(key: _friend_list_key),
               _ => const NotificationPage(),
             },

@@ -125,8 +125,9 @@ private struct ShiftWidgetContent: View {
             weekly
         } else if #available(iOS 16.0, *) {
             ViewThatFits(in: .vertical) {
-                daily(compact: false)
-                daily(compact: true)
+                daily(compact: false).fixedSize(horizontal: false, vertical: true)
+                daily(compact: true).fixedSize(horizontal: false, vertical: true)
+                dailyCondensed
             }
         } else {
             daily(compact: true)
@@ -152,23 +153,49 @@ private struct ShiftWidgetContent: View {
 
     private func daily(compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: compact ? 4 : 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(entry.day.title).font(.caption.weight(.bold))
-                    .foregroundColor(accent).shiftAccent()
-                Spacer(minLength: 0)
-                Text(label(for: day_content.target_date ?? entry.date, format: "M.d E"))
-                    .font(.caption2.weight(.medium)).foregroundColor(secondary)
-            }
-            .lineLimit(1).minimumScaleFactor(0.7)
+            dailyHeader
             shiftSummary(compact: compact)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(entry.day.title) \(target_shift?.name ?? "등록된 근무 없음") \(target_shift?.code ?? "")")
+                .accessibilityLabel("\(entry.day.title) \(target_shift?.name ?? "등록된 근무 없음") \(target_shift?.code ?? "")\(day_content.event_count.map { ", 개인 일정 \($0)개" } ?? "")")
             dailyTimes(compact: compact)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             following_shift
         }
+    }
+
+    private var dailyHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(entry.day.title).font(.caption.weight(.bold))
+                .foregroundColor(accent).shiftAccent()
+            Spacer(minLength: 0)
+            Text(label(for: day_content.target_date ?? entry.date, format: "M.d E"))
+                .font(.caption2.weight(.medium)).foregroundColor(secondary)
+        }
+        .lineLimit(1).minimumScaleFactor(0.7)
+    }
+
+    /// 좁은 소형+큰 글자는 시간 두 열 대신 한 줄로 바꿔 일정 건수를 보존한다.
+    private var dailyCondensed: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            dailyHeader
+            HStack(spacing: 4) {
+                Text(target_shift?.code ?? "미등록").font(.title3.bold())
+                    .foregroundColor(accent).shiftAccent()
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 0)
+                eventSummary
+            }
+            Text(target_shift?.time_label?.replacingOccurrences(of: " - ", with: "–")
+                .replacingOccurrences(of: "익일 ", with: "익일") ?? (target_shift == nil ? "근무 미등록" : "시간 지정 없음"))
+                .font(.caption.weight(.semibold)).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.7)
+            Spacer(minLength: 0)
+            following_shift
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label(for: day_content.target_date ?? entry.date, format: "M월 d일 EEEE")), \(entry.day.title) \(target_shift?.name ?? "등록된 근무 없음") \(target_shift?.code ?? "") \(target_shift?.time_label ?? "")\(day_content.event_count.map { ", 개인 일정 \($0)개" } ?? ""). \(followingAccessibilityLabel)")
     }
 
     @ViewBuilder private func shiftSummary(compact: Bool) -> some View {
@@ -177,24 +204,45 @@ private struct ShiftWidgetContent: View {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .center, spacing: 8) {
                         codeBadge(compact: compact).fixedSize()
-                        Text(target_shift.name).font(.subheadline.weight(.semibold)).fixedSize()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(target_shift.name).font(.subheadline.weight(.semibold)).fixedSize()
+                            eventSummary
+                        }
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text(target_shift.code).font(.title3.bold())
                             .foregroundColor(accent).shiftAccent()
                             .lineLimit(1).minimumScaleFactor(0.7)
-                        Text(target_shift.name).font(.caption)
-                            .lineLimit(1).minimumScaleFactor(0.8)
+                        HStack(spacing: 4) {
+                            Text(target_shift.name).font(.caption)
+                                .lineLimit(1).minimumScaleFactor(0.8)
+                            eventSummary.layoutPriority(1)
+                        }
                     }
                 }
             } else {
-                Text("\(target_shift.code) · \(target_shift.name)")
-                    .font(.title3.bold()).foregroundColor(accent)
-                    .lineLimit(1).minimumScaleFactor(0.7)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(target_shift.code) · \(target_shift.name)")
+                        .font(.title3.bold()).foregroundColor(accent)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    eventSummary
+                }
             }
         } else {
-            Text("근무 미등록").font(.headline).foregroundColor(accent).shiftAccent()
-                .lineLimit(2).minimumScaleFactor(0.7)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("근무 미등록").font(.headline).foregroundColor(accent).shiftAccent()
+                    .lineLimit(2).minimumScaleFactor(0.7)
+                eventSummary
+            }
+        }
+    }
+
+    @ViewBuilder private var eventSummary: some View {
+        if let text = day_content.event_label {
+            Text(text).font(.caption2.weight(.semibold))
+                .foregroundColor(accent).shiftAccent()
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
@@ -270,8 +318,15 @@ private struct ShiftWidgetContent: View {
                     .accessibilityHidden(true)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(entry.day.following_title) \(covered ? (shift.map { "\($0.name) \($0.code) \($0.time_label ?? "")" } ?? "등록된 근무 없음") : "근무표 동기화 필요")")
+            .accessibilityLabel(followingAccessibilityLabel)
         }
+    }
+
+    private var followingAccessibilityLabel: String {
+        guard let snapshot, let date = day_content.following_date, snapshot.contains(date) else {
+            return "\(entry.day.following_title) 근무표 동기화 필요"
+        }
+        return "\(entry.day.following_title) \(snapshot.shift(on: date).map { "\($0.name) \($0.code) \($0.time_label ?? "")" } ?? "등록된 근무 없음")"
     }
 
     private func followingCode(shift: WidgetShift?, covered: Bool) -> some View {
@@ -290,6 +345,13 @@ private struct ShiftWidgetContent: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("2주 근무").font(.caption.weight(.bold))
                         .foregroundColor(accent).shiftAccent()
+                    if snapshot.event_counts != nil {
+                        HStack(spacing: 3) {
+                            Circle().fill(accent).frame(width: 4, height: 4)
+                            Text("일정").font(.caption2).foregroundColor(secondary)
+                        }
+                        .accessibilityLabel("점은 개인 일정이 있는 날")
+                    }
                     Spacer(minLength: 0)
                     if let first = days.first, let last = next_days.last {
                         Text(rangeLabel(from: first, to: last))
@@ -334,10 +396,15 @@ private struct ShiftWidgetContent: View {
                             .background(RoundedRectangle(cornerRadius: 5)
                                 .fill(is_full_color ? shiftColor(shift).opacity(is_dark ? 0.25 : 0.16) : .clear))
                             .shiftAccent(is_today)
+                        if snapshot.event_counts != nil {
+                            Circle().fill(accent).frame(width: 4, height: 4)
+                                .opacity((snapshot.eventCount(on: date) ?? 0) > 0 ? 1 : 0)
+                                .shiftAccent().accessibilityHidden(true)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(label(for: date, format: "M월 d일 EEEE")), \(is_today ? "오늘, " : "")\(snapshot.contains(date) ? (shift.map { "\($0.name) \($0.code)" } ?? "등록된 근무 없음") : "동기화 필요") \(shift?.time_label ?? "")")
+                    .accessibilityLabel("\(label(for: date, format: "M월 d일 EEEE")), \(is_today ? "오늘, " : "")\(snapshot.contains(date) ? (shift.map { "\($0.name) \($0.code)" } ?? "등록된 근무 없음") : "동기화 필요") \(shift?.time_label ?? "")\(snapshot.eventCount(on: date).map { ", 개인 일정 \($0)개" } ?? "")")
                 }
             }
             .frame(maxHeight: .infinity)
@@ -356,7 +423,12 @@ private struct ShiftWidgetContent: View {
         ZStack {
             AccessoryWidgetBackground()
             VStack(spacing: 0) {
-                Text(is_covered ? entry.day.title : "근무표").font(.caption2.weight(.medium))
+                HStack(spacing: 3) {
+                    Text(is_covered ? entry.day.title : "근무표").font(.caption2.weight(.medium))
+                    if day_content.event_label != nil {
+                        Circle().frame(width: 4, height: 4).widgetAccentable()
+                    }
+                }
                 Text(is_covered ? (target_shift?.code ?? "—") : "동기화")
                     .font(.title2.bold()).lineLimit(1).minimumScaleFactor(0.35)
                     .widgetAccentable()
@@ -371,10 +443,16 @@ private struct ShiftWidgetContent: View {
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 4) {
             if is_covered {
-                Text("\(entry.day.title) \(target_shift?.code ?? "—") · \(target_shift?.name ?? "미등록")")
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1).truncationMode(.tail)
-                    .widgetAccentable()
+                HStack(spacing: 4) {
+                    Text("\(entry.day.title) \(target_shift?.code ?? "—") · \(target_shift?.name ?? "미등록")")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1).truncationMode(.tail)
+                    if let count = day_content.event_count, count > 0 {
+                        Text("일정 \(count > 99 ? "99+" : String(count))").font(.caption2.weight(.semibold))
+                            .lineLimit(1).fixedSize().layoutPriority(1)
+                    }
+                }
+                .widgetAccentable()
                 if let time = target_shift?.lock_time_label {
                     Text(time.replacingOccurrences(of: " - ", with: "–"))
                         .font(.system(size: min(lock_time_size, 26), weight: .semibold))
@@ -446,7 +524,7 @@ struct ShiftMateShiftWidget: Widget {
             ShiftWidgetView(entry: entry)
         }
         .configurationDisplayName("오늘 근무")
-        .description("오늘의 근무와 시간을 한눈에. 중형은 이번 주와 다음 주를 함께 보여줍니다.")
+        .description("오늘 근무와 개인 일정 유무를 한눈에. 중형은 2주 근무와 일정이 있는 날을 보여줍니다.")
         .supportedFamilies(families)
     }
 
@@ -465,7 +543,7 @@ struct ShiftMateTomorrowShiftWidget: Widget {
             ShiftWidgetView(entry: entry)
         }
         .configurationDisplayName("내일 근무")
-        .description("내일의 근무와 시간을 미리 확인하세요. 소형에서는 모레 근무도 함께 보여줍니다.")
+        .description("내일 근무와 개인 일정 유무를 미리 확인하세요. 소형에서는 모레 근무도 함께 보여줍니다.")
         .supportedFamilies(families)
     }
 

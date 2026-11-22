@@ -39,12 +39,14 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
 
   late FriendModel _friend;
   DateTime _focusedDay = DateTime.now();
-  DateTime _selectedDay = DateTime.now();
+  DateTime? _detail_day;
+  int _overview_focus_revision = 0;
 
   CalendarFormat get _visibleCalendarFormat =>
       CalendarLayoutPolicy.visibleFormat(
         screen_height: MediaQuery.sizeOf(context).height,
         preferred_format: CalendarFormat.month,
+        is_month_overview: _detail_day == null,
       );
 
   double get _calendarRowHeight => CalendarLayoutPolicy.rowHeight(
@@ -128,8 +130,9 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   void _goToToday() {
     final today = _normalizeDate(DateTime.now());
     setState(() {
-      _selectedDay = today;
+      _detail_day = null;
       _focusedDay = today;
+      _overview_focus_revision++;
     });
     _loadCalendarData(today);
     _loadHolidays(today);
@@ -138,7 +141,9 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   void _moveToMonth(DateTime focusedMonth) {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      setState(() => _focusedDay = focusedMonth);
+      setState(() {
+        _focusedDay = focusedMonth;
+      });
       _loadCalendarData(focusedMonth);
       _loadHolidays(focusedMonth);
     });
@@ -246,9 +251,11 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
           child: CalendarPageBody(
             key_prefix: 'friend-calendar',
             calendar: _buildCalendarSection(calendar_range_state),
-            schedule: _buildSelectedDaySchedule(
-              is_content_hidden: calendar_range_state.is_access_denied,
-            ),
+            schedule: _detail_day == null
+                ? null
+                : _buildSelectedDaySchedule(
+                    is_content_hidden: calendar_range_state.is_access_denied,
+                  ),
           ),
         ),
       ),
@@ -258,6 +265,7 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   Widget _buildCalendarSection(CalendarRangeState calendar_range_state) {
     return CalendarViewport(
       focused_day: _focusedDay,
+      is_month_overview: _detail_day == null,
       can_go_to_previous_month: _canGoToPreviousMonth(),
       can_go_to_next_month: _canGoToNextMonth(),
       onPreviousMonth: _goToPreviousMonth,
@@ -269,16 +277,29 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
           ? const CupertinoActivityIndicator(radius: 8)
           : const SizedBox.shrink(),
       month_view: CalendarMonthView<dynamic>(
+        focus_revision: _overview_focus_revision,
         calendar_key: const ValueKey('friend-calendar'),
         focused_day: _focusedDay,
-        selected_day: _selectedDay,
+        selected_day: _detail_day,
         calendar_format: _visibleCalendarFormat,
         row_height: _calendarRowHeight,
         cell_layout: CalendarCellLayout.badge,
+        is_month_overview: _detail_day == null,
         day_presentation_builder: (date) {
           final work_shift = _getWorkShiftForDay(date);
+          final events = _getEventsForDay(date);
           return CalendarDayPresentation(
             date_color: _getCalendarDateColor(date),
+            events: [
+              for (final event in events)
+                CalendarEventPresentation(
+                  id: event.eventId,
+                  title: event.title,
+                  start_at: event.startAt,
+                  end_at: event.endAt,
+                  color: AppTheme.primary_color,
+                ),
+            ],
             indicator: work_shift == null
                 ? null
                 : CalendarBadgeIndicator(
@@ -290,16 +311,18 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
         holiday_predicate: _isHoliday,
         onDaySelected: (selected_day, focused_day) {
           setState(() {
-            _selectedDay = selected_day;
-            _focusedDay = focused_day;
+            _detail_day = _normalizeDate(selected_day);
+            _focusedDay = _detail_day!;
           });
-          _loadCalendarData(focused_day);
-          _loadHolidays(focused_day);
+          _loadCalendarData(selected_day);
+          _loadHolidays(selected_day);
         },
         onPageChanged: (focused_day) {
           SchedulerBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            setState(() => _focusedDay = focused_day);
+            setState(() {
+              _focusedDay = focused_day;
+            });
             _loadCalendarData(focused_day);
             _loadHolidays(focused_day);
           });
@@ -319,7 +342,11 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
   }
 
   Widget _buildSelectedDaySchedule({bool is_content_hidden = false}) {
-    final selectedDate = _normalizeDate(_selectedDay);
+    final selectedDate = _detail_day!;
+    final range = ref.read(friendCalendarRangeProvider(_friend.userId));
+    final is_loaded = range.loaded_months.contains(
+      calendarMonthKey(selectedDate),
+    );
     final workShift = _getWorkShiftForDay(selectedDate);
     final events = _getEventsForDay(selectedDate);
     final holiday_name = _isHoliday(selectedDate)
@@ -328,6 +355,12 @@ class _FriendCalendarPageState extends ConsumerState<FriendCalendarPage> {
 
     return CalendarScheduleCard(
       key: const ValueKey('friend-selected-day-schedule-card'),
+      onClose: () => setState(() => _detail_day = null),
+      is_loading: !is_loaded && range.last_error == null,
+      load_error: !is_loaded && range.last_error != null
+          ? '일정을 불러오지 못했습니다.'
+          : null,
+      onRetry: () => _loadCalendarData(selectedDate),
       selected_date: selectedDate,
       work_shift: workShift,
       events: events,

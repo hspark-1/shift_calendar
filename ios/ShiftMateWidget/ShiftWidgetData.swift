@@ -32,14 +32,26 @@ struct ShiftWidgetDayContent {
         guard let target_date else { return nil }
         return snapshot?.shift(on: target_date)
     }
+    var event_count: Int? {
+        guard let target_date else { return nil }
+        return snapshot?.eventCount(on: target_date)
+    }
+    var event_label: String? {
+        guard let event_count, event_count > 0 else { return nil }
+        return "일정 \(event_count > 99 ? "99+" : String(event_count))개"
+    }
     var inline_label: String {
         guard is_covered else { return "ShiftMate · 앱에서 동기화" }
+        if let event_label {
+            return "\(day.title) · \(event_label) · \(shift.map { "\($0.code) \($0.lock_time_label ?? $0.name)" } ?? "근무 미등록")"
+        }
         guard let shift else { return "\(day.title) 등록된 근무 없음" }
         return "\(day.title) \(shift.code) · \(shift.lock_time_label ?? shift.name)"
     }
     var lock_accessibility_label: String {
         guard is_covered else { return "ShiftMate를 열어 근무표 동기화" }
-        return "\(day.title) \(shift?.name ?? "등록된 근무 없음") \(shift?.code ?? "") \(shift?.lock_time_label ?? "")"
+        let events = event_count.map { ", 개인 일정 \($0)개" } ?? ""
+        return "\(day.title) \(shift?.name ?? "등록된 근무 없음") \(shift?.code ?? "") \(shift?.lock_time_label ?? "")\(events)"
     }
 }
 
@@ -85,6 +97,8 @@ struct ShiftWidgetSnapshot: Codable {
     let start_date: String
     let end_date: String
     let shifts: [WidgetShift]
+    // 구 캐시는 nil(미확인), 새 캐시의 빈 맵은 범위 내 일정 0건이다.
+    var event_counts: [String: Int]? = nil
 
     var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -103,7 +117,10 @@ struct ShiftWidgetSnapshot: Codable {
               start <= end,
               let days = snapshot.calendar.dateComponents([.day], from: start, to: end).day,
               days < 93,
-              snapshot.updatedDate != nil else { return nil }
+              snapshot.updatedDate != nil,
+              snapshot.event_counts?.allSatisfy({ key, count in
+                  count > 0 && snapshot.parseDate(key) != nil && snapshot.start_date <= key && key <= snapshot.end_date
+              }) ?? true else { return nil }
         return snapshot
     }
 
@@ -134,6 +151,11 @@ struct ShiftWidgetSnapshot: Codable {
     func shift(on date: Date) -> WidgetShift? {
         guard contains(date) else { return nil }
         return shifts.first { $0.date == dateKey(date) }
+    }
+
+    func eventCount(on date: Date) -> Int? {
+        guard contains(date), let event_counts else { return nil }
+        return event_counts[dateKey(date)] ?? 0
     }
 
     func weekDates(for date: Date, week_offset: Int = 0) -> [Date] {
@@ -178,9 +200,12 @@ struct ShiftWidgetSnapshot: Codable {
                 end_time: code == "OFF" ? nil : ["D": "15:00", "E": "23:00", "N": "07:00"][code]
             )
         }
+        var event_counts = [formatter.string(from: dates[2]): 1, formatter.string(from: dates[9]): 3]
+        event_counts[formatter.string(from: now)] = 2
+        event_counts[formatter.string(from: calendar.date(byAdding: .day, value: 1, to: now)!)] = 1
         return Self(schema_version: 1, owner_id: "preview", timezone: calendar.timeZone.identifier,
                     updated_at: ISO8601DateFormatter().string(from: now),
                     start_date: formatter.string(from: dates.first!), end_date: formatter.string(from: dates.last!),
-                    shifts: shifts)
+                    shifts: shifts, event_counts: event_counts)
     }
 }

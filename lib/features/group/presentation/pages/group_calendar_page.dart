@@ -40,13 +40,15 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
   static const _viewport_controller = CalendarViewportController();
 
   late DateTime _focused_day;
-  late DateTime _selected_day;
+  DateTime? _selected_day;
+  int _overview_focus_revision = 0;
   int _shown_error_revision = 0;
   bool _handled_group_not_found = false;
 
   CalendarFormat get _calendar_format => CalendarLayoutPolicy.visibleFormat(
     screen_height: MediaQuery.sizeOf(context).height,
     preferred_format: CalendarFormat.month,
+    is_month_overview: _selected_day == null,
   );
 
   double get _calendar_row_height => CalendarLayoutPolicy.rowHeight(
@@ -59,7 +61,6 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
     super.initState();
     final initial_date = widget.initial_date ?? DateTime.now();
     _focused_day = _normalizeDate(initial_date);
-    _selected_day = _focused_day;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(groupDetailProvider(widget.group_id).notifier).load();
       ref
@@ -139,7 +140,7 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
     return CalendarPageBody(
       key_prefix: 'group-calendar',
       calendar: _buildCalendar(state),
-      schedule: _buildSelectedDayDetail(state),
+      schedule: _selected_day == null ? null : _buildSelectedDayDetail(state),
     );
   }
 
@@ -166,6 +167,7 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
   Widget _buildCalendar(GroupCalendarRangeState state) {
     return CalendarViewport(
       focused_day: _focused_day,
+      is_month_overview: _selected_day == null,
       can_go_to_previous_month: _viewport_controller.canMoveMonth(
         _focused_day,
         -1,
@@ -181,17 +183,26 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
           ? const CupertinoActivityIndicator(radius: 8)
           : const SizedBox.shrink(),
       month_view: CalendarMonthView<void>(
+        focus_revision: _overview_focus_revision,
         calendar_key: const ValueKey('group-calendar'),
         focused_day: _focused_day,
         selected_day: _selected_day,
         calendar_format: _calendar_format,
         row_height: _calendar_row_height,
         cell_layout: CalendarCellLayout.dots,
+        is_month_overview: _selected_day == null,
         day_key_prefix: 'group-day',
         selection_key_prefix: 'group-selection',
         day_presentation_builder: (date) {
           final shifts = state.shiftsFor(date);
-          final events = state.eventsFor(date);
+          final events = state
+              .eventsFor(date)
+              .where((event) {
+                final member = state.members_by_user_id[event.owner_user_id];
+                return member != null &&
+                    member.calendar_access != CalendarAccess.denied;
+              })
+              .toList(growable: false);
           final visible_colors = shifts
               .where(
                 (shift) => shift.start_time != null && shift.end_time != null,
@@ -208,6 +219,22 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
               : AppTheme.on_surface_color;
           return CalendarDayPresentation(
             date_color: date_color,
+            events: [
+              for (final event in events)
+                CalendarEventPresentation(
+                  id: '${event.owner_user_id}:${event.event_id}',
+                  title: event.title,
+                  start_at: tz.TZDateTime.from(
+                    event.start_at,
+                    tz.getLocation(state.group!.timezone),
+                  ),
+                  end_at: tz.TZDateTime.from(
+                    event.end_at,
+                    tz.getLocation(state.group!.timezone),
+                  ),
+                  color: AppTheme.primary_color,
+                ),
+            ],
             semantic_label:
                 '${date.month}월 ${date.day}일, '
                 '${shifts.length}명 근무, 일정 ${events.length}개',
@@ -222,11 +249,16 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
         onDaySelected: (selected_day, focused_day) {
           setState(() {
             _selected_day = _normalizeDate(selected_day);
-            _focused_day = focused_day;
+            _focused_day = _selected_day!;
           });
+          ref
+              .read(groupCalendarRangeProvider(widget.group_id).notifier)
+              .ensureMonthLoaded(selected_day);
         },
         onPageChanged: (focused_day) {
-          setState(() => _focused_day = focused_day);
+          setState(() {
+            _focused_day = focused_day;
+          });
           ref
               .read(groupCalendarRangeProvider(widget.group_id).notifier)
               .ensureMonthLoaded(focused_day);
@@ -236,49 +268,86 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
   }
 
   Widget _buildSelectedDayDetail(GroupCalendarRangeState state) {
-    final shifts = state.shiftsFor(_selected_day);
-    final events = state.eventsFor(_selected_day);
-    return Container(
-      key: const ValueKey('group-calendar-selected-day-detail'),
-      margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_md),
-      decoration: AppTheme.cardDecoration(),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CalendarScheduleHeader(
-            selected_date: _selected_day,
-            header_key: const ValueKey('group-calendar-selected-day-header'),
-            summary_chips: [
-              CalendarScheduleSummaryChip(
-                label: '근무 ${shifts.length}명',
-                is_primary: true,
-              ),
-              CalendarScheduleSummaryChip(label: '일정 ${events.length}개'),
-            ],
-          ),
-          Expanded(
-            child: ListView.separated(
-              key: const ValueKey('group-calendar-member-list'),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: state.members.length,
-              separatorBuilder: (context, index) => const SizedBox.shrink(),
-              itemBuilder: (context, index) {
-                final member = state.members[index];
-                final member_shift = _shiftForMember(shifts, member.user_id);
-                final member_events = events
-                    .where((event) => event.owner_user_id == member.user_id)
-                    .toList(growable: false);
-                return _MemberDayCard(
-                  member: member,
-                  shift: member_shift,
-                  events: member_events,
-                  timezone: state.group!.timezone,
-                );
-              },
+    final selected_day = _selected_day!;
+    final shifts = state.shiftsFor(selected_day);
+    final events = state.eventsFor(selected_day);
+    final is_loaded = state.loaded_months.contains(
+      groupCalendarMonthKey(selected_day),
+    );
+    return CalendarScheduleDismissible(
+      key: ValueKey(selected_day),
+      onClose: () => setState(() => _selected_day = null),
+      child: Container(
+        key: const ValueKey('group-calendar-selected-day-detail'),
+        margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_md),
+        decoration: AppTheme.cardDecoration(),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CalendarScheduleHeader(
+              selected_date: selected_day,
+              onClose: () => setState(() => _selected_day = null),
+              header_key: const ValueKey('group-calendar-selected-day-header'),
+              summary_chips: [
+                if (is_loaded) ...[
+                  CalendarScheduleSummaryChip(
+                    label: '근무 ${shifts.length}명',
+                    is_primary: true,
+                  ),
+                  CalendarScheduleSummaryChip(label: '일정 ${events.length}개'),
+                ],
+              ],
             ),
-          ),
-        ],
+            Expanded(
+              child: !is_loaded
+                  ? CalendarScheduleLoadState(
+                      error: state.last_error == null
+                          ? null
+                          : '일정을 불러오지 못했습니다.',
+                      onRetry: () => ref
+                          .read(
+                            groupCalendarRangeProvider(
+                              widget.group_id,
+                            ).notifier,
+                          )
+                          .ensureMonthLoaded(selected_day),
+                    )
+                  : KeyedSubtree(
+                      key: ValueKey(selected_day),
+                      child: ListView.separated(
+                        physics: const ClampingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
+                        key: const ValueKey('group-calendar-member-list'),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: state.members.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox.shrink(),
+                        itemBuilder: (context, index) {
+                          final member = state.members[index];
+                          final member_shift = _shiftForMember(
+                            shifts,
+                            member.user_id,
+                          );
+                          final member_events = events
+                              .where(
+                                (event) =>
+                                    event.owner_user_id == member.user_id,
+                              )
+                              .toList(growable: false);
+                          return _MemberDayCard(
+                            member: member,
+                            shift: member_shift,
+                            events: member_events,
+                            timezone: state.group!.timezone,
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -296,7 +365,9 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
   void _moveMonth(int offset) {
     final month = _viewport_controller.monthAt(_focused_day, offset);
     if (month == null) return;
-    setState(() => _focused_day = month);
+    setState(() {
+      _focused_day = month;
+    });
     ref
         .read(groupCalendarRangeProvider(widget.group_id).notifier)
         .ensureMonthLoaded(month);
@@ -306,7 +377,8 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
     final today = _normalizeDate(DateTime.now());
     setState(() {
       _focused_day = today;
-      _selected_day = today;
+      _overview_focus_revision++;
+      _selected_day = null;
     });
     ref
         .read(groupCalendarRangeProvider(widget.group_id).notifier)
@@ -323,7 +395,7 @@ class _GroupCalendarPageState extends ConsumerState<GroupCalendarPage> {
     if (selected == null || !mounted) return;
     setState(() {
       _focused_day = selected;
-      _selected_day = selected;
+      _selected_day = null;
     });
     ref
         .read(groupCalendarRangeProvider(widget.group_id).notifier)

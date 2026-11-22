@@ -62,6 +62,47 @@ void main() {
     await initializeDateFormatting('ko_KR');
   });
 
+  testWidgets('월간 첫 진입과 날짜 선택·닫기·경계 날짜·월 스와이프를 연결한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _buildTestApp(screen_height: 844, initial_date: DateTime(2026, 11, 22)),
+    );
+    await tester.pumpAndSettle();
+    await verifyCalendarDetailTransitions(
+      tester,
+      calendar_key: 'group-preview-calendar',
+      detail_key: 'group-preview-selected-day-detail',
+    );
+  });
+
+  testWidgets('그룹 미리보기 월간의 일정 막대에는 제목만 표시된다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _buildTestApp(screen_height: 844, initial_date: DateTime(2026, 11, 22)),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'calendar-event-bar-',
+            ),
+      ),
+      findsWidgets,
+    );
+    for (final member in group_preview_members) {
+      expect(find.textContaining('${member.name} · '), findsNothing);
+    }
+    expect(
+      find.byKey(const ValueKey('group-preview-selected-day-detail')),
+      findsNothing,
+    );
+  });
+
   testWidgets('구성원 목록 스크롤이 미리보기 그룹 이름 헤더의 배경을 바꾸지 않는다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -75,6 +116,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
     await verifyCalendarHeaderOnScroll(
       tester,
       calendar: find.byKey(const ValueKey('group-preview-calendar')),
@@ -119,6 +161,7 @@ void main() {
       _buildTestApp(screen_height: 800, initial_date: DateTime(2026, 1, 1)),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     expect(find.text('우리 병동'), findsOneWidget);
     expect(
@@ -259,6 +302,7 @@ void main() {
       _buildTestApp(screen_height: 800, initial_date: DateTime(2026, 1, 3)),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     Text selectedDateText(String day, String key) {
       return tester.widget<Text>(
@@ -292,6 +336,7 @@ void main() {
       _buildTestApp(screen_height: 800, initial_date: DateTime(2026, 1, 1)),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     final member_card = find.byKey(const ValueKey('group-preview-member-me'));
     final shift_time = find.descendant(
@@ -332,6 +377,7 @@ void main() {
       _buildTestApp(screen_height: 800, initial_date: DateTime(2026, 1, 1)),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     await tester.tap(find.byKey(const ValueKey('group-day-2026-01-05')));
     await tester.pumpAndSettle();
@@ -360,7 +406,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('작은 화면에서는 2주 보기로 고정하고 오버플로 없이 렌더링한다', (tester) async {
+  testWidgets('작은 화면에서는 3주 보기로 고정하고 오버플로 없이 렌더링한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 740));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -368,6 +414,7 @@ void main() {
       _buildTestApp(screen_height: 740, initial_date: DateTime(2026, 1, 1)),
     );
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     expect(
       tester
@@ -375,7 +422,7 @@ void main() {
             find.byKey(const ValueKey('group-preview-calendar')),
           )
           .calendarFormat,
-      CalendarFormat.twoWeeks,
+      CalendarFormat.threeWeeks,
     );
     expect(
       find.byKey(const ValueKey('group-preview-selected-day-detail')),
@@ -390,6 +437,7 @@ void main() {
 
     await tester.pumpWidget(_buildFriendListTestApp(screen_height: 800));
     await tester.pumpAndSettle();
+    await openCalendarDetails(tester);
 
     expect(
       find.byKey(const ValueKey('friend-list-footer-button')),

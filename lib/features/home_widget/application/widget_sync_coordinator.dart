@@ -8,20 +8,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
-import '../../calendar/data/models/work_shift_api_model.dart';
+import '../../calendar/data/models/event_api_model.dart';
 import '../../calendar/data/services/calendar_service.dart';
 import '../data/home_widget_store.dart';
 import '../data/shift_widget_snapshot.dart';
 
-typedef WidgetShiftLoader =
-    Future<List<WorkShiftApiModel>> Function({
+typedef WidgetCalendarLoader =
+    Future<CalendarRangeData> Function({
       required DateTime start_date,
       required DateTime end_date,
     });
 
 final widgetSyncCoordinatorProvider = Provider<WidgetSyncCoordinator>((ref) {
-  final service = ref.watch(calendarServiceProvider);
+  // mutation 서비스의 갱신 콜백이 coordinator를 읽으므로, 조회용 인스턴스는
+  // 같은 인증 Dio만 공유해 provider 의존성이 순환하지 않게 한다.
+  final service = CalendarService(ref.watch(dioProvider));
   final coordinator = WidgetSyncCoordinator(
     enabled: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS,
     store: IosHomeWidgetStore(),
@@ -30,7 +33,7 @@ final widgetSyncCoordinatorProvider = Provider<WidgetSyncCoordinator>((ref) {
         startDate: start_date,
         endDate: end_date,
       );
-      return response.data.workShifts;
+      return response.data;
     },
     device_timezone: () async =>
         (await FlutterTimezone.getLocalTimezone()).identifier,
@@ -40,7 +43,7 @@ final widgetSyncCoordinatorProvider = Provider<WidgetSyncCoordinator>((ref) {
 });
 
 /// API 결과와 공유 저장소 쓰기를 별도로 직렬화한다. 계정/요청 revision이
-/// 바뀌면 늦은 응답을 폐기하고, 확정되지 않은 근무 draft는 저장하지 않는다.
+/// 바뀌면 늦은 응답을 폐기하고, 확정되지 않은 근무/일정 draft는 저장하지 않는다.
 class WidgetSyncCoordinator {
   WidgetSyncCoordinator({
     required this.enabled,
@@ -52,7 +55,7 @@ class WidgetSyncCoordinator {
 
   final bool enabled;
   final HomeWidgetStore store;
-  final WidgetShiftLoader loader;
+  final WidgetCalendarLoader loader;
   final Future<String> Function() device_timezone;
   final DateTime Function() now;
   String? _owner_id;
@@ -159,7 +162,7 @@ class WidgetSyncCoordinator {
       }
       if (!_isCurrent(session_revision, request_revision)) return;
       final range = ShiftWidgetSnapshot.rangeFor(now(), timezone);
-      final shifts = await loader(
+      final calendar_data = await loader(
         start_date: range.start_date,
         end_date: range.end_date,
       );
@@ -170,7 +173,8 @@ class WidgetSyncCoordinator {
         updated_at: now(),
         start_date: range.start_date,
         end_date: range.end_date,
-        shifts: shifts,
+        shifts: calendar_data.workShifts,
+        events: calendar_data.events,
       );
       await _enqueue(() async {
         if (!_isCurrent(session_revision, request_revision)) return;
@@ -193,8 +197,8 @@ class WidgetSyncCoordinator {
           debugPrint('위젯 공유 데이터 삭제 실패');
         }
       }
-      // 인증/근무 저장을 위젯 동기화의 성공 여부에 종속시키지 않는다.
-      debugPrint('위젯 근무표 동기화 실패');
+      // 인증/근무·일정 저장을 위젯 동기화의 성공 여부에 종속시키지 않는다.
+      debugPrint('위젯 캘린더 동기화 실패');
     }
   }
 

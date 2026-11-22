@@ -272,11 +272,13 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
   static final _viewport_controller = const CalendarViewportController();
 
   late DateTime _focused_day;
-  late DateTime _selected_day;
+  DateTime? _selected_day;
+  int _overview_focus_revision = 0;
 
   CalendarFormat get _calendar_format => CalendarLayoutPolicy.visibleFormat(
     screen_height: MediaQuery.sizeOf(context).height,
     preferred_format: CalendarFormat.month,
+    is_month_overview: _selected_day == null,
   );
 
   double get _calendar_row_height => CalendarLayoutPolicy.rowHeight(
@@ -289,7 +291,6 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
     super.initState();
     final initial_date = widget.initial_date ?? DateTime.now();
     _focused_day = _normalizeDate(initial_date);
-    _selected_day = _focused_day;
   }
 
   DateTime _normalizeDate(DateTime date) {
@@ -307,20 +308,25 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
   void _goToPreviousMonth() {
     final previous_month = _viewport_controller.monthAt(_focused_day, -1);
     if (previous_month == null) return;
-    setState(() => _focused_day = previous_month);
+    setState(() {
+      _focused_day = previous_month;
+    });
   }
 
   void _goToNextMonth() {
     final next_month = _viewport_controller.monthAt(_focused_day, 1);
     if (next_month == null) return;
-    setState(() => _focused_day = next_month);
+    setState(() {
+      _focused_day = next_month;
+    });
   }
 
   void _goToToday() {
     final today = _normalizeDate(DateTime.now());
     setState(() {
       _focused_day = today;
-      _selected_day = today;
+      _overview_focus_revision++;
+      _selected_day = null;
     });
   }
 
@@ -335,13 +341,15 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
 
     setState(() {
       _focused_day = selected_date;
-      _selected_day = selected_date;
+      _selected_day = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final selected_day_data = buildGroupPreviewDayData(_selected_day);
+    final selected_day_data = _selected_day == null
+        ? null
+        : buildGroupPreviewDayData(_selected_day!);
 
     return CupertinoPageScaffold(
       backgroundColor: AppTheme.background_color,
@@ -391,7 +399,9 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
               color: AppTheme.background_color,
               child: _buildCalendarViewport(),
             ),
-            schedule: _buildSelectedDayDetail(selected_day_data),
+            schedule: selected_day_data == null
+                ? null
+                : _buildSelectedDayDetail(selected_day_data),
           ),
         ),
       ),
@@ -401,6 +411,7 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
   Widget _buildCalendarViewport() {
     return CalendarViewport(
       focused_day: _focused_day,
+      is_month_overview: _selected_day == null,
       can_go_to_previous_month: _canGoToPreviousMonth(),
       can_go_to_next_month: _canGoToNextMonth(),
       onPreviousMonth: _goToPreviousMonth,
@@ -411,12 +422,14 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
       today_key: const ValueKey('group-preview-today-button'),
       trailing: const SizedBox.shrink(),
       month_view: CalendarMonthView<void>(
+        focus_revision: _overview_focus_revision,
         calendar_key: const ValueKey('group-preview-calendar'),
         focused_day: _focused_day,
         selected_day: _selected_day,
         calendar_format: _calendar_format,
         row_height: _calendar_row_height,
         cell_layout: CalendarCellLayout.dots,
+        is_month_overview: _selected_day == null,
         day_key_prefix: 'group-day',
         selection_key_prefix: 'group-selection',
         day_presentation_builder: (date) {
@@ -431,6 +444,17 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
               : AppTheme.on_surface_color;
           return CalendarDayPresentation(
             date_color: date_color,
+            events: [
+              for (final member_day in day_data.members)
+                for (var index = 0; index < member_day.events.length; index++)
+                  CalendarEventPresentation(
+                    id: '${member_day.member.id}:${day_data.date}:$index',
+                    title: member_day.events[index].title,
+                    start_at: day_data.date,
+                    end_at: DateTime(date.year, date.month, date.day + 1),
+                    color: member_day.member.color,
+                  ),
+            ],
             semantic_label:
                 '${date.month}월 ${date.day}일, '
                 '${day_data.working_count}명 근무, '
@@ -447,52 +471,64 @@ class _GroupCalendarPreviewPageState extends State<GroupCalendarPreviewPage> {
         onDaySelected: (selected_day, focused_day) {
           setState(() {
             _selected_day = _normalizeDate(selected_day);
-            _focused_day = focused_day;
+            _focused_day = _selected_day!;
           });
         },
-        onPageChanged: (focused_day) =>
-            setState(() => _focused_day = focused_day),
+        onPageChanged: (focused_day) => setState(() {
+          _focused_day = focused_day;
+        }),
       ),
     );
   }
 
   Widget _buildSelectedDayDetail(GroupPreviewDayData day_data) {
-    return Container(
-      key: const ValueKey('group-preview-selected-day-detail'),
-      margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_md),
-      decoration: AppTheme.cardDecoration(),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CalendarScheduleHeader(
-            selected_date: day_data.date,
-            header_key: const ValueKey('group-preview-selected-day-header'),
-            summary_key: const ValueKey('group-preview-day-summary'),
-            summary_chips: [
-              CalendarScheduleSummaryChip(
-                key: const ValueKey('group-preview-working-count-chip'),
-                label: '근무 ${day_data.working_count}명',
-                is_primary: true,
-              ),
-              CalendarScheduleSummaryChip(
-                key: const ValueKey('group-preview-event-count-chip'),
-                label: '일정 ${day_data.personal_event_count}개',
-              ),
-            ],
-          ),
-          Expanded(
-            child: ListView.separated(
-              key: const ValueKey('group-preview-member-list'),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: day_data.members.length,
-              separatorBuilder: (context, index) => const SizedBox.shrink(),
-              itemBuilder: (context, index) {
-                return _buildMemberDayCard(day_data.members[index]);
-              },
+    return CalendarScheduleDismissible(
+      key: ValueKey(day_data.date),
+      onClose: () => setState(() => _selected_day = null),
+      child: Container(
+        key: const ValueKey('group-preview-selected-day-detail'),
+        margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing_md),
+        decoration: AppTheme.cardDecoration(),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CalendarScheduleHeader(
+              selected_date: day_data.date,
+              onClose: () => setState(() => _selected_day = null),
+              header_key: const ValueKey('group-preview-selected-day-header'),
+              summary_key: const ValueKey('group-preview-day-summary'),
+              summary_chips: [
+                CalendarScheduleSummaryChip(
+                  key: const ValueKey('group-preview-working-count-chip'),
+                  label: '근무 ${day_data.working_count}명',
+                  is_primary: true,
+                ),
+                CalendarScheduleSummaryChip(
+                  key: const ValueKey('group-preview-event-count-chip'),
+                  label: '일정 ${day_data.personal_event_count}개',
+                ),
+              ],
             ),
-          ),
-        ],
+            Expanded(
+              child: KeyedSubtree(
+                key: ValueKey(day_data.date),
+                child: ListView.separated(
+                  physics: const ClampingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  key: const ValueKey('group-preview-member-list'),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: day_data.members.length,
+                  separatorBuilder: (context, index) => const SizedBox.shrink(),
+                  itemBuilder: (context, index) {
+                    return _buildMemberDayCard(day_data.members[index]);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

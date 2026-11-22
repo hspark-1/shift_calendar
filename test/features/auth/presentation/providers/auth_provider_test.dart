@@ -11,6 +11,7 @@ import 'package:shift_mate/features/auth/domain/entities/profile_image_upload.da
 import 'package:shift_mate/features/auth/presentation/providers/auth_provider.dart';
 import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/core/widgets/profile_image.dart';
+import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
 import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
 import 'package:shift_mate/features/calendar/presentation/providers/shift_types_provider.dart';
 import 'package:shift_mate/features/home_widget/application/widget_sync_coordinator.dart';
@@ -21,7 +22,8 @@ class _WidgetCleanupProbe extends WidgetSyncCoordinator {
     : super(
         enabled: false,
         store: IosHomeWidgetStore(),
-        loader: ({required start_date, required end_date}) async => [],
+        loader: ({required start_date, required end_date}) async =>
+            CalendarRangeData(workShifts: [], events: []),
         device_timezone: () async => 'Asia/Seoul',
       );
   int cleanups = 0;

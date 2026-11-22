@@ -6,12 +6,15 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timezone/data/latest.dart' as timezone_data;
 import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/core/network/api_client.dart';
 import 'package:shift_mate/features/calendar/data/models/work_shift_api_model.dart';
+import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
+import 'package:shift_mate/features/calendar/data/services/calendar_service.dart';
 import 'package:shift_mate/features/calendar/data/models/shift_type_api_model.dart';
 import 'package:shift_mate/features/calendar/data/services/work_shift_service.dart';
 import 'package:shift_mate/features/calendar/data/services/shift_type_service.dart';
@@ -58,6 +61,23 @@ WorkShiftApiModel shift(String code, {DateTime? date}) => WorkShiftApiModel(
   updatedAt: DateTime.utc(2026),
 );
 
+CalendarRangeData calendarData({
+  List<WorkShiftApiModel> shifts = const [],
+  List<EventApiModel> events = const [],
+}) => CalendarRangeData(workShifts: shifts, events: events);
+
+EventApiModel event(String id, String start, String end) => EventApiModel(
+  eventId: id,
+  title: '공유하면 안 되는 개인 일정 제목',
+  memo: '일정 메모',
+  place: '일정 장소',
+  allDay: false,
+  startAt: DateTime.parse(start),
+  endAt: DateTime.parse(end),
+  visibilityLevel: 5,
+  isPrivate: true,
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(timezone_data.initializeTimeZones);
@@ -71,6 +91,10 @@ void main() {
       start_date: DateTime(2026, 11, 16),
       end_date: DateTime(2026, 12, 27),
       shifts: [shift('N')],
+      events: [
+        event('one', '2026-11-21T01:00:00Z', '2026-11-21T02:00:00Z'),
+        event('two', '2026-11-21T02:00:00Z', '2026-11-21T03:00:00Z'),
+      ],
     );
     if (output != null) {
       File(output).writeAsStringSync(jsonEncode(snapshot.toJson()));
@@ -108,17 +132,78 @@ void main() {
     expect(dst_range.end_date, DateTime(2026, 12, 6));
   });
 
+  test('연속·겹침 일정은 현지 날짜별 집계하고 자정 종료·중복·범위 밖은 제외한다', () {
+    final spanning = event(
+      'spanning',
+      '2026-11-24T15:00:00Z',
+      '2026-11-27T15:00:00Z',
+    );
+    final json = ShiftWidgetSnapshot(
+      owner_id: 'owner',
+      timezone: 'Asia/Seoul',
+      updated_at: DateTime.utc(2026, 11, 22),
+      start_date: DateTime(2026, 11, 25),
+      end_date: DateTime(2026, 11, 27),
+      shifts: [],
+      events: [
+        spanning,
+        spanning,
+        event('overlap', '2026-11-25T16:00:00Z', '2026-11-25T17:00:00Z'),
+        event('before', '2026-11-23T15:00:00Z', '2026-11-24T15:00:00Z'),
+        event('after', '2026-11-27T15:00:00Z', '2026-11-28T15:00:00Z'),
+        event('invalid', '2026-11-26T00:00:00Z', '2026-11-26T00:00:00Z'),
+      ],
+    ).toJson();
+    expect(json['event_counts'], {
+      '2026-11-25': 1,
+      '2026-11-26': 2,
+      '2026-11-27': 1,
+    });
+    final raw = jsonEncode(json);
+    for (final sensitive in [
+      'spanning',
+      'overlap',
+      '개인 일정 제목',
+      '일정 메모',
+      '일정 장소',
+      'is_private',
+      'visibility_level',
+    ]) {
+      expect(raw, isNot(contains(sensitive)));
+    }
+  });
+
+  for (final range in [
+    ('2026-11-01', '2026-11-01T04:00:00Z', '2026-11-02T05:00:00Z'),
+    ('2026-03-08', '2026-03-08T05:00:00Z', '2026-03-09T04:00:00Z'),
+  ]) {
+    test('DST ${range.$1}의 실제 현지 자정으로 집계한다', () {
+      final date = DateTime.parse(range.$1);
+      final json = ShiftWidgetSnapshot(
+        owner_id: 'dst',
+        timezone: 'America/New_York',
+        updated_at: DateTime.utc(2026),
+        start_date: date,
+        end_date: DateTime(date.year, date.month, date.day + 1),
+        shifts: [],
+        events: [event('dst', range.$2, range.$3)],
+      ).toJson();
+      expect(json['event_counts'], {range.$1: 1});
+    });
+  }
+
   late MemoryStore store;
   late WidgetSyncCoordinator coordinator;
   var calls = 0;
   var zone_calls = 0;
-  late WidgetShiftLoader loader;
+  late WidgetCalendarLoader loader;
 
   setUp(() {
     store = MemoryStore();
     calls = 0;
     zone_calls = 0;
-    loader = ({required start_date, required end_date}) async => [shift('D')];
+    loader = ({required start_date, required end_date}) async =>
+        calendarData(shifts: [shift('D')]);
     coordinator = WidgetSyncCoordinator(
       enabled: true,
       store: store,
@@ -134,6 +219,190 @@ void main() {
     );
   });
   tearDown(() => coordinator.dispose());
+
+  test('서비스 provider 해제 뒤 늦은 일정 성공은 해제된 ref로 갱신하지 않는다', () async {
+    final started = Completer<RequestInterceptorHandler>();
+    late RequestOptions pending_options;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          pending_options = options;
+          started.complete(handler);
+        },
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [dioProvider.overrideWithValue(dio)],
+    );
+    final service = container.read(calendarServiceProvider);
+    final pending = service.createEvent(
+      CreateEventRequest(
+        title: '일정',
+        allDay: false,
+        startAt: DateTime.utc(2026, 11, 21),
+        endAt: DateTime.utc(2026, 11, 21, 1),
+        visibilityLevel: 1,
+      ),
+    );
+    final handler = await started.future;
+    container.dispose();
+    handler.resolve(
+      Response(
+        requestOptions: pending_options,
+        statusCode: 200,
+        data: {
+          'success': true,
+          'data': {
+            'event_id': 'late',
+            'title': '일정',
+            'all_day': false,
+            'start_at': '2026-11-21T00:00:00Z',
+            'end_at': '2026-11-21T01:00:00Z',
+            'visibility_level': 1,
+          },
+        },
+      ),
+    );
+    expect((await pending).eventId, 'late');
+  });
+
+  test('실제 provider가 근무와 일정 건수를 함께 저장하고 일정 확정 성공에만 갱신한다', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    String? cached;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(const MethodChannel('home_widget'), (
+      call,
+    ) async {
+      if (call.method == 'getWidgetData') return cached;
+      if (call.method == 'saveWidgetData') {
+        cached = call.arguments['data'] as String?;
+      }
+      return true;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(
+        const MethodChannel('home_widget'),
+        null,
+      ),
+    );
+    var fetches = 0;
+    var fail = false;
+    var confirm_private = true;
+    var deleted = false;
+    final start = DateTime.now().toUtc();
+    final event_json = {
+      'event_id': 'saved-event',
+      'title': '공유하지 않는 일정 제목',
+      'all_day': false,
+      'start_at': start.toIso8601String(),
+      'end_at': start.add(const Duration(hours: 1)).toIso8601String(),
+      'visibility_level': 1,
+      'is_private': true,
+    };
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path.endsWith('/calendar/range')) {
+            fetches++;
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'work_shifts': <Object>[],
+                    'events': [if (!deleted) event_json],
+                  },
+                },
+              ),
+            );
+          } else if (fail) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                response: Response(requestOptions: options, statusCode: 500),
+                type: DioExceptionType.badResponse,
+              ),
+            );
+          } else {
+            deleted = options.method == 'DELETE';
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': deleted
+                      ? {'event_id': 'saved-event'}
+                      : {...event_json, 'is_private': confirm_private},
+                },
+              ),
+            );
+          }
+        },
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [dioProvider.overrideWithValue(dio)],
+    );
+    addTearDown(container.dispose);
+    final actual = container.read(widgetSyncCoordinatorProvider);
+    await actual.setSession(owner_id: 'real-provider', timezone: 'Asia/Seoul');
+    expect(fetches, 1);
+    expect(jsonDecode(cached!)['event_counts'], isNotEmpty);
+    expect(cached, isNot(contains(event_json['title']! as String)));
+    final service = container.read(calendarServiceProvider);
+    final request = CreateEventRequest(
+      title: '일정',
+      allDay: false,
+      startAt: start,
+      endAt: start.add(const Duration(hours: 1)),
+      visibilityLevel: 1,
+      isPrivate: true,
+    );
+    await service.createEvent(request);
+    await actual.sync();
+    expect(fetches, 2);
+    await service.updateEvent(
+      'saved-event',
+      UpdateEventRequest(
+        title: '수정 일정',
+        memo: null,
+        place: null,
+        allDay: false,
+        startAt: start,
+        endAt: request.endAt,
+        visibilityLevel: 1,
+        isPrivate: true,
+      ),
+    );
+    await actual.sync();
+    expect(fetches, 3);
+    confirm_private = false;
+    await expectLater(
+      service.createEvent(request),
+      throwsA(isA<ApiException>()),
+    );
+    expect(fetches, 3);
+    fail = true;
+    await expectLater(
+      service.deleteEvent('saved-event'),
+      throwsA(isA<ApiException>()),
+    );
+    expect(fetches, 3);
+    fail = false;
+    await service.deleteEvent('saved-event');
+    await actual.sync();
+    expect(fetches, 4);
+    expect(jsonDecode(cached!)['event_counts'], isEmpty);
+    await actual.setSession();
+    expect(cached, isNull);
+  });
 
   test('실제 서비스 provider는 확정된 근무·타입 mutation에만 갱신을 연결한다', () async {
     final work = {
@@ -238,7 +507,7 @@ void main() {
     expect(calls, 1);
     expect(zone_calls, 0);
     expect((jsonDecode(store.value!)['shifts'] as List).single['code'], 'D');
-    loader = ({required start_date, required end_date}) async => [];
+    loader = ({required start_date, required end_date}) async => calendarData();
     await coordinator.sync(force: true);
     expect(jsonDecode(store.value!)['shifts'], isEmpty);
     await coordinator.setSession();
@@ -246,7 +515,7 @@ void main() {
   });
 
   test('조회 중 로그아웃하면 늦은 응답을 폐기한다', () async {
-    final response = Completer<List<WorkShiftApiModel>>();
+    final response = Completer<CalendarRangeData>();
     final started = Completer<void>();
     loader = ({required start_date, required end_date}) {
       started.complete();
@@ -255,7 +524,7 @@ void main() {
     final login = coordinator.setSession(owner_id: 'a');
     await started.future;
     await coordinator.setSession();
-    response.complete([shift('N')]);
+    response.complete(calendarData(shifts: [shift('N')]));
     await login;
     expect(store.value, isNull);
   });
@@ -273,16 +542,16 @@ void main() {
 
   test('다른 계정 전환은 이전 캐시와 응답을 재사용하지 않는다', () async {
     await coordinator.setSession(owner_id: 'a', timezone: 'Asia/Seoul');
-    final old = Completer<List<WorkShiftApiModel>>();
+    final old = Completer<CalendarRangeData>();
     loader = ({required start_date, required end_date}) => old.future;
     final pending = coordinator.sync();
     await Future<void>.delayed(Duration.zero);
     loader = ({required start_date, required end_date}) async {
       expect(store.value, isNull);
-      return [shift('B')];
+      return calendarData(shifts: [shift('B')]);
     };
     await coordinator.setSession(owner_id: 'b', timezone: 'Asia/Seoul');
-    old.complete([shift('A')]);
+    old.complete(calendarData(shifts: [shift('A')]));
     await pending;
     expect(jsonDecode(store.value!)['owner_id'], 'b');
     expect((jsonDecode(store.value!)['shifts'] as List).single['code'], 'B');
@@ -290,14 +559,15 @@ void main() {
 
   test('수정 이후 강제 조회가 먼저 끝나면 이전 응답은 무시한다', () async {
     await coordinator.setSession(owner_id: 'a', timezone: 'Asia/Seoul');
-    final old = Completer<List<WorkShiftApiModel>>();
+    final old = Completer<CalendarRangeData>();
     loader = ({required start_date, required end_date}) => old.future;
     final pending = coordinator.sync();
     await Future<void>.delayed(Duration.zero);
     expect(identical(pending, coordinator.sync()), isTrue);
-    loader = ({required start_date, required end_date}) async => [shift('NEW')];
+    loader = ({required start_date, required end_date}) async =>
+        calendarData(shifts: [shift('NEW')]);
     await coordinator.sync(force: true);
-    old.complete([shift('OLD')]);
+    old.complete(calendarData(shifts: [shift('OLD')]));
     await pending;
     expect((jsonDecode(store.value!)['shifts'] as List).single['code'], 'NEW');
   });
@@ -327,7 +597,7 @@ void main() {
         throw ApiException(code: 'UNAUTHORIZED', message: '', statusCode: 401);
     await coordinator.setSession(owner_id: 'a', timezone: 'Asia/Seoul');
     expect(store.value, isNull);
-    loader = ({required start_date, required end_date}) async => [];
+    loader = ({required start_date, required end_date}) async => calendarData();
     await coordinator.sync();
     expect(store.value, isNotNull);
   });

@@ -2,6 +2,7 @@
 
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../calendar/data/models/event_api_model.dart';
 import '../../calendar/data/models/work_shift_api_model.dart';
 
 /// 날짜는 UTC instant가 아니라 사용자 시간대의 근무일이다.
@@ -13,6 +14,7 @@ class ShiftWidgetSnapshot {
     required this.start_date,
     required this.end_date,
     required this.shifts,
+    this.events = const [],
   });
 
   final String owner_id;
@@ -21,6 +23,7 @@ class ShiftWidgetSnapshot {
   final DateTime start_date;
   final DateTime end_date;
   final List<WorkShiftApiModel> shifts;
+  final List<EventApiModel> events;
 
   static String dateKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'
@@ -58,6 +61,7 @@ class ShiftWidgetSnapshot {
       'updated_at': updated_at.toUtc().toIso8601String(),
       'start_date': dateKey(start_date),
       'end_date': dateKey(end_date),
+      'event_counts': _eventCounts(),
       'shifts': [
         for (final shift in sorted_shifts)
           if (dateKey(shift.workDate).compareTo(dateKey(start_date)) >= 0 &&
@@ -72,5 +76,28 @@ class ShiftWidgetSnapshot {
             },
       ],
     };
+  }
+
+  /// 일정 원문은 공유하지 않고 조회 범위에 겹치는 날짜별 건수만 남긴다.
+  /// 현지 자정 경계를 사용해 DST와 exclusive 종료를 함께 처리한다.
+  Map<String, int> _eventCounts() {
+    final location = tz.getLocation(timezone);
+    final counts = <String, int>{};
+    var day = DateTime.utc(start_date.year, start_date.month, start_date.day);
+    final last_day = DateTime.utc(end_date.year, end_date.month, end_date.day);
+    while (!day.isAfter(last_day)) {
+      final start = tz.TZDateTime(location, day.year, day.month, day.day);
+      final end = tz.TZDateTime(location, day.year, day.month, day.day + 1);
+      final ids = {
+        for (final event in events)
+          if (event.endAt.isAfter(event.startAt) &&
+              event.startAt.isBefore(end) &&
+              event.endAt.isAfter(start))
+            event.eventId,
+      };
+      if (ids.isNotEmpty) counts[dateKey(day)] = ids.length;
+      day = DateTime.utc(day.year, day.month, day.day + 1);
+    }
+    return counts;
   }
 }

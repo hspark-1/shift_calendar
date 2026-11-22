@@ -35,6 +35,7 @@ import 'package:shift_mate/features/auth/domain/entities/user.dart';
 import 'package:shift_mate/features/auth/presentation/providers/auth_provider.dart';
 import 'package:shift_mate/features/calendar/data/models/event_api_model.dart';
 import 'package:shift_mate/features/calendar/data/services/calendar_service.dart';
+import 'package:shift_mate/features/calendar/presentation/pages/calendar_page.dart';
 import 'package:shift_mate/features/calendar/presentation/providers/shift_types_provider.dart';
 import 'package:shift_mate/features/friend/data/services/friend_service.dart';
 import 'package:shift_mate/features/friend/data/models/friend_model.dart';
@@ -670,7 +671,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('탭 이동과 재선택은 달을 보존하고 오늘 버튼만 오늘로 이동한다', (tester) async {
+  testWidgets('탭 복귀는 달을 보존하고 캘린더 재선택은 오늘로 이동한다', (tester) async {
     final fixture = await _pumpTabs(tester);
     final calendar = find.byKey(const ValueKey('main-calendar'));
     final today = DateTime.now();
@@ -692,8 +693,6 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('main-tab-0')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('main-tab-0')));
-    await tester.pumpAndSettle();
     expect(
       isSameDay(tester.widget<TableCalendar>(calendar).focusedDay, target),
       isTrue,
@@ -702,6 +701,15 @@ void main() {
       tester.widget<TableCalendar>(calendar).selectedDayPredicate!(target),
       isTrue,
     );
+    final page_state = tester.state(find.byType(CalendarPage));
+    await tester.tap(find.byKey(const ValueKey('main-tab-0')));
+    await tester.pumpAndSettle();
+    expect(
+      isSameDay(tester.widget<TableCalendar>(calendar).focusedDay, today),
+      isTrue,
+    );
+    expect(find.byKey(const ValueKey('calendar-schedule-card')), findsNothing);
+    expect(tester.state(find.byType(CalendarPage)), same(page_state));
     await tester.tap(find.byKey(const ValueKey('calendar-today-button')));
     await tester.pumpAndSettle();
     expect(
@@ -709,6 +717,77 @@ void main() {
       isTrue,
     );
     expect(fixture.root_key.currentState!.canPop(), isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final size in [const Size(320, 568), const Size(390, 844)]) {
+    testWidgets('캘린더 연속 재선택은 오늘 위치를 드러내고 페이지를 중복 생성하지 않는다 $size', (
+      tester,
+    ) async {
+      await _pumpTabs(
+        tester,
+        screen_size: size,
+        reduce_motion: size.width == 320,
+      );
+      final calendar = find.byKey(const ValueKey('main-calendar'));
+      final today = DateTime.now();
+      final other_day = DateTime(today.year, today.month - 2, 15);
+      tester.widget<TableCalendar>(calendar).onDaySelected!(
+        other_day,
+        other_day,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('main-tab-0')));
+      await tester.pumpAndSettle();
+      final today_cell = find.byKey(
+        ValueKey('CellContent-${today.year}-${today.month}-${today.day}'),
+      );
+      expect(today_cell.hitTestable(), findsOneWidget);
+      final scrollable = Scrollable.maybeOf(
+        tester.element(today_cell),
+        axis: Axis.vertical,
+      )!;
+      scrollable.position.jumpTo(0);
+      await tester.pumpAndSettle();
+      for (var index = 0; index < 3; index++) {
+        await tester.tap(find.byKey(const ValueKey('main-tab-0')));
+      }
+      await tester.pumpAndSettle();
+      expect(
+        isSameDay(tester.widget<TableCalendar>(calendar).focusedDay, today),
+        isTrue,
+      );
+      expect(today_cell.hitTestable(), findsOneWidget);
+      expect(find.byType(CalendarPage), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('calendar-schedule-card')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('근무 입력 중 캘린더 재선택은 입력 모드를 유지하고 오늘로 이동한다', (tester) async {
+    await _pumpTabs(tester);
+    final calendar = find.byKey(const ValueKey('main-calendar'));
+    final today = DateTime.now();
+    final other_day = DateTime(today.year, today.month - 1, 12);
+    tester.widget<TableCalendar>(calendar).onDaySelected!(other_day, other_day);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(CupertinoIcons.add));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('shift-add-card')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('main-tab-0')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('shift-add-card')), findsOneWidget);
+    expect(
+      isSameDay(tester.widget<TableCalendar>(calendar).focusedDay, today),
+      isTrue,
+    );
+    expect(
+      tester.widget<TableCalendar>(calendar).selectedDayPredicate!(today),
+      isTrue,
+    );
     expect(tester.takeException(), isNull);
   });
 
