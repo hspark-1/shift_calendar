@@ -1,5 +1,13 @@
 # 작업 로그
 
+## 2026-11-22 위젯 개발 참고 자료 버전 관리
+
+- [DONE] (개발 환경) 기존 widgets 스킬과 원본 lock을 보존하고 로컬 Gradle 캐시는 버전 관리에서 제외했다.
+  - 목적/변경: WidgetKit 개발 참고 자료의 재현성을 확보하고 자동 생성 캐시의 유입을 방지한다.
+  - 파일/영향: `.agents/skills/widgets/`, `skills-lock.json`, `.gitignore`; 파일 역할·의존성·사용 예는 PROJECT_CONTEXT의 같은 제목 절을 따른다. 앱 동작 변경은 없다.
+  - 테스트: lock JSON과 파일 경로, `git check-ignore` 및 커밋 파일 목록을 확인한다.
+  - 롤백: 이 작업의 참고 자료/lock과 ignore 추가분만 revert한다.
+
 ## 2026-11-22 인증번호 전송 버튼을 번호 입력 오른쪽에 배치
 
 - [DONE] (FE/UI) 인증번호 받기 버튼을 휴대폰 입력 오른쪽으로 옮기고 인증하기와 같은 파란 액션으로 표시했다.

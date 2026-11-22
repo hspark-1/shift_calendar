@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "skills": {
+    "widgets": {
+      "source": "n0an/Widgets-Agent-Skill",
+      "commit": "06567e152df00df1db50a2935bbe62fda9e27c19",
+      "sourceType": "github",
+      "skillPath": "widgets/SKILL.md",
+      "computedHash": "a12798c7341630f75a2fdfb411bcec422a4a9c58a9da08153c6d0390d027514a"
+    }
+  }
+}

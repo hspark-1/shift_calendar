@@ -1,5 +1,10 @@
 # 프로젝트 컨텍스트
 
+## 위젯 개발 스킬과 로컬 빌드 캐시 (2026-11-22)
+
+- 역할/의존성/사용 예: `.agents/skills/widgets/`는 기존에 추가된 WidgetKit 개발 참고 스킬이다. `SKILL.md`가 진입점이고 `agents/openai.yaml`은 도구 표시, `references/`는 family·timeline·렌더링 등 주제별 참고 자료다. `skills-lock.json`에 GitHub 원본과 고정 커밋/해시가 기록되어 있으며 WidgetKit 작업 시 해당 스킬을 읽는다. 앱 runtime 의존성은 없다.
+- 변경/영향/검증: 개발 자료를 버전 관리하고 `.gitignore`의 `**/.gradle/`로 vendored 플러그인 안의 로컬 Gradle 캐시도 제외한다. `git check-ignore`와 최종 커밋 파일 목록으로 확인한다. 캐시 파일은 삭제하지 않는다. 롤백은 해당 스킬/lock과 ignore 추가분을 revert한다.
+
 ## 회원가입·프로필 수정의 간결한 정보 입력 UI (2026-11-22, ADR-0104)
 
 - 전송 버튼 후속 배치: 사용자 요청으로 `인증번호 받기`를 휴대폰 입력 오른쪽8px 간격·중앙 정렬의 파란 버튼(최소56)으로 옮겼다. Google 안내/자세히는 입력 행 아래에 남긴다. 가용 폭300미만 또는14px 글자의 확대 크기18초과에서는 입력/버튼을 세로 배치한다. 미변경/인증 완료 번호에는 전송 버튼을 표시하지 않고 코드 입력 복귀·재발송/확인·대기/오류 정책을 유지한다. 초기 인증 영역이 짧아져 코드/수신 번호 단계의 높이는 초기보다 늘 수 있다. Page의 `_ProfileField.trailing`과 공용 `PhoneVerificationSection.phone_input_builder(action)`가 AppTheme/Cupertino/기존 controller에 의존하며 별도 파일/패키지 없이 `phone_input_builder: (action) => _ProfileField(trailing: action, ...)`로 사용한다. 기존 프로필 회귀/렌더43 pass·26조건 오류0, 변경3파일 분석 진단0이며 기존 검토 이미지/측정값을 갱신했다. 인증/API/DB/route·상태 수명은 유지하며 롤백은 이번 표시/회귀·검토/문서 변경분만 복원한다.

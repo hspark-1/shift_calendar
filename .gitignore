@@ -60,3 +60,6 @@ AGENTS.md
 # Local debugging notes
 NAVER_LOGIN_CHECKLIST.md
 NAVER_OAUTH_URL_EXPLANATION.md
+
+# Local Gradle caches (including vendored plugins)
+**/.gradle/
