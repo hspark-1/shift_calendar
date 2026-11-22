@@ -1,5 +1,11 @@
 # 프로젝트 컨텍스트
 
+## 누적 변경 작업별 커밋·검증 (2026-11-22)
+
+- 기존 변경을 프로필 공통화·iOS 빌드6·Firebase 휴대폰 인증·최종 프로필 UI·친구 공유 해제·하단 탭 전환·근무 위젯·개인정보 고지·개발 스킬/캐시·첨부 캘린더 계획 검토의10개 작업으로 분리해 origin/develop에 푸시했다. 각 커밋에 관련 컨텍스트/ADR/일지를 포함하며 세부 해시는 같은 날짜 WORKLOG를 따른다.
+- 검증: 전체 Flutter655 pass/skip1, 변경 Dart56파일 포맷 일치/진단0, 기존 미변경 파일 naming info26건 유지. 중간 커밋 격리 회귀·Phone Auth Python3개·위젯 Dart14개/Swift51check·unsigned 위젯 빌드를 통과했다. 이번에 기존 최종 제품 동작을 추가 변경하지 않았다.
+- 파일 역할·영향·롤백: `.agents/skills/widgets/`와 lock, `.gitignore`의 로컬 Gradle 캐시 제외는 아래 개발 환경 절을 따른다. 검증 임시 자료/재현 명령·제외 파일·확인 한계는 WORKLOG에 기록했다. 작업별 커밋을 역순 revert하고 해당 코드/문서를 함께 복구한다. 새 API/DB/설계 결정은 없다.
+
 ## 위젯 개발 스킬과 로컬 빌드 캐시 (2026-11-22)
 
 - 역할/의존성/사용 예: `.agents/skills/widgets/`는 기존에 추가된 WidgetKit 개발 참고 스킬이다. `SKILL.md`가 진입점이고 `agents/openai.yaml`은 도구 표시, `references/`는 family·timeline·렌더링 등 주제별 참고 자료다. `skills-lock.json`에 GitHub 원본과 고정 커밋/해시가 기록되어 있으며 WidgetKit 작업 시 해당 스킬을 읽는다. 앱 runtime 의존성은 없다.

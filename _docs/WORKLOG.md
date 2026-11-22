@@ -8,6 +8,29 @@
   - 테스트: lock JSON과 파일 경로, `git check-ignore` 및 커밋 파일 목록을 확인한다.
   - 롤백: 이 작업의 참고 자료/lock과 ignore 추가분만 revert한다.
 
+## 2026-11-22 누적 변경 작업별 커밋·푸시
+
+- [DONE] (Git) 누적 변경을 작업별10개 커밋으로 분리해 origin/develop에 푸시했다. 최종 검증·분리 기록은 후속 문서 커밋으로 함께 보존한다.
+  - 목적: 기능·수정·운영 자료를 독립적으로 추적하고 되돌릴 수 있게 정리한다.
+  - 변경/영향: 기존 소스·테스트·설정·검토 산출물과 문서를 작업별로 staging했다. 보존된 작업 전 소스/회귀로 프로필 공통화 → 인증 구현 → 후속 UI를 분리했고, main.dart·auth_provider·pubspec/lock·Xcode 프로젝트와 친구 화면/테스트의 공유 변경도 해당 작업으로 나눴다. 기존 최종 제품 코드는 그대로 보존했다. 추가 변경은 개발 자료의 역할 문서, Gradle 캐시 ignore, 이번 검증 기록이다.
+  - 전체 검증: `flutter test --no-pub --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded` **655 pass / 기존 skip1 / fail0**. 변경 Dart56파일 포맷 변경0. `flutter analyze --no-pub`는 error/warning0이며 기존 미변경4파일의 네이밍 info26건으로 종료1이다. 관련 없는 파일은 수정하지 않았고 변경 파일 진단은0이다.
+  - 중간 커밋 검증: Git 인덱스를 임시 폴더에 내보내 프로필 공통화24개·인증 전체183개·친구 공유/캐시26개·탭/친구/캘린더84개를 각각 통과했다. 분리 중 발견한 위젯 probe와 bottom_inset 테스트의 컴파일 의존성은 위젯/탭 커밋으로 함께 옮긴 후 재검증했다. 최종 작업 트리의 전체 회귀와 중간 커밋 검증을 구분한다.
+  - 플랫폼/자료 검증: Phone Auth iOS 설정 Python3개, 위젯 Dart14개와 생성 fixture를 사용하는 Swift 계약/타임라인51check, 위젯 확장 Debug/arm64 simulator unsigned 빌드 성공. Swift 첫 실행의 fixture 인자 누락은 올바른 Dart fixture를 전달해 해소했다. 전체 diff/커밋별 공백 검사·JSON/plist·drawio XML2개·HTML5표/14절·원본 skill lock 경로·개인키/접근토큰 패턴 검사 통과. 실기기/SMS·서명 배포/스토어 업로드·공개 개인정보 페이지 게시를 이번에 수행하지 않았다.
+  - 도구/보존: Flutter SDK/Dart telemetry 캐시 접근은 해당 검사 명령의 승인된 권한 확장으로 해결했다. 다른 Git 프로세스의 일시적 index.lock은 제거하지 않고 잠금 해제 후 재시도했다. `/private/tmp/shiftmate-commit-split-20261122/`에 시작 diff/status·인덱스 staging 도구·격리 검증 소스·검사 로그/fixture/unsigned 빌드를 보존했다. 저장소·기존 Flutter/Dart·Xcode·Python 환경에 의존하며 제품 runtime/배포 의존성은 없다. 예: 위 명령으로 전체 회귀를 재현하고 아래 해시로 작업을 조회한다. 비밀값·임시 도구/빌드는 커밋하지 않았다.
+  - 푸시 확인: `git fetch origin develop` 후 원격 추가 커밋0을 확인하고 force 없이 `git push origin develop` 성공. 원격/로컬 모두 `1c2baee`에서 작업10개 일치를 확인했다. 이 검증 기록의 후속 문서 커밋도 같은 브랜치에 푸시하고 최종 상태를 재확인한다.
+  - 제외/롤백: `third_party/naver_login_flutter/android/.gradle/`는 로컬 캐시로 보존하고 `**/.gradle/`로 제외했다. 작업별 커밋을 의존성의 역순으로 revert하며 기능/관련 테스트·문서를 함께 복구한다. 새 설계 정책 변경은 없어 별도 ADR은 추가하지 않았다.
+  - 작업별 커밋:
+    - `2a5cfc3 refactor(auth): 회원가입과 프로필 편집 입력 UI 공통화`
+    - `39bfbd7 chore(ios): App Store 제출 빌드 번호 6 및 검증 기록`
+    - `3c097ce feat(auth): Firebase 휴대폰 인증과 프로필 저장 증명 연동`
+    - `021807e feat(auth): 회원가입과 프로필 수정 입력 화면 간소화`
+    - `bbd42cd fix(friend): 캘린더 공유 해제 시 캐시 폐기와 빈 일정 표시`
+    - `9d3c1b1 fix(navigation): 플로팅 탭 뒤까지 화면 전환 배경 확장`
+    - `d223018 feat(ios): 홈·잠금화면 근무 위젯과 계정별 동기화 추가`
+    - `60a887d docs(privacy): Firebase 휴대폰 인증 처리·국외 이전 고지 보완`
+    - `f6118b0 chore(dev): WidgetKit 개발 스킬 보존 및 로컬 Gradle 캐시 제외`
+    - `1c2baee docs(calendar): 첨부 UI 구현 계획의 사전 검토 결과 기록`
+
 ## 2026-11-22 첨부 캘린더 프론트엔드 구현 계획 검토
 
 - [DONE] (FE/검토) 첨부 계획서를 현행 문서·코드와 대조하고 Figma 링크 접근 가능 여부를 확인했다.
