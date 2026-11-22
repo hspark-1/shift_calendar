@@ -1,5 +1,13 @@
 # 프로젝트 컨텍스트
 
+## 회원가입·개인정보 편집 입력 UI 통합 (2026-11-16, ADR-0086)
+
+- 목적/Behavior change: 사용자 요청으로 가입의 이전 행 형태 입력을 제거하고 개인정보 편집 디자인을 재사용한다. `ProfileSetupPage`의 가입/편집이 사진·이름 요약 → 기본 정보(이름·휴대폰) → 선택 근무 정보(직종·소속/부서) → 읽기 전용 이메일 → 고정 버튼을 같은 위젯으로 표시한다. 두 모드 모두 직종·회사 입력의 placeholder는 null이며 외부 라벨·선택 표시를 유지한다. 카드 반경16·입력 반경12/최소52·최대 너비480·여백/타이포는 기존 편집 디자인과 같다.
+- 모드별 동작: 가입은 `프로필 설정`/`저장하고 시작하기`와 선택 정보 추후 추가 안내·개인정보 안내를 표시한다. 가입 버튼은 기존처럼 변경 여부와 무관하게 활성화되고 제출 시 필수 검증한다. 편집의 변경 감지·이탈 확인·포커스 이탈 검증·첫 오류 이동·실패 재시도는 유지한다. 가입도 공통 입력의 포커스 테두리·다음 필드 이동·실시간 이름 요약을 사용하고 사진 선택/저장 중 입력·이탈을 막는다.
+- 흐름/범위: `AuthWrapper.requires_profile_setup → ProfileSetupPage → AuthNotifier.completeProfileSetup → 기존 Repository/DataSource → POST /auth/profile/complete`; 설정의 `ProfileSetupPage.edit → updateProfile → POST /auth/profile`은 유지한다. 편집의 부분 전송/미변경 전화 예외/선택값 삭제·가입의 기기 타임존·사진 제한도 유지한다. UI state는 화면이 소유하고 controller/focus/scroll을 dispose한다. authProvider 수명·서버/DB·권한·analytics·환경변수·의존성 변경은 없다.
+- 파일 역할/의존성/사용 예: 기존 `profile_setup_page.dart`의 `_buildIdentity`/`_buildSection`/`_buildAccount`/`_buildBottomAction`/`_ProfileField`가 AppTheme·Cupertino를 사용해 공통 UI를 구성한다. 기존 테스트 식별자 `profile_edit_*`는 호환을 위해 공통 카드에서도 유지한다. 기존 `profile_setup_page_test.dart`는 두 모드의 카드/입력·placeholder 부재와 가입/편집 저장 회귀를 확인한다. 새 영구 파일은 없다. `flutter test --no-pub test/features/auth --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key`로 검증한다.
+- 검증/한계/롤백: 인증125개 통과, 수정 Dart2파일 분석 진단0·포맷 변경0·diff 검사 통과. 기존 편집 렌더러를 임시 확장해 가입/편집 각14조건(320/375/390px·가로·태블릿·글자2배·동작 줄이기·모의 키보드·스크롤)을 검증했다. `/private/tmp/profile_input_20261116/render_test.dart`는 기존 렌더러/Flutter test·번들 폰트·모의 repository에 의존하며 `flutter test --no-pub /private/tmp/profile_input_20261116/render_test.dart`로 signup/edit의 PNG28개와 measurements.json2개를 만든다. 실제 OS 사진/키보드·실서버·스크린리더는 이번에 인수하지 않았다. 기존 앱 라이트 테마 범위이며 다크 모드 도입은 포함하지 않는다. 이번 화면·회귀·문서 diff만 되돌리면 롤백된다.
+
 ## 작업별 커밋 정리·검증·푸시 (2026-11-16)
 
 - 사용자 요청으로 누적 변경을 그룹 nullable·피커·일정 편집/삭제/캘린더 배치·색상/헤더·친구/그룹 탐색·설정·웹 정책·Google 탈퇴·출시 빌드·UIScene·방향 설정·네이버 오류·SDK·로컬 API의14개 커밋으로 분리했다. 원격의 기존 Google 전화번호850e45d를 보존하며 각 작업에 관련 컨텍스트·ADR·일지를 함께 넣었다. 이 최종 기록과 기존 정책 설명 정합성은 후속 문서 커밋으로 보존한다.

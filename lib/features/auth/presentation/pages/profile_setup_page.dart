@@ -136,7 +136,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
   final FocusNode _workplace_focus = FocusNode();
   final GlobalKey _name_field_key = GlobalKey();
   final GlobalKey _phone_field_key = GlobalKey();
-  final ScrollController _edit_scroll = ScrollController();
+  final ScrollController _profile_scroll = ScrollController();
   bool _name_blurred = false;
   bool _phone_blurred = false;
   bool _allow_pop = false;
@@ -164,20 +164,18 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     _timezone_future = widget.is_editing
         ? Future<void>.value()
         : _loadDeviceTimezone();
-    if (widget.is_editing) {
-      for (final controller in [
-        _name_controller,
-        _phone_controller,
-        _job_type_controller,
-        _workplace_controller,
-      ]) {
-        controller.addListener(_onEditChanged);
-      }
-      _name_focus.addListener(_onNameFocusChanged);
-      _phone_focus.addListener(_onPhoneFocusChanged);
-      _job_focus.addListener(_onEditFocusChanged);
-      _workplace_focus.addListener(_onEditFocusChanged);
+    for (final controller in [
+      _name_controller,
+      _phone_controller,
+      _job_type_controller,
+      _workplace_controller,
+    ]) {
+      controller.addListener(_onProfileChanged);
     }
+    _name_focus.addListener(_onNameFocusChanged);
+    _phone_focus.addListener(_onPhoneFocusChanged);
+    _job_focus.addListener(_onProfileFocusChanged);
+    _workplace_focus.addListener(_onProfileFocusChanged);
   }
 
   @override
@@ -190,11 +188,11 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     _phone_focus.dispose();
     _job_focus.dispose();
     _workplace_focus.dispose();
-    _edit_scroll.dispose();
+    _profile_scroll.dispose();
     super.dispose();
   }
 
-  void _onEditChanged() {
+  void _onProfileChanged() {
     setState(() => _save_error = null);
   }
 
@@ -210,7 +208,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     });
   }
 
-  void _onEditFocusChanged() {
+  void _onProfileFocusChanged() {
     setState(() {});
   }
 
@@ -456,73 +454,35 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.is_editing) return _buildEditPage();
-    return PopScope(
-      canPop: !_is_loading,
-      child: CupertinoPageScaffold(
-        backgroundColor: AppTheme.background_color,
-        navigationBar: CupertinoNavigationBar(
-          middle: Text(widget.is_editing ? '프로필 수정' : '프로필 설정'),
-          automaticallyImplyLeading: !_is_loading,
-        ),
-        child: SafeArea(
-          child: GestureDetector(
-            key: const Key('profile_setup_keyboard_dismiss_area'),
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    key: const Key('profile_setup_scroll_view'),
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                    children: [
-                      _buildIntro(),
-                      const SizedBox(height: 28),
-                      _buildBasicSection(),
-                      const SizedBox(height: 28),
-                      _buildWorkSection(),
-                      const SizedBox(height: 24),
-                      const _PrivacyNotice(),
-                    ],
-                  ),
-                ),
-                _buildBottomAction(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEditPage() {
     return PopScope<void>(
-      canPop: !_is_busy && (!_has_changes || _allow_pop),
+      canPop: !_is_busy && (!widget.is_editing || !_has_changes || _allow_pop),
       onPopInvokedWithResult: (did_pop, _) {
-        if (!did_pop && !_is_busy) _requestLeave();
+        if (widget.is_editing && !did_pop && !_is_busy) _requestLeave();
       },
       child: CupertinoPageScaffold(
         backgroundColor: AppTheme.background_color,
         navigationBar: CupertinoNavigationBar(
-          automaticallyImplyLeading: false,
-          leading: CupertinoButton(
-            key: const Key('profile_edit_back_button'),
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(44, 44),
-            onPressed: _is_busy ? null : _requestLeave,
-            child: Semantics(
-              label: '뒤로가기',
-              child: const Icon(
-                CupertinoIcons.chevron_back,
-                size: 26,
-                color: AppTheme.primary_dark_color,
-              ),
-            ),
+          automaticallyImplyLeading: !widget.is_editing && !_is_busy,
+          leading: widget.is_editing
+              ? CupertinoButton(
+                  key: const Key('profile_edit_back_button'),
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(44, 44),
+                  onPressed: _is_busy ? null : _requestLeave,
+                  child: Semantics(
+                    label: '뒤로가기',
+                    child: const Icon(
+                      CupertinoIcons.chevron_back,
+                      size: 26,
+                      color: AppTheme.primary_dark_color,
+                    ),
+                  ),
+                )
+              : null,
+          middle: Text(
+            widget.is_editing ? '프로필 수정' : '프로필 설정',
+            style: const TextStyle(fontSize: 18),
           ),
-          middle: const Text('프로필 수정', style: TextStyle(fontSize: 18)),
         ),
         child: SafeArea(
           child: LayoutBuilder(
@@ -541,7 +501,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                         Expanded(
                           child: SingleChildScrollView(
                             key: const Key('profile_setup_scroll_view'),
-                            controller: _edit_scroll,
+                            controller: _profile_scroll,
                             keyboardDismissBehavior:
                                 ScrollViewKeyboardDismissBehavior.onDrag,
                             padding: EdgeInsets.fromLTRB(
@@ -553,9 +513,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _buildEditIdentity(),
+                                _buildIdentity(),
                                 const SizedBox(height: 24),
-                                _buildEditSection(
+                                _buildSection(
                                   section_key: const Key(
                                     'profile_edit_basic_section',
                                   ),
@@ -564,7 +524,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                   children: [
                                     KeyedSubtree(
                                       key: _name_field_key,
-                                      child: _ProfileEditField(
+                                      child: _ProfileField(
                                         field_key: const Key(
                                           'profile_name_field',
                                         ),
@@ -586,7 +546,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                     const SizedBox(height: 16),
                                     KeyedSubtree(
                                       key: _phone_field_key,
-                                      child: _ProfileEditField(
+                                      child: _ProfileField(
                                         field_key: const Key(
                                           'profile_phone_field',
                                         ),
@@ -611,7 +571,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                   ],
                                 ),
                                 const SizedBox(height: 24),
-                                _buildEditSection(
+                                _buildSection(
                                   section_key: const Key(
                                     'profile_edit_work_section',
                                   ),
@@ -619,7 +579,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                   icon: CupertinoIcons.briefcase,
                                   optional: true,
                                   children: [
-                                    _ProfileEditField(
+                                    _ProfileField(
                                       field_key: const Key(
                                         'profile_job_type_field',
                                       ),
@@ -627,13 +587,12 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                       controller: _job_type_controller,
                                       focus_node: _job_focus,
                                       enabled: !_is_busy,
-                                      placeholder: '예: 간호사, 개발자',
                                       max_length: 20,
                                       onSubmitted: (_) =>
                                           _workplace_focus.requestFocus(),
                                     ),
                                     const SizedBox(height: 16),
-                                    _ProfileEditField(
+                                    _ProfileField(
                                       field_key: const Key(
                                         'profile_workplace_field',
                                       ),
@@ -641,7 +600,6 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                       controller: _workplace_controller,
                                       focus_node: _workplace_focus,
                                       enabled: !_is_busy,
-                                      placeholder: '예: 회사·기관 및 부서',
                                       max_length: 100,
                                       autofill_hints: const [
                                         AutofillHints.organizationName,
@@ -652,7 +610,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                     ),
                                     const SizedBox(height: 10),
                                     Text(
-                                      '비워두고 저장하면 근무 정보가 삭제돼요.',
+                                      widget.is_editing
+                                          ? '비워두고 저장하면 근무 정보가 삭제돼요.'
+                                          : '지금 입력하지 않아도 괜찮아요. 설정에서 언제든 추가할 수 있어요.',
                                       style: AppTheme.body_medium.copyWith(
                                         color:
                                             AppTheme.on_surface_variant_color,
@@ -661,12 +621,16 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                                   ],
                                 ),
                                 const SizedBox(height: 24),
-                                _buildEditAccount(),
+                                _buildAccount(),
+                                if (!widget.is_editing) ...[
+                                  const SizedBox(height: 24),
+                                  const _PrivacyNotice(),
+                                ],
                               ],
                             ),
                           ),
                         ),
-                        _buildEditBottomAction(gutter),
+                        _buildBottomAction(gutter),
                       ],
                     ),
                   ),
@@ -679,7 +643,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     );
   }
 
-  Widget _buildEditIdentity() {
+  Widget _buildIdentity() {
     final image_url = widget.user.profile_image_url;
     final selected_name = _name_controller.text.trim();
     return Row(
@@ -758,7 +722,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     );
   }
 
-  Widget _buildEditSection({
+  Widget _buildSection({
     required Key section_key,
     required String title,
     required IconData icon,
@@ -817,8 +781,8 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     );
   }
 
-  Widget _buildEditAccount() {
-    return _buildEditSection(
+  Widget _buildAccount() {
+    return _buildSection(
       section_key: const Key('profile_edit_account_section'),
       title: '계정 정보',
       icon: CupertinoIcons.lock,
@@ -847,7 +811,7 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
     );
   }
 
-  Widget _buildEditBottomAction(double gutter) {
+  Widget _buildBottomAction(double gutter) {
     return Container(
       key: const Key('profile_setup_bottom_action'),
       padding: EdgeInsets.fromLTRB(gutter, 12, gutter, 12),
@@ -884,7 +848,9 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                   ? AppTheme.primary_color
                   : AppTheme.surface_container_highest_color,
               borderRadius: AppTheme.input_border_radius,
-              onPressed: _is_busy || !_has_changes ? null : _handleSave,
+              onPressed: _is_busy || (widget.is_editing && !_has_changes)
+                  ? null
+                  : _handleSave,
               child: _is_loading
                   ? Semantics(
                       label: '저장 중',
@@ -893,10 +859,12 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
                       ),
                     )
                   : Text(
-                      _save_error == null ? '변경사항 저장' : '다시 저장',
+                      widget.is_editing
+                          ? (_save_error == null ? '변경사항 저장' : '다시 저장')
+                          : '저장하고 시작하기',
                       style: AppTheme.body_large.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: _is_busy || !_has_changes
+                        color: _is_busy || (widget.is_editing && !_has_changes)
                             ? AppTheme.on_surface_variant_color
                             : AppTheme.surface_color,
                       ),
@@ -907,269 +875,16 @@ class _ProfileSetupPageState extends ConsumerState<ProfileSetupPage> {
       ),
     );
   }
-
-  Widget _buildIntro() {
-    final image_url = widget.user.profile_image_url;
-    final has_image = image_url != null && image_url.isNotEmpty;
-    return Row(
-      children: [
-        CupertinoButton(
-          key: const Key('profile_image_button'),
-          minimumSize: Size.zero,
-          padding: EdgeInsets.zero,
-          onPressed: _is_busy ? null : _pickProfileImage,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                key: const Key('profile_avatar'),
-                width: 72,
-                height: 72,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: AppTheme.surface_container_color,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.outline_variant_color),
-                ),
-                child: _selected_profile_image != null
-                    ? Image.memory(
-                        _selected_profile_image!.bytes,
-                        fit: BoxFit.cover,
-                      )
-                    : has_image
-                    ? ProfileImage(
-                        image_url: image_url,
-                        fallback: const Icon(
-                          CupertinoIcons.person_fill,
-                          size: 34,
-                          color: AppTheme.outline_color,
-                        ),
-                      )
-                    : const Icon(
-                        CupertinoIcons.person_fill,
-                        size: 34,
-                        color: AppTheme.outline_color,
-                      ),
-              ),
-              Positioned(
-                right: -2,
-                bottom: -2,
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary_color,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.surface_color, width: 2),
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.camera_fill,
-                    size: 14,
-                    color: CupertinoColors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.is_editing ? '내 프로필을 수정해요' : 'ShiftMate에 오신 걸 환영해요',
-                style: const TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.on_surface_color,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                widget.is_editing
-                    ? '사진과 정보를 변경한 뒤\n저장해주세요.'
-                    : '프로필을 설정하고 나만의\n일정 관리를 시작해보세요.',
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.45,
-                  color: AppTheme.on_surface_variant_color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBasicSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(
-          icon: CupertinoIcons.person_fill,
-          title: '기본 정보',
-          badge: '필수',
-          required_section: true,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          widget.is_editing ? '이메일은 변경할 수 없어요.' : '계정 생성과 서비스 이용에 필요한 정보예요.',
-          style: const TextStyle(
-            fontSize: 13,
-            color: AppTheme.on_surface_variant_color,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _ProfileInformationCard(
-          key: const Key('basic_information_card'),
-          child: Column(
-            children: [
-              _ReadonlyEmailRow(email: widget.user.email),
-              const _RowDivider(),
-              _ProfileTextFieldRow(
-                enabled: !_is_busy,
-                field_key: const Key('profile_name_field'),
-                label: '이름',
-                required_field: true,
-                icon: CupertinoIcons.person_crop_rectangle,
-                controller: _name_controller,
-                placeholder: '이름을 입력해주세요',
-                text_input_action: TextInputAction.next,
-                max_length: 50,
-                error_text: _name_error,
-                onChanged: (_) {
-                  if (_has_submitted) setState(() {});
-                },
-              ),
-              const _RowDivider(),
-              _ProfileTextFieldRow(
-                enabled: !_is_busy,
-                field_key: const Key('profile_phone_field'),
-                label: '휴대폰 번호',
-                required_field: true,
-                icon: CupertinoIcons.phone_fill,
-                controller: _phone_controller,
-                placeholder: '010-1234-5678',
-                keyboard_type: TextInputType.phone,
-                text_input_action: TextInputAction.next,
-                input_formatters: [KoreanMobilePhoneInputFormatter()],
-                error_text: _phone_error,
-                onChanged: (_) {
-                  if (_has_submitted) setState(() {});
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWorkSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(
-          icon: CupertinoIcons.briefcase_fill,
-          title: '근무 정보',
-          badge: '선택',
-        ),
-        const SizedBox(height: 10),
-        if (widget.is_editing)
-          const Text(
-            '선택 정보는 비워서 삭제할 수 있어요.',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.on_surface_variant_color,
-            ),
-          )
-        else
-          const _OptionalNotice(),
-        const SizedBox(height: 12),
-        _ProfileInformationCard(
-          key: const Key('work_information_card'),
-          child: Column(
-            children: [
-              _ProfileTextFieldRow(
-                enabled: !_is_busy,
-                field_key: const Key('profile_job_type_field'),
-                label: '직종',
-                icon: CupertinoIcons.briefcase_fill,
-                controller: _job_type_controller,
-                placeholder: '예: 간호사, 개발자, 디자이너',
-                text_input_action: TextInputAction.next,
-                max_length: 20,
-              ),
-              const _RowDivider(),
-              _ProfileTextFieldRow(
-                enabled: !_is_busy,
-                field_key: const Key('profile_workplace_field'),
-                label: '재직 중인 회사·기관 및 부서',
-                icon: CupertinoIcons.building_2_fill,
-                controller: _workplace_controller,
-                placeholder: '예: ShiftMate 프로덕트팀',
-                text_input_action: TextInputAction.done,
-                max_length: 100,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomAction() {
-    return Container(
-      key: const Key('profile_setup_bottom_action'),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
-        color: AppTheme.background_color,
-        border: Border(
-          top: BorderSide(color: AppTheme.outline_variant_color, width: 0.5),
-        ),
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: CupertinoButton.filled(
-          key: const Key('profile_setup_submit_button'),
-          padding: EdgeInsets.zero,
-          borderRadius: BorderRadius.circular(14),
-          onPressed: _is_busy ? null : _handleSave,
-          child: _is_loading
-              ? const CupertinoActivityIndicator(color: CupertinoColors.white)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.is_editing ? '변경사항 저장' : '저장하고 시작하기',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (!widget.is_editing) ...[
-                      const SizedBox(width: 6),
-                      const Icon(CupertinoIcons.arrow_right, size: 18),
-                    ],
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
 }
 
-class _ProfileEditField extends StatelessWidget {
+class _ProfileField extends StatelessWidget {
   final Key field_key;
   final String label;
   final bool required_field;
   final TextEditingController controller;
   final FocusNode focus_node;
   final bool enabled;
-  final String placeholder;
+  final String? placeholder;
   final int? max_length;
   final String? error_text;
   final TextInputType? keyboard_type;
@@ -1178,14 +893,14 @@ class _ProfileEditField extends StatelessWidget {
   final TextInputAction text_input_action;
   final ValueChanged<String> onSubmitted;
 
-  const _ProfileEditField({
+  const _ProfileField({
     required this.field_key,
     required this.label,
     this.required_field = false,
     required this.controller,
     required this.focus_node,
     required this.enabled,
-    required this.placeholder,
+    this.placeholder,
     this.max_length,
     this.error_text,
     this.keyboard_type,
@@ -1269,295 +984,6 @@ class _ProfileEditField extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String badge;
-  final bool required_section;
-
-  const _SectionTitle({
-    required this.icon,
-    required this.title,
-    required this.badge,
-    this.required_section = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 21, color: AppTheme.primary_color),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.on_surface_color,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          decoration: BoxDecoration(
-            color: required_section
-                ? const Color(0xFFE8F2FF)
-                : AppTheme.surface_container_highest_color,
-            borderRadius: BorderRadius.circular(AppTheme.chip_radius),
-          ),
-          child: Text(
-            badge,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: required_section
-                  ? AppTheme.primary_dark_color
-                  : AppTheme.on_surface_variant_color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ReadonlyEmailRow extends StatelessWidget {
-  final String email;
-  const _ReadonlyEmailRow({required this.email});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('profile_email_field'),
-      color: AppTheme.surface_container_low_color,
-      padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Text(
-                '이메일 계정 *',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.on_surface_variant_color,
-                ),
-              ),
-              Spacer(),
-              Icon(
-                CupertinoIcons.check_mark_circled_solid,
-                size: 15,
-                color: Color(0xFF2F7D45),
-              ),
-              SizedBox(width: 4),
-              Text(
-                '인증됨',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF2F7D45),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 7),
-          Row(
-            children: [
-              const Icon(
-                CupertinoIcons.lock_fill,
-                size: 18,
-                color: AppTheme.outline_color,
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.on_surface_variant_color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileTextFieldRow extends StatelessWidget {
-  final bool enabled;
-  final Key field_key;
-  final String label;
-  final bool required_field;
-  final IconData icon;
-  final TextEditingController controller;
-  final String placeholder;
-  final TextInputType? keyboard_type;
-  final TextInputAction? text_input_action;
-  final List<TextInputFormatter>? input_formatters;
-  final int? max_length;
-  final String? error_text;
-  final ValueChanged<String>? onChanged;
-
-  const _ProfileTextFieldRow({
-    this.enabled = true,
-    required this.field_key,
-    required this.label,
-    required this.icon,
-    required this.controller,
-    required this.placeholder,
-    this.required_field = false,
-    this.keyboard_type,
-    this.text_input_action,
-    this.input_formatters,
-    this.max_length,
-    this.error_text,
-    this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: field_key,
-      color: error_text == null
-          ? AppTheme.surface_color
-          : const Color(0xFFFFF8F7),
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            required_field ? '$label *' : label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: error_text == null
-                  ? AppTheme.on_surface_variant_color
-                  : CupertinoColors.systemRed,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: error_text == null
-                    ? AppTheme.outline_color
-                    : CupertinoColors.systemRed,
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: CupertinoTextField(
-                  enabled: enabled,
-                  controller: controller,
-                  placeholder: placeholder,
-                  keyboardType: keyboard_type,
-                  textInputAction: text_input_action,
-                  inputFormatters: input_formatters,
-                  maxLength: max_length,
-                  onChanged: onChanged,
-                  padding: EdgeInsets.zero,
-                  decoration: const BoxDecoration(),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.on_surface_color,
-                  ),
-                  placeholderStyle: const TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.outline_color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (error_text != null) ...[
-            const SizedBox(height: 5),
-            Text(
-              error_text!,
-              style: const TextStyle(
-                fontSize: 12,
-                color: CupertinoColors.systemRed,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileInformationCard extends StatelessWidget {
-  final Widget child;
-
-  const _ProfileInformationCard({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      foregroundDecoration: BoxDecoration(
-        borderRadius: AppTheme.card_border_radius,
-        border: Border.all(color: AppTheme.outline_variant_color, width: 1),
-      ),
-      child: ClipRRect(
-        borderRadius: AppTheme.card_border_radius,
-        clipBehavior: Clip.antiAlias,
-        child: ColoredBox(color: AppTheme.surface_color, child: child),
-      ),
-    );
-  }
-}
-
-class _OptionalNotice extends StatelessWidget {
-  const _OptionalNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('optional_work_information_notice'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F2FF),
-        borderRadius: BorderRadius.circular(AppTheme.input_radius),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            CupertinoIcons.clock,
-            size: 18,
-            color: AppTheme.primary_dark_color,
-          ),
-          SizedBox(width: 9),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '지금 입력하지 않아도 괜찮아요.\n',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  TextSpan(text: '앱을 시작한 뒤 설정에서 언제든 추가할 수 있어요.'),
-                ],
-              ),
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                color: AppTheme.primary_dark_color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PrivacyNotice extends StatelessWidget {
   const _PrivacyNotice();
 
@@ -1591,18 +1017,6 @@ class _PrivacyNotice extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _RowDivider extends StatelessWidget {
-  const _RowDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 0.5,
-      child: ColoredBox(color: AppTheme.surface_container_high_color),
     );
   }
 }

@@ -1,5 +1,15 @@
 # 작업 로그
 
+## 2026-11-16 회원가입 개인정보 입력 디자인 통합
+
+- [DONE] (FE/Auth) 회원가입에 개인정보 편집 입력 UI를 재사용하고 직종·회사 플레이스홀더를 제거했다.
+  - 목적: 가입과 편집의 입력 디자인을 일치시킨다.
+  - 변경/영향: 기존 profile_setup_page.dart의 편집 카드/필드·사진/이름·이메일·하단 버튼을 공통화하고 이전 가입 표시 코드를 제거했다. 가입 제목/완료 버튼·선택 정보/개인정보 안내와 기존 가입 완료/부분 수정 API 계약을 보존한다. 직종·소속/부서 placeholder는 양쪽 모두 null이다. 가입도 공통 포커스/다음 입력·이름 요약을 사용하며 사진 선택 중 이탈을 막는다. 기존 편집 검증/이탈 확인/실패 재시도는 유지한다. ADR-0086·PROJECT_CONTEXT에 변경/동작/역할을 기록했다. 새 영구 파일은 없다.
+  - 테스트: 프로필24개 및 전체 인증125개 통과(`flutter test --no-pub test/features/auth --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter=expanded`). 기존 회귀에서 같은 카드/입력 디자인·placeholder 부재·선택값 없이 가입·사진/타임존·자유 직종 전송·편집 부분 저장을 확인했다. 수정 Dart2파일 분석 진단0·포맷 변경0·diff 검사 통과. 신규 무관 테스트/소스 변경은 없다.
+  - 화면 검증: 기존 artifacts/profile_edit_redesign_2026-11-11/render_test.dart를 /private/tmp/profile_input_20261116/render_test.dart로 복사해 양쪽 모드를 검증했다. 각14조건·PNG28개/측정JSON2개, 320/375/390px·가로·태블릿·2배 글자·동작 줄이기·모의 키보드·하단 스크롤/버튼 최소52/안전영역을 통과했다. 가입 일반/하단/작은화면 큰글자·편집 일반 PNG를 직접 열어 카드 일치와 빈 근무 입력을 확인했다. 임시 렌더러 역할/의존성/재현 명령은 PROJECT_CONTEXT를 따른다. 실제 OS 사진/키보드·실서버·VoiceOver 및 다크 테마는 미인수다.
+  - 도구 이슈: SDK wrapper의 engine.stamp 및 Dart telemetry 캐시 쓰기 제한으로 최초 포맷/인증 실행이 중단됐다. 내장 Dart로 포맷했고 SDK 캐시 권한으로 인증/렌더/분석을 다시 실행해 완료했다. 첫 분석의 테스트 불필요 cast1건은 제거한 뒤 재검증했다. 로그는 /private/tmp/profile-input-auth-tests-20261116.log와 위 임시 폴더의 render.log에 보관한다.
+  - 롤백: 이번 화면·관련 회귀·문서 변경만 되돌린다.
+
 ## 2026-11-16 작업별 커밋 분리 및 원격 푸시
 
 - [DONE] (Git) 누적 변경을 작업별 14개 커밋으로 분리하고 origin/develop에 푸시했다. 최종 문서 정합성·검증 기록은 후속 문서 커밋으로 함께 보존한다.

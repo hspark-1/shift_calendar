@@ -705,13 +705,10 @@ void main() {
     await _pumpPage(tester, _ProfileSetupAuthRepository(), on_completed: () {});
 
     expect(find.text('기본 정보'), findsOneWidget);
-    expect(find.text('필수'), findsOneWidget);
+    expect(find.text('이름 *'), findsOneWidget);
+    expect(find.text('휴대폰 번호 *'), findsOneWidget);
     expect(find.text('근무 정보'), findsOneWidget);
     expect(find.text('선택'), findsOneWidget);
-    expect(
-      find.byKey(const Key('optional_work_information_notice')),
-      findsOneWidget,
-    );
     expect(find.textContaining('지금 입력하지 않아도 괜찮아요.'), findsOneWidget);
     expect(
       find.byKey(const Key('profile_setup_submit_button')),
@@ -721,9 +718,20 @@ void main() {
     expect(find.text('완료'), findsNothing);
     expect(find.byKey(const Key('profile_image_button')), findsOneWidget);
     expect(find.byKey(const Key('profile_timezone_field')), findsNothing);
-    expect(find.text('ShiftMate에 오신 걸 환영해요'), findsOneWidget);
-    expect(find.textContaining('나만의\n일정 관리를 시작해보세요.'), findsOneWidget);
-    expect(find.text('재직 중인 회사·기관 및 부서'), findsOneWidget);
+    expect(find.text('프로필 설정'), findsOneWidget);
+    expect(find.text('내 프로필'), findsOneWidget);
+    expect(find.text('사진 변경'), findsOneWidget);
+    expect(find.text('소속 · 부서'), findsOneWidget);
+    expect(find.text('계정 정보'), findsOneWidget);
+    expect(find.text('인증됨'), findsNothing);
+    expect(
+      tester
+          .widget<CupertinoButton>(
+            find.byKey(const Key('profile_setup_submit_button')),
+          )
+          .onPressed,
+      isNotNull,
+    );
     expect(find.text('소속 병원 및 부서'), findsNothing);
 
     final button_bottom = tester
@@ -906,34 +914,45 @@ void main() {
     expect(repository.complete_request?['workplace'], 'ShiftMate 프로덕트팀');
   });
 
-  testWidgets('기본·근무 정보 카드는 둥근 모서리를 클립하고 테두리를 위에 그린다', (tester) async {
-    await _pumpPage(tester, _ProfileSetupAuthRepository(), on_completed: () {});
-
-    for (final card_key in const [
-      Key('basic_information_card'),
-      Key('work_information_card'),
-    ]) {
-      final card = find.byKey(card_key);
-      final clip = find.descendant(of: card, matching: find.byType(ClipRRect));
-      final outer_container = find.descendant(
-        of: card,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Container && widget.foregroundDecoration != null,
-        ),
-      );
-
-      expect(clip, findsOneWidget);
-      expect(
-        tester.widget<ClipRRect>(clip).borderRadius,
-        AppTheme.card_border_radius,
-      );
-      expect(outer_container, findsOneWidget);
-      final decoration =
-          tester.widget<Container>(outer_container).foregroundDecoration
-              as BoxDecoration;
-      expect(decoration.borderRadius, AppTheme.card_border_radius);
-      expect(decoration.border, isNotNull);
+  testWidgets('가입과 편집은 같은 정보 카드와 입력 디자인을 사용하고 근무 플레이스홀더가 없다', (tester) async {
+    for (final is_editing in [false, true]) {
+      final repository = _ProfileSetupAuthRepository();
+      if (is_editing) {
+        await _pumpEditPage(tester, repository);
+      } else {
+        await _pumpPage(tester, repository, on_completed: () {});
+      }
+      for (final section_key in [
+        'profile_edit_basic_section',
+        'profile_edit_work_section',
+        'profile_edit_account_section',
+      ]) {
+        final section = tester.widget<Container>(find.byKey(Key(section_key)));
+        final decoration = section.decoration! as BoxDecoration;
+        expect(decoration.borderRadius, AppTheme.card_border_radius);
+        expect(decoration.border, isNotNull);
+      }
+      for (final field_key in [
+        'profile_job_type_field',
+        'profile_workplace_field',
+      ]) {
+        final field = tester.widget<CupertinoTextField>(
+          _textFieldInside(Key(field_key)),
+        );
+        expect(field.placeholder, isNull);
+        final decoration = field.decoration!;
+        expect(decoration.borderRadius, AppTheme.input_border_radius);
+        expect(field.style, AppTheme.body_large);
+      }
+      final name = find.byKey(const Key('profile_name_field'));
+      final email = find.byKey(const Key('profile_email_field'));
+      expect(tester.getTopLeft(name).dy, lessThan(tester.getTopLeft(email).dy));
+      await tester.ensureVisible(email);
+      await tester.pumpAndSettle();
+      expect(email.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
     }
   });
 }
