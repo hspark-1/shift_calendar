@@ -1,3 +1,7 @@
+// ignore_for_file: non_constant_identifier_names
+
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,18 +9,25 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_error_handler.dart';
 import '../models/shift_type_api_model.dart';
+import '../../../home_widget/application/widget_sync_coordinator.dart';
 
 /// ShiftTypeService Provider
 final shiftTypeServiceProvider = Provider<ShiftTypeService>((ref) {
   final dio = ref.watch(dioProvider);
-  return ShiftTypeService(dio);
+  return ShiftTypeService(
+    dio,
+    on_changed: () {
+      unawaited(ref.read(widgetSyncCoordinatorProvider).sync(force: true));
+    },
+  );
 });
 
 /// 근무 타입 정보 조회 및 관리 서비스
 class ShiftTypeService {
   final Dio _dio;
+  final void Function()? on_changed;
 
-  ShiftTypeService(this._dio);
+  ShiftTypeService(this._dio, {this.on_changed});
 
   /// 근무 타입 정보 조회
   ///
@@ -62,7 +73,9 @@ class ShiftTypeService {
         '${ApiConstants.shift_types}/$shiftTypeId',
         data: request.toJson(),
       );
-      return UpdateShiftTypeResponse.fromJson(response.data);
+      final result = UpdateShiftTypeResponse.fromJson(response.data);
+      on_changed?.call();
+      return result;
     } on DioException catch (e) {
       throw handleApiError(e);
     }
@@ -77,7 +90,9 @@ class ShiftTypeService {
       final response = await _dio.delete(
         '${ApiConstants.shift_types}/$shiftTypeId',
       );
-      return DeleteShiftTypeResponse.fromJson(response.data);
+      final result = DeleteShiftTypeResponse.fromJson(response.data);
+      on_changed?.call();
+      return result;
     } on DioException catch (e) {
       throw handleApiError(e);
     }

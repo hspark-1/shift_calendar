@@ -1,0 +1,2 @@
+// Extension은 Flutter/Pods를 링크하지 않고 앱의 버전 번호만 재사용한다.
+#include "Generated.xcconfig"

@@ -1,5 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -20,6 +22,7 @@ import 'core/push/push_coordinator.dart';
 import 'core/push/push_providers.dart';
 import 'features/app_update/presentation/app_update_gate.dart';
 import 'features/auth/data/services/firebase_phone_auth_service.dart';
+import 'features/home_widget/application/widget_sync_coordinator.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -125,6 +128,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.read(pushCoordinatorProvider).onAppResumed();
+      unawaited(ref.read(widgetSyncCoordinatorProvider).sync());
     }
   }
 
@@ -132,6 +136,22 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper>
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next.status != previous?.status ||
+          next.user?.id != previous?.user?.id ||
+          next.user?.timezone != previous?.user?.timezone ||
+          next.requires_profile_setup != previous?.requires_profile_setup) {
+        final is_ready =
+            next.status == AuthStatus.authenticated &&
+            !next.requires_profile_setup;
+        unawaited(
+          ref
+              .read(widgetSyncCoordinatorProvider)
+              .setSession(
+                owner_id: is_ready ? next.user?.id : null,
+                timezone: is_ready ? next.user?.timezone : null,
+              ),
+        );
+      }
       final coordinator = ref.read(pushCoordinatorProvider);
       if (next.status == AuthStatus.authenticated &&
           previous?.status != AuthStatus.authenticated) {

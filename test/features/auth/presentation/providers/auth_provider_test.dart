@@ -13,6 +13,24 @@ import 'package:shift_mate/core/network/api_exception.dart';
 import 'package:shift_mate/core/widgets/profile_image.dart';
 import 'package:shift_mate/features/calendar/domain/entities/shift_type_info.dart';
 import 'package:shift_mate/features/calendar/presentation/providers/shift_types_provider.dart';
+import 'package:shift_mate/features/home_widget/application/widget_sync_coordinator.dart';
+import 'package:shift_mate/features/home_widget/data/home_widget_store.dart';
+
+class _WidgetCleanupProbe extends WidgetSyncCoordinator {
+  _WidgetCleanupProbe()
+    : super(
+        enabled: false,
+        store: IosHomeWidgetStore(),
+        loader: ({required start_date, required end_date}) async => [],
+        device_timezone: () async => 'Asia/Seoul',
+      );
+  int cleanups = 0;
+
+  @override
+  Future<void> setSession({String? owner_id, String? timezone}) async {
+    if (owner_id == null) cleanups++;
+  }
+}
 
 class _FakeAuthRepository implements AuthRepository {
   Object? apple_login_error;
@@ -382,6 +400,56 @@ void main() {
     expect(repository.delete_account_count, 1);
     expect(container.read(authProvider).status, AuthStatus.unauthenticated);
   });
+
+  for (final operation in [
+    'logout',
+    'accepted',
+    'unauthorized',
+    'in_progress',
+    'reauthentication',
+  ]) {
+    test('$operation 경로는 세션 종료 여부에 맞춰 위젯 데이터를 정리한다', () async {
+      const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');
+      final repository = _FakeAuthRepository()
+        ..is_logged_in = true
+        ..profile = user;
+      if (operation == 'unauthorized' ||
+          operation == 'in_progress' ||
+          operation == 'reauthentication') {
+        repository.delete_account_error = ApiException(
+          code: operation == 'in_progress'
+              ? 'ACCOUNT_DELETION_IN_PROGRESS'
+              : (operation == 'reauthentication'
+                    ? 'REAUTHENTICATION_REQUIRED'
+                    : 'UNAUTHORIZED'),
+          message: '',
+          statusCode: operation == 'unauthorized' ? 401 : 403,
+        );
+      }
+      final probe = _WidgetCleanupProbe();
+      final container = ProviderContainer(
+        overrides: [
+          ..._overrides(repository),
+          widgetSyncCoordinatorProvider.overrideWithValue(probe),
+        ],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(authProvider.notifier);
+      await notifier.checkAuthStatus();
+      if (operation == 'logout') {
+        await notifier.logout();
+      } else {
+        await notifier.deleteAccount();
+      }
+      expect(probe.cleanups, operation == 'reauthentication' ? 0 : 1);
+      expect(
+        container.read(authProvider).status,
+        operation == 'reauthentication'
+            ? AuthStatus.authenticated
+            : AuthStatus.unauthenticated,
+      );
+    });
+  }
 
   test('Google 연결 재인증은 로그인 상태를 보존하고 재로그인을 안내한다', () async {
     const user = User(id: 'user-id', email: 'user@example.com', name: '사용자');

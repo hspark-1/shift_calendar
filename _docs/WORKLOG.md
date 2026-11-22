@@ -66,6 +66,96 @@
   - 롤백: 이번 인증 widget/호출부·회귀/렌더러·검토 PNG·문서 변경분만 복원한다. 작업 시작 widget은 위 임시 폴더의 phone_verification_section.before.dart다. 기존 미커밋 작업과 인증 필수 정책은 보존한다.
   - 한계/다음: 실문자·실기기 키보드/VoiceOver·원격 게시·개별 계약의 법적 적합성 검증은 미실행이다. 실제 수신자/이전·보관/삭제/적용 근거를 확정하고 정책2·3·6·7항 및 필요한 사전 동의/입증 기록을 보완한 뒤 안내의 추가 이동을 재평가한다.
 
+## 2026-11-22 홈 소형 위젯 정보 배치 개선
+
+- [DONE] (iOS/UI) 오늘/내일 소형의 여백과 정보 밀도를 근무 식별·시간·후속 근무의3구역으로 개선했다.
+  - 목적/근거: 사용자 피드백에 따라 큰 코드/단일 시간/후속 코드 사이의 빈 공간을 유용한 정보에 배분한다. PROJECT_CONTEXT·ADR-0098/0099·IOS_WIDGET_GUIDE와 실제 SwiftUI/WidgetShift의 날짜/시간 계약을 직접 읽었다.
+  - 변경/Behavior change: 헤더 아래에 사용자 색의 옅은 코드 배지와 근무명,18pt 시작·종료2열, 하단 후속일 코드/시간 또는 시간 없는 타입의 이름을 배치했다. 기존 time_label 검증을 통과한 HH:mm만 나누고 야간은 종료 레이블에 익일을 유지한다. 코드 배경은 light0.12/dark0.18, 단색에서는 윤곽선이다. 큰 글자는 compact, 긴 코드는 줄 나눔/줄임, 후속 시간이 가로로 안 들어가면 코드 우선/전체 VoiceOver로 제공한다. iOS15는 같은 정보의 단일 Text 대체 표시다. 미등록/시간 없음/미조회 상태와 기준 시각 제거를 유지한다.
+  - 영향/파일: 제품 변경은 기존 ShiftMateWidget.swift의 소형 표시·전용 글자 metric뿐이다. 기존 WidgetRenderTests에 소형 좁은 크기+큰 글자와 실제 후속 근무 시간/큰 글자 fixture를 보강하고 기존 검토판3개를 갱신했다. 새 home-comparison.png는 직전 오늘/내일 소형과의 실제 렌더 비교이며 역할/의존성/사용 예를 IOS_WIDGET_GUIDE에 추가했다. PROJECT_CONTEXT·ADR-0100을 갱신했다. 중형/잠금/갤러리·provider는 시작 소스와 동일함을 직접 비교했다. Dart/공유 JSON·동기화/날짜/캐시·API/DB·서명/종류는 바꾸지 않았다.
+  - 검증/결과: 기존 재현 도구의9조합×14조건+소형/직사각형 좁은 폭/큰 글자4조건+소형 후속 근무/큰 글자4조건 **PNG134개, TEST SUCCEEDED**. 오늘/내일·시간 있는 후속 근무·야간/시간 없음·큰 글자·긴 코드·140×140+최대 글자·다크/단색·미등록을 직접 열어 확인했다. 좁은 최대 글자에서 익일 종료 라벨이 잘리던 것을 보조 라벨 최소 축소 비율0.65로 조정한 최종 렌더를 재검증했다. unsigned simulator extension **BUILD SUCCEEDED**, 컴파일 warning/error0, diff 공백 검사 통과. 코드 배지의 검정/흰색 극단 사용자 색을 합성한 전경 대비는 light4.93:1/dark6.47:1로4.5이상이다. 데이터 계약/타임라인을 바꾸지 않아 Foundation/Dart 전체 회귀는 반복하지 않았다.
+  - 도구/한계: 기존 render_widgets.py 명령의 출력 경로를 `/private/tmp/shiftmate-widget-home-20261122`로 지정했다. 해당 폴더에 build.log/render.log·PNG134개·시작 소스/임시 AppKit 합성기를 보존했다. 저장소의 비교/전체/예외 상태 검토판도 직접 확인했다. 독립 SwiftUI 렌더로 실제 WidgetKit 합성/배경 제거·VoiceOver 조작/기기·서명 인수를 대체하지 않는다. 테스트 Simulator는 작업 전 종료 상태로 복구했다.
+  - 롤백: 이번 소형/렌더러·검토 자료/문서 변경분만 복원한다. 시작 소스는 위 임시 폴더의 ShiftMateWidget.before.swift다. 기존 미커밋 작업을 보존한다.
+
+## 2026-11-22 위젯 문구 제거·잠금 시간 확대
+
+- [DONE] (iOS/UI) 사용자 요청으로2주 행 이름과 오늘/내일 소형의 기준 시각을 제거하고 잠금 직사각형 시간을 크게 재배치했다.
+  - 목적/변경: 중형의 이번 주/다음 주 라벨·30pt 예약 열/요일 빈 열을 없애7열이 전체 너비를 쓰게 했다. 소형의 updated_label 호출/표시를 제거했다. 잠금 직사각형은 `오늘 N · 나이트` 요약과 큰 `23:00–07:00`의2줄이며 시간은 caption12pt에서 기본22pt(ScaledMetric·상한26pt, 최소 축소0.85)로 확대하고 배치 우선순위를 높였다. 긴 요약은 줄이고 시간/VoiceOver 전체 원문은 유지한다.
+  - 영향/문서: 제품 변경은 기존 ShiftMateWidget.swift만이다. 기존 렌더러에150×64의 좁은 잠금 슬롯과 좁은 폭+최대 글자2조건을 반영하고 기존 검토판3개를 최신 렌더로 갱신했다. 새 영구 파일은 없다. PROJECT_CONTEXT·IOS_WIDGET_GUIDE의 표시/신선도 설명과 ADR-0099를 갱신했다. 데이터/타임라인/캐시/Flutter/API/DB·kind/family·나머지 잠금 표시/서명은 유지한다.
+  - 검증/결과: 기존 재현 도구의9조합×14조건+잠금 좁은 폭/큰 글자2조건 **PNG128개, TEST SUCCEEDED**. 오늘/내일의 기본·큰 글자·150×64·150×64+최대 글자·긴 코드/단색, 소형/중형의 문구 제거를 실제 PNG로 직접 확인했다. 최종 unsigned simulator extension **BUILD SUCCEEDED**, 컴파일 warning/error0·diff 공백 검사 통과. 표시 제거와 provider 진입부 동일도 확인했다. Foundation/Dart 계약을 바꾸지 않아 관련 전체 회귀는 반복하지 않았다.
+  - 도구/한계: 명령은 앞선 디자인 작업과 같은 render_widgets.py를 사용하고 출력 경로만 `/private/tmp/shiftmate-widget-refine-20261122`로 지정했다. build.log/render.log·PNG128개·시작 소스 백업·AppKit 검토판 합성기는 해당 임시 폴더에 보존했다. 독립 SwiftUI 렌더로 실제 WidgetKit 합성·잠금 개인정보 가림/VoiceOver·실기기 인수를 대체하지 않는다. 테스트 Simulator는 작업 전 종료 상태로 복구했다.
+  - 롤백: 이번 표시/렌더러·검토판/문서 변경분만 복원한다. 시작 소스는 위 임시 폴더의 ShiftMateWidget.before.swift이며 기존 미커밋 작업은 보존한다.
+
+## 2026-11-22 위젯 디자인 검토·개선
+
+- [DONE] (iOS/UI) widgets·UI/UX 스킬로 오늘/내일·2주/잠금 위젯을 검토하고 정보 위계·가독성·색조 대응을 개선했다.
+  - 목적: 한눈에 대상일·근무 코드·시간을 읽고2주 근무에서 오늘을 쉽게 찾는다.
+  - 확인 근거: PROJECT_CONTEXT의 위젯 절·IOS_WIDGET_GUIDE·ADR-0094~0097·Swift/Dart 계약/표시·동기화 코드를 직접 읽고 기존/동일 예시의 실제 SwiftUI 렌더를 비교했다. AGENTS의 현행 DDL과 drawio의 구형 calendars 구조 차이를 확인했으며 새 DB/개인 일정 요구를 유추하지 않았다. widgets의 디자인/레이아웃/단색/잠금/실행모델/검증 지침과 UI/UX의 색 외 식별·SwiftUI Dynamic Type 결과, Apple HIG/공식 accented 문서를 대조했다.
+  - 변경/Behavior change: 홈 앱 이름을 대상일/2주 근무 제목으로 대체하고 소형은 코드·시간/후속일/작은 기준 시각 순서로 정리했다. 중형 오늘 날짜를 캡슐로 강조하고 연도 경계 범위에 연도를 표시한다. 잠금 직사각형은3줄, 미등록은 명확한 단일 문구다. iOS16이상 모드 경계를 두어 accented/vibrant에서는 근무색 배지를 비우고 오늘 윤곽/굵기·accent group을 사용한다. 큰 글자/긴 코드는 이름이 일부만 남지 않게 대체 레이아웃을 사용하고 중형은 지나친 축소 대신 줄인다. 전체 원문·후속일 이름/시간을 VoiceOver로 제공한다. 소형 내부 간격을 조정해 기본 크기에서40pt(동적 확대) 코드가 우선 배치되도록 확인했다. 기존2kind/오늘·내일·2주2행/잠금 익일 생략·모든 family·privacySensitive/removable background/타임라인/공유 JSON·Flutter/API/DB/서명은 보존했다.
+  - 파일/문서: 기존 `ios/ShiftMateWidget/ShiftMateWidget.swift`만 제품 코드로 수정하고 #Preview6개를 추가했다. `artifacts/widget_redesign_2026-11-22/`의 render_widgets.py·WidgetRenderTests.swift·comparison/overview/edge-cases PNG3개의 역할/의존성/사용 예와 처음부터 설계할 역할별 요구를 IOS_WIDGET_GUIDE에 기록하고 PROJECT_CONTEXT·ADR-0098을 갱신했다. 이미지의 예시 기준일은2026-11-20이며 실제 계정 정보가 아니다.
+  - 렌더/결과: 저장소의 재현 도구로 최종 제품 표시의 오늘5+내일4조합×14조건(라이트/다크·최대 시스템 글자·긴 코드/조합·미등록/시간 없음·로그아웃/만료·다음 주 미조회·연말·좁은 크기·accented/vibrant) **PNG126개, TEST SUCCEEDED**. 전후/전체/제약 검토판을 직접 열어 확인했다. 첫 렌더의 긴 코드+큰 글자에서 이름 일부가 남는 문제를 대체 코드행으로 수정했고, 미등록의 중복 문구를 없앤 최종 렌더를 다시 확인했다. 읽기 전용 WidgetFamily만 임시 표시 사본의 생성 인자로 바꾸며 View/데이터 로직은 실제 제품 코드다.
+  - 검증: Foundation 제품 모델/기존 Dart fixture의 기존 회귀 **51 checks pass**. 최종 `xcodebuild -project ios/Runner.xcodeproj -target ShiftMateWidget -configuration Debug -sdk iphonesimulator ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO SYMROOT=/private/tmp/shiftmate-widget-design-20261122/build OBJROOT=/private/tmp/shiftmate-widget-design-20261122/obj build` **BUILD SUCCEEDED**, 제품/렌더 소스 compiler warning/error0, Preview6개의 iOS15 deployment compatibility 컴파일 통과. fullColor 토큰의 전경/보조 글자 및 검정/흰색 극단 근무색 배경까지 대비6경우는 **최저6.49:1**(4.5이상)이다. Python 렌더 도구 AST와 diff 공백 검사 통과. Dart/공유 계약 변경이 없어 Flutter 전체 회귀는 반복하지 않았다.
+  - 재현/도구: `python3 artifacts/widget_redesign_2026-11-22/render_widgets.py --device 524FEE5D-56C5-41F0-AA12-C8DA996B1C05 --output /private/tmp/shiftmate-widget-design-final-20261122 --ruby /opt/homebrew/opt/ruby/bin/ruby --gem-home /opt/homebrew/Cellar/cocoapods/1.16.2/libexec`. 최종 render.log/renders와 xctest 결과는 해당 폴더, extension build.log/시작 소스 백업·AppKit 검토판 합성기는 `/private/tmp/shiftmate-widget-design-20261122/`에 있다. 기존 CocoaPods의 xcodeproj gem을 사용했고 새 패키지는 설치하지 않았다. 기본 sandbox에서 CoreSimulator 접근이 차단되어 관련 검증에만 승인된 확장 권한을 사용했다. 기본 Ruby에서 xcodeproj를 못 찾은 도구 오류는 기존 gem 경로로 해결했다. Pillow가 없어 PNG 배치는 macOS AppKit으로 생성했다.
+  - 한계/다음: 독립 ImageRenderer의 모드별 표시 확인이며 실제 WidgetKit의 재착색/유리·StandBy 배경 제거·privacy/placeholder 합성·VoiceOver 조작·iOS15/16 실제 런타임·서명/실기기/배포 인수는 수행하지 않았다. 단순 redacted/배경 제거 모사 이미지는 유효한 인수로 세지 않았다. OS 자정/즉시 갱신은 기존처럼 보장하지 않는다. 테스트용 Simulator는 검증 후 원래 종료 상태로 복구했다.
+  - 롤백: 이번 표시·검토 산출물/문서 추가분만 복원한다. 시작 시 위젯 소스 백업은 위 임시 폴더의 ShiftMateWidget.before.swift다. 기존 미커밋 인증/UI/위젯 작업을 보존한다.
+
+## 2026-11-22 중형 위젯 이번 주·다음 주 2행 표시
+
+- [DONE] (iOS/UI) 중형 위젯을 이번 주/다음 주 각7일의 두 행으로 바꾸고 중형의 갱신 시각을 제거했다.
+  - 목적: 같은 중형 크기에서 앞으로2주의 근무를 확인하고 하단 갱신 문구 대신 달력 공간을 확보한다.
+  - 변경/영향: 기존 ShiftMateWidget.swift의 중형을 공통 월~일 요일 헤더·이번 주/다음 주 각7일의 두 행·14일 날짜 범위로 배치했다. 날짜/사용자 근무 코드/색상·오늘 강조와 VoiceOver 전체 날짜/근무/시간을 유지한다. 중형의 updatedLabel 호출만 제거해 소형 갱신 시각은 유지한다. ShiftWidgetData.weekDates의 기본0인 week_offset에1을 전달해 다음 주를 계산한다. 기존 gallery 설명도2주 표시로 갱신했다. 소형/잠금·공유 JSON/갱신 동작·kind/서명/API/패키지는 보존했다.
+  - 파일/문서: 기존 Swift 제품2파일/Swift 회귀와 PROJECT_CONTEXT·IOS_WIDGET_GUIDE·ADR-0097을 갱신했다. 새 영구 파일은 없다.
+  - 검증: 제품 Foundation 모델과 기존 Dart fixture/Swift 회귀를 swiftc로 함께 실행해 **51 checks pass**(신규8: 다음 주 월/일·14일 중복 없음/연속·연말·미조회·DST23/25시간). SwiftUI ImageRenderer/XCTest로338x158 기본·300x140 축소 중형의 라이트/다크/큰 글자/긴 코드/미등록/다음 주 미조회/연말/좁은 폭/로그아웃/만료 **PNG10개**를 생성해 **TEST SUCCEEDED**. 정상/다크/큰 글자/좁은 폭/연말·월 경계/미조회 대표 이미지를 직접 확인했고 두 행/현재 날짜 강조·중형 갱신 문구 제거를 확인했다.
+  - 빌드/분석: 기존 Runner workspace/scheme·arm64 simulator·unsigned 통합 빌드 **BUILD SUCCEEDED**, diff 공백 검사 통과. Flutter/Dart 소스·공유 계약은 변경하지 않아 해당 전체 회귀/분석은 반복하지 않았다. 최초 임시 렌더러의 읽기 전용 accessibilityReduceMotion 직접 주입이 컴파일 오류여서 도구에서 제거했다. 정적 표시로 애니메이션은 없으며 실제 OS 동작 줄이기 인수를 수행한 것으로 기록하지 않는다.
+  - 도구/명령: `/private/tmp/shiftmate-widget-two-weeks-20261122/render_project.rb`는 기존 xcodeproj gem 기반 임시 프로젝트 생성기 사본, WidgetRenderTests.swift는 실제 Foundation/SwiftUI 표시 코드와 ImageRenderer/XCTest에 의존한다. 표시 사본은 widget 설정/bundle 진입부 제외·읽기 전용 family 인자 주입만 수행했다. `xcodebuild -project <해당폴더>/WidgetPreview.xcodeproj -scheme WidgetPreview -destination id=524FEE5D-56C5-41F0-AA12-C8DA996B1C05 -derivedDataPath <해당폴더>/render-build test`로 renders/*.png/render.log를 만든다. 앱은 앞선 작업과 같은 workspace/Runner/Debug/iphonesimulator·ARCHS=arm64/ONLY_ACTIVE_ARCH=YES/CODE_SIGNING_ALLOWED=NO 명령으로 확인했고 app-build.log와 swift-tests.log도 같은 폴더에 보관했다.
+  - 한계/다음: 독립 SwiftUI 렌더이며 실제 WidgetKit host/기기·큰 글자/VoiceOver 조작·OS 갱신·서명/배포 인수는 수행하지 않았다. 테스트 시뮬레이터는 검증 후 원래 종료 상태로 복구한다. 실제 기기에서 중형 두 행의 가독성을 확인한다.
+  - 롤백: 이번 중형 표시·날짜 helper/관련 회귀·문서 추가분만 복원한다. 기존 미커밋 변경은 보존한다.
+
+## 2026-11-22 오늘·내일 위젯 분리와 잠금 시간 간소화
+
+- [DONE] (iOS/FE) 방안1의 오늘/내일 위젯을 별도 항목으로 제공하고 잠금화면의 `익일` 표시를 제거했다.
+  - 목적: 잠금화면의 제한된 공간에서 사용자 근무 코드·시간을 간결하게 읽고 내일 근무를 바로 선택한다.
+  - 변경/영향: 기존 ShiftMateShiftWidget kind/5family를 `오늘 근무`로 유지하고 `내일 근무` kind의 소형/잠금 원형·직사각형·한 줄4family를 같은 extension의 WidgetBundle에 추가했다. 주간은 기존 오늘 항목의 중형을 유지한다. ShiftWidgetDay/DayContent가 같은 스냅샷의 현지 날짜를0/1일 이동하고 내일 소형 보조행은 모레를 표시한다. 잠금 시간과 VoiceOver는 익일 문구를 생략하고 홈 시간은 유지한다. 공유 JSON/API/타임라인·App Group/서명/extension ID·패키지/lock/앱 버전은 바꾸지 않았다.
+  - 파일/문서: 기존 ShiftWidgetData.swift의 날짜/시간 표시 모델, ShiftMateWidget.swift의 provider/뷰/bundle, home_widget_store.dart의 두 kind reload와 기존 Dart/Swift 회귀를 수정했다. 저장/삭제 뒤 양쪽 갱신을 시도하며 먼저 실패한 kind가 있어도 다른 요청을 실행한다. PROJECT_CONTEXT·IOS_WIDGET_GUIDE와 ADR-0096을 갱신했다. 새 영구 파일은 없다.
+  - 자동 검증: `flutter test --no-pub test/features/home_widget test/features/auth/presentation/providers/auth_provider_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **33 pass**(위젯14·인증19). 새 실제 MethodChannel 회귀는 양쪽 kind/null 삭제·정상 갱신과 첫 kind의 false/PlatformException 실패 뒤에도 다른 kind 갱신을 검증했다. 변경 Dart2파일 분석 진단0·포맷 변경0·diff 공백 검사 통과.
+  - Swift 검증: 기존 실제 Dart fixture와 제품 Foundation 모델/기존 Swift 회귀를 swiftc로 컴파일/실행해 **43 checks pass**. 오늘/내일의 다른 코드 선택, 잠금/홈 익일 분리, 모레·자정·UTC와 소유자 현지 날짜 차이·연말·DST23/25시간·대상일의 캐시 끝/미등록/로그아웃·OFF를 확인했다. Swift/Dart의2kind ID/App Group/키 일치·유일한 @main WidgetBundle·기존family 보존도 검사했다.
+  - 렌더/도구: `/private/tmp/shiftmate-widget-day-20261122/render_project.rb`는 앞선 xcodeproj gem 기반 임시 프로젝트 생성기의 사본, WidgetRenderTests.swift는 제품 Foundation 모델/표시 코드와 SwiftUI ImageRenderer/XCTest에 의존한다. 임시 표시 사본은 widget 설정/bundle 진입부를 제외하고 읽기 전용 family를 테스트 인자로 주입했다. `xcodebuild -project <해당폴더>/WidgetPreview.xcodeproj -scheme WidgetPreview -destination id=524FEE5D-56C5-41F0-AA12-C8DA996B1C05 -derivedDataPath <해당폴더>/render-build test` **TEST SUCCEEDED**. 오늘5형식/내일4형식×라이트/다크/큰 글자/긴 코드/미등록/로그아웃 **PNG54개**를 renders/에 생성하고 대표 오늘/내일 소형·모레·잠금 직사각형·한 줄·큰 글자 원형/소형을 직접 확인했다.
+  - 통합 빌드: 기존 workspace/scheme·arm64 simulator·unsigned 명령(`xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator -destination id=524FEE5D-56C5-41F0-AA12-C8DA996B1C05 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build`)으로 최종 **BUILD SUCCEEDED**. 같은 임시 폴더에 app-build.log/render.log/flutter-tests.log/analyze.log/swift-tests.log를 보관했다. 테스트용 시뮬레이터는 검증 후 원래 종료 상태로 복구한다.
+  - 한계/다음: 독립 SwiftUI 렌더이며 실제 WidgetKit 갤러리2항목·설치 위젯 유지/잠금화면 개인정보 가림·기기 자정/갱신 예산·실서버/실계정/서명·배포 인수는 수행하지 않았다. Apple 포털/App Group/profile 준비와 실제 기기에서 두 항목 추가·로그아웃 정리는 기존 설정 가이드를 따라 확인한다.
+  - 롤백: 이번 날짜 선택/위젯 bundle·kind·잠금 시간/갱신 연결·관련 회귀와 문서 변경분만 되돌린다. 기존 미커밋 변경은 보존한다.
+
+## 2026-11-21 잠금화면 시계 위 한 줄 위젯 추가
+
+- [DONE] (iOS/UI) accessoryInline을 기존 근무표 위젯에 추가했다.
+  - 목적: 잠금화면 시계 위 한 줄에서 오늘 근무 코드·시간을 확인한다.
+  - 변경/영향: 기존 SwiftUI family 등록·표시 분기만 확장하고 근무 없음/미동기화·시간 없는 타입·익일 표시를 유지한다. 기존 공유 JSON·타임라인·privacySensitive·로그아웃 정리를 재사용한다.
+  - 변경/결과: 기존 ShiftMateWidget.swift의 iOS16이상 family에 accessoryInline과 단일 Text 분기를 추가했다. `오늘 N · 23:00 - 익일 07:00`, `오늘 OFF · 휴무`, `오늘 등록된 근무 없음`, `ShiftMate · 앱에서 동기화`를 상태에 맞게 표시하고 전체 근무명/코드/시간의 VoiceOver 레이블을 제공한다. 새 영구 파일/패키지·Flutter/API/DB·JSON/타임라인·서명/App Group 변경은 없다. PROJECT_CONTEXT·IOS_WIDGET_GUIDE를5종으로 갱신하고 ADR-0095에 표시 정책을 기록했다.
+  - 검증: 실제 SwiftUI 표시 코드의 한 줄7상태(데이/익일 나이트/휴무/미등록/로그아웃/만료/긴 코드)×4조건(라이트/다크/큰 글자/좁은 폭160pt)의 PNG28개를 생성해 정상·야간·휴무/다크·미동기화/큰 글자·좁은 폭·미등록 대표 이미지를 직접 확인했다. 기본 폭300pt/높이32pt의 독립 렌더이며 시스템 가용 폭 부족 시 한 줄 끝을 줄인다. 렌더 XCTest **TEST SUCCEEDED**, 최종 Runner+ShiftMateWidget arm64 simulator 통합 **BUILD SUCCEEDED**, diff 공백 검사 통과. 기존 Flutter/공유 JSON/타임라인 소스는 변경하지 않아 해당 전체 회귀를 반복하지 않았다.
+  - 도구/실행: `/private/tmp/shiftmate-inline-20261121/render_project.rb`는 앞선 xcodeproj gem 기반 임시 프로젝트 생성기의 사본, `WidgetRenderTests.swift`는 SwiftUI ImageRenderer/XCTest·실제 제품 Foundation/표시 코드에 의존하는 상태별 렌더러다. 표시 코드 사본은 앞선 검증처럼 @main 제외·읽기 전용 family 인자 주입만 수행했다. `xcodebuild -project <해당폴더>/WidgetPreview.xcodeproj -scheme WidgetPreview -destination id=524FEE5D-56C5-41F0-AA12-C8DA996B1C05 -derivedDataPath <해당폴더>/render-build test`로 renders/*.png와 render.log를 만든다. 앱 빌드는 위 초기 작업의 동일 workspace/scheme/arm64/unsigned 명령으로 실행했고 app-build.log에 보관했다. 기존 미커밋 변경은 보존한다.
+  - 한계/다음: 실제 잠금화면 시계 위의 OS 날짜/레이아웃·개인정보 가림·탭/서명 인수는 미수행이다. 기존 App Group/서명 준비와 iOS16이상 잠금화면 사용자화에서 시계 위 날짜 영역의 ShiftMate 선택을 확인한다. 독립 SwiftUI 렌더를 실제 WidgetKit host 인수로 간주하지 않는다.
+  - 롤백: 이번 inline 분기/뷰·family 항목과 문서 추가분만 복구한다. 기존4종/미커밋 변경은 보존한다.
+
+## 2026-11-21 iPhone 홈·잠금 근무표 위젯4종
+
+- [DONE] (FE/iOS) 홈 소형(오늘·내일)/중형(주간7일), 잠금 원형(오늘 코드)/직사각형(오늘 근무·시간)4종과 동기화/세션 정리를 구현했다.
+  - 목적/범위: 기존 본인 근무 조회와 home_widget·App Groups·WidgetKit/SwiftUI를 연결한다. 날짜 전환 timeline, 앱 실행/복귀·근무 저장/삭제·근무 타입 수정 후 동기화, 로그아웃/탈퇴 정리를 포함한다. 월간·친구 근무·서버 백그라운드 동기화는 후속 범위다.
+  - 변경/영향: features/home_widget의 동기화·JSON·home_widget 저장소3파일, WidgetKit/SwiftUI·Foundation 모델/extension 설정·privacy manifest·Widget.xcconfig, 기존 main/auth·근무/타입 서비스의 최소 연결과 회귀를 추가했다. Runner dependency/embedding·양측 App Group/공유 UserDefaults privacy를 연결했다. home_widget0.10.0만 새 의존성으로 추가했고 기존 Flutter/Firebase/OAuth/버전·서버/API/DB/env를 보존했다. 정본 IOS_WIDGET_GUIDE·PROJECT_CONTEXT·ADR-0094를 갱신했다.
+  - 동작/결과: 유효 사용자 IANA timezone(없으면 기기값)의 월요일부터42일 확정 근무만 저장한다. 임시 draft/개인 일정/메모/JWT는 공유하지 않는다. 계정/요청 revision·직렬 저장 큐가 늦은 응답/저장 중 로그아웃을 막는다. 동일 계정 오프라인은 마지막 캐시를 유지하고 계정 전환/로그아웃/탈퇴 세션 종료/조회401·403은 삭제한다. native 자정·만료 entry, 미등록/미동기화 구분, 익일 시간·밝기 대비·긴 코드 줄 나눔·글자 확대 최대xxxLarge/VoiceOver 전체 레이블·privacySensitive·모든 family removable background를 적용했다. 앱 열기는 기존 인증 게이트를 따른다.
+  - 자동 검증: `WIDGET_CONTRACT_OUTPUT=/private/tmp/shiftmate-widget-20261121/contract.json flutter test --no-pub test/features/home_widget/widget_sync_coordinator_test.dart test/features/auth/presentation/providers/auth_provider_test.dart test/features/calendar test/core/navigation/main_tab_page_test.dart --dart-define=KAKAO_NATIVE_APP_KEY_STAGE=test-stage-key --reporter expanded` **330 pass**. 이후 실제 서비스6개 mutation/실패 갱신 연결·로그아웃/탈퇴5경로를 추가한 최종 위젯/인증 subset **31 pass**(위젯12·인증19). 결과는 regression.log/final-tests.log다. 실제 Dart JSON과 제품 Swift Foundation 모델을 `swiftc`로 함께 컴파일/실행해 자정/기한·월요일·잘못된 캐시/시간대·익일·DST23/25시간 **21 checks pass**를 확인했다. 정확한 명령은 IOS_WIDGET_GUIDE를 따른다.
+  - 분석/정합성: 수정 Dart9파일 포맷 변경0, 동일9파일 분석 진단0(final-analyze.log), plist/entitlements/manifest4개 lint·diff 공백 검사 통과. Xcode 프로젝트 수정 전 `/private/tmp/shiftmate-widget-20261121/before.pbxproj`와 비교해 기존 타깃의 build configuration(새 pod의 explicit modules 설정 외)·스크립트 보존, extension dependency/Thin Binary 전 embedding·양측 privacy resource를 검증했다. pub add는 신규1개만 보고했고 기존 미커밋 인증/UI는 유지한다.
+  - native 빌드: 확장 standalone simulator SDK 빌드 성공. `flutter build ios --simulator --debug --no-pub --dart-define-from-file=.env`는 기존 Flutter3.38의 복수 ARCHS 판정에서 실패했다(산출 fat binary에는 두 아키텍처가 실제 존재). 제품 소스를 우회 수정하지 않고 `xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator -destination id=524FEE5D-56C5-41F0-AA12-C8DA996B1C05 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build`로 최종 **BUILD SUCCEEDED**를 확인했다(app-arm64-build.log). Runner.app/PlugIns의 실제 extension·양측 privacy manifest/1C8F.1·동일1.0.0(6)·extension point도 검사했다. 기존 vendor의 deprecated/native 경고는 위젯 소스 경고로 취급하지 않는다.
+  - 렌더/도구: `/private/tmp/shiftmate-widget-20261121/`의 render_project.rb는 기존 xcodeproj gem으로 독립 iOS XCTest 프로젝트를 만든다. WidgetRenderTests.swift는 SwiftUI ImageRenderer/XCTest·제품 Foundation 모델/표시 코드에 의존한다. 임시 표시 코드 사본은 `@main` 진입점만 제외하고 읽기 전용 widgetFamily를 테스트 인자로 주입한다. `xcodebuild -project <해당폴더>/WidgetPreview.xcodeproj -scheme WidgetPreview -destination id=524FEE5D-56C5-41F0-AA12-C8DA996B1C05 -derivedDataPath <해당폴더>/render-build test` 최종 **TEST SUCCEEDED**이며 158x158/338x158/76x76/172x76의4종×라이트/다크/큰글자/빈/긴코드/빈+큰글자/긴코드+큰글자 **PNG28개**를 renders/에 생성했다. 대표 이미지를 직접 읽어 큰 글자 넘침·긴 코드 잘림·빈 안내를 보완한 뒤 재검증했다. 임시 add_extension.rb는 Xcode target 연결에 사용한1회성 도구이며 저장소 신규 도구로 추가하지 않았다.
+  - 한계/다음: 렌더는 OS WidgetKit host 자체가 아닌 독립 SwiftUI 이미지다. iOS15/16 실제 런타임·lock chrome/개인정보 가림·앱 열기·실제 OS 자정/갱신 예산·실서버/실계정/실기기 인수와 Apple Developer App Group/App ID/profile 등록·서명·업로드는 수행하지 않았다. OS의 정확한 자정/즉시 갱신은 보장하지 않으며6주 이후에는 앱 열기 안내를 표시한다. 실기기 설정은 IOS_WIDGET_GUIDE의 Xcode·서명 절을 따른다.
+  - 롤백: 이번 위젯 소스·연결부·패키지/lock·native 추가분과 문서만 복구하며 기존 작업을 보존한다.
+
+- [DONE] (FE/위젯 조사) 공유 링크 본문 대신 사용자가 붙여 준 대화로 요구사항을 확인했다.
+  - 목적: 공유 대화 `https://chatgpt.com/share/6b01a9cc-a1d8-83ee-8929-84066234ddf7`를 기준으로 위젯 작업을 진행한다.
+  - 초기 접근 확인: 웹 조회는 cache miss, 인앱 브라우저는 연결 host 사용 불가다. 공개 URL 직접 GET은 HTTP200이지만 대화 본문 없이 `Check out this chat` 링크와 메타데이터만 반환했다. 사용자에게 대화 요구사항 전달을 요청했다. 초기 조사에서는 플랫폼·크기·표시 정보·탭/갱신 동작을 확인하지 못했으며 후속 본문 제공으로 위 구현 범위를 확정했다.
+  - 범위: 요구사항 확인과 기존 캘린더/네이티브 구조 조사. 기존 미커밋 변경을 보존하며 요구사항 확인 전 제품 코드/의존성/플랫폼 설정은 변경하지 않는다.
+  - 조사 결과: AGENTS의 사용자당 캘린더1개 DDL과 drawio2개를 읽었다. drawio에는 이전 calendars/calendar_shares 구조가 남아 있어 현행 DDL과 동일하다고 간주하지 않았다. 기존 CalendarService의 인증 GET /calendar/range와 autoDispose calendarRangeProvider를 확인했다. pubspec에 홈 위젯 패키지, Runner entitlement에 App Groups, Android main manifest에 위젯 receiver는 없다. AppDelegate는 FlutterImplicitEngineDelegate를 사용한다. PROJECT_CONTEXT에 조사 상태를 추가했다.
+  - 테스트: 문서·코드 정적 확인만 수행하며 구현/실기기 검증 완료로 간주하지 않는다.
+  - 롤백: 이번 작업 기록과 관련 PROJECT_CONTEXT 추가분만 제거한다.
+  - 결과: 사용자 제공 본문으로4종을 확정해 위 구현·검증·ADR-0094 기록까지 완료했다.
+
 ## 2026-11-21 공유 해제 시 빈 일정 카드 외곽 유지
 
 - [DONE] (FE/UI) 공유 거절에서도 하단 네모 카드의 배경·테두리·크기와 날짜 헤더를 유지하고 내용만 빈칸으로 표시했다.

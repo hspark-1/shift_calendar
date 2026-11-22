@@ -1,3 +1,7 @@
+// ignore_for_file: non_constant_identifier_names
+
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,18 +9,25 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_error_handler.dart';
 import '../models/work_shift_api_model.dart';
+import '../../../home_widget/application/widget_sync_coordinator.dart';
 
 /// WorkShiftService Provider
 final workShiftServiceProvider = Provider<WorkShiftService>((ref) {
   final dio = ref.watch(dioProvider);
-  return WorkShiftService(dio);
+  return WorkShiftService(
+    dio,
+    on_changed: () {
+      unawaited(ref.read(widgetSyncCoordinatorProvider).sync(force: true));
+    },
+  );
 });
 
 /// 근무표 조회/생성/수정/삭제 서비스
 class WorkShiftService {
   final Dio _dio;
+  final void Function()? on_changed;
 
-  WorkShiftService(this._dio);
+  WorkShiftService(this._dio, {this.on_changed});
 
   /// 날짜 형식 변환 (YYYY-MM-DD)
   String _formatDate(DateTime date) {
@@ -24,7 +35,7 @@ class WorkShiftService {
   }
 
   /// 기간별 근무표 조회
-  /// 
+  ///
   /// 엔드포인트: GET /api/v1/work-shifts?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
   /// 인증: 필요
   Future<WorkShiftsResponse> getWorkShifts({
@@ -46,7 +57,7 @@ class WorkShiftService {
   }
 
   /// 근무표 생성/수정 (UPSERT)
-  /// 
+  ///
   /// 엔드포인트: POST /api/v1/work-shifts
   /// 인증: 필요
   Future<WorkShiftApiModel> upsertWorkShift({
@@ -63,16 +74,18 @@ class WorkShiftService {
           if (note != null) 'note': note,
         },
       );
-      return WorkShiftApiModel.fromJson(
+      final result = WorkShiftApiModel.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
+      on_changed?.call();
+      return result;
     } on DioException catch (e) {
       throw handleApiError(e);
     }
   }
 
   /// 근무표 수정
-  /// 
+  ///
   /// 엔드포인트: PUT /api/v1/work-shifts/:work_shift_id
   /// 인증: 필요
   Future<WorkShiftApiModel> updateWorkShift({
@@ -88,31 +101,34 @@ class WorkShiftService {
           if (note != null) 'note': note,
         },
       );
-      return WorkShiftApiModel.fromJson(
+      final result = WorkShiftApiModel.fromJson(
         response.data['data'] as Map<String, dynamic>,
       );
+      on_changed?.call();
+      return result;
     } on DioException catch (e) {
       throw handleApiError(e);
     }
   }
 
   /// 근무표 삭제
-  /// 
+  ///
   /// 엔드포인트: DELETE /api/v1/work-shifts/:work_shift_id
   /// 인증: 필요
   Future<void> deleteWorkShift(String workShiftId) async {
     try {
       await _dio.delete('${ApiConstants.work_shifts}/$workShiftId');
+      on_changed?.call();
     } on DioException catch (e) {
       throw handleApiError(e);
     }
   }
 
   /// 근무표 배치 생성/수정 (UPSERT)
-  /// 
+  ///
   /// 엔드포인트: POST /api/v1/work-shifts/batch
   /// 인증: 필요
-  /// 
+  ///
   /// 요청 형식:
   /// {
   ///   "work_shifts": [
@@ -135,14 +151,13 @@ class WorkShiftService {
 
       final response = await _dio.post(
         '${ApiConstants.work_shifts}/batch',
-        data: {
-          'work_shifts': workShifts,
-        },
+        data: {'work_shifts': workShifts},
       );
-      return WorkShiftsResponse.fromJson(response.data);
+      final result = WorkShiftsResponse.fromJson(response.data);
+      on_changed?.call();
+      return result;
     } on DioException catch (e) {
       throw handleApiError(e);
     }
   }
 }
-

@@ -15,6 +15,7 @@ import '../../../friend/presentation/providers/friend_provider.dart';
 import '../../../friend/presentation/providers/notification_provider.dart';
 import '../../../group/application/group_calendar_provider.dart';
 import '../../../group/application/group_providers.dart';
+import '../../../home_widget/application/widget_sync_coordinator.dart';
 import '../../data/models/apple_auth_models.dart';
 import '../../data/services/firebase_phone_auth_service.dart';
 import '../../application/phone_verification_controller.dart';
@@ -384,6 +385,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     _cancelPhoneVerification();
     state = state.copyWith(is_loading: true);
+    await _ref.read(widgetSyncCoordinatorProvider).setSession();
 
     try {
       await _repository.logout();
@@ -401,6 +403,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _cancelPhoneVerification();
     final user = state.user;
     if (user == null) {
+      await _ref.read(widgetSyncCoordinatorProvider).setSession();
       state = const AuthState(status: AuthStatus.unauthenticated);
       return AccountDeletionResult.session_ended;
     }
@@ -409,6 +412,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       await _repository.deleteAccount(user);
+      await _ref.read(widgetSyncCoordinatorProvider).setSession();
       _invalidateAccountScopedProviders();
       state = const AuthState(status: AuthStatus.unauthenticated);
       return AccountDeletionResult.accepted;
@@ -430,6 +434,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (error.statusCode == 401 ||
           error.code == 'ACCOUNT_DELETION_IN_PROGRESS') {
+        await _ref.read(widgetSyncCoordinatorProvider).setSession();
         _invalidateAccountScopedProviders();
         state = const AuthState(status: AuthStatus.unauthenticated);
         return AccountDeletionResult.session_ended;
